@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SteemGram</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- App will be rendered here by JavaScript -->
+        <nav class="main-nav">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <a href="/" class="logo">
+                        <img src="./assets/img/logo_tra.png" alt="SteemGram" class="logo-img">
+                        <span class="logo-text">SteemGram</span>
+                    </a>
+                </div>
+                <div class="nav-center">
+                    <div class="nav-search">
+                        <span class="material-icons search-icon">search</span>
+                        <input type="text" placeholder="Search SteemGram">
+                    </div>
+                </div>
+                <div class="nav-right">
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+        </nav>
+        
+        <aside class="side-nav">
+            <div class="menu-items">
+                <a href="/" class="menu-item active">
+                    <span class="material-icons icon">home</span>
+                    <span class="label">Home</span>
+                </a>
+                <a href="/trending" class="menu-item">
+                    <span class="material-icons icon">trending_up</span>
+                    <span class="label">Trending</span>
+                </a>
+                <a href="/hot" class="menu-item">
+                    <span class="material-icons icon">whatshot</span>
+                    <span class="label">Hot</span>
+                </a>
+                <a href="/new" class="menu-item">
+                    <span class="material-icons icon">new_releases</span>
+                    <span class="label">New</span>
+                </a>
+                <a href="/promoted" class="menu-item">
+                    <span class="material-icons icon">rocket_launch</span>
+                    <span class="label">Promoted</span>
+                </a>
+            </div>
+        </aside>
+        
+        <main id="main-content">
+            <!-- Content will be inserted here by the router -->
+        </main>
+    </div>
+
+    <script type="module" src="index.js"></script>
+</body>
+</html>
