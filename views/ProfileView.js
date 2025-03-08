@@ -1,5 +1,5 @@
 import View from './View.js';
-import steemService from '../../services/SteemService.js';
+import steemService from '../services/SteemService.js';
 
 class ProfileView extends View {
   constructor(element, params = {}) {

@@ -1,13 +1,13 @@
-import router from '../utils/Router.js';
-import HomeView from '../views/HomeView.js';
-import PostView from '../views/PostView.js';
-import LoginView from '../views/LoginView.js';
-import ProfileView from '../views/ProfileView.js';
-import CreatePostView from '../views/CreatePostView.js';
-import NotFoundView from '../views/NotFoundView.js';
-import eventEmitter from '../utils/EventEmitter.js';
-import authService from '../services/AuthService.js';
-import Breadcrumbs from '../components/Breadcrumbs.js';
+import router from './utils/Router.js';
+import HomeView from './views/HomeView.js';
+import PostView from './views/PostView.js';
+import LoginView from './views/LoginView.js';
+import ProfileView from './steemgram/views/ProfileView.js';
+import CreatePostView from './views/CreatePostView.js';
+import NotFoundView from './views/NotFoundView.js';
+import eventEmitter from './utils/EventEmitter.js';
+import authService from './services/AuthService.js';
+import Breadcrumbs from './components/Breadcrumbs.js';
 
 // Notification system
 function showNotification(notification) {
