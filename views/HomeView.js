@@ -11,12 +11,15 @@ class HomeView {
     this.loading = false;
     this.loadingIndicator = new LoadingIndicator();
     this.infiniteScroll = null;
+    // Track post IDs to prevent duplicates
+    this.renderedPostIds = new Set();
   }
 
   async loadPosts(page = 1) {
     if (page === 1) {
       this.loading = true;
       this.posts = [];
+      this.renderedPostIds.clear();
       this.renderPosts();
     }
     
@@ -31,10 +34,22 @@ class HomeView {
       
       const { posts, hasMore } = result;
       
-      // Append new posts to the existing list
+      // Filter out any duplicates before adding to the post array
       if (Array.isArray(posts)) {
-        this.posts = [...this.posts, ...posts];
-        this.renderPosts(page > 1);
+        const uniquePosts = posts.filter(post => {
+          // Create a unique ID using author and permlink
+          const postId = `${post.author}_${post.permlink}`;
+          // Only include posts we haven't seen yet
+          const isNew = !this.renderedPostIds.has(postId);
+          return isNew;
+        });
+        
+        if (uniquePosts.length > 0) {
+          this.posts = [...this.posts, ...uniquePosts];
+          this.renderPosts(page > 1);
+        } else {
+          console.log('No new unique posts in this batch.');
+        }
       }
       
       return hasMore;
@@ -101,6 +116,7 @@ class HomeView {
     
     if (!append) {
       this.clearContainer(postsContainer);
+      this.renderedPostIds.clear();
     }
 
     // Calculate which posts to render
@@ -116,8 +132,20 @@ class HomeView {
     
     console.log(`Rendering ${postsToRender.length} posts (append: ${append})`);
     
+    // Filter out any duplicates that might have slipped through
+    const uniquePostsToRender = postsToRender.filter(post => {
+      const postId = `${post.author}_${post.permlink}`;
+      if (this.renderedPostIds.has(postId)) {
+        return false;
+      }
+      this.renderedPostIds.add(postId);
+      return true;
+    });
+
+    console.log(`Rendering ${uniquePostsToRender.length} unique posts`);
+    
     // Render each post
-    postsToRender.forEach(post => this.renderPostCard(post, postsContainer));
+    uniquePostsToRender.forEach(post => this.renderPostCard(post, postsContainer));
   }
 
   clearContainer(container) {

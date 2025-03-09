@@ -92,13 +92,23 @@ export default class InfiniteScroll {
         }
       } else {
         console.log('No more items to load');
-        // Show end message
-        const endMessage = document.createElement('div');
-        endMessage.className = 'end-message';
-        endMessage.textContent = 'No more posts to load';
-        endMessage.style.textAlign = 'center';
-        endMessage.style.padding = '20px';
-        this.container.appendChild(endMessage);
+        
+        // Check if we already have an end message
+        const existingEndMessage = this.container.querySelector('.end-message');
+        if (!existingEndMessage) {
+          // Show end message
+          const endMessage = document.createElement('div');
+          endMessage.className = 'end-message';
+          endMessage.textContent = 'No more posts to load';
+          endMessage.style.textAlign = 'center';
+          endMessage.style.padding = '20px';
+          this.container.appendChild(endMessage);
+        }
+        
+        // Remove observer target since we don't need it anymore
+        if (this.observerTarget && this.observerTarget.parentNode) {
+          this.observerTarget.remove();
+        }
       }
     } catch (error) {
       console.error('Error loading more items:', error);

@@ -113,6 +113,47 @@ class SteemService {
     }
 
     /**
+     * Keeps track of post IDs to prevent duplicates
+     * @private
+     */
+    _initializePostTracking() {
+        if (!this.seenPostIds) {
+            this.seenPostIds = {};
+        }
+    }
+
+    /**
+     * Check if we've already seen this post
+     * @private
+     */
+    _isNewPost(post, category) {
+        this._initializePostTracking();
+        if (!this.seenPostIds[category]) {
+            this.seenPostIds[category] = new Set();
+        }
+
+        const postId = `${post.author}_${post.permlink}`;
+        if (this.seenPostIds[category].has(postId)) {
+            return false;
+        }
+        
+        this.seenPostIds[category].add(postId);
+        return true;
+    }
+
+    /**
+     * Reset tracking for a specific category (used when changing routes)
+     */
+    resetCategoryTracking(category) {
+        if (this.seenPostIds && this.seenPostIds[category]) {
+            this.seenPostIds[category].clear();
+        }
+        if (this.lastPostByCategory && this.lastPostByCategory[category]) {
+            delete this.lastPostByCategory[category];
+        }
+    }
+
+    /**
      * Get discussion by method with retry capability
      * @private
      */
@@ -142,9 +183,14 @@ class SteemService {
         await this.ensureLibraryLoaded();
         
         try {
+            // Reset tracking when starting a new session
+            if (page === 1) {
+                this.resetCategoryTracking('trending');
+            }
+
             const query = {
                 tag: '',
-                limit: limit
+                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
             };
             
             // Add pagination parameters if not on first page
@@ -153,16 +199,30 @@ class SteemService {
                 query.start_permlink = this.lastPostByCategory.trending.permlink;
             }
             
-            const posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
+            let posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
             
-            if (posts && posts.length > 0) {
-                if (!this.lastPostByCategory) this.lastPostByCategory = {};
-                this.lastPostByCategory.trending = posts[posts.length - 1];
+            // Filter out duplicates
+            if (Array.isArray(posts)) {
+                // Filter out any posts we've seen before
+                posts = posts.filter(post => this._isNewPost(post, 'trending'));
+                
+                if (posts.length > 0) {
+                    if (!this.lastPostByCategory) {
+                        this.lastPostByCategory = {};
+                    }
+                    // Use the last item as the pagination marker
+                    this.lastPostByCategory.trending = posts[posts.length - 1];
+                }
+                
+                // Trim back to requested limit
+                if (posts.length > limit) {
+                    posts = posts.slice(0, limit);
+                }
             }
             
             return {
                 posts: posts || [],
-                hasMore: posts && posts.length === limit
+                hasMore: posts && posts.length > 0
             };
         } catch (error) {
             console.error('Error fetching trending posts:', error);
@@ -177,9 +237,14 @@ class SteemService {
         await this.ensureLibraryLoaded();
         
         try {
+            // Reset tracking when starting a new session
+            if (page === 1) {
+                this.resetCategoryTracking('hot');
+            }
+
             const query = {
                 tag: '',
-                limit: limit
+                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
             };
             
             // Add pagination parameters if not on first page
@@ -188,16 +253,30 @@ class SteemService {
                 query.start_permlink = this.lastPostByCategory.hot.permlink;
             }
             
-            const posts = await this._getDiscussionsByMethod('getDiscussionsByHot', query);
+            let posts = await this._getDiscussionsByMethod('getDiscussionsByHot', query);
             
-            if (posts && posts.length > 0) {
-                if (!this.lastPostByCategory) this.lastPostByCategory = {};
-                this.lastPostByCategory.hot = posts[posts.length - 1];
+            // Filter out duplicates
+            if (Array.isArray(posts)) {
+                // Filter out any posts we've seen before
+                posts = posts.filter(post => this._isNewPost(post, 'hot'));
+                
+                if (posts.length > 0) {
+                    if (!this.lastPostByCategory) {
+                        this.lastPostByCategory = {};
+                    }
+                    // Use the last item as the pagination marker
+                    this.lastPostByCategory.hot = posts[posts.length - 1];
+                }
+                
+                // Trim back to requested limit
+                if (posts.length > limit) {
+                    posts = posts.slice(0, limit);
+                }
             }
             
             return {
                 posts: posts || [],
-                hasMore: posts && posts.length === limit
+                hasMore: posts && posts.length > 0
             };
         } catch (error) {
             console.error('Error fetching hot posts:', error);
@@ -212,9 +291,14 @@ class SteemService {
         await this.ensureLibraryLoaded();
         
         try {
+            // Reset tracking when starting a new session
+            if (page === 1) {
+                this.resetCategoryTracking('created');
+            }
+
             const query = {
                 tag: '',
-                limit: limit
+                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
             };
             
             // Add pagination parameters if not on first page
@@ -223,16 +307,30 @@ class SteemService {
                 query.start_permlink = this.lastPostByCategory.created.permlink;
             }
             
-            const posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
+            let posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
             
-            if (posts && posts.length > 0) {
-                if (!this.lastPostByCategory) this.lastPostByCategory = {};
-                this.lastPostByCategory.created = posts[posts.length - 1];
+            // Filter out duplicates
+            if (Array.isArray(posts)) {
+                // Filter out any posts we've seen before
+                posts = posts.filter(post => this._isNewPost(post, 'created'));
+                
+                if (posts.length > 0) {
+                    if (!this.lastPostByCategory) {
+                        this.lastPostByCategory = {};
+                    }
+                    // Use the last item as the pagination marker
+                    this.lastPostByCategory.created = posts[posts.length - 1];
+                }
+                
+                // Trim back to requested limit
+                if (posts.length > limit) {
+                    posts = posts.slice(0, limit);
+                }
             }
             
             return {
                 posts: posts || [],
-                hasMore: posts && posts.length === limit
+                hasMore: posts && posts.length > 0
             };
         } catch (error) {
             console.error('Error fetching new posts:', error);
@@ -247,9 +345,14 @@ class SteemService {
         await this.ensureLibraryLoaded();
         
         try {
+            // Reset tracking when starting a new session
+            if (page === 1) {
+                this.resetCategoryTracking('promoted');
+            }
+
             const query = {
                 tag: '',
-                limit: limit
+                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
             };
             
             // Add pagination parameters if not on first page
@@ -258,16 +361,30 @@ class SteemService {
                 query.start_permlink = this.lastPostByCategory.promoted.permlink;
             }
             
-            const posts = await this._getDiscussionsByMethod('getDiscussionsByPromoted', query);
+            let posts = await this._getDiscussionsByMethod('getDiscussionsByPromoted', query);
             
-            if (posts && posts.length > 0) {
-                if (!this.lastPostByCategory) this.lastPostByCategory = {};
-                this.lastPostByCategory.promoted = posts[posts.length - 1];
+            // Filter out duplicates
+            if (Array.isArray(posts)) {
+                // Filter out any posts we've seen before
+                posts = posts.filter(post => this._isNewPost(post, 'promoted'));
+                
+                if (posts.length > 0) {
+                    if (!this.lastPostByCategory) {
+                        this.lastPostByCategory = {};
+                    }
+                    // Use the last item as the pagination marker
+                    this.lastPostByCategory.promoted = posts[posts.length - 1];
+                }
+                
+                // Trim back to requested limit
+                if (posts.length > limit) {
+                    posts = posts.slice(0, limit);
+                }
             }
             
             return {
                 posts: posts || [],
-                hasMore: posts && posts.length === limit
+                hasMore: posts && posts.length > 0
             };
         } catch (error) {
             console.error('Error fetching promoted posts:', error);
