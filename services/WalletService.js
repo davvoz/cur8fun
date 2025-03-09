@@ -431,6 +431,227 @@ class WalletService {
       return { steem: '0.000', sbd: '0.000', vest: '0.000', sp: '0.000' };
     }
   }
+
+  /**
+   * Power up STEEM to STEEM POWER using Steem Keychain
+   * @param {string} amount - Amount to power up with 3 decimal places
+   * @returns {Promise} Promise resolving to response object
+   */
+  powerUp(amount) {
+    return new Promise((resolve, reject) => {
+      try {
+        const username = authService.getCurrentUser()?.username;
+        
+        if (!username) {
+          return reject(new Error('User not logged in'));
+        }
+        
+        if (!window.steem_keychain) {
+          return reject(new Error('Steem Keychain not available'));
+        }
+        
+        // Steem Keychain uses "transfer_to_vesting" operation
+        const operations = [
+          ["transfer_to_vesting", {
+            from: username,
+            to: username, // Self power-up
+            amount: `${amount} STEEM` // Format must be "0.000 STEEM"
+          }]
+        ];
+        
+        window.steem_keychain.requestBroadcast(
+          username,      // Username
+          operations,    // Operations array
+          "Active",      // Key type required
+          (response) => {
+            console.log('Power up response:', response);
+            
+            if (response.success) {
+              resolve({ success: true });
+            } else {
+              resolve({ 
+                success: false, 
+                message: response.message || 'Unknown error' 
+              });
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Power up error:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Power down SP to STEEM using Steem Keychain
+   * @param {string} amount - Amount to power down with 3 decimal places
+   * @returns {Promise} Promise resolving to response object
+   */
+  powerDown(amount) {
+    return new Promise((resolve, reject) => {
+      try {
+        const username = authService.getCurrentUser()?.username;
+        
+        if (!username) {
+          return reject(new Error('User not logged in'));
+        }
+        
+        if (!window.steem_keychain) {
+          return reject(new Error('Steem Keychain not available'));
+        }
+
+        // Convert to vests first (required for withdraw_vesting operation)
+        this.steemToVests(amount)
+          .then(vests => {
+            // Steem Keychain uses "withdraw_vesting" operation
+            const operations = [
+              ["withdraw_vesting", {
+                account: username,
+                vesting_shares: `${vests} VESTS` // Format must be "0.000000 VESTS"
+              }]
+            ];
+            
+            window.steem_keychain.requestBroadcast(
+              username,      // Username
+              operations,    // Operations array
+              "Active",      // Key type required
+              (response) => {
+                console.log('Power down response:', response);
+                
+                if (response.success) {
+                  resolve({ success: true });
+                } else {
+                  resolve({ 
+                    success: false, 
+                    message: response.message || 'Unknown error' 
+                  });
+                }
+              }
+            );
+          })
+          .catch(error => {
+            console.error('Error converting SP to VESTS:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Power down error:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Cancel an active power down using Steem Keychain
+   * @returns {Promise} Promise resolving to response object
+   */
+  cancelPowerDown() {
+    return new Promise((resolve, reject) => {
+      try {
+        const username = authService.getCurrentUser()?.username;
+        
+        if (!username) {
+          return reject(new Error('User not logged in'));
+        }
+        
+        if (!window.steem_keychain) {
+          return reject(new Error('Steem Keychain not available'));
+        }
+        
+        // To cancel power down, set vesting_shares to 0
+        const operations = [
+          ["withdraw_vesting", {
+            account: username,
+            vesting_shares: "0.000000 VESTS" // Zero vests to cancel power down
+          }]
+        ];
+        
+        window.steem_keychain.requestBroadcast(
+          username,      // Username
+          operations,    // Operations array
+          "Active",      // Key type required
+          (response) => {
+            console.log('Cancel power down response:', response);
+            
+            if (response.success) {
+              resolve({ success: true });
+            } else {
+              resolve({ 
+                success: false, 
+                message: response.message || 'Unknown error' 
+              });
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Cancel power down error:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Get power down information for current user
+   * @returns {Promise} Promise resolving to power down info object
+   */
+  async getPowerDownInfo() {
+    try {
+      const username = authService.getCurrentUser()?.username;
+      
+      if (!username) {
+        throw new Error('User not logged in');
+      }
+      
+      // Get account information
+      const account = await new Promise((resolve, reject) => {
+        window.steem.api.getAccounts([username], (err, accounts) => {
+          if (err) reject(err);
+          else if (accounts && accounts.length > 0) resolve(accounts[0]);
+          else reject(new Error('Account not found'));
+        });
+      });
+      
+      // Check if powering down
+      const isPoweringDown = parseFloat(account.vesting_withdraw_rate) > 0.000001;
+      
+      if (!isPoweringDown) {
+        return {
+          isPoweringDown: false,
+          weeklyRate: '0.000',
+          nextPowerDown: null,
+          remainingWeeks: 0
+        };
+      }
+      
+      // Calculate weekly rate
+      const weeklyRate = await this.vestsToSteem(account.vesting_withdraw_rate.split(' ')[0]);
+      
+      // Calculate next power down time
+      const nextPowerDown = new Date(account.next_vesting_withdrawal + 'Z');
+      
+      // Calculate remaining weeks
+      let remainingWeeks = 0;
+      if (parseFloat(account.to_withdraw) > 0) {
+        remainingWeeks = Math.ceil(
+          parseFloat(account.to_withdraw) / parseFloat(account.vesting_withdraw_rate)
+        );
+      }
+      
+      return {
+        isPoweringDown: true,
+        weeklyRate,
+        nextPowerDown,
+        remainingWeeks
+      };
+      
+    } catch (error) {
+      console.error('Error getting power down info:', error);
+      return {
+        isPoweringDown: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 // Create and export singleton instance
