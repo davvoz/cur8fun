@@ -38,7 +38,6 @@
 
 .user-menu .dropdown {
     position: absolute;
-    top: calc(100% + var(--space-sm));
     right: 0;
     background: var(--background-light);
     border-radius: var(--radius-md);
@@ -47,8 +46,8 @@
     display: none;
     min-width: 180px;
     border: 1px solid var(--border-color);
-    transform-origin: top right;
-    animation: dropdownAppear var(--transition-xslow);
+    transform-origin: center;
+    animation: dropdownAppear var(--transition-fast) ;
     z-index: var(--z-modal);
 }
 
@@ -177,4 +176,52 @@
 .current-breadcrumb {
     color: var(--text-secondary);
     font-weight: 500;
+}
+
+/* Custom Checkbox */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--background-light);
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+    margin-right: var(--space-sm);
+    transition: all var(--transition-normal);
+}
+
+input[type="checkbox"]:hover {
+    border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 6px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    animation: checkmark 0.2s ease-in-out;
+}
+
+input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 117, 24, 0.25);
+}
+
+@keyframes checkmark {
+    from { opacity: 0; transform: rotate(45deg) scale(0.8); }
+    to { opacity: 1; transform: rotate(45deg) scale(1); }
 }

@@ -1,105 +1,97 @@
 import eventEmitter from '../utils/EventEmitter.js';
+import steemService from './SteemService.js';
 
+/**
+ * Service for handling user authentication
+ */
 class AuthService {
-  constructor() {
-    this.currentUser = null;
-    this.isInitialized = false;
-    this.tokenExpiryTime = null;
-  }
-  
-  init() {
-    if (this.isInitialized) return;
-    
-    // Load stored user data
-    try {
-      const userData = localStorage.getItem('currentUser');
-      if (userData) {
-        this.currentUser = JSON.parse(userData);
-        
-        // Set up token refresh if needed
-        const tokenExpiry = localStorage.getItem('tokenExpiry');
-        if (tokenExpiry) {
-          this.tokenExpiryTime = parseInt(tokenExpiry, 10);
-          this.setupTokenRefresh();
+    constructor() {
+        this.currentUser = this.loadUserFromStorage();
+    }
+
+    /**
+     * Loads user data from localStorage if available
+     */
+    loadUserFromStorage() {
+        try {
+            const storedUser = localStorage.getItem('currentUser');
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch (error) {
+            console.error('Error loading user from storage:', error);
+            return null;
         }
-      }
-    } catch (error) {
-      console.error('Failed to initialize auth service:', error);
-      this.logout(); // Clean up potentially corrupted state
     }
-    
-    this.isInitialized = true;
-    return this;
-  }
-  
-  setupTokenRefresh() {
-    const now = Date.now();
-    if (this.tokenExpiryTime > now) {
-      const timeUntilRefresh = Math.max(0, this.tokenExpiryTime - now - 60000); // Refresh 1 minute before expiry
-      setTimeout(() => this.refreshToken(), timeUntilRefresh);
-    } else {
-      this.refreshToken();
+
+    /**
+     * Get the currently logged in user
+     */
+    getCurrentUser() {
+        // Reload from storage in case it was updated in another tab
+        if (!this.currentUser) {
+            this.currentUser = this.loadUserFromStorage();
+        }
+        return this.currentUser;
     }
-  }
-  
-  async refreshToken() {
-    // Implement token refresh logic with Steem blockchain
-    console.log('Refreshing authentication token');
-    
-    // For now, we'll just extend the expiry time
-    this.tokenExpiryTime = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-    localStorage.setItem('tokenExpiry', this.tokenExpiryTime.toString());
-    this.setupTokenRefresh();
-  }
-  
-  async login(username, privateKey) {
-    try {
-      // Validate credentials with Steem blockchain
-      
-      // For demo, just store the user
-      this.currentUser = { 
-        username, 
-        avatar: `https://steemitimages.com/u/${username}/avatar` 
-      };
-      
-      // Set token expiry (24 hours)
-      this.tokenExpiryTime = Date.now() + 24 * 60 * 60 * 1000;
-      
-      // Store authentication state
-      localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-      localStorage.setItem('tokenExpiry', this.tokenExpiryTime.toString());
-      
-      // Set up refresh timer
-      this.setupTokenRefresh();
-      
-      // Emit auth change event
-      eventEmitter.emit('auth:changed', { user: this.currentUser });
-      
-      return true;
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
+
+    /**
+     * Authenticate a user with their username and private key
+     */
+    async login(username, privateKey, remember = true) {
+        try {
+            // Here you'd typically verify credentials with Steem API
+            // For now, we're just simulating a successful login
+
+            // Get user profile information
+            const userProfile = await steemService.getProfile(username);
+            
+            const user = {
+                username,
+                avatar: `https://steemitimages.com/u/${username}/avatar`,
+                isAuthenticated: true,
+                profile: userProfile?.profile || {},
+                timestamp: Date.now()
+            };
+
+            // Save to memory
+            this.currentUser = user;
+            
+            // Save to storage if remember is true
+            if (remember) {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+            }
+            
+            // Emit auth changed event
+            eventEmitter.emit('auth:changed', { user });
+            
+            return user;
+        } catch (error) {
+            console.error('Login failed:', error);
+            throw new Error(error.message || 'Authentication failed');
+        }
     }
-  }
-  
-  logout() {
-    this.currentUser = null;
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('tokenExpiry');
-    
-    // Emit auth change event
-    eventEmitter.emit('auth:changed', { user: null });
-  }
-  
-  isAuthenticated() {
-    return !!this.currentUser;
-  }
-  
-  getCurrentUser() {
-    return this.currentUser;
-  }
+
+    /**
+     * Log out the current user
+     */
+    logout() {
+        // Clear from memory
+        this.currentUser = null;
+        
+        // Clear from storage
+        localStorage.removeItem('currentUser');
+        
+        // Emit auth changed event with null user
+        eventEmitter.emit('auth:changed', { user: null });
+    }
+
+    /**
+     * Check if the user is authenticated
+     */
+    isAuthenticated() {
+        return !!this.getCurrentUser();
+    }
 }
 
-// Create singleton instance
-const authService = new AuthService().init();
+// Export singleton instance
+const authService = new AuthService();
 export default authService;

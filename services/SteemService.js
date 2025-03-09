@@ -266,6 +266,32 @@ class SteemService {
             throw error;
         }
     }
+
+    /**
+     * Get posts by a specific user
+     */
+    async getUserPosts(username, limit = 10) {
+        await this.ensureLibraryLoaded();
+
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getDiscussionsByAuthorBeforeDate(
+                    username, 
+                    '', // Start permlink (empty for latest)
+                    new Date().toISOString().split('.')[0], // Current date
+                    limit, 
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result);
+                    }
+                );
+            });
+        } catch (error) {
+            console.error('Error fetching user posts:', error);
+            this.switchEndpoint();
+            throw error;
+        }
+    }
 }
 
 // Initialize singleton instance

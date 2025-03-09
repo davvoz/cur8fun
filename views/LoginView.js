@@ -1,5 +1,6 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
+import authService from '../services/AuthService.js';
 
 class LoginView {
   constructor(params = {}) {
@@ -10,28 +11,97 @@ class LoginView {
   render(container) {
     this.element = container;
     
-    // Creo il contenuto HTML del form di login
-    this.element.innerHTML = `
-      <div class="content-wrapper">
-        <div class="login-container">
-          <h2>Login to Steemgram</h2>
-          <form id="login-form">
-            <div class="form-group">
-              <label for="username">Username</label>
-              <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-              <label for="password">Private Posting Key</label>
-              <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit" class="btn-primary">Login</button>
-          </form>
-          <p class="login-message"></p>
-        </div>
-      </div>
-    `;
+    // Create elements using DOM methods
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'content-wrapper';
     
-    // Aggiungo gli event listeners
+    const loginContainer = document.createElement('div');
+    loginContainer.className = 'login-container';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Login to Steemgram';
+    
+    const form = document.createElement('form');
+    form.id = 'login-form';
+    
+    // Username field
+    const usernameGroup = document.createElement('div');
+    usernameGroup.className = 'form-group';
+    
+    const usernameLabel = document.createElement('label');
+    usernameLabel.setAttribute('for', 'username');
+    usernameLabel.textContent = 'Username';
+    
+    const usernameInput = document.createElement('input');
+    usernameInput.type = 'text';
+    usernameInput.id = 'username';
+    usernameInput.name = 'username';
+    usernameInput.required = true;
+    
+    // Private key field
+    const passwordGroup = document.createElement('div');
+    passwordGroup.className = 'form-group';
+    
+    const passwordLabel = document.createElement('label');
+    passwordLabel.setAttribute('for', 'password');
+    passwordLabel.textContent = 'Private Posting Key';
+    
+    const passwordInput = document.createElement('input');
+    passwordInput.type = 'password';
+    passwordInput.id = 'password';
+    passwordInput.name = 'password';
+    passwordInput.required = true;
+    
+    // Add "remember me" checkbox
+    const rememberGroup = document.createElement('div');
+    rememberGroup.className = 'form-group checkbox-group';
+    
+    const rememberCheckbox = document.createElement('input');
+    rememberCheckbox.type = 'checkbox';
+    rememberCheckbox.id = 'remember';
+    rememberCheckbox.name = 'remember';
+    rememberCheckbox.checked = true;
+    
+    const rememberLabel = document.createElement('label');
+    rememberLabel.setAttribute('for', 'remember');
+    rememberLabel.textContent = 'Remember me';
+    
+    rememberGroup.appendChild(rememberCheckbox);
+    rememberGroup.appendChild(rememberLabel);
+    
+    // Submit button
+    const submitButton = document.createElement('button');
+    submitButton.type = 'submit';
+    submitButton.className = 'btn-primary';
+    submitButton.textContent = 'Login';
+    
+    // Message paragraph
+    const messageEl = document.createElement('p');
+    messageEl.className = 'login-message';
+    
+    // Build the DOM structure
+    usernameGroup.appendChild(usernameLabel);
+    usernameGroup.appendChild(usernameInput);
+    
+    passwordGroup.appendChild(passwordLabel);
+    passwordGroup.appendChild(passwordInput);
+    
+    form.appendChild(usernameGroup);
+    form.appendChild(passwordGroup);
+    form.appendChild(rememberGroup);
+    form.appendChild(submitButton);
+    
+    loginContainer.appendChild(heading);
+    loginContainer.appendChild(form);
+    loginContainer.appendChild(messageEl);
+    
+    contentWrapper.appendChild(loginContainer);
+    
+    // Clear and append to container
+    this.element.innerHTML = '';
+    this.element.appendChild(contentWrapper);
+    
+    // Add event listeners
     this.bindEvents();
   }
   
@@ -43,6 +113,7 @@ class LoginView {
       e.preventDefault();
       const username = loginForm.username.value.trim();
       const privateKey = loginForm.password.value.trim();
+      const remember = loginForm.remember?.checked ?? true;
       
       if (!username || !privateKey) {
         messageEl.textContent = 'Please enter both username and private key';
@@ -51,13 +122,8 @@ class LoginView {
       }
       
       try {
-        // Qui andrebbe implementata la vera autenticazione con Steem
-        // Per ora simuliamo un login riuscito
-        const user = { username, avatar: `https://steemitimages.com/u/${username}/avatar` };
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        
-        // Emetti evento di autenticazione
-        eventEmitter.emit('auth:changed', { user });
+        // Use the AuthService for login
+        await authService.login(username, privateKey, remember);
         
         // Notifica successo
         eventEmitter.emit('notification', {
