@@ -2,7 +2,7 @@ import router from './utils/Router.js';
 import HomeView from './views/HomeView.js';
 import PostView from './views/PostView.js';
 import LoginView from './views/LoginView.js';
-import ProfileView from './steemgram/views/ProfileView.js';
+import ProfileView from './views/ProfileView.js';
 import CreatePostView from './views/CreatePostView.js';
 import NotFoundView from './views/NotFoundView.js';
 import eventEmitter from './utils/EventEmitter.js';
@@ -10,19 +10,19 @@ import authService from './services/AuthService.js';
 import Breadcrumbs from './components/Breadcrumbs.js';
 
 // Notification system
-function showNotification(notification) {
-  const element = document.createElement('div');
-  element.className = `notification ${notification.type}`;
-  element.textContent = notification.message;
-  document.body.appendChild(element);
+// function showNotification(notification) {
+//   const element = document.createElement('div');
+//   element.className = `notification ${notification.type}`;
+//   element.textContent = notification.message;
+//   document.body.appendChild(element);
 
-  setTimeout(() => {
-    element.classList.add('hiding');
-    setTimeout(() => document.body.removeChild(element), 500);
-  }, 3000);
-}
+//   setTimeout(() => {
+//     element.classList.add('hiding');
+//     setTimeout(() => document.body.removeChild(element), 500);
+//   }, 3000);
+// }
 
-eventEmitter.on('notification', showNotification);
+// eventEmitter.on('notification', showNotification);
 
 // Initialize breadcrumbs
 const breadcrumbs = new Breadcrumbs();
@@ -58,6 +58,7 @@ eventEmitter.on('route:changed', ({ path, view, params }) => {
 
 // Setup routes with proper handlers
 router
+
   .addRoute('/', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
