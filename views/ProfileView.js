@@ -97,61 +97,72 @@ class ProfileView extends View {
   }
 
   renderProfileHeader() {
+    if (!this.profileContent || !this.userInfo) {
+      console.error('Cannot render profile header: Missing required data');
+      return;
+    }
+      
     const header = this.profileContent.querySelector('.profile-header');
-    
+    if (!header) {
+      console.error('Profile header element not found');
+      return;
+    }
+      
+    // Clear existing content
     while (header.firstChild) {
       header.removeChild(header.firstChild);
     }
-    
+      
     const profileInfo = document.createElement('div');
     profileInfo.className = 'profile-info';
-    
+      
     const avatarElement = document.createElement('div');
     avatarElement.className = 'avatar';
     const avatarImg = document.createElement('img');
     avatarImg.src = `https://steemitimages.com/u/${this.username}/avatar`;
     avatarImg.alt = this.username;
     avatarElement.appendChild(avatarImg);
-    
+      
     const profileStats = document.createElement('div');
     profileStats.className = 'profile-stats';
-    
+      
     const usernameHeader = document.createElement('h1');
     usernameHeader.textContent = `@${this.username}`;
-    
+      
     const stats = document.createElement('div');
     stats.className = 'stats';
-    
+      
     const statsData = [
-      { count: this.userInfo.post_count, label: 'posts' },
-      { count: this.userInfo.follower_count, label: 'followers' },
-      { count: this.userInfo.following_count, label: 'following' }
+      { count: this.userInfo.post_count || 0, label: 'posts' },
+      { count: this.userInfo.follower_count || 0, label: 'followers' },
+      { count: this.userInfo.following_count || 0, label: 'following' }
     ];
-    
+      
     statsData.forEach(stat => {
       const span = document.createElement('span');
       span.textContent = `${stat.count} ${stat.label}`;
       stats.appendChild(span);
     });
-    
+      
     const profileActions = document.createElement('div');
     profileActions.className = 'profile-actions';
-    
+      
     profileStats.appendChild(usernameHeader);
     profileStats.appendChild(stats);
     profileStats.appendChild(profileActions);
-    
+      
     profileInfo.appendChild(avatarElement);
     profileInfo.appendChild(profileStats);
-    
+      
     header.appendChild(profileInfo);
-    
+      
     const currentUser = this.getCurrentUser();
     if (currentUser && this.username !== currentUser.username) {
-      const followBtn = new Button({ type: 'primary' });
-      profileActions.appendChild(
-        followBtn.render('Follow', () => this.handleFollow())
-      );
+      const followBtn = document.createElement('button');
+      followBtn.className = 'btn btn-primary';
+      followBtn.textContent = 'Follow';
+      followBtn.addEventListener('click', () => this.handleFollow());
+      profileActions.appendChild(followBtn);
     }
   }
 

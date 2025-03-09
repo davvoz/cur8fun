@@ -1,0 +1,67 @@
+/* Variables and design tokens */
+:root {
+    /* Primary colors */
+    --primary-color: #ff7518; /* Vibrant orange */
+    --primary-light: #ff9248; /* Lighter variant */
+    --primary-dark: #d95800; /* Darker variant */
+    
+    /* Secondary colors */
+    --secondary-color: #2ecc71; /* Complementary green */
+    --secondary-light: #54d98c; /* Lighter variant */
+    --secondary-dark: #25a55b; /* Darker variant */
+    
+    /* Background colors */
+    --background-color: #121212; /* Dark background */
+    --background-light: #1e1e1e; /* Lighter variant for cards */
+    --background-lighter: #2d2d2d; /* For hover states */
+    --surface-color: #1a1a1a; /* For component surfaces */
+    
+    /* Border colors */
+    --border-color: #333333; /* Darker borders */
+    --border-light: #444444; /* Lighter borders for hover states */
+    
+    /* Text colors */
+    --text-color: #e0e0e0; /* Light text for contrast */
+    --text-secondary: #a0a0a0; /* Slightly darker secondary text */
+    --text-muted: #707070; /* For less important text */
+    --text-on-primary: #ffffff; /* Text on primary color */
+    
+    /* Layout measurements */
+    --nav-height: 60px;
+    --side-nav-width: 240px;
+    --content-max-width: 1000px;
+    --content-padding: 20px;
+    
+    /* Spacing scale */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-xxl: 48px;
+    
+    /* Shadows and effects */
+    --header-box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    --card-box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    --popup-box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    --subtle-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    
+    /* Border radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 9999px;
+    
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 350ms ease;
+    --transition-xslow: 1500ms ease;
+    
+    /* Z-index layers */
+    --z-nav: 1000;
+    --z-sidebar: 900;
+    --z-content: 800;
+    --z-modal: 1100;
+    --z-notification: 1200;
+}

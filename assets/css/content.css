@@ -1,0 +1,30 @@
+/* Main Content Area */
+#main-content {
+    grid-area: main;
+    overflow-y: auto;
+    background: var(--background-color);
+    position: relative;
+    z-index: var(--z-content);
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--background-color);
+}
+
+#main-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+#main-content::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+#main-content::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: var(--radius-pill);
+}
+
+.content-wrapper {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding: var(--space-xl);
+}

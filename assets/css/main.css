@@ -1,0 +1,27 @@
+/* Main CSS File - Imports all styles */
+@import './variables.css';
+@import './reset.css';
+@import './typography.css';
+@import './layout.css';
+@import './navigation.css';
+@import './sidebar.css';
+@import './content.css';
+@import './cards.css';
+@import './notifications.css';
+@import './loaders.css';
+@import './components.css';
+@import './responsive.css';
+
+/* Fallback styles in case any imports fail */
+:root {
+  /* Ensure critical variables are available */
+  --fallback-background-color: #121212;
+  --fallback-text-color: #e0e0e0;
+}
+
+/* Critical base styles as fallback */
+body:not(:has(style)) {
+  font-family: system-ui, sans-serif;
+  background-color: var(--background-color, var(--fallback-background-color));
+  color: var(--text-color, var(--fallback-text-color));
+}

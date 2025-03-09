@@ -1,0 +1,11 @@
+/* Layout Structure */
+#app {
+    display: grid;
+    grid-template-areas: 
+        "nav nav"
+        "sidebar main";
+    grid-template-columns: var(--side-nav-width) 1fr;
+    grid-template-rows: var(--nav-height) 1fr;
+    height: 100vh;
+    overflow: hidden;
+}

@@ -1,0 +1,112 @@
+/* Responsive Styles */
+@media (max-width: 1200px) {
+    .content-wrapper {
+        padding: var(--space-lg) var(--space-md);
+    }
+}
+
+@media (max-width: 1024px) {
+    #app {
+        grid-template-columns: 80px 1fr;
+    }
+
+    .side-nav {
+        width: 80px;
+    }
+
+    .menu-item .label {
+        display: none;
+    }
+
+    .menu-item {
+        justify-content: center;
+        padding: var(--space-md);
+    }
+
+    .menu-item .icon {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-center {
+        display: none;
+    }
+
+    #app {
+        grid-template-areas: 
+            "nav"
+            "main"
+            "sidebar";
+        grid-template-columns: 1fr;
+        grid-template-rows: var(--nav-height) 1fr 60px;
+        height: 100vh;
+    }
+
+    .side-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        border-top: 1px solid var(--border-color);
+        border-right: none;
+        padding: 0;
+        background: rgba(18, 18, 18, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        z-index: var(--z-nav);
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+    }
+
+    .menu-items {
+        flex-direction: row;
+        justify-content: space-around;
+        height: 100%;
+        align-items: center;
+        padding: 0;
+    }
+
+    .menu-item {
+        margin: 0;
+        padding: var(--space-xs);
+        height: 100%;
+        flex-direction: column;
+        gap: var(--space-xs);
+        font-size: 0.75rem;
+    }
+
+    .menu-item .icon {
+        font-size: 1.25rem;
+    }
+
+    .menu-item .label {
+        display: block;
+        font-size: 0.7rem;
+    }
+
+    #main-content {
+        height: calc(100vh - var(--nav-height) - 60px);
+        padding-bottom: 80px;
+    }
+
+    .content-wrapper {
+        padding: var(--space-md) var(--space-sm);
+    }
+
+    .nav-container {
+        grid-template-columns: auto auto;
+        justify-content: space-between;
+        padding: 0 var(--space-sm);
+    }
+
+    .nav-right {
+        gap: var(--space-sm);
+    }
+
+    .create-post-btn {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: 0.875rem;
+    }
+}

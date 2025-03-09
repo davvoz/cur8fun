@@ -1,0 +1,39 @@
+/* Post Cards */
+.post-card {
+    background: var(--background-light);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--card-box-shadow);
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.post-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--popup-box-shadow);
+}
+
+.post-header {
+    padding: var(--space-md) var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.post-content img {
+    width: 100%;
+    height: auto;
+    transition: filter var(--transition-normal);
+}
+
+.post-card:hover .post-content img {
+    filter: brightness(1.05);
+}
+
+.post-actions {
+    padding: var(--space-sm) var(--space-md);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+}

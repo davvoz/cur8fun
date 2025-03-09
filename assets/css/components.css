@@ -1,0 +1,180 @@
+/* UI Components */
+/* Login Button */
+.login-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all var(--transition-normal);
+    box-shadow: var(--subtle-shadow);
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
+}
+
+/* User Menu */
+.user-menu {
+    position: relative;
+    cursor: pointer;
+}
+
+.user-menu .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: all var(--transition-normal);
+    object-fit: cover;
+}
+
+.user-menu:hover .avatar {
+    border-color: var(--primary-color);
+    transform: scale(1.05);
+}
+
+.user-menu .dropdown {
+    position: absolute;
+    top: calc(100% + var(--space-sm));
+    right: 0;
+    background: var(--background-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--popup-box-shadow);
+    padding: var(--space-sm) 0;
+    display: none;
+    min-width: 180px;
+    border: 1px solid var(--border-color);
+    transform-origin: top right;
+    animation: dropdownAppear var(--transition-xslow);
+    z-index: var(--z-modal);
+}
+
+@keyframes dropdownAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.user-menu:hover .dropdown,
+.dropdown:hover {
+    display: block;
+}
+
+.dropdown a {
+    display: block;
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-color);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.dropdown a:hover {
+    background: var(--background-lighter);
+    color: var(--primary-light);
+    padding-left: calc(var(--space-md) + 4px);
+}
+
+/* Login Form */
+.login-container {
+    max-width: 400px;
+    margin: var(--space-xxl) auto;
+    padding: var(--space-xl);
+    background-color: var(--background-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-box-shadow);
+    border: 1px solid var(--border-color);
+}
+
+.login-container h2 {
+    margin-bottom: var(--space-lg);
+    text-align: center;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-sm);
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.form-group input {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    background: var(--surface-color);
+    color: var(--text-color);
+    transition: all var(--transition-normal);
+}
+
+.form-group input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 117, 24, 0.2);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: var(--space-md);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--subtle-shadow);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+    padding: var(--space-md) 0;
+    margin-bottom: var(--space-md);
+    font-size: 0.875rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.breadcrumbs a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.breadcrumbs a:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    color: var(--text-secondary);
+    margin: 0 var(--space-sm);
+}
+
+.current-breadcrumb {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
