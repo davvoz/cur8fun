@@ -122,6 +122,13 @@ class Router {
         break;
       }
     }
+
+    // Debug log for route matching
+    console.log('Route match:', {
+      path,
+      matchedRoute: matchedRoute?.path,
+      extractedParams: params
+    });
     
     // Run middleware
     for (const hook of this.beforeHooks) {
@@ -174,6 +181,8 @@ class Router {
       ...matchedRoute.options, 
       ...additionalParams
     };
+    
+    console.log('View params:', mergedParams);
     
     // Instantiate and render the view with the main-content element
     this.currentView = new matchedRoute.viewClass(mergedParams);

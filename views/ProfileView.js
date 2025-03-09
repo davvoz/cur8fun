@@ -3,14 +3,37 @@ import steemService from '../services/SteemService.js';
 
 class ProfileView extends View {
   constructor(element, params = {}) {
+    // Handle case when only params are passed (no element)
+    if (element && !params && typeof element === 'object' && !element.tagName) {
+      params = element;
+      element = null;
+    }
+    
     super(element, params);
-    this.username = params.username;
+    
+    // Log params for debugging
+    console.log('ProfileView constructor params:', params);
+    
+    // Get username from either direct params.username or from URL params
+    // Also add a fallback for development/debugging
+    if (params && typeof params === 'object') {
+      this.username = params.username || 'steemitblog';
+    } else {
+      this.username = 'steemitblog'; // Default fallback username
+      console.warn('No params object provided to ProfileView');
+    }
+    
     this.userInfo = null;
     this.userPosts = [];
     this.isLoading = false;
   }
 
-  async render() {
+  async render(containerElement) {
+    // Use containerElement if provided and this.element is not a valid DOM element
+    if (containerElement && (!this.element || typeof this.element.appendChild !== 'function')) {
+      this.element = containerElement;
+    }
+    
     // Check if this.element is a string selector and convert it to DOM element
     if (typeof this.element === 'string') {
       this.element = document.querySelector(this.element);
@@ -84,12 +107,22 @@ class ProfileView extends View {
 
   async loadProfile() {
     try {
+      if (!this.username) {
+        throw new Error('Username is required');
+      }
+      
+      console.log('Loading profile for username:', this.username);
       this.userInfo = await steemService.getUserInfo(this.username);
+      if (!this.userInfo) {
+        throw new Error(`User ${this.username} not found`);
+      }
       this.renderProfileHeader();
       await this.loadUserPosts();
     } catch (error) {
+      console.error('Profile loading error:', error);
       this.errorMessage.textContent = `Failed to load profile: ${error.message}`;
       this.errorMessage.style.display = 'block';
+      this.loadingIndicator.style.display = 'none';
     } finally {
       this.loadingIndicator.style.display = 'none';
       this.profileContent.style.display = 'block';
@@ -167,7 +200,9 @@ class ProfileView extends View {
   }
 
   getCurrentUser() {
-    return steemService.getUser(this.username);
+    // This should check for the logged-in user, not fetch the profile user again
+    const loggedInUser = JSON.parse(localStorage.getItem('currentUser'));
+    return loggedInUser;
   }
 
   handleFollow() {

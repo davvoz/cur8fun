@@ -44,7 +44,6 @@ eventEmitter.on('route:changed', ({ path, view, params }) => {
 
 // Setup routes with proper handlers
 router
-
   .addRoute('/', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
