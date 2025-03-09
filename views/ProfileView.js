@@ -156,7 +156,7 @@ class ProfileView extends View {
   }
 
   getCurrentUser() {
-    return userService.getCurrentUser();
+    return steemService.getUser(this.username);
   }
 
   handleFollow() {

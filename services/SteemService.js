@@ -247,6 +247,25 @@ class SteemService {
             throw error;
         }
     }
+
+    /**
+     * Get user 
+     */
+    async getUser(username) {
+        await this.ensureLibraryLoaded();
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getAccounts([username], (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result[0]);
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            this.switchEndpoint();
+            throw error;
+        }
+    }
 }
 
 // Initialize singleton instance
