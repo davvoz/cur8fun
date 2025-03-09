@@ -177,219 +177,151 @@ class SteemService {
     }
 
     /**
-     * Get trending posts
+     * Generic method to get posts by category
+     * @param {string} category - The category of posts (trending, hot, created, promoted)
+     * @param {number} page - Page number
+     * @param {number} limit - Number of posts per page
+     * @returns {Promise<{posts: Array, hasMore: boolean}>}
      */
-    async getTrendingPosts(page = 1, limit = 20) {
+    async getPostsByCategory(category, page = 1, limit = 20) {
         await this.ensureLibraryLoaded();
+        
+        const method = this.getCategoryMethod(category);
         
         try {
             // Reset tracking when starting a new session
             if (page === 1) {
-                this.resetCategoryTracking('trending');
+                this.resetCategoryTracking(category);
             }
 
-            const query = {
-                tag: '',
-                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
-            };
+            const MAX_REQUEST_LIMIT = 100;
+            const query = this.buildCategoryQuery(category, page, limit, MAX_REQUEST_LIMIT);
             
-            // Add pagination parameters if not on first page
-            if (page > 1 && this.lastPostByCategory?.trending) {
-                query.start_author = this.lastPostByCategory.trending.author;
-                query.start_permlink = this.lastPostByCategory.trending.permlink;
-            }
-            
-            let posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
-            
-            // Filter out duplicates
-            if (Array.isArray(posts)) {
-                // Filter out any posts we've seen before
-                posts = posts.filter(post => this._isNewPost(post, 'trending'));
-                
-                if (posts.length > 0) {
-                    if (!this.lastPostByCategory) {
-                        this.lastPostByCategory = {};
-                    }
-                    // Use the last item as the pagination marker
-                    this.lastPostByCategory.trending = posts[posts.length - 1];
-                }
-                
-                // Trim back to requested limit
-                if (posts.length > limit) {
-                    posts = posts.slice(0, limit);
-                }
-            }
+            const posts = await this.fetchAndProcessPosts(method, query, category, limit);
             
             return {
                 posts: posts || [],
-                hasMore: posts && posts.length > 0
+                hasMore: Boolean(posts && posts.length > 0)
             };
         } catch (error) {
-            console.error('Error fetching trending posts:', error);
+            console.error(`Error fetching ${category} posts:`, error);
             return { posts: [], hasMore: false };
         }
+    }
+    
+    /**
+     * Maps category to appropriate API method
+     * @param {string} category - The category of posts
+     * @returns {string} The API method name
+     * @throws {Error} If an invalid category is provided
+     */
+    getCategoryMethod(category) {
+        const categoryToMethod = {
+            'trending': 'getDiscussionsByTrending',
+            'hot': 'getDiscussionsByHot',
+            'created': 'getDiscussionsByCreated',
+            'promoted': 'getDiscussionsByPromoted'
+        };
+        
+        const method = categoryToMethod[category];
+        if (!method) {
+            throw new Error(`Invalid category: ${category}`);
+        }
+        
+        return method;
+    }
+    
+    /**
+     * Builds the query object for category requests
+     * @param {string} category - The post category
+     * @param {number} page - Page number
+     * @param {number} limit - Number of posts per page
+     * @param {number} maxLimit - Maximum request limit
+     * @returns {Object} The query object
+     */
+    buildCategoryQuery(category, page, limit, maxLimit) {
+        const query = {
+            tag: '',
+            limit: Math.min(limit + 5, maxLimit) // Request slightly more to handle duplicates
+        };
+        
+        const lastPostData = this.lastPostByCategory && this.lastPostByCategory[category];
+        if (page > 1 && lastPostData) {
+            query.start_author = lastPostData.author;
+            query.start_permlink = lastPostData.permlink;
+        }
+        
+        return query;
+    }
+    
+    /**
+     * Fetches posts and processes them for display
+     * @param {string} method - The API method to call
+     * @param {Object} query - The query parameters
+     * @param {string} category - The category being fetched
+     * @param {number} limit - Number of posts to return
+     * @returns {Array} Processed post array
+     */
+    async fetchAndProcessPosts(method, query, category, limit) {
+        let posts = await this._getDiscussionsByMethod(method, query);
+        
+        if (!Array.isArray(posts)) {
+            return [];
+        }
+        
+        // Filter out any posts we've seen before
+        posts = posts.filter(post => this._isNewPost(post, category));
+        
+        this.updateLastPostReference(posts, category);
+        
+        // Trim back to requested limit
+        return posts.length > limit ? posts.slice(0, limit) : posts;
+    }
+    
+    /**
+     * Updates the reference to the last post for pagination
+     * @param {Array} posts - The posts array
+     * @param {string} category - The category
+     */
+    updateLastPostReference(posts, category) {
+        if (posts.length === 0) {
+            return;
+        }
+        
+        if (!this.lastPostByCategory) {
+            this.lastPostByCategory = {};
+        }
+        
+        // Use the last item as the pagination marker
+        this.lastPostByCategory[category] = posts[posts.length - 1];
+    }
+
+    /**
+     * Get trending posts
+     */
+    async getTrendingPosts(page = 1, limit = 20) {
+        return this.getPostsByCategory('trending', page, limit);
     }
 
     /**
      * Get hot posts
      */
     async getHotPosts(page = 1, limit = 20) {
-        await this.ensureLibraryLoaded();
-        
-        try {
-            // Reset tracking when starting a new session
-            if (page === 1) {
-                this.resetCategoryTracking('hot');
-            }
-
-            const query = {
-                tag: '',
-                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
-            };
-            
-            // Add pagination parameters if not on first page
-            if (page > 1 && this.lastPostByCategory?.hot) {
-                query.start_author = this.lastPostByCategory.hot.author;
-                query.start_permlink = this.lastPostByCategory.hot.permlink;
-            }
-            
-            let posts = await this._getDiscussionsByMethod('getDiscussionsByHot', query);
-            
-            // Filter out duplicates
-            if (Array.isArray(posts)) {
-                // Filter out any posts we've seen before
-                posts = posts.filter(post => this._isNewPost(post, 'hot'));
-                
-                if (posts.length > 0) {
-                    if (!this.lastPostByCategory) {
-                        this.lastPostByCategory = {};
-                    }
-                    // Use the last item as the pagination marker
-                    this.lastPostByCategory.hot = posts[posts.length - 1];
-                }
-                
-                // Trim back to requested limit
-                if (posts.length > limit) {
-                    posts = posts.slice(0, limit);
-                }
-            }
-            
-            return {
-                posts: posts || [],
-                hasMore: posts && posts.length > 0
-            };
-        } catch (error) {
-            console.error('Error fetching hot posts:', error);
-            return { posts: [], hasMore: false };
-        }
+        return this.getPostsByCategory('hot', page, limit);
     }
 
     /**
      * Get new/recent posts
      */
     async getNewPosts(page = 1, limit = 20) {
-        await this.ensureLibraryLoaded();
-        
-        try {
-            // Reset tracking when starting a new session
-            if (page === 1) {
-                this.resetCategoryTracking('created');
-            }
-
-            const query = {
-                tag: '',
-                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
-            };
-            
-            // Add pagination parameters if not on first page
-            if (page > 1 && this.lastPostByCategory?.created) {
-                query.start_author = this.lastPostByCategory.created.author;
-                query.start_permlink = this.lastPostByCategory.created.permlink;
-            }
-            
-            let posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
-            
-            // Filter out duplicates
-            if (Array.isArray(posts)) {
-                // Filter out any posts we've seen before
-                posts = posts.filter(post => this._isNewPost(post, 'created'));
-                
-                if (posts.length > 0) {
-                    if (!this.lastPostByCategory) {
-                        this.lastPostByCategory = {};
-                    }
-                    // Use the last item as the pagination marker
-                    this.lastPostByCategory.created = posts[posts.length - 1];
-                }
-                
-                // Trim back to requested limit
-                if (posts.length > limit) {
-                    posts = posts.slice(0, limit);
-                }
-            }
-            
-            return {
-                posts: posts || [],
-                hasMore: posts && posts.length > 0
-            };
-        } catch (error) {
-            console.error('Error fetching new posts:', error);
-            return { posts: [], hasMore: false };
-        }
+        return this.getPostsByCategory('created', page, limit);
     }
 
     /**
      * Get promoted posts
      */
     async getPromotedPosts(page = 1, limit = 20) {
-        await this.ensureLibraryLoaded();
-        
-        try {
-            // Reset tracking when starting a new session
-            if (page === 1) {
-                this.resetCategoryTracking('promoted');
-            }
-
-            const query = {
-                tag: '',
-                limit: Math.min(limit + 5, 100) // Request slightly more to handle duplicates
-            };
-            
-            // Add pagination parameters if not on first page
-            if (page > 1 && this.lastPostByCategory?.promoted) {
-                query.start_author = this.lastPostByCategory.promoted.author;
-                query.start_permlink = this.lastPostByCategory.promoted.permlink;
-            }
-            
-            let posts = await this._getDiscussionsByMethod('getDiscussionsByPromoted', query);
-            
-            // Filter out duplicates
-            if (Array.isArray(posts)) {
-                // Filter out any posts we've seen before
-                posts = posts.filter(post => this._isNewPost(post, 'promoted'));
-                
-                if (posts.length > 0) {
-                    if (!this.lastPostByCategory) {
-                        this.lastPostByCategory = {};
-                    }
-                    // Use the last item as the pagination marker
-                    this.lastPostByCategory.promoted = posts[posts.length - 1];
-                }
-                
-                // Trim back to requested limit
-                if (posts.length > limit) {
-                    posts = posts.slice(0, limit);
-                }
-            }
-            
-            return {
-                posts: posts || [],
-                hasMore: posts && posts.length > 0
-            };
-        } catch (error) {
-            console.error('Error fetching promoted posts:', error);
-            return { posts: [], hasMore: false };
-        }
+        return this.getPostsByCategory('promoted', page, limit);
     }
 
     /**
@@ -416,8 +348,33 @@ class SteemService {
      * Get profile information for a user
      */
     async getProfile(username) {
-        await this.ensureLibraryLoaded();
+        return this.getUserData(username, { includeProfile: true });
+    }
 
+    /**
+     * Get user info
+     */
+    async getUserInfo(username) {
+        return this.getUserData(username);
+    }
+
+    /**
+     * Get user 
+     */
+    async getUser(username) {
+        return this.getUserData(username);
+    }
+
+    /**
+     * Get user information with specific handling options
+     * @param {string} username - Username to fetch
+     * @param {Object} options - Options for handling the response
+     * @param {boolean} options.includeProfile - Include parsed profile data
+     * @returns {Promise<Object>} User data
+     */
+    async getUserData(username, options = { includeProfile: false }) {
+        await this.ensureLibraryLoaded();
+        
         try {
             const accounts = await new Promise((resolve, reject) => {
                 this.steem.api.getAccounts([username], (err, result) => {
@@ -426,20 +383,27 @@ class SteemService {
                 });
             });
 
-            if (accounts && accounts.length > 0) {
+            if (!accounts || accounts.length === 0) {
+                return null;
+            }
+            
+            const userData = accounts[0];
+            
+            if (options.includeProfile && userData) {
                 try {
-                    const metadata = JSON.parse(accounts[0].json_metadata || '{}');
+                    const metadata = JSON.parse(userData.json_metadata || '{}');
                     return {
-                        ...accounts[0],
+                        ...userData,
                         profile: metadata.profile || {}
                     };
                 } catch (e) {
-                    return accounts[0];
+                    console.error('Error parsing user metadata:', e);
                 }
             }
-            return null;
+            
+            return userData;
         } catch (error) {
-            console.error('Error fetching profile:', error);
+            console.error('Error fetching user data:', error);
             this.switchEndpoint();
             throw error;
         }
@@ -460,44 +424,6 @@ class SteemService {
             });
         } catch (error) {
             console.error('Error fetching account history:', error);
-            this.switchEndpoint();
-            throw error;
-        }
-    }
-
-    /**
-     * Get user info
-     */
-    async getUserInfo(username) {
-        await this.ensureLibraryLoaded();
-        try {
-            return await new Promise((resolve, reject) => {
-                this.steem.api.getAccounts([username], (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result[0]);
-                });
-            });
-        } catch (error) {
-            console.error('Error fetching user info:', error);
-            this.switchEndpoint();
-            throw error;
-        }
-    }
-
-    /**
-     * Get user 
-     */
-    async getUser(username) {
-        await this.ensureLibraryLoaded();
-        try {
-            return await new Promise((resolve, reject) => {
-                this.steem.api.getAccounts([username], (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result[0]);
-                });
-            });
-        } catch (error) {
-            console.error('Error fetching user:', error);
             this.switchEndpoint();
             throw error;
         }
