@@ -118,36 +118,27 @@ class WalletService {
    * Get user delegations
    */
   async getDelegations() {
-    if (!this.currentUser) return [];
-    
     try {
-      const steem = await steemService.ensureLibraryLoaded();
+      const username = authService.getCurrentUser()?.username;
+      if (!username) return [];
       
-      const result = await new Promise((resolve, reject) => {
-        steem.api.getVestingDelegations(this.currentUser, null, 100, (err, result) => {
+      const delegations = await new Promise((resolve, reject) => {
+        window.steem.api.getVestingDelegations(username, null, 100, (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
       });
       
       // Convert vests to SP for each delegation
-      const delegationsWithSP = await Promise.all(
-        result.map(async (delegation) => {
-          const sp = await this.vestsToSteem(delegation.vesting_shares);
-          return {
-            ...delegation,
-            steem_power: sp.toFixed(3)
-          };
-        })
-      );
-      
-      return delegationsWithSP;
+      return Promise.all(delegations.map(async (delegation) => {
+        const sp_amount = await this.vestsToSteem(delegation.vesting_shares);
+        return {
+          ...delegation,
+          sp_amount: parseFloat(sp_amount).toFixed(3)
+        };
+      }));
     } catch (error) {
       console.error('Error fetching delegations:', error);
-      eventEmitter.emit('notification', {
-        type: 'error',
-        message: 'Failed to load delegations'
-      });
       return [];
     }
   }

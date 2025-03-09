@@ -1,0 +1,186 @@
+/* Basic wallet styling */
+.wallet-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+.balances-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.balance-card {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--card-shadow);
+}
+
+.balance-type {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.balance-type .material-icons {
+  margin-right: var(--space-xs);
+}
+
+.balance-value {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-bottom: var(--space-xs);
+}
+
+.balance-usd {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Tab styling */
+.wallet-tabs {
+  margin-top: var(--space-xl);
+}
+
+.tab-buttons {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-lg);
+  overflow-x: auto;
+}
+
+.tab-button {
+  padding: var(--space-md) var(--space-lg);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tab-button:hover {
+  color: var(--primary-color);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+.form-card {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .balances-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tab-buttons {
+    flex-wrap: nowrap;
+    gap: var(--space-xs);
+  }
+  
+  .tab-button {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    white-space: nowrap;
+  }
+}
+
+/* Delegation table styles */
+.delegations-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-md);
+}
+
+.delegations-table th,
+.delegations-table td {
+  padding: var(--space-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delegations-table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.edit-btn,
+.remove-btn {
+  background: none;
+  border: none;
+  padding: var(--space-xs) var(--space-sm);
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.edit-btn {
+  color: var(--primary-color);
+}
+
+.remove-btn {
+  color: var(--error-color);
+}
+
+.edit-btn:hover,
+.remove-btn:hover {
+  background-color: var(--background-lighter);
+}
+
+.message {
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm) 0;
+}
+
+.message.hidden {
+  display: none;
+}
+
+.message.success {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+}
+
+.message.error {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: var(--space-md);
+  color: var(--text-muted);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+}
+
+.error-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--error-color);
+}
