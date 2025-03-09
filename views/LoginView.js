@@ -1,155 +1,292 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
 import authService from '../services/AuthService.js';
-
+/**
+ * View for handling user login functionality
+ */
 class LoginView {
+  /**
+   * Creates a new LoginView instance
+   * @param {Object} params - Parameters for the view
+   */
   constructor(params = {}) {
     this.params = params;
-    this.element = null; // Sarà impostato nel metodo render
+    this.element = null;
+    this.boundHandlers = {
+      handleSubmit: null,
+      handleKeychainLogin: null
+    };
   }
   
+  /**
+   * Renders the login view
+   * @param {HTMLElement} container - Container element
+   */
   render(container) {
     this.element = container;
     
-    // Create elements using DOM methods
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'content-wrapper';
     
     const loginContainer = document.createElement('div');
-    loginContainer.className = 'login-container';
+    loginContainer.className = 'login-container card';
     
-    const heading = document.createElement('h2');
-    heading.textContent = 'Login to Steemgram';
+    contentWrapper.appendChild(loginContainer);
+    
+    loginContainer.appendChild(this.createHeading());
+    
+    // Shared username field section that works for both login methods
+    const usernameSection = this.createFormGroup('username', 'Username', 'text');
+    usernameSection.className = 'form-group shared-username';
+    loginContainer.appendChild(usernameSection);
+    
+    // Keychain login section (if available)
+    if (authService.isKeychainInstalled()) {
+      const keychainSection = document.createElement('div');
+      keychainSection.className = 'auth-section keychain-section';
+      
+      const keychainButton = this.createButton(
+        'Login with SteemKeychain', 
+        'button', 
+        'btn-primary keychain-login-btn full-width'
+      );
+      keychainButton.id = 'keychain-login-btn';
+      
+      keychainSection.appendChild(keychainButton);
+      loginContainer.appendChild(keychainSection);
+      loginContainer.appendChild(this.createDivider());
+    }
+    
+    // Password form section
+    const passwordSection = document.createElement('div');
+    passwordSection.className = 'auth-section password-section';
     
     const form = document.createElement('form');
     form.id = 'login-form';
     
-    // Username field
-    const usernameGroup = document.createElement('div');
-    usernameGroup.className = 'form-group';
+    const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
     
-    const usernameLabel = document.createElement('label');
-    usernameLabel.setAttribute('for', 'username');
-    usernameLabel.textContent = 'Username';
-    
-    const usernameInput = document.createElement('input');
-    usernameInput.type = 'text';
-    usernameInput.id = 'username';
-    usernameInput.name = 'username';
-    usernameInput.required = true;
-    
-    // Private key field
-    const passwordGroup = document.createElement('div');
-    passwordGroup.className = 'form-group';
-    
-    const passwordLabel = document.createElement('label');
-    passwordLabel.setAttribute('for', 'password');
-    passwordLabel.textContent = 'Private Posting Key';
-    
-    const passwordInput = document.createElement('input');
-    passwordInput.type = 'password';
-    passwordInput.id = 'password';
-    passwordInput.name = 'password';
-    passwordInput.required = true;
-    
-    // Add "remember me" checkbox
-    const rememberGroup = document.createElement('div');
-    rememberGroup.className = 'form-group checkbox-group';
-    
-    const rememberCheckbox = document.createElement('input');
-    rememberCheckbox.type = 'checkbox';
-    rememberCheckbox.id = 'remember';
-    rememberCheckbox.name = 'remember';
-    rememberCheckbox.checked = true;
-    
-    const rememberLabel = document.createElement('label');
-    rememberLabel.setAttribute('for', 'remember');
-    rememberLabel.textContent = 'Remember me';
-    
-    rememberGroup.appendChild(rememberCheckbox);
-    rememberGroup.appendChild(rememberLabel);
-    
-    // Submit button
-    const submitButton = document.createElement('button');
-    submitButton.type = 'submit';
-    submitButton.className = 'btn-primary';
-    submitButton.textContent = 'Login';
-    
-    // Message paragraph
-    const messageEl = document.createElement('p');
-    messageEl.className = 'login-message';
-    
-    // Build the DOM structure
-    usernameGroup.appendChild(usernameLabel);
-    usernameGroup.appendChild(usernameInput);
-    
-    passwordGroup.appendChild(passwordLabel);
-    passwordGroup.appendChild(passwordInput);
-    
-    form.appendChild(usernameGroup);
     form.appendChild(passwordGroup);
-    form.appendChild(rememberGroup);
-    form.appendChild(submitButton);
+    form.appendChild(this.createRememberMeGroup());
+    form.appendChild(this.createButton('Login', 'submit', 'btn-primary full-width'));
     
-    loginContainer.appendChild(heading);
-    loginContainer.appendChild(form);
-    loginContainer.appendChild(messageEl);
+    passwordSection.appendChild(form);
+    loginContainer.appendChild(passwordSection);
     
-    contentWrapper.appendChild(loginContainer);
+    // Error message section
+    loginContainer.appendChild(this.createMessageElement());
     
     // Clear and append to container
     this.element.innerHTML = '';
     this.element.appendChild(contentWrapper);
     
-    // Add event listeners
     this.bindEvents();
+  }
+  
+  createHeading() {
+    const headingContainer = document.createElement('div');
+    headingContainer.className = 'login-header';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Login to Steemgram';
+    headingContainer.appendChild(heading);
+    
+    return headingContainer;
+  }
+  
+  createFormGroup(id, labelText, type, required = true) {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    
+    const label = document.createElement('label');
+    label.setAttribute('for', id);
+    label.textContent = labelText;
+    
+    const input = document.createElement('input');
+    input.type = type;
+    input.id = id;
+    input.name = id;
+    input.required = required;
+    input.className = 'form-control';
+    
+    group.appendChild(label);
+    group.appendChild(input);
+    
+    return group;
+  }
+  
+  createLoginForm() {
+    const form = document.createElement('form');
+    form.id = 'login-form';
+    
+    form.appendChild(this.createFormGroup('username', 'Username', 'text'));
+    form.appendChild(this.createFormGroup('password', 'Private Posting Key', 'password'));
+    form.appendChild(this.createRememberMeGroup());
+    form.appendChild(this.createButton('Login'));
+    
+    return form;
+  }
+  
+  createRememberMeGroup() {
+    const group = document.createElement('div');
+    group.className = 'form-group checkbox-group';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'remember';
+    checkbox.name = 'remember';
+    checkbox.checked = true;
+    
+    const label = document.createElement('label');
+    label.setAttribute('for', 'remember');
+    label.textContent = 'Remember me';
+    
+    group.appendChild(checkbox);
+    group.appendChild(label);
+    return group;
+  }
+  
+  createButton(text, type = 'submit', className = 'btn-primary') {
+    const button = document.createElement('button');
+    button.type = type;
+    button.className = `btn ${className}`;
+    button.textContent = text;
+    return button;
+  }
+  
+  createMessageElement() {
+    const messageEl = document.createElement('p');
+    messageEl.className = 'login-message';
+    return messageEl;
+  }
+  
+  createDivider() {
+    const divider = document.createElement('div');
+    divider.className = 'login-divider';
+    divider.innerHTML = '<span>or login with private key</span>';
+    return divider;
+  }
+  
+  createKeychainElements() {
+    const keychainGroup = document.createElement('div');
+    keychainGroup.className = 'form-group keychain-group';
+    
+    const keychainButton = this.createButton(
+      'Login with SteemKeychain', 
+      'button', 
+      'btn-primary keychain-login-btn'
+    );
+    keychainButton.id = 'keychain-login-btn';
+    
+    const keychainMsg = document.createElement('p');
+    keychainMsg.id = 'keychain-status';
+    keychainMsg.className = 'keychain-status';
+    
+    const divider = this.createDivider();
+    
+    if (authService.isKeychainInstalled()) {
+      keychainGroup.appendChild(keychainButton);
+    } else {
+      keychainMsg.textContent = 'SteemKeychain extension not detected. Install it for easier login.';
+      keychainMsg.style.color = 'orange';
+      keychainButton.disabled = true;
+      keychainGroup.appendChild(keychainButton);
+      keychainGroup.appendChild(keychainMsg);
+    }
+    
+    return { keychainGroup, divider };
   }
   
   bindEvents() {
     const loginForm = this.element.querySelector('#login-form');
+    const keychainButton = this.element.querySelector('#keychain-login-btn');
+    
+    this.boundHandlers.handleSubmit = this.handleSubmit.bind(this);
+    this.boundHandlers.handleKeychainLogin = this.handleKeychainLogin.bind(this);
+    
+    if (loginForm) {
+      loginForm.addEventListener('submit', this.boundHandlers.handleSubmit);
+    }
+    
+    if (keychainButton) {
+      keychainButton.addEventListener('click', this.boundHandlers.handleKeychainLogin);
+    }
+  }
+  
+  async handleSubmit(e) {
+    e.preventDefault();
+    const loginForm = e.target;
     const messageEl = this.element.querySelector('.login-message');
     
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = loginForm.username.value.trim();
-      const privateKey = loginForm.password.value.trim();
-      const remember = loginForm.remember?.checked ?? true;
-      
-      if (!username || !privateKey) {
-        messageEl.textContent = 'Please enter both username and private key';
-        messageEl.classList.add('error');
-        return;
-      }
-      
-      try {
-        // Use the AuthService for login
-        await authService.login(username, privateKey, remember);
-        
-        // Notifica successo
-        eventEmitter.emit('notification', {
-          type: 'success',
-          message: `Welcome back, ${username}!`
-        });
-        
-        // Reindirizza (se c'è un returnUrl nei params, usa quello, altrimenti vai alla home)
-        if (this.params.returnUrl) {
-          router.navigate(this.params.returnUrl);
-        } else {
-          router.navigate('/');
-        }
-      } catch (error) {
-        messageEl.textContent = `Login failed: ${error.message || 'Invalid credentials'}`;
-        messageEl.classList.add('error');
-      }
+    const username = loginForm.username.value.trim();
+    const privateKey = loginForm.password.value.trim();
+    const remember = loginForm.remember?.checked ?? true;
+    
+    if (!username || !privateKey) {
+      this.showError(messageEl, 'Please enter both username and private key');
+      return;
+    }
+    
+    try {
+      await authService.login(username, privateKey, remember);
+      this.handleLoginSuccess(username);
+    } catch (error) {
+      this.showError(messageEl, `Login failed: ${error.message || 'Invalid credentials'}`);
+    }
+  }
+  
+  async handleKeychainLogin() {
+    const usernameInput = this.element.querySelector('#username');
+    const loginForm = this.element.querySelector('#login-form');
+    const messageEl = this.element.querySelector('.login-message');
+    
+    const username = usernameInput.value.trim();
+    const remember = loginForm.remember?.checked ?? true;
+    
+    if (!username) {
+      this.showError(messageEl, 'Please enter your username');
+      return;
+    }
+    
+    try {
+      await authService.loginWithKeychain(username, remember);
+      this.handleLoginSuccess(username);
+    } catch (error) {
+      this.showError(messageEl, `Login failed: ${error.message || 'Authentication failed'}`);
+    }
+  }
+  
+  handleLoginSuccess(username) {
+    eventEmitter.emit('notification', {
+      type: 'success',
+      message: `Welcome back, ${username}!`
     });
+    
+    router.navigate(this.params.returnUrl || '/');
+  }
+  
+  showError(element, message) {
+    if (element) {
+      element.textContent = message;
+      element.classList.add('error');
+    }
   }
   
   unmount() {
-    // Pulizia degli event listeners se necessario
-    const loginForm = this.element?.querySelector('#login-form');
-    if (loginForm) {
-      loginForm.removeEventListener('submit', this.handleSubmit);
+    if (!this.element) return;
+    
+    const loginForm = this.element.querySelector('#login-form');
+    const keychainButton = this.element.querySelector('#keychain-login-btn');
+    
+    if (loginForm && this.boundHandlers.handleSubmit) {
+      loginForm.removeEventListener('submit', this.boundHandlers.handleSubmit);
     }
+    
+    if (keychainButton && this.boundHandlers.handleKeychainLogin) {
+      keychainButton.removeEventListener('click', this.boundHandlers.handleKeychainLogin);
+    }
+    
+    this.boundHandlers = { handleSubmit: null, handleKeychainLogin: null };
   }
 }
 

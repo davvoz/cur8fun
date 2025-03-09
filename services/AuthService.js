@@ -34,6 +34,72 @@ class AuthService {
     }
 
     /**
+     * Check if SteemKeychain extension is installed
+     */
+    isKeychainInstalled() {
+        return window.steem_keychain !== undefined;
+    }
+
+    /**
+     * Authenticate a user using SteemKeychain
+     */
+    async loginWithKeychain(username, remember = true) {
+        try {
+            if (!this.isKeychainInstalled()) {
+                throw new Error('Steem Keychain extension is not installed');
+            }
+
+            // Request a simple signing operation to verify the user has the key in Keychain
+            return new Promise((resolve, reject) => {
+                const message = `Login to the app: ${new Date().toISOString()}`;
+                
+                window.steem_keychain.requestSignBuffer(
+                    username,
+                    message,
+                    'Posting',
+                    async (response) => {
+                        if (response.success) {
+                            try {
+                                // Get user profile information
+                                const userProfile = await steemService.getProfile(username);
+                                
+                                const user = {
+                                    username,
+                                    avatar: `https://steemitimages.com/u/${username}/avatar`,
+                                    isAuthenticated: true,
+                                    profile: userProfile?.profile || {},
+                                    timestamp: Date.now(),
+                                    loginMethod: 'keychain'
+                                };
+
+                                // Save to memory
+                                this.currentUser = user;
+                                
+                                // Save to storage if remember is true
+                                if (remember) {
+                                    localStorage.setItem('currentUser', JSON.stringify(user));
+                                }
+                                
+                                // Emit auth changed event
+                                eventEmitter.emit('auth:changed', { user });
+                                
+                                resolve(user);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            reject(new Error(response.error || 'Authentication failed'));
+                        }
+                    }
+                );
+            });
+        } catch (error) {
+            console.error('Keychain login failed:', error);
+            throw new Error(error.message || 'Authentication failed');
+        }
+    }
+
+    /**
      * Authenticate a user with their username and private key
      */
     async login(username, privateKey, remember = true) {
@@ -49,7 +115,8 @@ class AuthService {
                 avatar: `https://steemitimages.com/u/${username}/avatar`,
                 isAuthenticated: true,
                 profile: userProfile?.profile || {},
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                loginMethod: 'privateKey'
             };
 
             // Save to memory
