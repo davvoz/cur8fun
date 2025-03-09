@@ -8,21 +8,7 @@ import NotFoundView from './views/NotFoundView.js';
 import eventEmitter from './utils/EventEmitter.js';
 import authService from './services/AuthService.js';
 import Breadcrumbs from './components/Breadcrumbs.js';
-
-// Notification system
-// function showNotification(notification) {
-//   const element = document.createElement('div');
-//   element.className = `notification ${notification.type}`;
-//   element.textContent = notification.message;
-//   document.body.appendChild(element);
-
-//   setTimeout(() => {
-//     element.classList.add('hiding');
-//     setTimeout(() => document.body.removeChild(element), 500);
-//   }, 3000);
-// }
-
-// eventEmitter.on('notification', showNotification);
+import NavigationManager from './utils/NavigationManager.js';
 
 // Initialize breadcrumbs
 const breadcrumbs = new Breadcrumbs();
@@ -58,6 +44,7 @@ eventEmitter.on('route:changed', ({ path, view, params }) => {
 
 // Setup routes with proper handlers
 router
+
   .addRoute('/', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
@@ -83,7 +70,13 @@ function initApp() {
   const app = document.getElementById('app');
   if (!app) return;
 
+  // Crea istanza del NavigationManager
+  const navManager = new NavigationManager();
+  
+  // Attiva la navigazione standard
   initNavigation();
+  
+  // Inizializzazione del router
   router.init();
 }
 

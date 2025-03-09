@@ -138,3 +138,68 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
 }
+
+/* Mobile Navigation Styles */
+.bottom-navigation {
+  display: none; /* Default hidden */
+}
+
+@media (max-width: 768px) {
+  /* Hide sidebar on mobile */
+  .side-nav {
+    display: none;
+  }
+  
+  /* Show bottom navigation */
+  .bottom-navigation {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--background-light);
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  
+  .bottom-nav-item.active {
+    color: var(--primary-color);
+  }
+  
+  .bottom-navigation .create-button {
+    color: var(--primary-color);
+  }
+  
+  .bottom-navigation .create-button .material-icons {
+    font-size: 32px;
+  }
+  
+  /* Compact breadcrumbs */
+  .compact-breadcrumbs .breadcrumb-separator,
+  .compact-breadcrumbs a:not(:last-of-type) {
+    display: none;
+  }
+  
+  .compact-breadcrumbs a:last-of-type:before {
+    content: "< Back";
+  }
+  
+  /* Adjust content area to account for bottom navigation */
+  #main-content {
+    padding-bottom: 70px;
+  }
+}
