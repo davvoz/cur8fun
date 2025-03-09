@@ -64,7 +64,7 @@ export default class DelegationTab extends Component {
     e.preventDefault();
     
     const delegatee = this.element.querySelector('#delegate-to').value;
-    const amount = this.element.querySelector('#delegate-amount').value;
+    let amount = this.element.querySelector('#delegate-amount').value;
     const messageEl = this.element.querySelector('#delegate-message');
     
     // Clear previous messages
@@ -74,6 +74,15 @@ export default class DelegationTab extends Component {
     
     if (!delegatee || !amount) {
       this.showMessage('Please fill in all required fields', false);
+      return;
+    }
+    
+    // Format amount as string with 3 decimal places
+    try {
+      // Convert to float first to handle any format issues
+      amount = parseFloat(amount).toFixed(3);
+    } catch (error) {
+      this.showMessage('Invalid amount format', false);
       return;
     }
     
@@ -95,11 +104,11 @@ export default class DelegationTab extends Component {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Processing...';
       
-      // Request delegation through Steem Keychain
+      // Request delegation through Steem Keychain with properly formatted amount
       window.steem_keychain.requestDelegation(
         this.currentUser,  // From (current user)
         delegatee,         // To (delegatee)
-        amount,            // Amount
+        amount,            // Amount (now formatted with 3 decimals)
         'SP',              // Unit (SP)
         (response) => {    // Callback
           if (response.success) {
@@ -230,11 +239,13 @@ export default class DelegationTab extends Component {
   async removeDelegation(delegatee) {
     if (confirm(`Are you sure you want to remove delegation to @${delegatee}?`)) {
       try {
-        // To remove a delegation, delegate 0 SP
+        // To remove a delegation, delegate 0 SP - with 3 decimal places
+        const zeroAmount = "0.000"; // Properly formatted zero amount
+        
         window.steem_keychain.requestDelegation(
           this.currentUser,
           delegatee,
-          0,
+          zeroAmount, // Using the properly formatted zero amount
           'SP',
           (response) => {
             if (response.success) {
