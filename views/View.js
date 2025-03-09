@@ -6,17 +6,11 @@ import eventEmitter from '../utils/EventEmitter.js';
 export default class View {
   /**
    * Create a new view instance
-   * @param {HTMLElement} element - Container element
    * @param {Object} params - Parameters from the router
    */
-  constructor(element, params = {}) {
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'main-content';
-      document.body.appendChild(element);
-    }
-    this.element = element;
+  constructor(params = {}) {
     this.params = params;
+    this.element = null; // Will be set during render
     this.eventSubscriptions = [];
     this.childComponents = [];
   }
@@ -56,6 +50,9 @@ export default class View {
       }
     });
     this.childComponents = [];
+    
+    // Remove all event listeners from elements
+    this.removeEventListeners();
   }
 
   /**
@@ -68,13 +65,26 @@ export default class View {
   }
 
   /**
-   * Render the view into the main content area
+   * Remove all event listeners that were added to elements
+   * Subclasses should override this if they manually add event listeners
    */
-  render() {
-    if (!this.element) {
-      console.error('Element not found');
+  removeEventListeners() {
+    // Override in subclass if needed
+  }
+
+  /**
+   * Render the view into the container
+   * @param {HTMLElement} container - Container element to render into
+   */
+  render(container) {
+    if (!container) {
+      console.error('No container provided for rendering');
       return;
     }
+    
+    // Save reference to the container
+    this.element = container;
+    
     // Should be implemented by child classes
     throw new Error('render method must be implemented by subclass');
   }

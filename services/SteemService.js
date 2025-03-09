@@ -21,10 +21,17 @@ class SteemService {
             'https://api.steemitdev.com',
             'https://api.steemzzang.com',
             'https://api.steemit.com',
-            'https://api.hive.blog',
-            'https://api.hivekings.com',
-            'https://anyx.io',
-            'https://api.openhive.network'
+            'https://api.steemitstage.com',
+            'https://api.steem.house',
+            'https://api.steem.place',
+            'https://api.steem.press',
+            'https://api.steemstack.io',
+            'https://api.steemtools.com',
+            'https://api.steemul.com',
+            'https://api.steemworld.org',
+            'https://api.steemyy.com',
+            'https://api.steemzzang.com',
+
         ];
         this.currentEndpoint = 0;
     }

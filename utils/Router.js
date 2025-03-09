@@ -12,6 +12,7 @@ class Router {
     this.beforeHooks = [];
     this.navigationHistory = [];
     this.maxHistoryLength = 10;
+    this.viewContainer = null;
     
     // Handle browser navigation events
     window.addEventListener('popstate', (event) => {
@@ -141,11 +142,6 @@ class Router {
       });
     }
 
-    // Clean up previous view if exists
-    if (this.currentView && typeof this.currentView.unmount === 'function') {
-      this.currentView.unmount();
-    }
-    
     // Ensure app container exists
     let appContainer = document.getElementById('app');
     if (!appContainer) {
@@ -154,17 +150,15 @@ class Router {
       document.body.appendChild(appContainer);
     }
     
-    // Ensure main-content element exists
-    let mainContent = document.getElementById('main-content');
-    if (!mainContent) {
-      mainContent = document.createElement('div');
-      mainContent.id = 'main-content';
-      appContainer.appendChild(mainContent);
-    }
+    // Ensure and reset main-content element exists
+    this.ensureViewContainer(appContainer);
+    
+    // Clean up previous view if exists
+    this.cleanupCurrentView();
     
     // Handle 404 if no route matches
     if (!matchedRoute && this.notFoundHandler) {
-      this.currentView = new this.notFoundHandler(mainContent);
+      this.currentView = new this.notFoundHandler(this.viewContainer);
       this.currentView.render();
       eventEmitter.emit('route:changed', { path, view: 'notFound' });
       return;
@@ -186,7 +180,7 @@ class Router {
     
     // Instantiate and render the view with the main-content element
     this.currentView = new matchedRoute.viewClass(mergedParams);
-    this.currentView.render(mainContent);
+    this.currentView.render(this.viewContainer);
     
     // Emit route changed event
     eventEmitter.emit('route:changed', { 
@@ -194,6 +188,49 @@ class Router {
       view: matchedRoute.path,
       params: mergedParams
     });
+  }
+  
+  /**
+   * Ensure the view container exists and is properly set up
+   * @param {HTMLElement} appContainer - The app container element
+   */
+  ensureViewContainer(appContainer) {
+    // If viewContainer already exists and is in the DOM, just clear its contents
+    if (this.viewContainer && document.body.contains(this.viewContainer)) {
+      // Clear the container for the new view
+      while (this.viewContainer.firstChild) {
+        this.viewContainer.removeChild(this.viewContainer.firstChild);
+      }
+    } else {
+      // Create a new main-content element
+      let mainContent = document.getElementById('main-content');
+      if (mainContent) {
+        // If it exists but isn't our reference, clear it
+        while (mainContent.firstChild) {
+          mainContent.removeChild(mainContent.firstChild);
+        }
+      } else {
+        // Create new main-content if it doesn't exist
+        mainContent = document.createElement('div');
+        mainContent.id = 'main-content';
+        appContainer.appendChild(mainContent);
+      }
+      this.viewContainer = mainContent;
+    }
+  }
+  
+  /**
+   * Clean up the current view before showing a new one
+   */
+  cleanupCurrentView() {
+    if (this.currentView) {
+      // Call unmount to clean up resources
+      if (typeof this.currentView.unmount === 'function') {
+        this.currentView.unmount();
+      }
+      
+      this.currentView = null;
+    }
   }
 
   /**

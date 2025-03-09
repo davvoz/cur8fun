@@ -15,116 +15,215 @@ class HomeView {
     this.loading = true;
     
     try {
-      switch(this.tag) {
-        case 'trending':
-          this.posts = await steemService.getTrendingPosts();
-          break;
-        case 'hot':
-          this.posts = await steemService.getHotPosts();
-          break;
-        case 'created':
-          this.posts = await steemService.getNewPosts();
-          break;
-        case 'promoted':
-          this.posts = await steemService.getPromotedPosts();
-          break;
-        default:
-          this.posts = await steemService.getTrendingPosts();
-      }
-      
+      this.posts = await this.fetchPostsByTag();
       this.renderPosts();
     } catch (error) {
       console.error('Failed to load posts:', error);
-      eventEmitter.emit('notification', {
-        type: 'error',
-        message: 'Failed to load posts. Please try again later.'
-      });
-      
-      // Show error state
-      this.container.querySelector('.posts-container').innerHTML = `
-        <div class="error-state">
-          <h3>Failed to load posts</h3>
-          <p>There was an error connecting to the Steem blockchain.</p>
-          <button class="btn-primary retry-btn">Retry</button>
-        </div>
-      `;
-      
-      const retryBtn = this.container.querySelector('.retry-btn');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', () => this.loadPosts());
-      }
+      this.handleLoadError();
     } finally {
       this.loading = false;
       this.loadingIndicator.hide();
     }
   }
 
+  async fetchPostsByTag() {
+    const postFetchers = {
+      'trending': () => steemService.getTrendingPosts(),
+      'hot': () => steemService.getHotPosts(),
+      'created': () => steemService.getNewPosts(),
+      'promoted': () => steemService.getPromotedPosts()
+    };
+    
+    const fetchMethod = postFetchers[this.tag] || (() => steemService.getTrendingPosts());
+    return await fetchMethod();
+  }
+  
+  handleLoadError() {
+    eventEmitter.emit('notification', {
+      type: 'error',
+      message: 'Failed to load posts. Please try again later.'
+    });
+    
+    const postsContainer = this.container?.querySelector('.posts-container');
+    if (!postsContainer) return;
+    
+    this.clearContainer(postsContainer);
+    const errorElement = this.createErrorElement();
+    postsContainer.appendChild(errorElement);
+  }
+  
+  createErrorElement() {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-state';
+    
+    const errorHeading = document.createElement('h3');
+    errorHeading.textContent = 'Failed to load posts';
+    
+    const errorMessage = document.createElement('p');
+    errorMessage.textContent = 'There was an error connecting to the Steem blockchain.';
+    
+    const retryButton = document.createElement('button');
+    retryButton.className = 'btn-primary retry-btn';
+    retryButton.textContent = 'Retry';
+    retryButton.addEventListener('click', () => this.loadPosts());
+    
+    errorDiv.append(errorHeading, errorMessage, retryButton);
+    return errorDiv;
+  }
+
   renderPosts() {
-    const postsContainer = this.container.querySelector('.posts-container');
+    const postsContainer = this.container?.querySelector('.posts-container');
     
     if (!postsContainer || !this.posts.length) {
       return;
     }
     
-    postsContainer.innerHTML = '';
+    this.clearContainer(postsContainer);
+    this.posts.forEach(post => this.renderPostCard(post, postsContainer));
+  }
+
+  clearContainer(container) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+  }
+
+  renderPostCard(post, container) {
+    const postCard = document.createElement('div');
+    postCard.className = 'post-card';
     
-    this.posts.forEach(post => {
-      // Get first image from post body if available
-      let imageUrl = '';
-      const imgMatch = post.body.match(/<img[^>]+src="([^">]+)"/);
-      if (imgMatch) {
-        imageUrl = imgMatch[1];
-      }
-      
-      // Parse JSON metadata
-      let metadata = {};
-      try {
-        metadata = JSON.parse(post.json_metadata);
-      } catch (e) {}
-      
-      const postCard = document.createElement('div');
-      postCard.className = 'post-card';
-      postCard.innerHTML = `
-        <div class="post-header">
-          <img src="https://steemitimages.com/u/${post.author}/avatar" alt="${post.author}" class="avatar">
-          <div class="post-info">
-            <div class="post-author">@${post.author}</div>
-            <div class="post-date">${new Date(post.created).toLocaleDateString()}</div>
-          </div>
-        </div>
-        ${imageUrl ? `<div class="post-content"><img src="${imageUrl}" alt="Post image"></div>` : ''}
-        <div class="post-title">${post.title}</div>
-        <div class="post-excerpt">${post.body.substring(0, 140).replace(/<[^>]*>/g, '')}...</div>
-        <div class="post-actions">
-          <div class="action-item">
-            <span class="material-icons">thumb_up</span> ${post.net_votes}
-          </div>
-          <div class="action-item">
-            <span class="material-icons">chat</span> ${post.children}
-          </div>
-          <div class="action-item">
-            <span class="material-icons">attach_money</span> ${parseFloat(post.pending_payout_value).toFixed(2)}
-          </div>
-        </div>
-      `;
-      
-      postCard.addEventListener('click', () => {
-        window.location.href = `/@${post.author}/${post.permlink}`;
-      });
-      
-      postsContainer.appendChild(postCard);
+    const imageUrl = this.extractFirstImageUrl(post.body);
+    //const metadata = this.parseMetadata(post.json_metadata);
+    
+    postCard.appendChild(this.createPostHeader(post));
+    
+    if (imageUrl) {
+      postCard.appendChild(this.createPostImage(imageUrl));
+    }
+    
+    postCard.appendChild(this.createPostTitle(post.title));
+    postCard.appendChild(this.createPostExcerpt(post.body));
+    postCard.appendChild(this.createPostActions(post));
+    
+    postCard.addEventListener('click', () => {
+      window.location.href = `/@${post.author}/${post.permlink}`;
     });
+    
+    container.appendChild(postCard);
+  }
+
+  extractFirstImageUrl(body) {
+    const imgMatch = body.match(/<img[^>]+src="([^">]+)"/);
+    return imgMatch ? imgMatch[1] : '';
+  }
+
+  parseMetadata(jsonMetadata) {
+    try {
+      return JSON.parse(jsonMetadata);
+    } catch (e) {
+      return {};
+    }
+  }
+
+  createPostHeader(post) {
+    const header = document.createElement('div');
+    header.className = 'post-header';
+    
+    const avatar = document.createElement('img');
+    avatar.src = `https://steemitimages.com/u/${post.author}/avatar`;
+    avatar.alt = post.author;
+    avatar.className = 'avatar';
+    
+    const info = document.createElement('div');
+    info.className = 'post-info';
+    
+    const author = document.createElement('div');
+    author.className = 'post-author';
+    author.textContent = `@${post.author}`;
+    
+    const date = document.createElement('div');
+    date.className = 'post-date';
+    date.textContent = new Date(post.created).toLocaleDateString();
+    
+    info.append(author, date);
+    header.append(avatar, info);
+    
+    return header;
+  }
+
+  createPostImage(imageUrl) {
+    const content = document.createElement('div');
+    content.className = 'post-content';
+    
+    const image = document.createElement('img');
+    image.src = imageUrl;
+    image.alt = 'Post image';
+    
+    content.appendChild(image);
+    return content;
+  }
+
+  createPostTitle(title) {
+    const element = document.createElement('div');
+    element.className = 'post-title';
+    element.textContent = title;
+    return element;
+  }
+
+  createPostExcerpt(body) {
+    const EXCERPT_LENGTH = 140;
+    const element = document.createElement('div');
+    element.className = 'post-excerpt';
+    element.textContent = `${body.substring(0, EXCERPT_LENGTH).replace(/<[^>]*>/g, '')}...`;
+    return element;
+  }
+
+  createPostActions(post) {
+    const actions = document.createElement('div');
+    actions.className = 'post-actions';
+    
+    actions.appendChild(this.createActionItem('thumb_up', post.net_votes));
+    actions.appendChild(this.createActionItem('chat', post.children));
+    actions.appendChild(this.createActionItem('attach_money', parseFloat(post.pending_payout_value).toFixed(2)));
+    
+    return actions;
+  }
+
+  createActionItem(iconName, text) {
+    const actionItem = document.createElement('div');
+    actionItem.className = 'action-item';
+    
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = iconName;
+    
+    actionItem.appendChild(icon);
+    actionItem.append(document.createTextNode(` ${text}`));
+    
+    return actionItem;
   }
 
   render(container) {
     this.container = container;
     
-    container.innerHTML = `
-      <div class="content-wrapper">
-        <h1>${this.tag.charAt(0).toUpperCase() + this.tag.slice(1)} Posts</h1>
-        <div class="posts-container"></div>
-      </div>
-    `;
+    // Create content wrapper
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'content-wrapper';
+
+    // Create heading
+    const heading = document.createElement('h1');
+    heading.textContent = this.tag.charAt(0).toUpperCase() + this.tag.slice(1) + ' Posts';
+
+    // Create posts container
+    const postsContainer = document.createElement('div');
+    postsContainer.className = 'posts-container';
+
+    // Build the structure
+    contentWrapper.appendChild(heading);
+    contentWrapper.appendChild(postsContainer);
+
+    // Add to container
+    container.appendChild(contentWrapper);
     
     // Show loading indicator while posts are loading
     this.loadingIndicator.show(container.querySelector('.posts-container'));

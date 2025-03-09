@@ -16,7 +16,6 @@ class NavigationManager {
     this.sideNav = document.querySelector('.side-nav');
     this.bottomNav = document.getElementById('bottom-navigation');
     this.navCenter = document.querySelector('.nav-center');
-    this.breadcrumbs = document.querySelector('.breadcrumbs');
     this.overlay = this.createOverlay();
     document.body.appendChild(this.overlay);
   }
@@ -182,7 +181,6 @@ class NavigationManager {
     if (this.bottomNav) this.bottomNav.classList.remove('hidden');
     if (this.app) this.app.classList.add('mobile-layout');
     if (this.navCenter) this.navCenter.classList.add('hidden');
-    if (this.breadcrumbs) this.breadcrumbs.classList.add('compact-breadcrumbs');
   }
   
   enableDesktopMode() {
@@ -194,7 +192,6 @@ class NavigationManager {
     if (this.bottomNav) this.bottomNav.classList.add('hidden');
     if (this.app) this.app.classList.remove('mobile-layout');
     if (this.navCenter) this.navCenter.classList.remove('hidden');
-    if (this.breadcrumbs) this.breadcrumbs.classList.remove('compact-breadcrumbs');
   }
   
   highlightActiveMenuItem() {

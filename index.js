@@ -8,40 +8,9 @@ import NotFoundView from './views/NotFoundView.js';
 import WalletView from './views/WalletView.js';
 import eventEmitter from './utils/EventEmitter.js';
 import authService from './services/AuthService.js';
-import Breadcrumbs from './components/Breadcrumbs.js';
 import NavigationManager from './utils/NavigationManager.js';
 
-// Initialize breadcrumbs
-const breadcrumbs = new Breadcrumbs();
 
-// Update breadcrumbs on route changes
-eventEmitter.on('route:changed', ({ path, view, params }) => {
-  let title = '';
-  
-  // Set custom title based on route
-  if (params.author && params.permlink) {
-    title = `Post by @${params.author}`;
-  } else if (params.username) {
-    title = `@${params.username}`;
-  }
-  
-  breadcrumbs.updatePath(path, title);
-  
-  // Insert breadcrumbs at the top of the main content
-  const mainContent = document.getElementById('main-content');
-  if (mainContent) {
-    const breadcrumbContainer = document.createElement('div');
-    breadcrumbContainer.className = 'breadcrumb-container';
-    breadcrumbs.render(breadcrumbContainer);
-    
-    // Insert at the beginning of main content
-    if (mainContent.firstChild) {
-      mainContent.insertBefore(breadcrumbContainer, mainContent.firstChild);
-    } else {
-      mainContent.appendChild(breadcrumbContainer);
-    }
-  }
-});
 
 // Setup routes with proper handlers
 router
