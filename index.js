@@ -84,115 +84,145 @@ function initApp() {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // Update navigation menu
-  const updateNav = () => {
-    const currentUser = authService.getCurrentUser();
-    const navRight = document.querySelector('.nav-right');
-    
-    if (!navRight) return;
-    
-    // Clear existing content
-    while (navRight.firstChild) {
-      navRight.removeChild(navRight.firstChild);
-    }
-    
-    if (currentUser) {
-      // Create nav actions container
-      const navActions = document.createElement('div');
-      navActions.className = 'nav-actions';
-      
-      // Create Post button
-      const createPostBtn = document.createElement('a');
-      createPostBtn.href = '/create';
-      createPostBtn.className = 'create-post-btn';
-      
-      const addIcon = document.createElement('span');
-      addIcon.className = 'material-icons';
-      addIcon.textContent = 'add';
-      createPostBtn.appendChild(addIcon);
-      
-      createPostBtn.appendChild(document.createTextNode('Create'));
-      navActions.appendChild(createPostBtn);
-      
-      // Notifications button
-      const notifLink = document.createElement('a');
-      notifLink.href = '/notifications';
-      notifLink.className = 'nav-icon';
-      
-      const notifIcon = document.createElement('span');
-      notifIcon.className = 'material-icons';
-      notifIcon.textContent = 'notifications';
-      notifLink.appendChild(notifIcon);
-      navActions.appendChild(notifLink);
-      
-      // User menu
-      const userMenu = document.createElement('div');
-      userMenu.className = 'user-menu';
-      
-      const avatar = document.createElement('img');
-      avatar.src = `https://steemitimages.com/u/${currentUser.username}/avatar`;
-      avatar.alt = currentUser.username;
-      avatar.className = 'avatar';
-      userMenu.appendChild(avatar);
-      
-      // Dropdown menu
-      const dropdown = document.createElement('div');
-      dropdown.className = 'dropdown';
-      
-      const profileLink = document.createElement('a');
-      profileLink.href = `/@${currentUser.username}`;
-      profileLink.textContent = 'Profile';
-      dropdown.appendChild(profileLink);
-      
-      const logoutBtn = document.createElement('a');
-      logoutBtn.href = '#';
-      logoutBtn.className = 'logout-btn';
-      logoutBtn.textContent = 'Logout';
-      dropdown.appendChild(logoutBtn);
-      
-      userMenu.appendChild(dropdown);
-      navActions.appendChild(userMenu);
-      
-      navRight.appendChild(navActions);
-      
-      // Add logout handler
-      logoutBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        authService.logout();
-        eventEmitter.emit('auth:changed', { user: null });
-        eventEmitter.emit('notification', {
-          type: 'info',
-          message: 'You have been logged out'
-        });
-        router.navigate('/');
-      });
-    } else {
-      const loginBtn = document.createElement('a');
-      loginBtn.href = '/login';
-      loginBtn.className = 'login-btn';
-      loginBtn.textContent = 'Login';
-      navRight.appendChild(loginBtn);
-    }
-    
-    // Highlight active menu item
-    const currentPath = window.location.pathname;
-    document.querySelectorAll('.menu-item').forEach(item => {
-      item.classList.remove('active');
-      if (item.getAttribute('href') === currentPath) {
-        item.classList.add('active');
-      }
-    });
-  };
-
-  // Handle auth changes
-  eventEmitter.on('auth:changed', updateNav);
-  eventEmitter.on('route:changed', updateNav);
-  
-  // Initial update
-  updateNav();
-
-  // Initialize router
+  initNavigation();
   router.init();
+}
+
+function initNavigation() {
+  // Initial update
+  updateNavigation();
+  
+  // Subscribe to events that require nav updates
+  eventEmitter.on('auth:changed', updateNavigation);
+  eventEmitter.on('route:changed', updateNavigation);
+}
+
+function updateNavigation() {
+  updateNavigationMenu();
+  highlightActiveMenuItem();
+}
+
+function updateNavigationMenu() {
+  const navRight = document.querySelector('.nav-right');
+  if (!navRight) return;
+  
+  // Clear existing content
+  navRight.innerHTML = '';
+  
+  const currentUser = authService.getCurrentUser();
+  
+  if (currentUser) {
+    renderAuthenticatedNav(navRight, currentUser);
+  } else {
+    renderUnauthenticatedNav(navRight);
+  }
+}
+
+function renderAuthenticatedNav(container, user) {
+  const navActions = document.createElement('div');
+  navActions.className = 'nav-actions';
+  
+  // Create Post button
+  navActions.appendChild(createCreatePostButton());
+  
+  // Notifications button
+  navActions.appendChild(createNotificationsButton());
+  
+  // User menu
+  navActions.appendChild(createUserMenu(user));
+  
+  container.appendChild(navActions);
+}
+
+function renderUnauthenticatedNav(container) {
+  const loginBtn = document.createElement('a');
+  loginBtn.href = '/login';
+  loginBtn.className = 'login-btn';
+  loginBtn.textContent = 'Login';
+  container.appendChild(loginBtn);
+}
+
+function createCreatePostButton() {
+  const btn = document.createElement('a');
+  btn.href = '/create';
+  btn.className = 'create-post-btn';
+  
+  const icon = document.createElement('span');
+  icon.className = 'material-icons';
+  icon.textContent = 'add';
+  btn.appendChild(icon);
+  btn.appendChild(document.createTextNode('Create'));
+  
+  return btn;
+}
+
+function createNotificationsButton() {
+  const link = document.createElement('a');
+  link.href = '/notifications';
+  link.className = 'nav-icon';
+  
+  const icon = document.createElement('span');
+  icon.className = 'material-icons';
+  icon.textContent = 'notifications';
+  link.appendChild(icon);
+  
+  return link;
+}
+
+function createUserMenu(user) {
+  const userMenu = document.createElement('div');
+  userMenu.className = 'user-menu';
+  
+  // Avatar
+  const avatar = document.createElement('img');
+  avatar.src = `https://steemitimages.com/u/${user.username}/avatar`;
+  avatar.alt = user.username;
+  avatar.className = 'avatar';
+  userMenu.appendChild(avatar);
+  
+  // Dropdown menu
+  const dropdown = document.createElement('div');
+  dropdown.className = 'dropdown';
+  
+  // Profile link
+  const profileLink = document.createElement('a');
+  profileLink.href = `/@${user.username}`;
+  profileLink.textContent = 'Profile';
+  dropdown.appendChild(profileLink);
+  
+  // Logout button
+  const logoutBtn = document.createElement('a');
+  logoutBtn.href = '#';
+  logoutBtn.className = 'logout-btn';
+  logoutBtn.textContent = 'Logout';
+  dropdown.appendChild(logoutBtn);
+  
+  // Add logout handler
+  logoutBtn.addEventListener('click', handleLogout);
+  
+  userMenu.appendChild(dropdown);
+  return userMenu;
+}
+
+function handleLogout(e) {
+  e.preventDefault();
+  authService.logout();
+  eventEmitter.emit('auth:changed', { user: null });
+  eventEmitter.emit('notification', {
+    type: 'info',
+    message: 'You have been logged out'
+  });
+  router.navigate('/');
+}
+
+function highlightActiveMenuItem() {
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('href') === currentPath) {
+      item.classList.add('active');
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
