@@ -275,14 +275,16 @@ class SteemService {
 
         try {
             return await new Promise((resolve, reject) => {
-                this.steem.api.getDiscussionsByAuthorBeforeDate(
-                    username, 
-                    '', // Start permlink (empty for latest)
-                    new Date().toISOString().split('.')[0], // Current date
-                    limit, 
+                // Use getDiscussionsByBlog which is more reliable for fetching a user's blog posts
+                this.steem.api.getDiscussionsByBlog(
+                    { tag: username, limit }, 
                     (err, result) => {
-                        if (err) reject(err);
-                        else resolve(result);
+                        if (err) {
+                            console.error('API Error details:', err);
+                            reject(err);
+                        } else {
+                            resolve(result || []);
+                        }
                     }
                 );
             });
