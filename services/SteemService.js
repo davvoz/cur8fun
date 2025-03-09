@@ -138,29 +138,141 @@ class SteemService {
     /**
      * Get trending posts
      */
-    async getTrendingPosts(tag = '', limit = 20) {
-        return this._getDiscussionsByMethod('getDiscussionsByTrending', { tag, limit });
+    async getTrendingPosts(page = 1, limit = 20) {
+        await this.ensureLibraryLoaded();
+        
+        try {
+            const query = {
+                tag: '',
+                limit: limit
+            };
+            
+            // Add pagination parameters if not on first page
+            if (page > 1 && this.lastPostByCategory?.trending) {
+                query.start_author = this.lastPostByCategory.trending.author;
+                query.start_permlink = this.lastPostByCategory.trending.permlink;
+            }
+            
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
+            
+            if (posts && posts.length > 0) {
+                if (!this.lastPostByCategory) this.lastPostByCategory = {};
+                this.lastPostByCategory.trending = posts[posts.length - 1];
+            }
+            
+            return {
+                posts: posts || [],
+                hasMore: posts && posts.length === limit
+            };
+        } catch (error) {
+            console.error('Error fetching trending posts:', error);
+            return { posts: [], hasMore: false };
+        }
     }
 
     /**
      * Get hot posts
      */
-    async getHotPosts(tag = '', limit = 20) {
-        return this._getDiscussionsByMethod('getDiscussionsByHot', { tag, limit });
+    async getHotPosts(page = 1, limit = 20) {
+        await this.ensureLibraryLoaded();
+        
+        try {
+            const query = {
+                tag: '',
+                limit: limit
+            };
+            
+            // Add pagination parameters if not on first page
+            if (page > 1 && this.lastPostByCategory?.hot) {
+                query.start_author = this.lastPostByCategory.hot.author;
+                query.start_permlink = this.lastPostByCategory.hot.permlink;
+            }
+            
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByHot', query);
+            
+            if (posts && posts.length > 0) {
+                if (!this.lastPostByCategory) this.lastPostByCategory = {};
+                this.lastPostByCategory.hot = posts[posts.length - 1];
+            }
+            
+            return {
+                posts: posts || [],
+                hasMore: posts && posts.length === limit
+            };
+        } catch (error) {
+            console.error('Error fetching hot posts:', error);
+            return { posts: [], hasMore: false };
+        }
     }
 
     /**
      * Get new/recent posts
      */
-    async getNewPosts(tag = '', limit = 20) {
-        return this._getDiscussionsByMethod('getDiscussionsByCreated', { tag, limit });
+    async getNewPosts(page = 1, limit = 20) {
+        await this.ensureLibraryLoaded();
+        
+        try {
+            const query = {
+                tag: '',
+                limit: limit
+            };
+            
+            // Add pagination parameters if not on first page
+            if (page > 1 && this.lastPostByCategory?.created) {
+                query.start_author = this.lastPostByCategory.created.author;
+                query.start_permlink = this.lastPostByCategory.created.permlink;
+            }
+            
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
+            
+            if (posts && posts.length > 0) {
+                if (!this.lastPostByCategory) this.lastPostByCategory = {};
+                this.lastPostByCategory.created = posts[posts.length - 1];
+            }
+            
+            return {
+                posts: posts || [],
+                hasMore: posts && posts.length === limit
+            };
+        } catch (error) {
+            console.error('Error fetching new posts:', error);
+            return { posts: [], hasMore: false };
+        }
     }
 
     /**
      * Get promoted posts
      */
-    async getPromotedPosts(tag = '', limit = 20) {
-        return this._getDiscussionsByMethod('getDiscussionsByPromoted', { tag, limit });
+    async getPromotedPosts(page = 1, limit = 20) {
+        await this.ensureLibraryLoaded();
+        
+        try {
+            const query = {
+                tag: '',
+                limit: limit
+            };
+            
+            // Add pagination parameters if not on first page
+            if (page > 1 && this.lastPostByCategory?.promoted) {
+                query.start_author = this.lastPostByCategory.promoted.author;
+                query.start_permlink = this.lastPostByCategory.promoted.permlink;
+            }
+            
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByPromoted', query);
+            
+            if (posts && posts.length > 0) {
+                if (!this.lastPostByCategory) this.lastPostByCategory = {};
+                this.lastPostByCategory.promoted = posts[posts.length - 1];
+            }
+            
+            return {
+                posts: posts || [],
+                hasMore: posts && posts.length === limit
+            };
+        } catch (error) {
+            console.error('Error fetching promoted posts:', error);
+            return { posts: [], hasMore: false };
+        }
     }
 
     /**

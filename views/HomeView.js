@@ -1,6 +1,7 @@
 import steemService from '../services/SteemService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class HomeView {
   constructor(params) {
@@ -9,32 +10,54 @@ class HomeView {
     this.posts = [];
     this.loading = false;
     this.loadingIndicator = new LoadingIndicator();
+    this.infiniteScroll = null;
   }
 
-  async loadPosts() {
-    this.loading = true;
+  async loadPosts(page = 1) {
+    if (page === 1) {
+      this.loading = true;
+      this.posts = [];
+      this.renderPosts();
+    }
     
     try {
-      this.posts = await this.fetchPostsByTag();
-      this.renderPosts();
+      const result = await this.fetchPostsByTag(page);
+      
+      // Check if result has the expected structure
+      if (!result || !result.posts) {
+        console.error('Invalid response format from fetchPostsByTag:', result);
+        return false;
+      }
+      
+      const { posts, hasMore } = result;
+      
+      // Append new posts to the existing list
+      if (Array.isArray(posts)) {
+        this.posts = [...this.posts, ...posts];
+        this.renderPosts(page > 1);
+      }
+      
+      return hasMore;
     } catch (error) {
       console.error('Failed to load posts:', error);
       this.handleLoadError();
+      return false;
     } finally {
       this.loading = false;
       this.loadingIndicator.hide();
     }
   }
 
-  async fetchPostsByTag() {
+  async fetchPostsByTag(page = 1) {
+    console.log(`Fetching ${this.tag} posts, page ${page}`);
     const postFetchers = {
-      'trending': () => steemService.getTrendingPosts(),
-      'hot': () => steemService.getHotPosts(),
-      'created': () => steemService.getNewPosts(),
-      'promoted': () => steemService.getPromotedPosts()
+      'trending': () => steemService.getTrendingPosts(page),
+      'hot': () => steemService.getHotPosts(page),
+      'created': () => steemService.getNewPosts(page),
+      'promoted': () => steemService.getPromotedPosts(page)
     };
     
-    const fetchMethod = postFetchers[this.tag] || (() => steemService.getTrendingPosts());
+    const fetchMethod = postFetchers[this.tag] || (() => steemService.getTrendingPosts(page));
     return await fetchMethod();
   }
   
@@ -71,15 +94,30 @@ class HomeView {
     return errorDiv;
   }
 
-  renderPosts() {
+  renderPosts(append = false) {
     const postsContainer = this.container?.querySelector('.posts-container');
     
-    if (!postsContainer || !this.posts.length) {
-      return;
+    if (!postsContainer) return;
+    
+    if (!append) {
+      this.clearContainer(postsContainer);
+    }
+
+    // Calculate which posts to render
+    let postsToRender = [];
+    if (append) {
+      // When appending, get only the new posts
+      const currentPostCount = postsContainer.querySelectorAll('.post-card').length;
+      postsToRender = this.posts.slice(currentPostCount);
+    } else {
+      // When not appending (fresh render), get all posts
+      postsToRender = this.posts;
     }
     
-    this.clearContainer(postsContainer);
-    this.posts.forEach(post => this.renderPostCard(post, postsContainer));
+    console.log(`Rendering ${postsToRender.length} posts (append: ${append})`);
+    
+    // Render each post
+    postsToRender.forEach(post => this.renderPostCard(post, postsContainer));
   }
 
   clearContainer(container) {
@@ -226,14 +264,27 @@ class HomeView {
     container.appendChild(contentWrapper);
     
     // Show loading indicator while posts are loading
-    this.loadingIndicator.show(container.querySelector('.posts-container'));
+    this.loadingIndicator.show(postsContainer);
     
-    // Load posts
-    this.loadPosts();
+    // Load first page of posts
+    this.loadPosts(1).then(() => {
+      // Initialize infinite scroll after first page loads
+      if (postsContainer) {
+        console.log('Initializing infinite scroll');
+        this.infiniteScroll = new InfiniteScroll({
+          container: postsContainer,
+          loadMore: (page) => this.loadPosts(page),
+          threshold: '200px'
+        });
+      }
+    });
   }
 
   unmount() {
-    // Clean up any event listeners or resources
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
   }
 }
 
