@@ -104,20 +104,39 @@ export default class TransferTab extends Component {
     input.required = true;
     inputGroup.appendChild(input);
     
+    // Create styled currency selector
+    const currencySelector = document.createElement('div');
+    currencySelector.className = 'currency-selector';
+    
     const select = document.createElement('select');
     select.id = 'transfer-currency';
+    select.className = 'currency-select';
     
+    // STEEM option with icon
     const steemOption = document.createElement('option');
     steemOption.value = 'STEEM';
     steemOption.textContent = 'STEEM';
     select.appendChild(steemOption);
     
+    // SBD option with icon
     const sbdOption = document.createElement('option');
     sbdOption.value = 'SBD';
     sbdOption.textContent = 'SBD';
     select.appendChild(sbdOption);
     
-    inputGroup.appendChild(select);
+    // Add dropdown arrow icon
+    const selectWrapper = document.createElement('div');
+    selectWrapper.className = 'select-wrapper';
+    selectWrapper.appendChild(select);
+    
+    const selectIcon = document.createElement('span');
+    selectIcon.className = 'select-icon material-icons';
+    selectIcon.textContent = 'unfold_more';
+    selectWrapper.appendChild(selectIcon);
+    
+    currencySelector.appendChild(selectWrapper);
+    inputGroup.appendChild(currencySelector);
+    
     group.appendChild(inputGroup);
     
     return group;

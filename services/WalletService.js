@@ -629,17 +629,25 @@ class WalletService {
       // Calculate next power down time
       const nextPowerDown = new Date(account.next_vesting_withdrawal + 'Z');
       
-      // Calculate remaining weeks
+      // Calculate remaining weeks - using 4 weeks as the total duration
+      // and limiting the maximum displayed remaining weeks to 4
       let remainingWeeks = 0;
       if (parseFloat(account.to_withdraw) > 0) {
-        remainingWeeks = Math.ceil(
-          parseFloat(account.to_withdraw) / parseFloat(account.vesting_withdraw_rate)
-        );
+        const withdrawRate = parseFloat(account.vesting_withdraw_rate);
+        if (withdrawRate > 0) {
+          remainingWeeks = Math.min(
+            Math.ceil(parseFloat(account.to_withdraw) / withdrawRate), 
+            4 // Maximum of 4 weeks
+          );
+        }
       }
+      
+      // Format the weekly rate to 3 decimal places for display
+      const formattedWeeklyRate = parseFloat(weeklyRate).toFixed(3);
       
       return {
         isPoweringDown: true,
-        weeklyRate,
+        weeklyRate: formattedWeeklyRate,
         nextPowerDown,
         remainingWeeks
       };

@@ -121,7 +121,7 @@ export default class PowerManagementTab extends Component {
     // Create description
     const description = document.createElement('p');
     description.className = 'power-description';
-    description.textContent = 'Convert your STEEM POWER back to liquid STEEM in equal weekly payments over 13 weeks';
+    description.textContent = 'Convert your STEEM POWER back to liquid STEEM in equal weekly payments over 4 weeks';
     formCard.appendChild(description);
     
     // Create status container
@@ -179,7 +179,7 @@ export default class PowerManagementTab extends Component {
     infoIcon.textContent = 'info';
     infoText.appendChild(infoIcon);
     
-    const infoContent = document.createTextNode('Power downs are processed in 13 equal weekly payments');
+    const infoContent = document.createTextNode('Power downs are processed in 4 equal weekly payments');
     infoText.appendChild(infoContent);
     
     form.appendChild(infoText);
@@ -300,8 +300,11 @@ export default class PowerManagementTab extends Component {
     const progressBar = document.createElement('div');
     progressBar.className = 'progress-bar';
     
-    const completedWeeks = 13 - this.powerDownInfo.remainingWeeks;
-    const progressPercent = (completedWeeks / 13) * 100;
+    // Use 4 weeks instead of 13
+    const totalWeeks = 4;
+    const remainingWeeks = Math.min(this.powerDownInfo.remainingWeeks, totalWeeks);
+    const completedWeeks = totalWeeks - remainingWeeks;
+    const progressPercent = (completedWeeks / totalWeeks) * 100;
     
     const progressFill = document.createElement('div');
     progressFill.className = 'progress-fill';
@@ -312,7 +315,7 @@ export default class PowerManagementTab extends Component {
     
     const progressText = document.createElement('div');
     progressText.className = 'progress-text';
-    progressText.textContent = `${completedWeeks} of 13 weeks completed`;
+    progressText.textContent = `${completedWeeks} of ${totalWeeks} weeks completed`;
     progressContainer.appendChild(progressText);
     
     activePowerDown.appendChild(progressContainer);
