@@ -38,11 +38,12 @@ export const mainNavItems = [
     showInBottom: false
   },
   {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: 'notifications',
-    path: '/notifications',
-    showInBottom: true 
+    id: 'wallet',
+    label: 'Wallet',
+    icon: 'account_balance_wallet',
+    path: '/wallet',
+    showInBottom: true,
+    showInSide: true
   },
   {
     id: 'menu',
