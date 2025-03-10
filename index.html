@@ -9,48 +9,40 @@
     <script>
         // Handle 404 redirects on GitHub Pages
         (function() {
-            function getRepositoryName() {
-                // Check if we're on GitHub Pages
-                const ghRegex = /https?:\/\/([^.]+)\.github\.io\/([^\/]+)/;
-                const match = window.location.href.match(ghRegex);
-                return match && match[2] ? '/' + match[2] : '';
-            }
+            // Detect if we're on GitHub Pages
+            const isGitHubPages = location.hostname.endsWith('github.io');
             
-            const repoPath = getRepositoryName();
-            const pathname = location.pathname;
-            
-            // Remove repository name from pathname if present
-            let cleanPath = pathname;
-            if (repoPath && pathname.startsWith(repoPath)) {
-                cleanPath = pathname.substring(repoPath.length) || '/';
-            }
-            
-            // If we're on a path other than root and it's a direct page load
-            if (cleanPath !== '/' && 
-                cleanPath !== '/index.html' && 
-                !location.hash) {
+            if (isGitHubPages) {
+                console.log('GitHub Pages detected');
                 
-                // Store the path we tried to access
-                sessionStorage.setItem('redirectPath', cleanPath);
+                // Get repository name from pathname
+                const pathParts = location.pathname.split('/');
+                const repoName = pathParts.length >= 2 ? pathParts[1] : '';
                 
-                // Redirect to the root with a hash path
-                if (repoPath) {
-                    // For GitHub Pages with repository name
-                    location.replace(repoPath + '/#' + cleanPath);
-                } else {
-                    // For root domain
-                    location.replace('/#' + cleanPath);
+                if (repoName) {
+                    console.log('Repository name:', repoName);
+                    const basePath = '/' + repoName;
+                    
+                    // If we have a route after the repo name and no hash yet
+                    if (pathParts.length > 2 && !location.hash) {
+                        // Create the path without the repo name
+                        const routePath = '/' + pathParts.slice(2).join('/');
+                        console.log('Redirecting to hash route:', routePath);
+                        
+                        // Redirect to the base path with hash routing
+                        location.replace(basePath + '/#' + routePath);
+                    }
+                }
+            } else {
+                // For local development or other hosting
+                if (location.pathname !== '/' && 
+                    location.pathname !== '/index.html' && 
+                    !location.hash) {
+                    
+                    console.log('Local redirect to hash route:', location.pathname);
+                    location.replace('/#' + location.pathname);
                 }
             }
-            
-            // Check if we need to restore a redirect path
-            window.addEventListener('DOMContentLoaded', function() {
-                var redirectPath = sessionStorage.getItem('redirectPath');
-                if (redirectPath && !location.hash) {
-                    history.replaceState(null, null, '/#' + redirectPath);
-                    sessionStorage.removeItem('redirectPath');
-                }
-            });
         })();
     </script>
 </head>

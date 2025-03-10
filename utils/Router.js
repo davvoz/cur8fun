@@ -16,14 +16,21 @@ class Router {
     this.useHashRouting = true; // Enable hash-based routing by default
     this.basePath = ''; // Base path for GitHub Pages (e.g., '/repository-name')
     
-    // Detect if we're on GitHub Pages and set the repository name as the base path
+    // Detect if we're on GitHub Pages and set the base path
     this.detectBasePath();
+    
+    console.log('Router initialized with:', {
+      useHashRouting: this.useHashRouting,
+      basePath: this.basePath
+    });
     
     // Handle browser navigation events
     if (this.useHashRouting) {
       // For hash-based routing, listen to the hashchange event
       window.addEventListener('hashchange', () => {
-        this.handleRouteChange(this.getPathFromHash(), {});
+        const path = this.getPathFromHash();
+        console.log('Hash changed, new path:', path);
+        this.handleRouteChange(path, {});
       });
     } else {
       // For history API routing
@@ -38,14 +45,15 @@ class Router {
    * Detect the base path for GitHub Pages repositories
    */
   detectBasePath() {
-    // Check for GitHub Pages deployment
-    const ghRegex = /https?:\/\/([^.]+)\.github\.io\/([^\/]+)/;
-    const match = window.location.href.match(ghRegex);
-    
-    if (match && match[2]) {
-      // Found repository name in GitHub Pages URL
-      this.basePath = '/' + match[2];
-      console.log('Detected GitHub Pages repository path:', this.basePath);
+    // Check if we're on GitHub Pages
+    const hostname = window.location.hostname;
+    if (hostname.endsWith('github.io')) {
+      // Extract the repository name from the pathname, not from the hash
+      const pathParts = window.location.pathname.split('/');
+      if (pathParts.length >= 2 && pathParts[1]) {
+        this.basePath = '/' + pathParts[1];
+        console.log('Detected GitHub Pages repository:', this.basePath);
+      }
     }
   }
 
@@ -68,15 +76,8 @@ class Router {
     const hash = window.location.hash;
     if (!hash) return '/';
     
-    // Remove the # character
-    const cleanHash = hash.substring(1);
-    
-    // If hash contains base path, remove it
-    if (this.basePath && cleanHash.startsWith(this.basePath)) {
-      return cleanHash.substring(this.basePath.length) || '/';
-    }
-    
-    return cleanHash;
+    // Simple hash path extraction - just remove the # character
+    return hash.substring(1);
   }
 
   beforeEach(fn) {
@@ -131,8 +132,10 @@ class Router {
       return;
     }
     
+    console.log('Navigating to:', path);
+    
     if (this.useHashRouting) {
-      // For hash routing, update the URL hash
+      // For hash routing, update the URL hash (no need to include basePath in hash)
       const targetHash = `#${path}`;
       if (replaceState) {
         window.location.replace(targetHash);
@@ -338,13 +341,12 @@ class Router {
             path = href.substring(1);
           }
           
-          // If the path is the base path, convert to root
-          if (path === this.basePath) {
-            path = '/';
-          } else if (path.startsWith(this.basePath + '/')) {
-            path = path.substring(this.basePath.length);
+          // Clean up path to remove basePath if it's duplicated
+          if (this.basePath && path.startsWith(this.basePath)) {
+            path = path.substring(this.basePath.length) || '/';
           }
           
+          console.log('Link clicked, navigating to:', path);
           this.navigate(path);
         }
       }
@@ -352,7 +354,9 @@ class Router {
     
     // Handle initial route
     if (this.useHashRouting) {
-      this.handleRouteChange(this.getPathFromHash() || '/');
+      const initialPath = this.getPathFromHash() || '/';
+      console.log('Initial route:', initialPath);
+      this.handleRouteChange(initialPath);
     } else {
       this.handleRouteChange();
     }
