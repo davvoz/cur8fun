@@ -38,7 +38,7 @@ class CreatePostView extends View {
     this.bindEvents();
   }
 
-  // ... rest of implementation
+  
 }
 
 export default CreatePostView;
