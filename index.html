@@ -6,6 +6,29 @@
     <title>SteemGram</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="assets/css/main.css">
+    <script>
+        // Handle 404 redirects on GitHub Pages
+        (function() {
+            // If we're on a path other than root and it's a direct page load
+            if (location.pathname !== '/' && 
+                location.pathname !== '/index.html' && 
+                !location.hash) {
+                // Store the path we tried to access
+                sessionStorage.setItem('redirectPath', location.pathname);
+                // Redirect to the root with a hash path
+                location.replace('/#' + location.pathname);
+            }
+            
+            // Check if we need to restore a redirect path
+            window.addEventListener('DOMContentLoaded', function() {
+                var redirectPath = sessionStorage.getItem('redirectPath');
+                if (redirectPath && !location.hash) {
+                    history.replaceState(null, null, '/#' + redirectPath);
+                    sessionStorage.removeItem('redirectPath');
+                }
+            });
+        })();
+    </script>
 </head>
 <body>
     <div id="app">

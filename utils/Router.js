@@ -13,12 +13,35 @@ class Router {
     this.navigationHistory = [];
     this.maxHistoryLength = 10;
     this.viewContainer = null;
+    this.useHashRouting = true; // Enable hash-based routing by default
     
     // Handle browser navigation events
-    window.addEventListener('popstate', (event) => {
-      // Get current path and pass any state from the popstate event
-      this.handleRouteChange(window.location.pathname, event.state || {});
-    });
+    if (this.useHashRouting) {
+      // For hash-based routing, listen to the hashchange event
+      window.addEventListener('hashchange', () => {
+        this.handleRouteChange(this.getPathFromHash(), {});
+      });
+    } else {
+      // For history API routing
+      window.addEventListener('popstate', (event) => {
+        // Get current path and pass any state from the popstate event
+        this.handleRouteChange(window.location.pathname, event.state || {});
+      });
+    }
+  }
+
+  // Get the current path from hash or pathname
+  getCurrentPath() {
+    if (this.useHashRouting) {
+      return this.getPathFromHash() || '/';
+    }
+    return window.location.pathname;
+  }
+
+  // Extract path from hash (e.g., "#/trending" -> "/trending")
+  getPathFromHash() {
+    const hash = window.location.hash;
+    return hash ? hash.substring(1) : '/';
   }
 
   beforeEach(fn) {
@@ -63,8 +86,8 @@ class Router {
 
   /**
    * Navigate to a specific URL
-   * @param {string} url - URL to navigate to
-   * @param {Object} [state={}] - State object to pass to history
+   * @param {string} path - URL path to navigate to
+   * @param {Object} [params={}] - State object to pass to history
    * @param {boolean} [replace=false] - Whether to replace current history entry
    */
   navigate(path, params = {}, replaceState = false) {
@@ -73,23 +96,45 @@ class Router {
       return;
     }
     
-    // Update history with state
-    if (replaceState) {
-      window.history.replaceState(params, "", path);
-    } else {
-      window.history.pushState(params, "", path);
-    }
-    
-    // Track navigation for back button functionality
-    if (!replaceState) {
-      this.navigationHistory.push({ path, params });
-      if (this.navigationHistory.length > this.maxHistoryLength) {
-        this.navigationHistory.shift();
+    if (this.useHashRouting) {
+      // For hash routing, update the URL hash
+      const targetHash = `#${path}`;
+      if (replaceState) {
+        window.location.replace(targetHash);
+      } else {
+        window.location.hash = targetHash;
       }
+      
+      // Track navigation for back button functionality
+      if (!replaceState) {
+        this.navigationHistory.push({ path, params });
+        if (this.navigationHistory.length > this.maxHistoryLength) {
+          this.navigationHistory.shift();
+        }
+      }
+      
+      // Handle route change manually since hashchange might not fire if only params changed
+      this.handleRouteChange(path, params);
+    } else {
+      // For history API routing
+      // Update history with state
+      if (replaceState) {
+        window.history.replaceState(params, "", path);
+      } else {
+        window.history.pushState(params, "", path);
+      }
+      
+      // Track navigation for back button functionality
+      if (!replaceState) {
+        this.navigationHistory.push({ path, params });
+        if (this.navigationHistory.length > this.maxHistoryLength) {
+          this.navigationHistory.shift();
+        }
+      }
+      
+      // Handle route change
+      this.handleRouteChange(path, params);
     }
-    
-    // Handle route change
-    this.handleRouteChange(path, params);
   }
 
   /**
@@ -98,7 +143,8 @@ class Router {
    * @param {Object} additionalParams - Additional parameters to pass to the view
    */
   async handleRouteChange(pathOrEvent, additionalParams = {}) {
-    const path = typeof pathOrEvent === 'string' ? pathOrEvent : window.location.pathname;
+    // Get the path from the appropriate source
+    const path = typeof pathOrEvent === 'string' ? pathOrEvent : this.getCurrentPath();
     
     // Don't reload the current page if it's the same path
     if (path === this.currentPath && this.currentView) {
@@ -240,15 +286,33 @@ class Router {
     // Add click handler for all links to use the router
     document.addEventListener('click', (e) => {
       const link = e.target.closest('a');
-      if (link && link.getAttribute('href').startsWith('/') && 
-          !link.getAttribute('target') && !link.getAttribute('data-bypass-router')) {
-        e.preventDefault();
-        this.navigate(link.getAttribute('href'));
+      if (link && 
+          !link.getAttribute('target') && 
+          !link.getAttribute('data-bypass-router')) {
+        
+        const href = link.getAttribute('href');
+        
+        // Only handle internal links
+        if (href && (href.startsWith('/') || href.startsWith('#/'))) {
+          e.preventDefault();
+          
+          let path = href;
+          // Extract the path from hash links
+          if (href.startsWith('#/')) {
+            path = href.substring(1);
+          }
+          
+          this.navigate(path);
+        }
       }
     });
     
     // Handle initial route
-    this.handleRouteChange();
+    if (this.useHashRouting) {
+      this.handleRouteChange(this.getPathFromHash() || '/');
+    } else {
+      this.handleRouteChange();
+    }
     return this;
   }
   
