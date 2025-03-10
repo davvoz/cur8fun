@@ -7,9 +7,6 @@ class GridController {
     this.target = null;
     this.settings = {
       layout: localStorage.getItem('grid-layout') || 'grid', // grid, list, compact
-      columns: parseInt(localStorage.getItem('grid-columns')) || 0, // 0 = auto
-      cardSize: localStorage.getItem('grid-card-size') || 'medium', // small, medium, large
-      spacing: localStorage.getItem('grid-spacing') || 'normal', // tight, normal, spacious
     };
     this.isExpanded = false;
     this.isMobile = this.checkIfMobile();
@@ -60,13 +57,6 @@ class GridController {
     const controllerEl = document.createElement('div');
     controllerEl.className = 'grid-controller';
     
-    // Add toggle button for mobile
-    const toggleButton = document.createElement('button');
-    toggleButton.className = 'grid-controller-toggle';
-    toggleButton.innerHTML = '<span class="material-icons">tune</span>';
-    toggleButton.setAttribute('aria-label', 'Toggle grid settings');
-    toggleButton.addEventListener('click', () => this.toggleExpanded());
-    
     // Create controls container
     const controls = document.createElement('div');
     controls.className = 'grid-controls';
@@ -74,22 +64,7 @@ class GridController {
     // Add layout options
     controls.appendChild(this.createLayoutSelector());
     
-    // Add card size slider
-    controls.appendChild(this.createSizeSelector());
-    
-    // Add spacing selector for desktop
-    controls.appendChild(this.createSpacingSelector());
-    
-    // Add reset button
-    const resetButton = document.createElement('button');
-    resetButton.className = 'grid-control-reset';
-    resetButton.innerHTML = '<span class="material-icons">restart_alt</span> Reset';
-    resetButton.addEventListener('click', () => this.resetSettings());
-    
-    controls.appendChild(resetButton);
-    
-    // Assemble the controller
-    controllerEl.appendChild(toggleButton);
+    // Assemble the controller (without reset button)
     controllerEl.appendChild(controls);
     
     // Add to container
@@ -148,81 +123,6 @@ class GridController {
     return layoutGroup;
   }
   
-  createSizeSelector() {
-    const sizeGroup = document.createElement('div');
-    sizeGroup.className = 'grid-control-group';
-    
-    const label = document.createElement('label');
-    label.textContent = 'Card Size';
-    sizeGroup.appendChild(label);
-    
-    const sizeControl = document.createElement('div');
-    sizeControl.className = 'grid-size-control';
-    
-    const sizes = [
-      { id: 'small', label: 'S' },
-      { id: 'medium', label: 'M' },
-      { id: 'large', label: 'L' }
-    ];
-    
-    sizes.forEach(size => {
-      const option = document.createElement('button');
-      option.className = `grid-size-option ${this.settings.cardSize === size.id ? 'active' : ''}`;
-      option.setAttribute('data-size', size.id);
-      option.textContent = size.label;
-      
-      option.addEventListener('click', () => {
-        this.updateSetting('cardSize', size.id);
-        sizeControl.querySelectorAll('.grid-size-option').forEach(btn => {
-          btn.classList.toggle('active', btn.getAttribute('data-size') === size.id);
-        });
-      });
-      
-      sizeControl.appendChild(option);
-    });
-    
-    sizeGroup.appendChild(sizeControl);
-    return sizeGroup;
-  }
-  
-  createSpacingSelector() {
-    const spacingGroup = document.createElement('div');
-    spacingGroup.className = 'grid-control-group';
-    
-    const label = document.createElement('label');
-    label.textContent = 'Spacing';
-    spacingGroup.appendChild(label);
-    
-    const spacingControl = document.createElement('div');
-    spacingControl.className = 'grid-spacing-control';
-    
-    const spacings = [
-      { id: 'tight', icon: 'format_align_justify', label: 'Tight' },
-      { id: 'normal', icon: 'format_align_center', label: 'Normal' },
-      { id: 'spacious', icon: 'format_line_spacing', label: 'Spacious' }
-    ];
-    
-    spacings.forEach(spacing => {
-      const option = document.createElement('button');
-      option.className = `grid-spacing-option ${this.settings.spacing === spacing.id ? 'active' : ''}`;
-      option.setAttribute('data-spacing', spacing.id);
-      option.setAttribute('aria-label', spacing.label);
-      option.innerHTML = `<span class="material-icons">${spacing.icon}</span>`;
-      
-      option.addEventListener('click', () => {
-        this.updateSetting('spacing', spacing.id);
-        spacingControl.querySelectorAll('.grid-spacing-option').forEach(btn => {
-          btn.classList.toggle('active', btn.getAttribute('data-spacing') === spacing.id);
-        });
-      });
-      
-      spacingControl.appendChild(option);
-    });
-    
-    spacingGroup.appendChild(spacingControl);
-    return spacingGroup;
-  }
-  
   updateSetting(key, value) {
     this.settings[key] = value;
     localStorage.setItem(`grid-${key}`, value);
@@ -249,66 +149,17 @@ class GridController {
       
       // Apply mobile-optimized layout
       this.target.classList.add('grid-layout-compact');
-      
-      // Still apply card size and spacing from user preferences
-      this.target.classList.add(`grid-size-${this.settings.cardSize}`);
-      this.target.classList.add(`grid-spacing-${this.settings.spacing}`);
-      
       return;
     }
     
-    // Clear existing classes
+    // Clear existing layout classes
     const classesToRemove = Array.from(this.target.classList)
-      .filter(cls => cls.startsWith('grid-layout-') || cls.startsWith('grid-size-') || cls.startsWith('grid-spacing-'));
+      .filter(cls => cls.startsWith('grid-layout-'));
     
     classesToRemove.forEach(cls => this.target.classList.remove(cls));
     
-    // Apply new classes
+    // Apply new layout class
     this.target.classList.add(`grid-layout-${this.settings.layout}`);
-    this.target.classList.add(`grid-size-${this.settings.cardSize}`);
-    this.target.classList.add(`grid-spacing-${this.settings.spacing}`);
-    
-    // Apply custom columns if set
-    if (this.settings.columns > 0 && this.settings.layout === 'grid') {
-      this.target.style.gridTemplateColumns = `repeat(${this.settings.columns}, 1fr)`;
-    } else {
-      this.target.style.gridTemplateColumns = '';
-    }
-  }
-  
-  resetSettings() {
-    const defaultSettings = {
-      layout: 'grid',
-      columns: 0,
-      cardSize: 'medium',
-      spacing: 'normal'
-    };
-    
-    // Update all settings at once
-    Object.keys(defaultSettings).forEach(key => {
-      this.settings[key] = defaultSettings[key];
-      localStorage.setItem(`grid-${key}`, defaultSettings[key]);
-      
-      // Update UI
-      const activeEl = this.container.querySelector(`[data-${key}="${defaultSettings[key]}"]`);
-      if (activeEl) {
-        const siblings = Array.from(activeEl.parentNode.children);
-        siblings.forEach(el => el.classList.remove('active'));
-        activeEl.classList.add('active');
-      }
-    });
-    
-    this.applySettings();
-    
-    // Notify about reset
-    eventEmitter.emit('grid-settings-reset', { settings: this.settings });
-  }
-  
-  toggleExpanded() {
-    this.isExpanded = !this.isExpanded;
-    if (this.container) {
-      this.container.classList.toggle('expanded', this.isExpanded);
-    }
   }
   
   setupMutationObserver() {

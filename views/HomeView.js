@@ -248,12 +248,18 @@ class HomeView {
   }
 
   getBestImage(post, metadata) {
-    // Get the best image using our enhanced utility class
-    const imageUrl = ImageUtils.getBestImageUrl(post.body, metadata);
+    // First try the simpler extractImageFromContent method which gets the first image
+    const directImageUrl = ImageUtils.extractImageFromContent(post);
     
-    if (imageUrl) {
-      // No need to optimize here - we'll do it in createPostImage
-      return imageUrl;
+    if (directImageUrl) {
+      return directImageUrl;
+    }
+    
+    // Fall back to the more comprehensive getBestImageUrl if direct extraction failed
+    const fallbackImageUrl = ImageUtils.getBestImageUrl(post.body, metadata);
+    
+    if (fallbackImageUrl) {
+      return fallbackImageUrl;
     }
     
     // If no image is found, return a placeholder
@@ -379,13 +385,12 @@ class HomeView {
     // Enforce a clean URL before we start
     imageUrl = ImageUtils.sanitizeUrl(imageUrl);
     
-    // Use higher quality images first, then fall back to smaller sizes
-    const sizesToTry = [
-      {size: 640, cdn: 'steemitimages.com'}, // Higher quality first
-      {size: 400, cdn: 'steemitimages.com'}, // Medium quality
-      {size: 200, cdn: 'steemitimages.com'}, // Lower quality as fallback
-      {direct: true} // Direct URL as last resort
-    ];
+    // Determine current card size AND layout from container classes
+    const { size: cardSize, layout } = this.getCardConfig();
+    
+    // Use different image sizes based on card size setting AND layout
+    const sizesToTry = this.getImageSizesToTry(cardSize, layout);
+    console.log(`Loading image with card size: ${cardSize}, layout: ${layout}`);
     
     let currentSizeIndex = 0;
     let isLoadingPlaceholder = false;
@@ -477,6 +482,52 @@ class HomeView {
     return content;
   }
 
+  // Get current card size AND layout setting from container classes
+  getCardConfig() {
+    if (!this.container) return { size: 'medium', layout: 'grid' };
+    
+    const postsContainer = this.container.querySelector('.posts-container');
+    if (!postsContainer) return { size: 'medium', layout: 'grid' };
+    
+    // We only care about layout now, but keep size for backward compatibility
+    let size = 'medium';
+    
+    // Determine layout type
+    let layout = 'grid';
+    if (postsContainer.classList.contains('grid-layout-list')) layout = 'list';
+    if (postsContainer.classList.contains('grid-layout-compact')) layout = 'compact';
+    
+    return { size, layout };
+  }
+
+  // Get appropriate image sizes based only on layout
+  getImageSizesToTry(cardSize, layout) {
+    // Simplify image sizes based only on layout type
+    switch(layout) {
+      case 'list':
+        return [
+          {size: 800, cdn: 'steemitimages.com'}, // Higher quality for list layout
+          {size: 640, cdn: 'steemitimages.com'}, // Medium-high quality
+          {size: 400, cdn: 'steemitimages.com'}, // Medium quality fallback
+          {direct: true} // Direct URL as last resort
+        ];
+      case 'compact':
+        return [
+          {size: 320, cdn: 'steemitimages.com'}, // Smaller size for compact layout
+          {size: 200, cdn: 'steemitimages.com'}, // Even smaller fallback
+          {direct: true} // Direct URL as last resort
+        ];
+      case 'grid':
+      default:
+        return [
+          {size: 640, cdn: 'steemitimages.com'}, // Standard quality for grid
+          {size: 400, cdn: 'steemitimages.com'}, // Medium quality
+          {size: 200, cdn: 'steemitimages.com'}, // Lower quality as fallback
+          {direct: true} // Direct URL as last resort
+        ];
+    }
+  }
+
   sanitizeImageUrl(url) {
     if (!url || url.startsWith('data:')) return url;
     
@@ -520,17 +571,33 @@ class HomeView {
     return tagsContainer;
   }
 
+  getVoteCount(post) {
+    // Try different properties that might contain vote count
+    if (typeof post.net_votes === 'number') {
+      return post.net_votes;
+    }
+    if (typeof post.active_votes === 'object' && Array.isArray(post.active_votes)) {
+      return post.active_votes.length;
+    }
+    if (typeof post.vote_count === 'number') {
+      return post.vote_count;
+    }
+    // Default to 0 if no valid vote count is found
+    return 0;
+  }
+
   createPostActions(post) {
     const actions = document.createElement('div');
     actions.className = 'post-actions';
     
-    const voteAction = this.createActionItem('thumb_up', post.net_votes);
+    const voteCount = this.getVoteCount(post);
+    const voteAction = this.createActionItem('thumb_up', voteCount);
     voteAction.classList.add('vote-action');
     
-    const commentAction = this.createActionItem('chat', post.children);
+    const commentAction = this.createActionItem('chat', post.children || 0);
     commentAction.classList.add('comment-action');
     
-    const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value).toFixed(2));
+    const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value || 0).toFixed(2));
     payoutAction.classList.add('payout-action');
     
     actions.append(voteAction, commentAction, payoutAction);
