@@ -61,7 +61,8 @@ function initNavigation() {
 
 function updateNavigation() {
   updateNavigationMenu();
-  highlightActiveMenuItem();
+  // Remove the call to highlightActiveMenuItem as it's now handled by NavigationManager
+  // highlightActiveMenuItem();
 }
 
 function updateNavigationMenu() {
@@ -175,16 +176,6 @@ function handleLogout(e) {
     message: 'You have been logged out'
   });
   router.navigate('/');
-}
-
-function highlightActiveMenuItem() {
-  const currentPath = window.location.pathname;
-  document.querySelectorAll('.menu-item').forEach(item => {
-    item.classList.remove('active');
-    if (item.getAttribute('href') === currentPath) {
-      item.classList.add('active');
-    }
-  });
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

@@ -59,16 +59,11 @@ class Router {
 
   // Get the current path from hash or pathname
   getCurrentPath() {
-    if (this.useHashRouting) {
-      return this.getPathFromHash() || '/';
+    // Handle hash-based routing
+    if (window.location.hash && window.location.hash.startsWith('#')) {
+      return window.location.hash.substring(1) || '/';
     }
-    
-    // Remove base path if present
-    let path = window.location.pathname;
-    if (this.basePath && path.startsWith(this.basePath)) {
-      path = path.substring(this.basePath.length) || '/';
-    }
-    return path;
+    return window.location.pathname || '/';
   }
 
   // Extract path from hash (e.g., "#/trending" -> "/trending")
@@ -184,6 +179,8 @@ class Router {
   async handleRouteChange(pathOrEvent, additionalParams = {}) {
     // Get the path from the appropriate source
     const path = typeof pathOrEvent === 'string' ? pathOrEvent : this.getCurrentPath();
+    
+    console.log('handleRouteChange called with path:', path, 'current path:', this.currentPath);
     
     // Don't reload the current page if it's the same path
     if (path === this.currentPath && this.currentView) {
@@ -358,7 +355,9 @@ class Router {
       console.log('Initial route:', initialPath);
       this.handleRouteChange(initialPath);
     } else {
-      this.handleRouteChange();
+      const initialPath = window.location.pathname.replace(this.basePath, '') || '/';
+      console.log('Initial route (no hash):', initialPath);
+      this.handleRouteChange(initialPath);
     }
     return this;
   }

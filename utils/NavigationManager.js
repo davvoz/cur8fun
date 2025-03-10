@@ -195,18 +195,45 @@ class NavigationManager {
   }
   
   highlightActiveMenuItem() {
-    const currentPath = window.location.pathname || '/';
+    // Handle both regular and hash-based routing
+    let currentPath = window.location.pathname || '/';
+    
+    // Check if we're using hash-based routing (GitHub Pages redirect does this)
+    if (window.location.hash && window.location.hash.startsWith('#')) {
+      // Extract the path from the hash
+      currentPath = window.location.hash.substring(1) || '/';
+    }
+    
+    // Strip trailing slash if present (except for root '/')
+    if (currentPath !== '/' && currentPath.endsWith('/')) {
+      currentPath = currentPath.slice(0, -1);
+    }
+    
+    console.log('Current path for menu highlighting:', currentPath);
     
     // Update side nav active state
     const sideMenuItems = document.querySelectorAll('.side-nav .menu-item');
     sideMenuItems.forEach(item => {
       const href = item.getAttribute('href');
-      const isActive = 
-        href === currentPath || 
-        (href === '/' && currentPath === '') ||
-        (href !== '/' && currentPath.startsWith(href));
       
-      item.classList.toggle('active', isActive);
+      // Make all menu items non-active first
+      item.classList.remove('active');
+      
+      // Special case for home button (href="/")
+      if (href === '/') {
+        // Home button should only be active when path is exactly "/" or empty
+        const isActive = currentPath === '/' || currentPath === '';
+        if (isActive) {
+          item.classList.add('active');
+        }
+      } else {
+        // For other items, check if the current path matches or starts with href
+        const isActive = currentPath === href || 
+                        (href !== '/' && currentPath.startsWith(href));
+        if (isActive) {
+          item.classList.add('active');
+        }
+      }
     });
     
     // Update bottom nav active state
@@ -215,14 +242,26 @@ class NavigationManager {
       const href = item.getAttribute('href');
       const isAction = item.classList.contains('center-button') || item.dataset.id === 'menu'; // Don't highlight create button or menu
       
-      const isActive = 
-        !isAction && (
-          href === currentPath || 
-          (href === '/' && currentPath === '') ||
-          (href !== '/' && currentPath.startsWith(href))
-        );
+      // Make all items non-active first
+      item.classList.remove('active');
       
-      item.classList.toggle('active', isActive);
+      if (!isAction) {
+        // Special case for home button
+        if (href === '/') {
+          // Home button should only be active when path is exactly "/" or empty
+          const isActive = currentPath === '/' || currentPath === '';
+          if (isActive) {
+            item.classList.add('active');
+          }
+        } else {
+          // For other items
+          const isActive = currentPath === href || 
+                          (href !== '/' && currentPath.startsWith(href));
+          if (isActive) {
+            item.classList.add('active');
+          }
+        }
+      }
     });
   }
 }

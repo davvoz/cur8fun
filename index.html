@@ -31,6 +31,12 @@
                         
                         // Redirect to the base path with hash routing
                         location.replace(basePath + '/#' + routePath);
+                    } else if (pathParts.length === 2 && pathParts[1] === repoName) {
+                        // This is the repository root - redirect to home path
+                        console.log('Repository root - redirecting to home');
+                        if (!location.hash) {
+                            location.replace(basePath + '/#/');
+                        }
                     }
                 }
             } else {

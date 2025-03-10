@@ -1,7 +1,6 @@
 import View from './View.js';
 import steemService from '../services/SteemService.js'; // Changed from SteemService to steemService
 import router from '../utils/Router.js';
-import markdownRenderer from '../utils/MarkdownRenderer.js';
 import { generatePostContent } from '../utils/process_body.js';  // Import the content processor
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 
@@ -196,7 +195,7 @@ class PostView extends View {
     
     // Create header
     const postHeader = document.createElement('div');
-    postHeader.className = 'post-header';
+    postHeader.className = 'post-headero';
     
     const backButton = document.createElement('a');
     backButton.href = '/';
@@ -252,9 +251,9 @@ class PostView extends View {
     const postActions = document.createElement('div');
     postActions.className = 'post-actions';
     
-    const upvoteBtn = this.createActionButton('upvote-btn', '👍', this.post.net_votes || 0);
-    const commentBtn = this.createActionButton('comment-btn', '💬', this.post.children || 0);
-    const shareBtn = this.createActionButton('share-btn', '🔁', 'Share');
+    const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.net_votes || 0);
+    const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
+    const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
     
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
@@ -385,7 +384,7 @@ class PostView extends View {
     button.className = `action-btn ${className}`;
     
     const iconSpan = document.createElement('span');
-    iconSpan.className = 'icon';
+    iconSpan.className = 'material-icons';
     iconSpan.textContent = icon;
     button.appendChild(iconSpan);
     
@@ -420,20 +419,55 @@ class PostView extends View {
       commentsContainer.appendChild(noComments);
       return;
     }
+
+    // Build comment tree
+    const commentTree = this.buildCommentTree(this.comments);
     
-    // In real implementation, you'd recursively render comments and their replies
-    this.comments.forEach(comment => {
+    // Render the comment tree
+    commentTree.forEach(comment => {
       const commentElement = this.createCommentElement(comment);
       commentsContainer.appendChild(commentElement);
     });
   }
 
+  // Helper method to build comment tree
+  buildCommentTree(comments) {
+    const commentMap = new Map();
+    const rootComments = [];
+    
+    // First pass: Create map of all comments
+    comments.forEach(comment => {
+      comment.children = [];
+      commentMap.set(comment.permlink, comment);
+    });
+    
+    // Second pass: Build tree structure
+    comments.forEach(comment => {
+      const parentPermlink = comment.parent_permlink;
+      if (parentPermlink === this.params.permlink) {
+        // This is a root level comment
+        rootComments.push(comment);
+      } else {
+        // This is a reply
+        const parentComment = commentMap.get(parentPermlink);
+        if (parentComment) {
+          parentComment.children.push(comment);
+        }
+      }
+    });
+
+    return rootComments;
+  }
+
   createCommentElement(comment, depth = 0) {
     if (!comment) return document.createDocumentFragment();
+    
+    const MAX_DEPTH = 6; // Prevent excessive nesting
+    const currentDepth = Math.min(depth, MAX_DEPTH);
 
     const commentDiv = document.createElement('div');
-    commentDiv.className = 'comment';
-    commentDiv.style.marginLeft = `${depth * 20}px`;
+    commentDiv.className = `comment depth-${currentDepth}`;
+    commentDiv.style.marginLeft = `${currentDepth * 20}px`;
     
     // Comment header
     const commentHeader = document.createElement('div');
@@ -486,8 +520,8 @@ class PostView extends View {
     const upvoteBtn = document.createElement('button');
     upvoteBtn.className = 'action-btn upvote-btn small';
     const upvoteIcon = document.createElement('span');
-    upvoteIcon.className = 'icon';
-    upvoteIcon.textContent = '👍';
+    upvoteIcon.className = 'material-icons';
+    upvoteIcon.textContent = 'thumb_up';
     const upvoteCount = document.createElement('span');
     upvoteCount.className = 'count';
     upvoteCount.textContent = comment.net_votes || 0;
@@ -535,12 +569,12 @@ class PostView extends View {
       }
     });
     
-    // Recursively render replies
-    if (comment.replies && comment.replies.length > 0) {
+    // Render child comments
+    if (comment.children && comment.children.length > 0) {
       const repliesContainer = document.createElement('div');
       repliesContainer.className = 'replies';
       
-      comment.replies.forEach(reply => {
+      comment.children.forEach(reply => {
         const replyElement = this.createCommentElement(reply, depth + 1);
         repliesContainer.appendChild(replyElement);
       });
