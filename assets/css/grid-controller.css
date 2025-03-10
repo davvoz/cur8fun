@@ -1,0 +1,652 @@
+/* Grid Controller Styles */
+
+.header-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+  gap: var(--space-sm);
+}
+
+.grid-controller-container {
+  position: relative;
+}
+
+/* Hide grid controller on mobile */
+.grid-controller-container.mobile-hidden {
+  display: none;
+}
+
+.grid-controller {
+  display: flex;
+  align-items: center;
+  background: var(--background-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--subtle-shadow);
+  border: 1px solid var(--border-color);
+}
+
+.grid-controller-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  color: var(--text-color-secondary);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.grid-controller-toggle:hover {
+  color: var(--color-primary);
+  background-color: var(--background-subtle);
+}
+
+.grid-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  transition: all 0.3s ease;
+}
+
+/* Control groups */
+.grid-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+}
+
+.grid-control-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Layout options */
+.grid-layout-options {
+  display: flex;
+  gap: var(--space-xxs);
+}
+
+.grid-layout-option {
+  background-color: var(--background-subtle);
+  border: 1px solid transparent;
+  color: var(--text-color-secondary);
+  padding: var(--space-xxs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-layout-option:hover {
+  background-color: var(--background-hover);
+  color: var(--text-color);
+}
+
+.grid-layout-option.active {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.grid-layout-option .material-icons {
+  font-size: 1.2rem;
+}
+
+/* Size control */
+.grid-size-control {
+  display: flex;
+  gap: var(--space-xxs);
+}
+
+.grid-size-option {
+  background-color: var(--background-subtle);
+  border: 1px solid transparent;
+  color: var(--text-color-secondary);
+  padding: var(--space-xxs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.grid-size-option:hover {
+  background-color: var(--background-hover);
+  color: var(--text-color);
+}
+
+.grid-size-option.active {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Spacing control */
+.grid-spacing-control {
+  display: flex;
+  gap: var(--space-xxs);
+}
+
+.grid-spacing-option {
+  background-color: var(--background-subtle);
+  border: 1px solid transparent;
+  color: var(--text-color-secondary);
+  padding: var(--space-xxs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-spacing-option:hover {
+  background-color: var(--background-hover);
+  color: var (--text-color);
+}
+
+.grid-spacing-option.active {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.grid-spacing-option .material-icons {
+  font-size: 1.2rem;
+}
+
+/* Reset button */
+.grid-control-reset {
+  background-color: var(--background-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-color-secondary);
+  padding: var(--space-xxs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  font-size: 0.85rem;
+}
+
+.grid-control-reset:hover {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.grid-control-reset .material-icons {
+  font-size: 1rem;
+}
+
+/* Responsive handling */
+@media (max-width: 768px) {
+  /* Hide the grid controller completely on mobile */
+  .grid-controller-container {
+    display: none;
+  }
+  
+  /* Force mobile-optimized layout regardless of settings */
+  .posts-container {
+    display: grid !important;
+    grid-template-columns: 1fr !important; /* Single column on small screens */
+    gap: var(--space-sm) !important;
+  }
+  
+  /* When screen gets very small, use compact layout */
+  @media (max-width: 480px) {
+    .posts-container .post-card {
+      margin-bottom: var(--space-sm);
+    }
+  }
+}
+
+/* Grid Layout Styles for Posts Container */
+.posts-container.grid-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-lg);
+}
+
+/* Base styles for all layouts - struttura verticale standard */
+.post-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-main-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+/* Layout lista */
+.posts-container.grid-layout-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Layout lista solo su desktop - struttura speciale con header in cima e contenuto affiancato */
+@media (min-width: 768px) {
+  .posts-container.grid-layout-list .post-card {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  /* Header posizionato in cima */
+  .posts-container.grid-layout-list .post-header {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-color-light);
+    background-color: var(--background-subtle);
+    z-index: 1;
+  }
+
+  /* Contenuto principale in formato orizzontale */
+  .posts-container.grid-layout-list .post-main-content {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    flex-direction: row; /* Overrides the column direction */
+    height: auto;
+  }
+
+  /* Immagine a sinistra */
+  .posts-container.grid-layout-list .post-image-container {
+    height: 100%;
+    min-height: 200px;
+    padding-bottom: 0;
+    position: relative;
+    border-right: 1px solid var(--border-color-light);
+  }
+
+  /* Contenuto testuale a destra */
+  .posts-container.grid-layout-list .post-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  /* ...existing code for grid-layout-list specific styles... */
+}
+
+/* Layout compatto - mantiene la struttura verticale */
+.posts-container.grid-layout-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+/* Assicuriamoci che il compact layout mantenga la struttura verticale */
+.posts-container.grid-layout-compact .post-card {
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.posts-container.grid-layout-compact .post-main-content {
+  flex-direction: column;
+}
+
+/* Layout lista avanzato - SOLO SU DESKTOP */
+@media (min-width: 768px) {
+  .posts-container.grid-layout-list {
+    gap: var(--space-lg);
+  }
+
+  /* Card design professionale per layout lista con header in cima - SOLO SU DESKTOP */
+  .posts-container.grid-layout-list .post-card {
+    display: grid;
+    grid-template-rows: auto auto;
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    padding: 0;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-box-shadow);
+    border: 1px solid var(--border-color);
+    height: auto;
+  }
+
+  /* Header posizionato in cima */
+  .posts-container.grid-layout-list .post-header {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-color-light);
+    background-color: var(--background-subtle);
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Contenuto principale in formato a due colonne */
+  .posts-container.grid-layout-list .post-main-content {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+  }
+
+  /* Immagine ridimensionata */
+  .posts-container.grid-layout-list .post-image-container {
+    height: 100%;
+    min-height: 200px;
+    padding-bottom: 0;
+    flex-shrink: 0;
+    border-radius: 0;
+    position: relative;
+    border-right: 1px solid var(--border-color-light);
+  }
+
+  /* Contenuto con layout migliorato */
+  .posts-container.grid-layout-list .post-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+  }
+
+  /* Sezione centrale con migliore spaziatura */
+  .posts-container.grid-layout-list .post-content-middle {
+    padding: var(--space-md);
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  /* Titolo più grande e prominente */
+  .posts-container.grid-layout-list .post-title {
+    font-size: 1.3rem;
+    margin-bottom: var(--space-sm);
+    line-height: 1.3;
+    font-weight: 600;
+    -webkit-line-clamp: 2;
+    color: var(--text-color);
+  }
+
+  /* Mostra l'estratto nel layout lista */
+  .posts-container.grid-layout-list .post-content-middle .post-excerpt {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: var(--space-sm);
+    color: var(--text-color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+
+  /* Azioni ridisegnate */
+  .posts-container.grid-layout-list .post-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: var(--space-xl);
+    border-top: 1px solid var(--border-color-light);
+    padding: var(--space-sm) var(--space-md);
+    margin-top: auto;
+    background-color: var(--background-subtle);
+  }
+
+  /* Layout lista per schermi diversi (ma sempre desktop) */
+  @media (max-width: 1024px) {
+    .posts-container.grid-layout-list .post-main-content {
+      grid-template-columns: 200px 1fr;
+    }
+    
+    .posts-container.grid-layout-list .post-content-middle {
+      padding: var(--space-sm);
+    }
+    
+    .posts-container.grid-layout-list .post-title {
+      font-size: 1.2rem;
+    }
+  }
+}
+
+/* Miglioramenti per il layout lista - header in cima */
+.posts-container.grid-layout-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Card design professionale per layout lista con header in cima */
+.posts-container.grid-layout-list .post-card {
+  display: grid;
+  grid-template-rows: auto auto;
+  grid-template-columns: 1fr;
+  max-width: 100%;
+  padding: 0;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-box-shadow);
+  border: 1px solid var(--border-color);
+  height: auto;
+}
+
+/* Header posizionato in cima */
+.posts-container.grid-layout-list .post-header {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-color-light);
+  background-color: var(--background-subtle);
+  z-index: 1;
+}
+
+/* Contenuto principale in formato a due colonne */
+.posts-container.grid-layout-list .post-main-content {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+/* Immagine ridimensionata */
+.posts-container.grid-layout-list .post-image-container {
+  height: 100%;
+  min-height: 200px;
+  padding-bottom: 0;
+  flex-shrink: 0;
+  border-radius: 0;
+  position: relative;
+  border-right: 1px solid var(--border-color-light);
+}
+
+/* Contenuto con layout migliorato */
+.posts-container.grid-layout-list .post-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+}
+
+/* Sezione centrale con migliore spaziatura */
+.posts-container.grid-layout-list .post-content-middle {
+  padding: var(--space-md);
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Titolo più grande e prominente */
+.posts-container.grid-layout-list .post-title {
+  font-size: 1.3rem;
+  margin-bottom: var(--space-sm);
+  line-height: 1.3;
+  font-weight: 600;
+  -webkit-line-clamp: 2;
+  color: var(--text-color);
+}
+
+/* Mostra l'estratto nel layout lista */
+.posts-container.grid-layout-list .post-content-middle .post-excerpt {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-sm);
+  color: var(--text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Tags redesign */
+.posts-container.grid-layout-list .post-tags {
+  margin: auto 0 var(--space-sm);
+}
+
+/* Azioni ridisegnate */
+.posts-container.grid-layout-list .post-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-xl);
+  border-top: 1px solid var(--border-color-light);
+  padding: var(--space-sm) var(--space-md);
+  margin-top: auto;
+  background-color: var(--background-subtle);
+}
+
+.posts-container.grid-layout-list .action-item {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+/* Layout lista per schermi diversi */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .posts-container.grid-layout-list .post-main-content {
+    grid-template-columns: 240px 1fr;
+  }
+  
+  .posts-container.grid-layout-list .post-title {
+    font-size: 1.2rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .posts-container.grid-layout-list .post-main-content {
+    grid-template-columns: 200px 1fr;
+  }
+  
+  .posts-container.grid-layout-list .post-content-middle {
+    padding: var(--space-sm);
+  }
+}
+
+/* Responsive adjustments per mobile */
+@media (max-width: 768px) {
+  .posts-container.grid-layout-list .post-card {
+    grid-template-rows: auto auto auto;
+  }
+  
+  .posts-container.grid-layout-list .post-main-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  
+  .posts-container.grid-layout-list .post-image-container {
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color-light);
+  }
+}
+
+/* Rimuovo stili duplicati e obsoleti */
+.posts-container.grid-layout-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.posts-container.grid-layout-compact .post-card {
+  margin-bottom: 0;
+}
+
+.posts-container.grid-layout-compact .post-title {
+  font-size: 0.9rem;
+  -webkit-line-clamp: 2;
+}
+
+.posts-container.grid-layout-compact .post-header {
+  padding: var(--space-xs);
+}
+
+.posts-container.grid-layout-compact .post-content-wrapper {
+  padding: var(--space-xs);
+}
+
+.posts-container.grid-layout-compact .post-actions {
+  font-size: 0.8rem;
+}
+
+/* Card size modifiers */
+.posts-container.grid-size-small .post-card {
+  font-size: 0.9rem;
+}
+
+.posts-container.grid-size-small.grid-layout-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.posts-container.grid-size-large .post-card {
+  font-size: 1.1rem;
+}
+
+.posts-container.grid-size-large.grid-layout-grid {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.posts-container.grid-size-large.grid-layout-list .post-image-container {
+  width: 280px;
+  height: 180px;
+}
+
+/* Spacing modifiers */
+.posts-container.grid-spacing-tight {
+  gap: var(--space-xs);
+}
+
+.posts-container.grid-spacing-spacious {
+  gap: var(--space-xl);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .posts-container.grid-layout-list .post-card {
+    flex-direction: column;
+  }
+  
+  .posts-container.grid-layout-list .post-image-container {
+    width: 100%;
+    padding-bottom: 56.25%;
+  }
+}

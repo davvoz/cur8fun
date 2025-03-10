@@ -11,6 +11,7 @@
     flex-direction: column;
     cursor: pointer;
     max-width: 100%;
+    height: 100%;
 }
 
 .post-card:hover {
@@ -190,6 +191,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Per layout lista aggiungiamo spazio per l'excerpt quando disponibile */
+.grid-layout-list .post-content-middle {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
 }
 
 .post-title {
@@ -206,7 +218,12 @@
 
 /* Hide excerpt since we're not displaying it anymore */
 .post-excerpt {
-    display: none;
+    display: none; /* Nascosto di default ma mostrato nel layout lista */
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Tags styling - more compact and right under title */
@@ -225,6 +242,8 @@
     font-size: 0.75rem;
     font-weight: 500;
     transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    display: inline-block;
 }
 
 .post-tag:hover {
@@ -237,6 +256,9 @@
     padding: var(--space-xs) var(--space-md);
     border-top: 1px solid var(--border-color-light);
     margin-top: auto;
+    display: flex;
+    gap: var(--space-md);
+    flex-wrap: wrap;
 }
 
 .action-item {
@@ -279,4 +301,121 @@
     .post-image-container {
         padding-bottom: 60%; /* Slightly taller aspect ratio for smaller cards */
     }
+}
+
+/* Miglioriamo il design dell'autore per il layout lista */
+.grid-layout-list .post-author {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.grid-layout-list .post-date {
+    font-size: 0.85rem;
+}
+
+/* Supporto specifico per layout lista */
+.grid-layout-list .post-content-middle {
+    position: relative;
+}
+
+/* Miglioramenti header per layout lista */
+.grid-layout-list .post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.grid-layout-list .post-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.grid-layout-list .post-author {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.grid-layout-list .post-date {
+    font-size: 0.85rem;
+    color: var(--text-color-secondary);
+    margin-left: auto;
+}
+
+/* Migliorare stili di hover per interazioni più sofisticate */
+.post-card:hover .post-title {
+    color: var(--color-primary);
+}
+
+/* Aumentare la visibilità degli elementi interattivi al hover */
+.grid-layout-list .post-card:hover .action-item {
+    opacity: 0.9;
+}
+
+.grid-layout-list .post-card .action-item {
+    opacity: 0.7;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+/* Layout per post-main-content */
+.post-main-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* Modifiche per layout lista - SOLO SU DESKTOP */
+@media (min-width: 768px) {
+  /* Layout per post-main-content nel layout lista */
+  .grid-layout-list .post-main-content {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+  }
+
+  /* Miglioramenti header per layout lista */
+  .grid-layout-list .post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .grid-layout-list .post-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .grid-layout-list .post-author {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .grid-layout-list .post-date {
+    font-size: 0.85rem;
+    color: var(--text-color-secondary);
+    margin-left: auto;
+  }
+
+  /* Post excerpt mostrato solo nel layout lista */
+  .grid-layout-list .post-excerpt {
+    display: block;
+  }
+
+  /* Migliorare stili di hover per interazioni più sofisticate */
+  .grid-layout-list .post-card:hover .post-title {
+    color: var(--color-primary);
+  }
+
+  /* Aumentare la visibilità degli elementi interattivi al hover */
+  .grid-layout-list .post-card:hover .action-item {
+    opacity: 0.9;
+  }
+
+  .grid-layout-list .post-card .action-item {
+    opacity: 0.7;
+    transition: opacity 0.2s ease, color 0.2s ease;
+  }
 }

@@ -12,6 +12,9 @@
 @import './components.css';
 @import './responsive.css';
 
+/* Import Grid Controller Styles */
+@import url('./grid-controller.css');
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

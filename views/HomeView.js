@@ -1,5 +1,6 @@
 import steemService from '../services/SteemService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
+import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import ImageUtils from '../utils/ImageUtils.js';
@@ -12,6 +13,9 @@ class HomeView {
     this.loading = false;
     this.loadingIndicator = new LoadingIndicator();
     this.infiniteScroll = null;
+    this.gridController = new GridController({
+      targetSelector: '.posts-container'
+    });
     // Track post IDs to prevent duplicates
     this.renderedPostIds = new Set();
   }
@@ -164,35 +168,83 @@ class HomeView {
     // Get the best available image
     const imageUrl = this.getBestImage(post, metadata);
     
-    // Add header (author info)
+    // 1. Add header (author info) - Sempre in cima
     postCard.appendChild(this.createPostHeader(post));
     
-    // Add image preview
-    postCard.appendChild(this.createPostImage(imageUrl, post.title));
+    // 2. Contenuto principale - può essere verticale o orizzontale a seconda del layout
+    const mainContent = document.createElement('div');
+    mainContent.className = 'post-main-content';
     
+    // 2a. Add image preview
+    mainContent.appendChild(this.createPostImage(imageUrl, post.title));
+    
+    // 2b. Wrapper per contenuti testuali
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'post-content-wrapper';
     
-    // Add title
-    contentWrapper.appendChild(this.createPostTitle(post.title));
+    // Sezione centrale con titolo, excerpt, tag
+    const contentMiddle = document.createElement('div');
+    contentMiddle.className = 'post-content-middle';
     
-    // Removed post body/excerpt to improve performance
+    // Titolo
+    contentMiddle.appendChild(this.createPostTitle(post.title));
     
-    // Add only essential tags if available (limit to 2)
-    if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
-      contentWrapper.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
+    // Excerpt per layout lista
+    if (post.body) {
+      const excerpt = document.createElement('div');
+      excerpt.className = 'post-excerpt';
+      const textExcerpt = this.createExcerpt(post.body);
+      excerpt.textContent = textExcerpt;
+      contentMiddle.appendChild(excerpt);
     }
     
-    // Add post stats (votes, comments, payout)
+    // Tags
+    if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
+      contentMiddle.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
+    }
+    
+    contentWrapper.appendChild(contentMiddle);
+    
+    // Azioni (votes, comments, payout)
     contentWrapper.appendChild(this.createPostActions(post));
     
-    postCard.appendChild(contentWrapper);
+    // Aggiunge contenuti testuali al main content
+    mainContent.appendChild(contentWrapper);
     
+    // Aggiunge il main content alla card
+    postCard.appendChild(mainContent);
+    
+    // Evento click
     postCard.addEventListener('click', () => {
       window.location.href = `/@${post.author}/${post.permlink}`;
     });
     
     container.appendChild(postCard);
+  }
+
+  createExcerpt(body, maxLength = 150) {
+    if (!body) return '';
+    
+    // Rimuovi i markdown e html in modo più efficace
+    const plainText = body
+        .replace(/!\[.*?\]\(.*?\)/g, '') // rimuovi immagini markdown
+        .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // rimuovi link markdown tenendo il testo
+        .replace(/<\/?[^>]+(>|$)/g, '') // rimuovi tag html
+        .replace(/#{1,6}\s/g, '') // rimuovi headings (1-6 hashes)
+        .replace(/(\*\*|__)(.*?)(\*\*|__)/g, '$2') // converte bold in testo normale
+        .replace(/(\*|_)(.*?)(\*|_)/g, '$2') // converte italic in testo normale
+        .replace(/~~(.*?)~~/g, '$1') // converte strikethrough in testo normale
+        .replace(/```[\s\S]*?```/g, '') // rimuovi blocchi di codice
+        .replace(/\n\n/g, ' ') // sostituisci doppi newline con spazio
+        .replace(/\n/g, ' ') // sostituisci singoli newline con spazio
+        .trim();
+    
+    // Tronca e aggiungi ellipsis se necessario
+    if (plainText.length <= maxLength) {
+        return plainText;
+    }
+    
+    return plainText.substring(0, maxLength) + '...';
   }
 
   getBestImage(post, metadata) {
@@ -425,11 +477,6 @@ class HomeView {
     return content;
   }
 
-  /**
-   * Sanitizes image URLs to prevent common formatting issues
-   * @param {string} url - The URL to sanitize
-   * @returns {string} - Sanitized URL
-   */
   sanitizeImageUrl(url) {
     if (!url || url.startsWith('data:')) return url;
     
@@ -512,20 +559,34 @@ class HomeView {
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'content-wrapper';
 
+    // Create header area with title and grid controls
+    const headerArea = document.createElement('div');
+    headerArea.className = 'header-area';
+    
     // Create heading
     const heading = document.createElement('h1');
     heading.textContent = this.tag.charAt(0).toUpperCase() + this.tag.slice(1) + ' Posts';
+    headerArea.appendChild(heading);
+    
+    // Create grid controller container
+    const gridControllerContainer = document.createElement('div');
+    gridControllerContainer.className = 'grid-controller-container';
+    headerArea.appendChild(gridControllerContainer);
+    
+    contentWrapper.appendChild(headerArea);
 
     // Create posts container
     const postsContainer = document.createElement('div');
     postsContainer.className = 'posts-container';
 
-    // Build the structure
-    contentWrapper.appendChild(heading);
+    // Add to content wrapper
     contentWrapper.appendChild(postsContainer);
 
     // Add to container
     container.appendChild(contentWrapper);
+    
+    // Initialize grid controller
+    this.gridController.render(gridControllerContainer);
     
     // Show loading indicator while posts are loading
     this.loadingIndicator.show(postsContainer);
@@ -549,35 +610,11 @@ class HomeView {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
+    
+    if (this.gridController) {
+      this.gridController.unmount();
+    }
   }
 }
-
-// Initialize static properties
-HomeView.imageRegexPatterns = {
-  // HTML patterns
-  htmlImage: /<img[^>]+src="([^">]+)"/i,
-  htmlImageSingleQuote: /<img[^>]+src='([^']+)'/i,
-  
-  // Markdown patterns
-  markdownImage: /!\[(.*?)\]\((.*?)\)/i,
-  
-  // Naked URLs with image extensions
-  nakedImageUrl: /(https?:\/\/\S+\.(jpe?g|png|gif|webp|bmp|svg))/i,
-  
-  // Platform-specific patterns
-  steemitImage: /(https?:\/\/(?:steemitimages\.com|steemd\.com)\/[^"'\s)]+)/i,
-  hiveImage: /(https?:\/\/images\.hive\.blog\/[^"'\s)]+)/i,
-  ipfsImage: /(https?:\/\/(?:\w+\.)?ipfs\.[^"'\s)]+\/ipfs\/\w+)/i,
-  imgurImage: /(https?:\/\/(?:i\.)?imgur\.com\/[^"'\s)]+)/i,
-  
-  // BBCode pattern
-  bbCodeImage: /\[img\](.*?)\[\/img\]/i,
-  
-  // Complex nested patterns
-  markdownWithHtml: /!\[.*?\]\(<img[^>]+src="([^">]+)"[^>]*>\)/i,
-  
-  // Steemit/Hive specific patterns
-  steemitMarkdown: /<center>!\[.*?\]\((.*?)\)<\/center>/i
-};
 
 export default HomeView;
