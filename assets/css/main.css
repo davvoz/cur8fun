@@ -14,6 +14,7 @@
 @import './wallet.css';
 @import './post.css';
 @import './grid-controller.css';
+@import './profile.css';  /* Add this line to import profile styles */
 
 
 /* Fallback styles in case any imports fail */
