@@ -1,32 +1,69 @@
 import View from './View.js';
-import SteemService from '../services/SteemService.js';
+import steemService from '../services/SteemService.js'; // Changed from SteemService to steemService
 import router from '../utils/Router.js';
+import markdownRenderer from '../utils/MarkdownRenderer.js';
 
 class PostView extends View {
-  constructor(element, params = {}) {
-    super(element, params);
-    this.steemService = new SteemService();
+  constructor(params = {}) {
+    super(params);
+    this.steemService = steemService; // Use the imported instance directly instead of constructing a new one
     this.post = null;
     this.isLoading = false;
     this.author = params.author;
     this.permlink = params.permlink;
     this.comments = [];
+    this.element = null; // Initialize element as null
   }
 
-  async render() {
-    this.element.innerHTML = `
-      <div class="post-view">
-        <div class="loading-indicator">Loading post...</div>
-        <div class="post-content" style="display:none"></div>
-        <div class="error-message" style="display:none"></div>
-        <div class="comments-section"></div>
-      </div>
-    `;
+  async render(element) {
+    // Store the element for future reference
+    this.element = element;
+    
+    // Make sure we have an element before proceeding
+    if (!this.element) {
+      console.error('No element provided to PostView.render()');
+      return;
+    }
+    
+    // Clear the container
+    while (this.element.firstChild) {
+      this.element.removeChild(this.element.firstChild);
+    }
+    
+    const postView = document.createElement('div');
+    postView.className = 'post-view';
+    
+    // Loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.textContent = 'Loading post...';
+    
+    // Post content container
+    const postContent = document.createElement('div');
+    postContent.className = 'post-content';
+    postContent.style.display = 'none';
+    
+    // Error message
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'error-message';
+    errorMessage.style.display = 'none';
+    
+    // Comments section
+    const commentsSection = document.createElement('div');
+    commentsSection.className = 'comments-section';
+    
+    // Append all elements
+    postView.appendChild(loadingIndicator);
+    postView.appendChild(postContent);
+    postView.appendChild(errorMessage);
+    postView.appendChild(commentsSection);
+    
+    this.element.appendChild(postView);
 
-    this.loadingIndicator = this.element.querySelector('.loading-indicator');
-    this.postContent = this.element.querySelector('.post-content');
-    this.errorMessage = this.element.querySelector('.error-message');
-    this.commentsContainer = this.element.querySelector('.comments-section');
+    this.loadingIndicator = loadingIndicator;
+    this.postContent = postContent;
+    this.errorMessage = errorMessage;
+    this.commentsContainer = commentsSection;
     
     await this.loadPost();
   }
@@ -47,7 +84,7 @@ class PostView extends View {
       ]);
 
       if (!post || post.id === 0) {
-        throw new Error('Post not found');
+        throw new Error('not_found');
       }
 
       this.post = post;
@@ -55,13 +92,65 @@ class PostView extends View {
       this.renderPost();
     } catch (error) {
       console.error('Failed to load post:', error);
-      this.errorMessage.textContent = `Failed to load post: ${error.message || 'Failed to load post. Please try again later.'}`;
-      this.errorMessage.style.display = 'block';
+      
+      if (error.message === 'not_found') {
+        this.renderNotFoundError();
+      } else {
+        this.errorMessage.textContent = `Failed to load post: ${error.message || 'Failed to load post. Please try again later.'}`;
+        this.errorMessage.style.display = 'block';
+      }
     } finally {
       this.isLoading = false;
       this.loadingIndicator.style.display = 'none';
     }
   }
+  
+  renderNotFoundError() {
+    // Clear the existing error message container
+    while (this.errorMessage.firstChild) {
+      this.errorMessage.removeChild(this.errorMessage.firstChild);
+    }
+    
+    this.errorMessage.className = 'error-message not-found-error';
+    
+    // Create error container
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'not-found-container';
+    
+    // Error code
+    const errorCode = document.createElement('h1');
+    errorCode.className = 'error-code';
+    errorCode.textContent = '404';
+    
+    // Error heading
+    const errorHeading = document.createElement('h2');
+    errorHeading.className = 'error-heading';
+    errorHeading.textContent = 'Post Not Found';
+    
+    // Error description
+    const errorDesc = document.createElement('p');
+    errorDesc.className = 'error-description';
+    errorDesc.textContent = `We couldn't find the post at @${this.params.author}/${this.params.permlink}`;
+    
+    // Home button
+    const homeButton = document.createElement('button');
+    homeButton.className = 'back-to-home-btn';
+    homeButton.textContent = 'Back to Home';
+    homeButton.addEventListener('click', () => {
+      router.navigate('/');
+    });
+    
+    // Assemble the error container
+    errorContainer.appendChild(errorCode);
+    errorContainer.appendChild(errorHeading);
+    errorContainer.appendChild(errorDesc);
+    errorContainer.appendChild(homeButton);
+    
+    this.errorMessage.appendChild(errorContainer);
+    this.errorMessage.style.display = 'block';
+    
+  }
+  
 
   renderPost() {
     if (!this.post) return;
@@ -72,72 +161,142 @@ class PostView extends View {
       const curator = parseFloat(post.curator_payout_value?.split(' ')[0] || 0);
       return (pending + total + curator).toFixed(2);
     };
-
-    // Convert post body from Markdown to HTML (in a real implementation you'd use a markdown parser)
-    const bodyHtml = this.post.body;
     
-    this.postContent.innerHTML = `
-      <div class="post-header">
-        <a href="/" class="back-button">&larr; Back to Feed</a>
-        <h1 class="post-title">${this.post.title || 'Untitled'}</h1>
-        <div class="post-meta">
-          <img class="author-avatar" src="https://steemitimages.com/u/${this.post.author}/avatar" alt="${this.post.author}">
-          <a href="/profile/${this.post.author}" class="author-name">@${this.post.author}</a>
-          <span class="post-date">${new Date(this.post.created).toLocaleString()}</span>
-        </div>
-      </div>
-      
-      <div class="post-body">
-        ${bodyHtml}
-      </div>
-      
-      <div class="post-actions">
-        <button class="action-btn upvote-btn">
-          <span class="icon">&#128077;</span>
-          <span class="count">${this.post.net_votes || 0}</span>
-        </button>
-        <button class="action-btn comment-btn">
-          <span class="icon">&#128172;</span>
-          <span class="count">${this.post.children || 0}</span>
-        </button>
-        <button class="action-btn share-btn">
-          <span class="icon">&#128257;</span>
-          Share
-        </button>
-        <div class="payout-info">
-          $${getPendingPayout(this.post)}
-        </div>
-      </div>
-      
-      <div class="comments-section">
-        <h3>Comments (${this.comments.length})</h3>
-        <div class="comment-form">
-          <textarea placeholder="Write a comment..."></textarea>
-          <button class="submit-comment">Post Comment</button>
-        </div>
-        <div class="comments-list"></div>
-      </div>
-    `;
+    // Clear existing content
+    while (this.postContent.firstChild) {
+      this.postContent.removeChild(this.postContent.firstChild);
+    }
+    
+    // Create header
+    const postHeader = document.createElement('div');
+    postHeader.className = 'post-header';
+    
+    const backButton = document.createElement('a');
+    backButton.href = '/';
+    backButton.className = 'back-button';
+    backButton.textContent = '← Back to Feed';
+    
+    const postTitle = document.createElement('h1');
+    postTitle.className = 'post-title';
+    postTitle.textContent = this.post.title || 'Untitled';
+    
+    const postMeta = document.createElement('div');
+    postMeta.className = 'post-meta';
+    
+    const authorAvatar = document.createElement('img');
+    authorAvatar.className = 'author-avatar';
+    authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
+    authorAvatar.alt = this.post.author;
+    
+    const authorName = document.createElement('a');
+    authorName.href = `/profile/${this.post.author}`;
+    authorName.className = 'author-name';
+    authorName.textContent = `@${this.post.author}`;
+    
+    const postDate = document.createElement('span');
+    postDate.className = 'post-date';
+    postDate.textContent = new Date(this.post.created).toLocaleString();
+    
+    postMeta.appendChild(authorAvatar);
+    postMeta.appendChild(authorName);
+    postMeta.appendChild(postDate);
+    
+    postHeader.appendChild(backButton);
+    postHeader.appendChild(postTitle);
+    postHeader.appendChild(postMeta);
+    
+    // Create body
+    const postBody = document.createElement('div');
+    postBody.className = 'post-body markdown-content';
+    
+    // Use markdown renderer instead of textContent
+    markdownRenderer.renderToElement(postBody, this.post.body);
+    
+    // Create actions
+    const postActions = document.createElement('div');
+    postActions.className = 'post-actions';
+    
+    const upvoteBtn = this.createActionButton('upvote-btn', '👍', this.post.net_votes || 0);
+    const commentBtn = this.createActionButton('comment-btn', '💬', this.post.children || 0);
+    const shareBtn = this.createActionButton('share-btn', '🔁', 'Share');
+    
+    const payoutInfo = document.createElement('div');
+    payoutInfo.className = 'payout-info';
+    payoutInfo.textContent = `$${getPendingPayout(this.post)}`;
+    
+    postActions.appendChild(upvoteBtn);
+    postActions.appendChild(commentBtn);
+    postActions.appendChild(shareBtn);
+    postActions.appendChild(payoutInfo);
+    
+    // Create comments section
+    const commentsSection = document.createElement('div');
+    commentsSection.className = 'comments-section';
+    
+    const commentsHeader = document.createElement('h3');
+    commentsHeader.textContent = `Comments (${this.comments.length})`;
+    
+    const commentForm = document.createElement('div');
+    commentForm.className = 'comment-form';
+    
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = 'Write a comment...';
+    
+    const submitButton = document.createElement('button');
+    submitButton.className = 'submit-comment';
+    submitButton.textContent = 'Post Comment';
+    
+    commentForm.appendChild(textarea);
+    commentForm.appendChild(submitButton);
+    
+    const commentsList = document.createElement('div');
+    commentsList.className = 'comments-list';
+    
+    commentsSection.appendChild(commentsHeader);
+    commentsSection.appendChild(commentForm);
+    commentsSection.appendChild(commentsList);
+    
+    // Append all elements to post content
+    this.postContent.appendChild(postHeader);
+    this.postContent.appendChild(postBody);
+    this.postContent.appendChild(postActions);
+    this.postContent.appendChild(commentsSection);
     
     this.postContent.style.display = 'block';
     
     // Add event listeners
-    const backButton = this.postContent.querySelector('.back-button');
-    const upvoteButton = this.postContent.querySelector('.upvote-btn');
-    const commentForm = this.postContent.querySelector('.comment-form');
-    const shareButton = this.postContent.querySelector('.share-btn');
-    
     backButton.addEventListener('click', (e) => {
       e.preventDefault();
       router.navigate('/');
     });
     
-    upvoteButton.addEventListener('click', () => this.handleUpvote());
-    commentForm.querySelector('button').addEventListener('click', () => this.handleComment());
-    shareButton.addEventListener('click', () => this.handleShare());
+    upvoteBtn.addEventListener('click', () => this.handleUpvote());
+    submitButton.addEventListener('click', () => this.handleComment());
+    shareBtn.addEventListener('click', () => this.handleShare());
     
     // Render comments
     this.renderComments();
+  }
+
+  createActionButton(className, icon, countOrText) {
+    const button = document.createElement('button');
+    button.className = `action-btn ${className}`;
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'icon';
+    iconSpan.textContent = icon;
+    button.appendChild(iconSpan);
+    
+    const countSpan = document.createElement('span');
+    if (typeof countOrText === 'number') {
+      countSpan.className = 'count';
+      countSpan.textContent = countOrText;
+    } else {
+      countSpan.textContent = countOrText;
+    }
+    button.appendChild(countSpan);
+    
+    return button;
   }
 
   renderComments() {
@@ -146,10 +305,17 @@ class PostView extends View {
     }
 
     const commentsContainer = this.postContent.querySelector('.comments-list');
-    commentsContainer.innerHTML = '';
+    
+    // Clear existing comments
+    while (commentsContainer.firstChild) {
+      commentsContainer.removeChild(commentsContainer.firstChild);
+    }
     
     if (!this.comments || this.comments.length === 0) {
-      commentsContainer.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
+      const noComments = document.createElement('div');
+      noComments.className = 'no-comments';
+      noComments.textContent = 'No comments yet. Be the first to comment!';
+      commentsContainer.appendChild(noComments);
       return;
     }
     
@@ -161,42 +327,90 @@ class PostView extends View {
   }
 
   createCommentElement(comment, depth = 0) {
-    if (!comment) return '';
+    if (!comment) return document.createDocumentFragment();
 
-    const element = this.createElementFromHTML(`
-      <div class="comment" style="margin-left: ${depth * 20}px;">
-        <div class="comment-header">
-          <img class="author-avatar small" src="https://steemitimages.com/u/${comment.author}/avatar" alt="${comment.author}">
-          <a href="/profile/${comment.author}" class="author-name">@${comment.author}</a>
-          <span class="comment-date">${new Date(comment.created).toLocaleString()}</span>
-        </div>
-        <div class="comment-body">${comment.body}</div>
-        <div class="comment-actions">
-          <button class="action-btn upvote-btn small">
-            <span class="icon">&#128077;</span>
-            <span class="count">${comment.net_votes || 0}</span>
-          </button>
-          <button class="action-btn reply-btn small">Reply</button>
-        </div>
-        <div class="reply-form" style="display:none;">
-          <textarea placeholder="Write a reply..."></textarea>
-          <button class="submit-reply">Post Reply</button>
-        </div>
-      </div>
-    `);
+    const commentDiv = document.createElement('div');
+    commentDiv.className = 'comment';
+    commentDiv.style.marginLeft = `${depth * 20}px`;
+    
+    // Comment header
+    const commentHeader = document.createElement('div');
+    commentHeader.className = 'comment-header';
+    
+    const authorAvatar = document.createElement('img');
+    authorAvatar.className = 'author-avatar small';
+    authorAvatar.src = `https://steemitimages.com/u/${comment.author}/avatar`;
+    authorAvatar.alt = comment.author;
+    
+    const authorName = document.createElement('a');
+    authorName.href = `/profile/${comment.author}`;
+    authorName.className = 'author-name';
+    authorName.textContent = `@${comment.author}`;
+    
+    const commentDate = document.createElement('span');
+    commentDate.className = 'comment-date';
+    commentDate.textContent = new Date(comment.created).toLocaleString();
+    
+    commentHeader.appendChild(authorAvatar);
+    commentHeader.appendChild(authorName);
+    commentHeader.appendChild(commentDate);
+    
+    // Comment body
+    const commentBody = document.createElement('div');
+    commentBody.className = 'comment-body';
+    commentBody.textContent = comment.body;
+    
+    // Comment actions
+    const commentActions = document.createElement('div');
+    commentActions.className = 'comment-actions';
+    
+    const upvoteBtn = document.createElement('button');
+    upvoteBtn.className = 'action-btn upvote-btn small';
+    const upvoteIcon = document.createElement('span');
+    upvoteIcon.className = 'icon';
+    upvoteIcon.textContent = '👍';
+    const upvoteCount = document.createElement('span');
+    upvoteCount.className = 'count';
+    upvoteCount.textContent = comment.net_votes || 0;
+    upvoteBtn.appendChild(upvoteIcon);
+    upvoteBtn.appendChild(upvoteCount);
+    
+    const replyBtn = document.createElement('button');
+    replyBtn.className = 'action-btn reply-btn small';
+    replyBtn.textContent = 'Reply';
+    
+    commentActions.appendChild(upvoteBtn);
+    commentActions.appendChild(replyBtn);
+    
+    // Reply form
+    const replyForm = document.createElement('div');
+    replyForm.className = 'reply-form';
+    replyForm.style.display = 'none';
+    
+    const replyTextarea = document.createElement('textarea');
+    replyTextarea.placeholder = 'Write a reply...';
+    
+    const submitReplyBtn = document.createElement('button');
+    submitReplyBtn.className = 'submit-reply';
+    submitReplyBtn.textContent = 'Post Reply';
+    
+    replyForm.appendChild(replyTextarea);
+    replyForm.appendChild(submitReplyBtn);
+    
+    // Append all to comment div
+    commentDiv.appendChild(commentHeader);
+    commentDiv.appendChild(commentBody);
+    commentDiv.appendChild(commentActions);
+    commentDiv.appendChild(replyForm);
     
     // Add reply button handler
-    const replyBtn = element.querySelector('.reply-btn');
-    const replyForm = element.querySelector('.reply-form');
-    
     replyBtn.addEventListener('click', () => {
       replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
     });
     
     // Add submit reply handler
-    const submitReply = element.querySelector('.submit-reply');
-    submitReply.addEventListener('click', () => {
-      const replyText = replyForm.querySelector('textarea').value;
+    submitReplyBtn.addEventListener('click', () => {
+      const replyText = replyTextarea.value;
       if (replyText.trim()) {
         this.handleReply(comment, replyText);
       }
@@ -204,17 +418,18 @@ class PostView extends View {
     
     // Recursively render replies
     if (comment.replies && comment.replies.length > 0) {
-      const repliesContainer = this.createElementFromHTML('<div class="replies"></div>');
+      const repliesContainer = document.createElement('div');
+      repliesContainer.className = 'replies';
       
       comment.replies.forEach(reply => {
         const replyElement = this.createCommentElement(reply, depth + 1);
         repliesContainer.appendChild(replyElement);
       });
       
-      element.appendChild(repliesContainer);
+      commentDiv.appendChild(repliesContainer);
     }
     
-    return element;
+    return commentDiv;
   }
 
   handleUpvote() {

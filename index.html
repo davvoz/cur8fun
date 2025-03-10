@@ -6,7 +6,6 @@
     <title>SteemGram</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="stylesheet" href="assets/css/wallet.css"> <!-- Add this line -->
 </head>
 <body>
     <div id="app">
@@ -68,6 +67,10 @@
         </nav>
     </div>
 
+    <!-- Add Markdown parser and HTML sanitizer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@5.1.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    
     <script type="module" src="index.js"></script>
 </body>
 </html>

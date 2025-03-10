@@ -345,6 +345,26 @@ class SteemService {
     }
 
     /**
+     * Get comments/replies for a post
+     */
+    async getContentReplies(author, permlink) {
+        await this.ensureLibraryLoaded();
+
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getContentReplies(author, permlink, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching content replies:', error);
+            this.switchEndpoint();
+            throw error;
+        }
+    }
+
+    /**
      * Get profile information for a user
      */
     async getProfile(username) {

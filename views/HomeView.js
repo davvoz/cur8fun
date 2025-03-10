@@ -4,6 +4,7 @@ import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import ImageUtils from '../utils/ImageUtils.js';
+import router from '../utils/Router.js';
 
 class HomeView {
   constructor(params) {
@@ -214,9 +215,11 @@ class HomeView {
     // Aggiunge il main content alla card
     postCard.appendChild(mainContent);
     
-    // Evento click
-    postCard.addEventListener('click', () => {
-      window.location.href = `/@${post.author}/${post.permlink}`;
+    // Evento click - Fix: Use router.navigate instead of direct window.location
+    postCard.addEventListener('click', (e) => {
+      e.preventDefault();
+      const postUrl = `/@${post.author}/${post.permlink}`;
+      router.navigate(postUrl);
     });
     
     container.appendChild(postCard);
