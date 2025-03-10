@@ -14,6 +14,10 @@ class Router {
     this.maxHistoryLength = 10;
     this.viewContainer = null;
     this.useHashRouting = true; // Enable hash-based routing by default
+    this.basePath = ''; // Base path for GitHub Pages (e.g., '/repository-name')
+    
+    // Detect if we're on GitHub Pages and set the repository name as the base path
+    this.detectBasePath();
     
     // Handle browser navigation events
     if (this.useHashRouting) {
@@ -30,18 +34,49 @@ class Router {
     }
   }
 
+  /**
+   * Detect the base path for GitHub Pages repositories
+   */
+  detectBasePath() {
+    // Check for GitHub Pages deployment
+    const ghRegex = /https?:\/\/([^.]+)\.github\.io\/([^\/]+)/;
+    const match = window.location.href.match(ghRegex);
+    
+    if (match && match[2]) {
+      // Found repository name in GitHub Pages URL
+      this.basePath = '/' + match[2];
+      console.log('Detected GitHub Pages repository path:', this.basePath);
+    }
+  }
+
   // Get the current path from hash or pathname
   getCurrentPath() {
     if (this.useHashRouting) {
       return this.getPathFromHash() || '/';
     }
-    return window.location.pathname;
+    
+    // Remove base path if present
+    let path = window.location.pathname;
+    if (this.basePath && path.startsWith(this.basePath)) {
+      path = path.substring(this.basePath.length) || '/';
+    }
+    return path;
   }
 
   // Extract path from hash (e.g., "#/trending" -> "/trending")
   getPathFromHash() {
     const hash = window.location.hash;
-    return hash ? hash.substring(1) : '/';
+    if (!hash) return '/';
+    
+    // Remove the # character
+    const cleanHash = hash.substring(1);
+    
+    // If hash contains base path, remove it
+    if (this.basePath && cleanHash.startsWith(this.basePath)) {
+      return cleanHash.substring(this.basePath.length) || '/';
+    }
+    
+    return cleanHash;
   }
 
   beforeEach(fn) {
@@ -116,12 +151,13 @@ class Router {
       // Handle route change manually since hashchange might not fire if only params changed
       this.handleRouteChange(path, params);
     } else {
-      // For history API routing
-      // Update history with state
+      // For history API routing with base path support
+      const fullPath = this.basePath ? `${this.basePath}${path}` : path;
+      
       if (replaceState) {
-        window.history.replaceState(params, "", path);
+        window.history.replaceState(params, "", fullPath);
       } else {
-        window.history.pushState(params, "", path);
+        window.history.pushState(params, "", fullPath);
       }
       
       // Track navigation for back button functionality
@@ -300,6 +336,13 @@ class Router {
           // Extract the path from hash links
           if (href.startsWith('#/')) {
             path = href.substring(1);
+          }
+          
+          // If the path is the base path, convert to root
+          if (path === this.basePath) {
+            path = '/';
+          } else if (path.startsWith(this.basePath + '/')) {
+            path = path.substring(this.basePath.length);
           }
           
           this.navigate(path);

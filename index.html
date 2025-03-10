@@ -9,14 +9,38 @@
     <script>
         // Handle 404 redirects on GitHub Pages
         (function() {
+            function getRepositoryName() {
+                // Check if we're on GitHub Pages
+                const ghRegex = /https?:\/\/([^.]+)\.github\.io\/([^\/]+)/;
+                const match = window.location.href.match(ghRegex);
+                return match && match[2] ? '/' + match[2] : '';
+            }
+            
+            const repoPath = getRepositoryName();
+            const pathname = location.pathname;
+            
+            // Remove repository name from pathname if present
+            let cleanPath = pathname;
+            if (repoPath && pathname.startsWith(repoPath)) {
+                cleanPath = pathname.substring(repoPath.length) || '/';
+            }
+            
             // If we're on a path other than root and it's a direct page load
-            if (location.pathname !== '/' && 
-                location.pathname !== '/index.html' && 
+            if (cleanPath !== '/' && 
+                cleanPath !== '/index.html' && 
                 !location.hash) {
+                
                 // Store the path we tried to access
-                sessionStorage.setItem('redirectPath', location.pathname);
+                sessionStorage.setItem('redirectPath', cleanPath);
+                
                 // Redirect to the root with a hash path
-                location.replace('/#' + location.pathname);
+                if (repoPath) {
+                    // For GitHub Pages with repository name
+                    location.replace(repoPath + '/#' + cleanPath);
+                } else {
+                    // For root domain
+                    location.replace('/#' + cleanPath);
+                }
             }
             
             // Check if we need to restore a redirect path
