@@ -8,36 +8,47 @@ export default class ResourceMetersComponent extends Component {
       rc: 0,
       bandwidth: 0
     };
+    // Store element references for quick access
+    this.meterElements = {
+      voting: {},
+      rc: {},
+      bandwidth: {}
+    };
   }
   
   render() {
     this.element = document.createElement('div');
     this.element.className = 'resource-meters';
-    this.element.innerHTML = `
-      <div class="resource-meter">
-        <div class="meter-label">Voting Power</div>
-        <div class="meter-bar">
-          <div class="meter-fill" id="voting-power-fill" style="width: 0%"></div>
-        </div>
-        <div class="meter-value" id="voting-power-value">0%</div>
-      </div>
-      
-      <div class="resource-meter">
-        <div class="meter-label">Resource Credits</div>
-        <div class="meter-bar">
-          <div class="meter-fill" id="rc-fill" style="width: 0%"></div>
-        </div>
-        <div class="meter-value" id="rc-value">0%</div>
-      </div>
-      
-      <div class="resource-meter">
-        <div class="meter-label">Bandwidth</div>
-        <div class="meter-bar">
-          <div class="meter-fill" id="bandwidth-fill" style="width: 0%"></div>
-        </div>
-        <div class="meter-value" id="bandwidth-value">0%</div>
-      </div>
-    `;
+    
+    // Create Voting Power meter
+    const votingMeter = this.createResourceMeter(
+      'Voting Power', 
+      'voting-power-fill', 
+      'voting-power-value'
+    );
+    this.meterElements.voting.fill = votingMeter.fill;
+    this.meterElements.voting.value = votingMeter.value;
+    this.element.appendChild(votingMeter.container);
+    
+    // Create Resource Credits meter
+    const rcMeter = this.createResourceMeter(
+      'Resource Credits', 
+      'rc-fill', 
+      'rc-value'
+    );
+    this.meterElements.rc.fill = rcMeter.fill;
+    this.meterElements.rc.value = rcMeter.value;
+    this.element.appendChild(rcMeter.container);
+    
+    // Create Bandwidth meter
+    const bandwidthMeter = this.createResourceMeter(
+      'Bandwidth', 
+      'bandwidth-fill', 
+      'bandwidth-value'
+    );
+    this.meterElements.bandwidth.fill = bandwidthMeter.fill;
+    this.meterElements.bandwidth.value = bandwidthMeter.value;
+    this.element.appendChild(bandwidthMeter.container);
     
     this.parentElement.appendChild(this.element);
     
@@ -47,32 +58,72 @@ export default class ResourceMetersComponent extends Component {
     return this.element;
   }
   
+  /**
+   * Helper method to create a resource meter element
+   */
+  createResourceMeter(label, fillId, valueId) {
+    const container = document.createElement('div');
+    container.className = 'resource-meter';
+    
+    // Create label
+    const labelElement = document.createElement('div');
+    labelElement.className = 'meter-label';
+    labelElement.textContent = label;
+    container.appendChild(labelElement);
+    
+    // Create meter bar
+    const meterBar = document.createElement('div');
+    meterBar.className = 'meter-bar';
+    container.appendChild(meterBar);
+    
+    // Create fill element
+    const fill = document.createElement('div');
+    fill.className = 'meter-fill';
+    fill.id = fillId;
+    fill.style.width = '0%';
+    meterBar.appendChild(fill);
+    
+    // Create value element
+    const valueElement = document.createElement('div');
+    valueElement.className = 'meter-value';
+    valueElement.id = valueId;
+    valueElement.textContent = '0%';
+    container.appendChild(valueElement);
+    
+    return {
+      container,
+      fill,
+      value: valueElement
+    };
+  }
+  
   updateResources(resources) {
     if (!this.element) return;
     
-    const votingFill = this.element.querySelector('#voting-power-fill');
-    const rcFill = this.element.querySelector('#rc-fill');
-    const bandwidthFill = this.element.querySelector('#bandwidth-fill');
+    // Update voting power
+    this.meterElements.voting.fill.style.width = `${resources.voting}%`;
+    this.meterElements.voting.value.textContent = `${resources.voting}%`;
+    this.updateMeterColor(this.meterElements.voting.fill, resources.voting);
     
-    votingFill.style.width = `${resources.voting}%`;
-    rcFill.style.width = `${resources.rc}%`;
-    bandwidthFill.style.width = `${resources.bandwidth}%`;
+    // Update resource credits
+    this.meterElements.rc.fill.style.width = `${resources.rc}%`;
+    this.meterElements.rc.value.textContent = `${resources.rc}%`;
+    this.updateMeterColor(this.meterElements.rc.fill, resources.rc);
     
-    this.element.querySelector('#voting-power-value').textContent = `${resources.voting}%`;
-    this.element.querySelector('#rc-value').textContent = `${resources.rc}%`;
-    this.element.querySelector('#bandwidth-value').textContent = `${resources.bandwidth}%`;
+    // Update bandwidth
+    this.meterElements.bandwidth.fill.style.width = `${resources.bandwidth}%`;
+    this.meterElements.bandwidth.value.textContent = `${resources.bandwidth}%`;
+    this.updateMeterColor(this.meterElements.bandwidth.fill, resources.bandwidth);
+  }
+  
+  /**
+   * Helper method to update meter color based on value
+   */
+  updateMeterColor(element, value) {
+    element.classList.remove('low', 'medium', 'high');
     
-    // Add color classes based on levels
-    [
-      { element: votingFill, value: resources.voting },
-      { element: rcFill, value: resources.rc },
-      { element: bandwidthFill, value: resources.bandwidth }
-    ].forEach(({ element, value }) => {
-      element.classList.remove('low', 'medium', 'high');
-      
-      if (value < 30) element.classList.add('high');
-      else if (value < 70) element.classList.add('medium');
-      else element.classList.add('low');
-    });
+    if (value < 30) element.classList.add('high');
+    else if (value < 70) element.classList.add('medium');
+    else element.classList.add('low');
   }
 }

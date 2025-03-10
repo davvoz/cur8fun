@@ -14,31 +14,48 @@ export default class WalletTabsComponent extends Component {
   }
   
   render() {
+    // Create main container
     this.element = document.createElement('div');
     this.element.className = 'wallet-tabs';
-    this.element.innerHTML = `
-      <div class="tab-buttons">
-        <button class="tab-button active" data-tab="transfer">Transfer</button>
-        <button class="tab-button" data-tab="power">Power Up/Down</button>
-        <button class="tab-button" data-tab="delegate">Delegate</button>
-        <button class="tab-button" data-tab="history">History</button>
-        <button class="tab-button" data-tab="rewards">Rewards</button>
-      </div>
-      <div class="tab-content"></div>
-    `;
+    
+    // Create tab buttons container
+    const tabButtonsContainer = document.createElement('div');
+    tabButtonsContainer.className = 'tab-buttons';
+    
+    // Define tab data
+    const tabData = [
+      { id: 'transfer', label: 'Transfer', isActive: true },
+      { id: 'power', label: 'Power Up/Down', isActive: false },
+      { id: 'delegate', label: 'Delegate', isActive: false },
+      { id: 'history', label: 'History', isActive: false },
+      { id: 'rewards', label: 'Rewards', isActive: false }
+    ];
+    
+    // Create all tab buttons
+    tabData.forEach(tab => {
+      const button = document.createElement('button');
+      button.className = 'tab-button';
+      if (tab.isActive) {
+        button.classList.add('active');
+      }
+      button.setAttribute('data-tab', tab.id);
+      button.textContent = tab.label;
+      
+      this.registerEventHandler(button, 'click', this.handleTabClick);
+      tabButtonsContainer.appendChild(button);
+    });
+    
+    // Create tab content container
+    this.tabContent = document.createElement('div');
+    this.tabContent.className = 'tab-content';
+    
+    // Build the DOM structure
+    this.element.appendChild(tabButtonsContainer);
+    this.element.appendChild(this.tabContent);
     
     this.parentElement.appendChild(this.element);
     
-    // Add event listeners
-    const tabButtons = this.element.querySelectorAll('.tab-button');
-    tabButtons.forEach(button => {
-      this.registerEventHandler(button, 'click', this.handleTabClick);
-    });
-    
-    // Create tab content area
-    this.tabContent = this.element.querySelector('.tab-content');
-    
-    // Initialize tabs - only create Transfer tab initially for better performance
+    // Initialize the default tab
     this.initializeTab('transfer');
     
     return this.element;
