@@ -150,7 +150,6 @@ class PostView extends View {
     
     // Error heading
     const errorHeading = document.createElement('h2');
-    errorHeading.className = 'error-heading';
     errorHeading.textContent = 'Post Not Found';
     
     // Error description
@@ -197,10 +196,7 @@ class PostView extends View {
     const postHeader = document.createElement('div');
     postHeader.className = 'post-headero';
     
-    const backButton = document.createElement('a');
-    backButton.href = '/';
-    backButton.className = 'back-button';
-    backButton.textContent = '← Back to Feed';
+    // Back button removed
     
     const postTitle = document.createElement('h1');
     postTitle.className = 'post-title';
@@ -215,7 +211,7 @@ class PostView extends View {
     authorAvatar.alt = this.post.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/profile/${this.post.author}`;
+    authorName.href = `/@${this.post.author}`; // Removed the # symbol
     authorName.className = 'author-name';
     authorName.textContent = `@${this.post.author}`;
     
@@ -227,7 +223,6 @@ class PostView extends View {
     postMeta.appendChild(authorName);
     postMeta.appendChild(postDate);
     
-    postHeader.appendChild(backButton);
     postHeader.appendChild(postTitle);
     postHeader.appendChild(postMeta);
     
@@ -296,12 +291,6 @@ class PostView extends View {
     this.postContent.appendChild(commentsSection);
     
     this.postContent.style.display = 'block';
-    
-    // Add event listeners
-    backButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      router.navigate('/');
-    });
     
     upvoteBtn.addEventListener('click', () => this.handleUpvote());
     submitButton.addEventListener('click', () => this.handleComment());
@@ -479,7 +468,7 @@ class PostView extends View {
     authorAvatar.alt = comment.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/profile/${comment.author}`;
+    authorName.href = `/@${comment.author}`; // Removed the # symbol
     authorName.className = 'author-name';
     authorName.textContent = `@${comment.author}`;
     
