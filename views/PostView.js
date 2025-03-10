@@ -2,6 +2,8 @@ import View from './View.js';
 import steemService from '../services/SteemService.js'; // Changed from SteemService to steemService
 import router from '../utils/Router.js';
 import markdownRenderer from '../utils/MarkdownRenderer.js';
+import { generatePostContent } from '../utils/process_body.js';  // Import the content processor
+import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 
 class PostView extends View {
   constructor(params = {}) {
@@ -13,6 +15,13 @@ class PostView extends View {
     this.permlink = params.permlink;
     this.comments = [];
     this.element = null; // Initialize element as null
+    this.loadingIndicator = null; // Will hold the LoadingIndicator instance
+    
+    // Dictionary of regex patterns for content processing
+    this.contentRegexPatterns = {
+      discordImages: /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi,
+      // Add more regex patterns as needed for other content types
+    };
   }
 
   async render(element) {
@@ -33,10 +42,9 @@ class PostView extends View {
     const postView = document.createElement('div');
     postView.className = 'post-view';
     
-    // Loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'loading-indicator';
-    loadingIndicator.textContent = 'Loading post...';
+    // Create a loading container instead of a direct loading indicator
+    const loadingContainer = document.createElement('div');
+    loadingContainer.className = 'loading-container';
     
     // Post content container
     const postContent = document.createElement('div');
@@ -53,17 +61,20 @@ class PostView extends View {
     commentsSection.className = 'comments-section';
     
     // Append all elements
-    postView.appendChild(loadingIndicator);
+    postView.appendChild(loadingContainer);
     postView.appendChild(postContent);
     postView.appendChild(errorMessage);
     postView.appendChild(commentsSection);
     
     this.element.appendChild(postView);
 
-    this.loadingIndicator = loadingIndicator;
+    this.loadingContainer = loadingContainer;
     this.postContent = postContent;
     this.errorMessage = errorMessage;
     this.commentsContainer = commentsSection;
+    
+    // Initialize the LoadingIndicator but don't show it yet
+    this.loadingIndicator = new LoadingIndicator('spinner');
     
     await this.loadPost();
   }
@@ -72,16 +83,26 @@ class PostView extends View {
     if (this.isLoading) return;
     
     this.isLoading = true;
-    this.loadingIndicator.style.display = 'block';
+    
+    // Show the loading indicator with custom message
+    this.loadingIndicator.show(this.loadingContainer, 'Loading post...');
+    
     this.postContent.style.display = 'none';
     this.errorMessage.style.display = 'none';
     
     try {
       const { author, permlink } = this.params;
+      
+      // Update progress to show we're starting the request
+      this.loadingIndicator.updateProgress(20);
+      
       const [post, replies] = await Promise.all([
         this.steemService.getContent(author, permlink),
         this.steemService.getContentReplies(author, permlink)
       ]);
+
+      // Update progress to show we received the data
+      this.loadingIndicator.updateProgress(80);
 
       if (!post || post.id === 0) {
         throw new Error('not_found');
@@ -89,6 +110,10 @@ class PostView extends View {
 
       this.post = post;
       this.comments = replies || [];
+      
+      // Final progress update
+      this.loadingIndicator.updateProgress(100);
+      
       this.renderPost();
     } catch (error) {
       console.error('Failed to load post:', error);
@@ -101,7 +126,9 @@ class PostView extends View {
       }
     } finally {
       this.isLoading = false;
-      this.loadingIndicator.style.display = 'none';
+      
+      // Hide the loading indicator
+      this.loadingIndicator.hide();
     }
   }
   
@@ -205,12 +232,21 @@ class PostView extends View {
     postHeader.appendChild(postTitle);
     postHeader.appendChild(postMeta);
     
-    // Create body
-    const postBody = document.createElement('div');
-    postBody.className = 'post-body markdown-content';
+    // Add header first to ensure it's at the top
+    this.postContent.appendChild(postHeader);
     
-    // Use markdown renderer instead of textContent
-    markdownRenderer.renderToElement(postBody, this.post.body);
+    // Process the post content using process_body
+    const processedContent = generatePostContent(this.post.body);
+    
+    // Create a temporary container for the processed content
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = processedContent;
+    
+    // Append the processed content
+    this.postContent.appendChild(tempContainer);
+    
+    // Extract any Discord images that might not have been handled by the processor
+    this.appendDiscordImagesIfNeeded(this.post.body);
     
     // Create actions
     const postActions = document.createElement('div');
@@ -256,9 +292,7 @@ class PostView extends View {
     commentsSection.appendChild(commentForm);
     commentsSection.appendChild(commentsList);
     
-    // Append all elements to post content
-    this.postContent.appendChild(postHeader);
-    this.postContent.appendChild(postBody);
+    // Append remaining elements to post content
     this.postContent.appendChild(postActions);
     this.postContent.appendChild(commentsSection);
     
@@ -276,6 +310,74 @@ class PostView extends View {
     
     // Render comments
     this.renderComments();
+  }
+
+  // Helper method to append Discord images if they weren't handled by the processor
+  appendDiscordImagesIfNeeded(content) {
+    const imageUrls = this.extractDiscordImageUrls(content);
+    
+    if (imageUrls.length > 0) {
+      const featuredImageContainer = document.createElement('div');
+      featuredImageContainer.className = 'featured-image-container';
+      
+      imageUrls.forEach(imageUrl => {
+        const featuredImage = this.createImageWithFallback(imageUrl, 'featured-image', 'Featured image');
+        featuredImageContainer.appendChild(featuredImage);
+      });
+      
+      // Find where to insert the images - after the header but before the content
+      const postHeader = this.postContent.querySelector('.post-header');
+      if (postHeader && postHeader.nextSibling) {
+        this.postContent.insertBefore(featuredImageContainer, postHeader.nextSibling);
+      } else {
+        // Fall back to appending at the beginning of the post content
+        this.postContent.insertBefore(featuredImageContainer, this.postContent.firstChild);
+      }
+    }
+  }
+
+  // Create an image element with error handling
+  createImageWithFallback(imageUrl, className, altText) {
+    const image = document.createElement('img');
+    image.className = className;
+    image.alt = altText || 'Image';
+    image.loading = 'lazy';
+    
+    // Add error handling
+    image.onerror = () => {
+      console.warn(`Failed to load image: ${imageUrl}`);
+      image.style.display = 'none';
+    };
+    
+    // Add click event
+    image.addEventListener('click', () => {
+      window.open(imageUrl, '_blank');
+    });
+    
+    // Set source
+    image.src = imageUrl;
+    
+    return image;
+  }
+
+  // Extract all Discord image URLs from content
+  extractDiscordImageUrls(content) {
+    if (!content) return [];
+    
+    const imageUrls = [];
+    let match;
+    const regex = this.contentRegexPatterns?.discordImages || 
+                 /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi;
+    
+    // Reset regex lastIndex
+    regex.lastIndex = 0;
+    
+    // Find all matches
+    while ((match = regex.exec(content)) !== null) {
+      imageUrls.push(match[0]);
+    }
+    
+    return imageUrls;
   }
 
   createActionButton(className, icon, countOrText) {
@@ -355,10 +457,27 @@ class PostView extends View {
     commentHeader.appendChild(authorName);
     commentHeader.appendChild(commentDate);
     
-    // Comment body
+    // Comment body - Use process_body instead of markdown renderer
     const commentBody = document.createElement('div');
-    commentBody.className = 'comment-body';
-    commentBody.textContent = comment.body;
+    commentBody.className = 'comment-body markdown-content';
+    
+    // Use process_body for comment content
+    const processedComment = generatePostContent(comment.body);
+    commentBody.innerHTML = processedComment;
+    
+    // Append Discord images if needed
+    const imageUrls = this.extractDiscordImageUrls(comment.body);
+    if (imageUrls.length > 0) {
+      const commentImagesContainer = document.createElement('div');
+      commentImagesContainer.className = 'comment-images-container';
+      
+      imageUrls.forEach(imageUrl => {
+        const commentImage = this.createImageWithFallback(imageUrl, 'comment-image', 'Comment image');
+        commentImagesContainer.appendChild(commentImage);
+      });
+      
+      commentBody.appendChild(commentImagesContainer);
+    }
     
     // Comment actions
     const commentActions = document.createElement('div');

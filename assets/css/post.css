@@ -487,6 +487,53 @@
   margin: var(--space-lg) 0;
 }
 
+/* Featured Image Styling */
+.featured-image-container {
+  margin: var(--space-lg) 0;
+  text-align: center;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.featured-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: transform var(--transition-fast);
+  cursor: pointer;
+}
+
+.featured-image:hover {
+  transform: scale(1.01);
+}
+
+/* Comment Images Styling */
+.comment-images-container {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.comment-image {
+  max-width: 150px;
+  height: auto;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comment-image:hover {
+  transform: scale(1.05);
+}
+
 /* Media Queries for Responsive Design */
 @media (max-width: 768px) {
   .post-content {

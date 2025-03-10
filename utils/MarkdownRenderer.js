@@ -3,16 +3,16 @@
  */
 class MarkdownRenderer {
   constructor() {
-    // Set marked.js options for better security and rendering
+    // Set marked.js options - fix deprecation warnings
     if (window.marked) {
       marked.setOptions({
         breaks: true,          // Convert line breaks to <br>
         gfm: true,             // Enable GitHub Flavored Markdown
-        headerIds: true,       // Create ids for headings
+        headerIds: false,      // Disable headerIds to fix deprecation warning
         mangle: false,         // Don't mangle header IDs
         smartLists: true,      // Use smarter list behavior
-        smartypants: false,    // Don't use "smart" typographic punctuation
-        xhtml: true            // Use XHTML style closing self-tags
+        smartypants: false     // Don't use "smart" typographic punctuation
+        // Remove xhtml parameter to fix deprecation warning
       });
     }
   }
