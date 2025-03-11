@@ -28,19 +28,44 @@ class WalletView extends View {
       return this.element;
     }
     
-    // Create basic container structure
-    this.element.innerHTML = `
-      <div class="wallet-container">
-        <div class="page-header">
-          <h1>Wallet</h1>
-          <p>Manage your STEEM, SBD and STEEM POWER</p>
-        </div>
-        
-        <div id="wallet-balances-container"></div>
-        <div id="wallet-resources-container"></div>
-        <div id="wallet-tabs-container"></div>
-      </div>
-    `;
+    // Clear container
+    while (this.element.firstChild) {
+      this.element.removeChild(this.element.firstChild);
+    }
+    
+    // Create wallet container
+    const walletContainer = document.createElement('div');
+    walletContainer.className = 'wallet-container';
+    
+    // Create header section
+    const pageHeader = document.createElement('div');
+    pageHeader.className = 'page-header';
+    
+    const heading = document.createElement('h1');
+    heading.textContent = 'Wallet';
+    pageHeader.appendChild(heading);
+    
+    const subheading = document.createElement('p');
+    subheading.textContent = 'Manage your STEEM, SBD and STEEM POWER';
+    pageHeader.appendChild(subheading);
+    
+    walletContainer.appendChild(pageHeader);
+    
+    // Create component containers
+    const balancesContainer = document.createElement('div');
+    balancesContainer.id = 'wallet-balances-container';
+    walletContainer.appendChild(balancesContainer);
+    
+    const resourcesContainer = document.createElement('div');
+    resourcesContainer.id = 'wallet-resources-container';
+    walletContainer.appendChild(resourcesContainer);
+    
+    const tabsContainer = document.createElement('div');
+    tabsContainer.id = 'wallet-tabs-container';
+    walletContainer.appendChild(tabsContainer);
+    
+    // Add to DOM
+    this.element.appendChild(walletContainer);
     
     // Initialize components
     this.initializeComponents();
@@ -55,13 +80,29 @@ class WalletView extends View {
    * Render login prompt for unauthenticated users
    */
   renderLoginPrompt() {
-    this.element.innerHTML = `
-      <div class="login-required">
-        <h2>Login Required</h2>
-        <p>Please login to view your wallet.</p>
-        <a href="/login" class="btn btn-primary">Login Now</a>
-      </div>
-    `;
+    // Clear container
+    while (this.element.firstChild) {
+      this.element.removeChild(this.element.firstChild);
+    }
+    
+    const loginRequired = document.createElement('div');
+    loginRequired.className = 'login-required';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Login Required';
+    loginRequired.appendChild(heading);
+    
+    const message = document.createElement('p');
+    message.textContent = 'Please login to view your wallet.';
+    loginRequired.appendChild(message);
+    
+    const loginButton = document.createElement('a');
+    loginButton.href = '/login';
+    loginButton.className = 'btn btn-primary';
+    loginButton.textContent = 'Login Now';
+    loginRequired.appendChild(loginButton);
+    
+    this.element.appendChild(loginRequired);
   }
   
   /**

@@ -22,7 +22,7 @@ export default class CreatePostView extends View {
     
     // Check if user is logged in
     if (!authService.isAuthenticated()) {
-      container.innerHTML = this.renderLoginRequired();
+      this.renderLoginRequiredElement(container);
       const loginBtn = container.querySelector('#login-redirect');
       if (loginBtn) {
         loginBtn.addEventListener('click', () => {
@@ -32,22 +32,42 @@ export default class CreatePostView extends View {
       return;
     }
     
-    container.innerHTML = this.renderCreatePostForm();
+    this.renderCreatePostFormElement(container);
     this.bindEvents();
   }
-  
-  renderLoginRequired() {
-    return `
-      <div class="create-post-container auth-required">
-        <h2>Create Post</h2>
-        <div class="card">
-          <div class="card-content">
-            <p>You need to be logged in to create posts.</p>
-            <button id="login-redirect" class="btn primary-btn">Login</button>
-          </div>
-        </div>
-      </div>
-    `;
+
+  renderLoginRequiredElement(container) {
+    // Clear container
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    const div = document.createElement('div');
+    div.className = 'create-post-container auth-required';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Create Post';
+    div.appendChild(heading);
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    const cardContent = document.createElement('div');
+    cardContent.className = 'card-content';
+    
+    const p = document.createElement('p');
+    p.textContent = 'You need to be logged in to create posts.';
+    cardContent.appendChild(p);
+    
+    const button = document.createElement('button');
+    button.id = 'login-redirect';
+    button.className = 'btn primary-btn';
+    button.textContent = 'Login';
+    cardContent.appendChild(button);
+    
+    card.appendChild(cardContent);
+    div.appendChild(card);
+    container.appendChild(div);
   }
   
   renderCreatePostForm() {
@@ -97,6 +117,129 @@ export default class CreatePostView extends View {
     `;
   }
   
+  renderCreatePostFormElement(container) {
+    // Clear container
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    const div = document.createElement('div');
+    div.className = 'create-post-container';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Create Post';
+    div.appendChild(heading);
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    const cardContent = document.createElement('div');
+    cardContent.className = 'card-content';
+    
+    const form = document.createElement('form');
+    form.id = 'create-post-form';
+    
+    const statusContainer = document.createElement('div');
+    statusContainer.id = 'status-container';
+    statusContainer.className = 'status-container';
+    form.appendChild(statusContainer);
+    
+    const titleFormGroup = document.createElement('div');
+    titleFormGroup.className = 'form-group';
+    const titleLabel = document.createElement('label');
+    titleLabel.htmlFor = 'post-title';
+    titleLabel.textContent = 'Title';
+    titleFormGroup.appendChild(titleLabel);
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.id = 'post-title';
+    titleInput.placeholder = 'Enter your post title';
+    titleInput.required = true;
+    titleFormGroup.appendChild(titleInput);
+    form.appendChild(titleFormGroup);
+    
+    const bodyFormGroup = document.createElement('div');
+    bodyFormGroup.className = 'form-group';
+    const bodyLabel = document.createElement('label');
+    bodyLabel.htmlFor = 'post-body';
+    bodyLabel.textContent = 'Content (Markdown supported)';
+    bodyFormGroup.appendChild(bodyLabel);
+    const bodyTextarea = document.createElement('textarea');
+    bodyTextarea.id = 'post-body';
+    bodyTextarea.rows = 12;
+    bodyTextarea.placeholder = 'Write your post content here...';
+    bodyTextarea.required = true;
+    bodyFormGroup.appendChild(bodyTextarea);
+    form.appendChild(bodyFormGroup);
+    
+    const tagsFormGroup = document.createElement('div');
+    tagsFormGroup.className = 'form-group';
+    const tagsLabel = document.createElement('label');
+    tagsLabel.htmlFor = 'post-tags';
+    tagsLabel.textContent = 'Tags (separated by spaces)';
+    tagsFormGroup.appendChild(tagsLabel);
+    const tagsInput = document.createElement('input');
+    tagsInput.type = 'text';
+    tagsInput.id = 'post-tags';
+    tagsInput.placeholder = 'tag1 tag2 tag3';
+    tagsFormGroup.appendChild(tagsInput);
+    const tagsHint = document.createElement('small');
+    tagsHint.className = 'form-hint';
+    tagsHint.textContent = 'First tag will be the main category';
+    tagsFormGroup.appendChild(tagsHint);
+    form.appendChild(tagsFormGroup);
+    
+    const nsfwFormGroup = document.createElement('div');
+    nsfwFormGroup.className = 'form-group form-group-inline';
+    const nsfwCheckbox = document.createElement('input');
+    nsfwCheckbox.type = 'checkbox';
+    nsfwCheckbox.id = 'post-nsfw';
+    nsfwFormGroup.appendChild(nsfwCheckbox);
+    const nsfwLabel = document.createElement('label');
+    nsfwLabel.htmlFor = 'post-nsfw';
+    nsfwLabel.textContent = 'Mark as NSFW (Not Safe For Work)';
+    nsfwFormGroup.appendChild(nsfwLabel);
+    form.appendChild(nsfwFormGroup);
+    
+    const formActions = document.createElement('div');
+    formActions.className = 'form-actions';
+    const previewBtn = document.createElement('button');
+    previewBtn.type = 'button';
+    previewBtn.id = 'preview-btn';
+    previewBtn.className = 'btn secondary-btn';
+    previewBtn.textContent = 'Preview';
+    formActions.appendChild(previewBtn);
+    const publishBtn = document.createElement('button');
+    publishBtn.type = 'submit';
+    publishBtn.id = 'publish-btn';
+    publishBtn.className = 'btn primary-btn';
+    publishBtn.textContent = 'Publish Post';
+    formActions.appendChild(publishBtn);
+    form.appendChild(formActions);
+    
+    cardContent.appendChild(form);
+    
+    const previewContainer = document.createElement('div');
+    previewContainer.id = 'preview-container';
+    previewContainer.className = 'preview-container hidden';
+    const previewHeading = document.createElement('h3');
+    previewHeading.textContent = 'Preview';
+    previewContainer.appendChild(previewHeading);
+    const previewContent = document.createElement('div');
+    previewContent.id = 'preview-content';
+    previewContainer.appendChild(previewContent);
+    const backToEditBtn = document.createElement('button');
+    backToEditBtn.id = 'back-to-edit';
+    backToEditBtn.className = 'btn secondary-btn';
+    backToEditBtn.textContent = 'Back to editing';
+    previewContainer.appendChild(backToEditBtn);
+    
+    cardContent.appendChild(previewContainer);
+    card.appendChild(cardContent);
+    div.appendChild(card);
+    container.appendChild(div);
+  }
+  
   bindEvents() {
     const form = this.element.querySelector('#create-post-form');
     const previewBtn = this.element.querySelector('#preview-btn');
@@ -123,9 +266,11 @@ export default class CreatePostView extends View {
     }
     
     // Clear previous content
-    previewContent.innerHTML = '';
+    while (previewContent.firstChild) {
+      previewContent.removeChild(previewContent.firstChild);
+    }
     
-    // Use our ContentRenderer to render the preview
+    // Use ContentRenderer to render the preview
     const renderedContent = this.contentRenderer.render({
       title: title,
       body: body
@@ -294,13 +439,24 @@ export default class CreatePostView extends View {
   
   showStatus(message, type = 'error') {
     const statusContainer = this.element.querySelector('#status-container');
-    statusContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    
+    // Clear previous alerts
+    while (statusContainer.firstChild) {
+      statusContainer.removeChild(statusContainer.firstChild);
+    }
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    statusContainer.appendChild(alertDiv);
     
     // Auto-hide success messages after 5 seconds
     if (type === 'success') {
       setTimeout(() => {
         if (statusContainer.querySelector('.alert-success')) {
-          statusContainer.innerHTML = '';
+          while (statusContainer.firstChild) {
+            statusContainer.removeChild(statusContainer.firstChild);
+          }
         }
       }, 5000);
     }
