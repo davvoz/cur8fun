@@ -1,7 +1,6 @@
 import View from './View.js';
 import steemService from '../services/SteemService.js'; // Changed from SteemService to steemService
 import router from '../utils/Router.js';
-import { generatePostContent } from '../utils/process_body.js';  // Import the content processor
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
 

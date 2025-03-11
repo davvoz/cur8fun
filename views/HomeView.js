@@ -3,7 +3,7 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
-import ImageUtils from '../utils/ImageUtils.js';
+import ImageUtils from '../utils/process-body/ImageUtils.js';
 import router from '../utils/Router.js';
 
 class HomeView {

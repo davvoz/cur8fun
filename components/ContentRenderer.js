@@ -1,5 +1,5 @@
-import ImageUtils from '../utils/ImageUtils.js';
-import { generatePostContent } from '../utils/process_body.js';  // Add this import
+import ImageUtils from '../utils/process-body/ImageUtils.js';
+import { generatePostContent } from '../utils/process-body/process_body.js';  // Add this import
 
 /**
  * Content Renderer component for displaying Steem posts and previews

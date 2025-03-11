@@ -4,7 +4,7 @@ import authService from '../services/AuthService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
-import ImageUtils from '../utils/ImageUtils.js';
+import ImageUtils from '../utils/process-body/ImageUtils.js';
 
 class ProfileView extends View {
   constructor(params) {
