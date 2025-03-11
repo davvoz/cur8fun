@@ -431,3 +431,266 @@
   color: var(--text);
   font-weight: 500;
 }
+
+/* You can add this to your main CSS file */
+.curation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.curation-controls .form-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.stat-item {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: center;
+}
+
+.stat-icon {
+  margin-right: var(--space-sm);
+  color: var(--primary-color);
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary, #000); /* Make sure this uses your app's color variables */
+}
+
+/* For themes with dark background */
+[data-theme="dark"] .stat-value {
+  color: var(--text-primary-dark, #fff);
+}
+
+.curation-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.curation-table th,
+.curation-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.curation-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.high-efficiency {
+  color: var(--success-color, #28a745);
+  font-weight: 600;
+}
+
+.medium-efficiency {
+  color: var(--warning-color, #fd7e14);
+  font-weight: 500;
+}
+
+.low-efficiency {
+  color: var(--error-color, #dc3545);
+  font-weight: 400;
+}
+
+/* If you have a dark theme, add these overrides */
+[data-theme="dark"] .high-efficiency {
+  color: var(--success-color-dark, #48d368);
+}
+
+[data-theme="dark"] .medium-efficiency {
+  color: var(--warning-color-dark, #ffaa54);
+}
+
+[data-theme="dark"] .low-efficiency {
+  color: var(--error-color-dark, #ff6b6b);
+}
+
+.status-message {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.status-message.info {
+  background-color: #e3f2fd;
+  color: #0d47a1;
+}
+
+.status-message.error {
+  background-color: #ffebee;
+  color: #b71c1c;
+}
+
+.status-message.warning {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Additional styles for Curation Tab */
+
+/* Improved stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.stat-item {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: center;
+}
+
+.stat-icon {
+  margin-right: var(--space-sm);
+  color: var(--primary-color);
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Table improvements */
+.sort-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: var(--space-sm);
+}
+
+.sort-select {
+  background-color: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  margin-left: var(--space-xs);
+  font-size: 0.9rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  margin-bottom: var(--space-lg);
+}
+
+.curation-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-md);
+  font-size: 0.95rem;
+}
+
+.curation-table th {
+  background-color: var(--background-lighter);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 2px solid var(--border-color);
+  position: sticky;
+  top: 0;
+}
+
+.curation-table td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.curation-table tr:hover {
+  background-color: var(--background-hover);
+}
+
+.even-row {
+  background-color: var(--background);
+}
+
+.odd-row {
+  background-color: var(--background-lighter);
+}
+
+/* Post cell */
+.post-cell a {
+  color: var(--primary-color);
+  text-decoration: none;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.post-cell a:hover {
+  text-decoration: underline;
+}
+
+/* Time badges */
+.time-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.optimal-time {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+}
+
+.early-time {
+  background-color: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.late-time {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+}

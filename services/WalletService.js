@@ -660,6 +660,300 @@ class WalletService {
       };
     }
   }
+
+  /**
+   * Calculate Annual Percentage Rate (APR) based on weekly rewards and vesting shares
+   * @param {number} totalWeeklyRewards - Total weekly rewards in STEEM
+   * @param {number} vestingShares - Total vesting shares (VESTS)
+   * @returns {Promise<number>} Promise resolving to the calculated APR percentage
+   */
+  async calculateAPR(totalWeeklyRewards, vestingShares) {
+    try {
+      // Convert vesting shares to STEEM Power
+      const totalVestingSteem = await this.vestsToSteem(vestingShares);
+      
+      // Calculate annual rewards (52 weeks in a year)
+      const annualRewards = totalWeeklyRewards * 52;
+      
+      // Calculate APR as percentage: (annualRewards / totalVestingSteem) * 100
+      const apr = (annualRewards / totalVestingSteem) * 100;
+      
+      // Return APR with 2 decimal places
+      return parseFloat(apr.toFixed(2));
+    } catch (error) {
+      console.error('Error calculating APR:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Calculate curation efficiency metrics for a user over a specific time period
+   * @param {string} username - Steem username to analyze
+   * @param {number} daysBack - Number of days to look back (default: 7)
+   * @returns {Promise<Object>} Curation statistics, efficiency data and APR
+   */
+  async calculateCurationEfficiency(username = null, daysBack = 7) {
+    try {
+      // Use provided username or current user
+      const curator = username || this.currentUser;
+      
+      if (!curator) {
+        throw new Error('No username provided');
+      }
+      
+      // Emit event to notify UI about calculation starting
+      eventEmitter.emit('curation:calculation-started', { username: curator });
+      
+      let allResults = [];
+      let lastId = -1;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+      let isWithinTimeframe = true;
+      let processedCount = 0;
+      
+      // Set a maximum time or operation count to prevent infinite loops
+      const maxOperations = 5000;
+      const startTime = Date.now();
+      const maxTimeMs = 30000; // 30 seconds maximum
+      
+      // Continue fetching history until we get data older than the cutoff date
+      while (isWithinTimeframe) {
+        // Check if we've exceeded time or operation limits
+        if (processedCount > maxOperations || (Date.now() - startTime) > maxTimeMs) {
+          console.warn(`Stopping curation calculation: reached limits (${processedCount} operations processed)`);
+          break;
+        }
+        
+        try {
+          // Get account history in batches
+          const accountHistory = await this._getAccountHistory(curator, lastId);
+          if (!accountHistory || accountHistory.length === 0) break;
+          
+          // Sort by ID in descending order
+          accountHistory.sort((a, b) => b[0] - a[0]);
+          
+          // Process all operations in this batch
+          for (const entry of accountHistory) {
+            const [id, operation] = entry;
+            
+            // Process only curation reward operations
+            if (operation.op[0] === 'curation_reward') {
+              const timestamp = new Date(operation.timestamp + 'Z');
+              
+              // Stop if we reach data older than cutoff
+              if (timestamp < cutoffDate) {
+                isWithinTimeframe = false;
+                break;
+              }
+              
+              const opData = operation.op[1];
+              
+              // Extract operation data
+              const comment_author = opData.comment_author || opData.author;
+              const comment_permlink = opData.comment_permlink || opData.permlink;
+              const reward = opData.reward;
+              
+              if (!comment_author || !comment_permlink || !reward) {
+                console.warn('Invalid curation reward data structure');
+                continue;
+              }
+              
+              const postIdentifier = `@${comment_author}/${comment_permlink}`;
+              
+              try {
+                // Get post and vote details
+                const { post, votes } = await this._getPostDetails(comment_author, comment_permlink);
+                const curatorVote = votes.find(v => v.voter === curator);
+                
+                if (curatorVote) {
+                  // Parse reward amount
+                  const reward_vests = parseFloat(reward.split(' ')[0]);
+                  
+                  // Calculate vote metrics
+                  const vote_weight = curatorVote.weight / 100; 
+                  const percent = curatorVote.percent / 100;
+                  const vote_time = new Date(curatorVote.time + 'Z');
+                  const created_time = new Date(post.created + 'Z');
+                  const voteAgeMins = Math.floor((vote_time - created_time) / (1000 * 60));
+                  
+                  // Convert to STEEM Power
+                  const effective_reward_sp = await this.vestsToSteem(reward_vests);
+                  const estimated_reward = await this.vestsToSteem(vote_weight);
+                  const vote_power_sp = estimated_reward * 2; // Full vote value
+                  
+                  // Calculate efficiency percentage
+                  const efficiency = (effective_reward_sp / estimated_reward) * 100;
+                  
+                  // Store result
+                  allResults.push({
+                    post: postIdentifier,
+                    rewardSP: effective_reward_sp,
+                    voteValue: vote_power_sp, 
+                    expectedReward: estimated_reward,
+                    efficiency: efficiency,
+                    percent: percent,
+                    time: curatorVote.time,
+                    voteAgeMins: voteAgeMins
+                  });
+                  
+                  processedCount++;
+                  
+                  // Emit progress updates periodically
+                  if (processedCount % 10 === 0) {
+                    eventEmitter.emit('curation:calculation-progress', {
+                      username: curator,
+                      processedCount,
+                      latestResults: allResults
+                    });
+                  }
+                }
+              } catch (error) {
+                console.warn(`Error processing post ${postIdentifier}:`, error);
+                continue;
+              }
+            }
+            
+            // Update last ID for next batch
+            lastId = id - 1;
+            if (lastId < 0) break;
+          }
+          
+          // Break if we've gone past the timeframe
+          if (!isWithinTimeframe) break;
+        } catch (error) {
+          console.error('Error retrieving account history:', error);
+          throw error;
+        }
+      }
+      
+      // Handle cases with no results found
+      if (allResults.length === 0) {
+        const noResultsMessage = `No curation rewards found for ${curator} in the last ${daysBack} days`;
+        console.log(noResultsMessage);
+        
+        // Emit completion event with no results
+        eventEmitter.emit('curation:calculation-completed', {
+          success: false,
+          message: noResultsMessage,
+          username: curator,
+          timeframe: {
+            days: daysBack,
+            from: cutoffDate,
+            to: new Date()
+          },
+          summary: {
+            totalVotes: 0,
+            totalRewards: '0.000',
+            avgEfficiency: '0.00',
+            highestReward: '0.000',
+            apr: '0.00'
+          },
+          detailedResults: []
+        });
+        
+        return {
+          success: false,
+          message: noResultsMessage,
+          results: []
+        };
+      }
+      
+      // Calculate total rewards and statistics
+      const totalRewards = allResults.reduce((sum, result) => sum + result.rewardSP, 0);
+      const avgEfficiency = allResults.reduce((sum, result) => sum + result.efficiency, 0) / allResults.length;
+      const highestReward = Math.max(...allResults.map(result => result.rewardSP));
+      const mostEfficientVote = allResults.reduce((best, current) => 
+        (current.efficiency > best.efficiency) ? current : best, allResults[0]);
+      
+      // Calculate APR based on rewards and vesting shares
+      let apr = 0;
+      try {
+        // Get account data for vesting shares calculation
+        const account = await steemService.getUser(curator);
+        if (account) {
+          const delegatedVestingShares = parseFloat(account.delegated_vesting_shares.split(' ')[0]);
+          const vestingShares = parseFloat(account.vesting_shares.split(' ')[0]);
+          const receivedVestingShares = parseFloat(account.received_vesting_shares.split(' ')[0]);
+          const totalVestingShares = vestingShares + receivedVestingShares - delegatedVestingShares;
+          
+          // Calculate APR
+          apr = await this.calculateAPR(totalRewards, totalVestingShares);
+        }
+      } catch (error) {
+        console.warn('Error calculating APR:', error);
+      }
+      
+      // Build result object
+      const results = {
+        success: true,
+        username: curator,
+        timeframe: {
+          days: daysBack,
+          from: cutoffDate,
+          to: new Date()
+        },
+        summary: {
+          totalVotes: allResults.length,
+          totalRewards: totalRewards.toFixed(3),
+          avgEfficiency: avgEfficiency.toFixed(2),
+          highestReward: highestReward.toFixed(3),
+          mostEfficientVote: {
+            post: mostEfficientVote.post,
+            efficiency: mostEfficientVote.efficiency.toFixed(2),
+            reward: mostEfficientVote.rewardSP.toFixed(3)
+          },
+          apr: apr.toFixed(2)
+        },
+        detailedResults: allResults
+      };
+      
+      // Emit completion event with results
+      eventEmitter.emit('curation:calculation-completed', results);
+      
+      return results;
+    } catch (error) {
+      console.error('Error calculating curation efficiency:', error);
+      
+      // Emit error event
+      eventEmitter.emit('curation:calculation-error', {
+        error: error.message || 'Unknown error'
+      });
+      
+      throw error;
+    }
+  }
+  
+  /**
+   * Helper method to get account history from Steem API
+   * @private
+   */
+  async _getAccountHistory(username, from = -1, limit = 1000) {
+    return new Promise((resolve, reject) => {
+      window.steem.api.getAccountHistory(username, from, limit, (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+  }
+  
+  /**
+   * Helper method to get post and votes details
+   * @private
+   */
+  async _getPostDetails(author, permlink) {
+    return new Promise((resolve, reject) => {
+      window.steem.api.getContent(author, permlink, (err, post) => {
+        if (err) reject(err);
+        else {
+          // Get voters on this post
+          window.steem.api.getActiveVotes(author, permlink, (voteErr, votes) => {
+            if (voteErr) reject(voteErr);
+            else resolve({ post, votes });
+          });
+        }
+      });
+    });
+  }
 }
 
 // Create and export singleton instance

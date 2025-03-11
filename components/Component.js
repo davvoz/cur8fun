@@ -11,6 +11,7 @@ export default class Component {
     this.options = options;
     this.element = null;
     this.eventHandlers = [];
+    this.emitterHandlers = []; // Add separate array for emitter handlers
   }
   
   /**
@@ -21,7 +22,7 @@ export default class Component {
   }
   
   /**
-   * Register event handler for cleanup
+   * Register DOM event handler for cleanup
    * @param {HTMLElement} element - Element with event listener
    * @param {string} event - Event name
    * @param {Function} callback - Event callback
@@ -32,13 +33,34 @@ export default class Component {
   }
   
   /**
+   * Register event emitter handler for cleanup
+   * @param {EventEmitter} emitter - Event emitter
+   * @param {string} event - Event name
+   * @param {Function} handler - Event handler
+   */
+  registerEmitterHandler(emitter, event, handler) {
+    emitter.on(event, handler);
+    this.emitterHandlers.push({ emitter, event, handler });
+  }
+  
+  /**
    * Clean up component resources
    */
   destroy() {
-    // Remove event listeners
+    // Remove DOM event listeners
     this.eventHandlers.forEach(({ element, event, callback }) => {
-      element.removeEventListener(event, callback);
+      if (element && typeof element.removeEventListener === 'function') {
+        element.removeEventListener(event, callback);
+      }
     });
     this.eventHandlers = [];
+    
+    // Remove emitter event listeners
+    this.emitterHandlers.forEach(({ emitter, event, handler }) => {
+      if (emitter && typeof emitter.off === 'function') {
+        emitter.off(event, handler);
+      }
+    });
+    this.emitterHandlers = [];
   }
 }
