@@ -1,5 +1,7 @@
 import ImageUtils from '../utils/process-body/ImageUtils.js';
-import { generatePostContent } from '../utils/process-body/process_body.js';  // Add this import
+import YouTubeUtils from '../utils/process-body/plugins/youtube.js';
+import { generatePostContent } from '../utils/process-body/process_body.js';
+import { imagePatterns, largeImagePatterns, resetRegexLastIndex } from '../utils/process-body/RegexPatterns.js';
 
 /**
  * Content Renderer component for displaying Steem posts and previews
@@ -19,15 +21,8 @@ class ContentRenderer {
       ...options
     };
     
-    // Dictionary of regex patterns for content processing
-    this.regexPatterns = {
-      discordImages: /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi,
-      steemitImages: /https:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/[^\s<>")]+/gi,
-      // YouTube video patterns
-      youtubeStandard: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:[&?].*)?/gi,
-      youtubeShort: /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?].*)?/gi,
-      youtubeEmbed: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?].*)?/gi
-    };
+    // Utilizza i pattern regex importati
+    this.regexPatterns = imagePatterns;
     
     this.extractedImages = [];
     this.extractedVideos = [];
@@ -56,9 +51,9 @@ class ContentRenderer {
       
       // Extract YouTube videos before processing content
       if (renderOptions.enableYouTube) {
-        this.extractedVideos = this.extractYouTubeVideos(data.body);
+        this.extractedVideos = YouTubeUtils.extractYouTubeVideos(data.body);
         // Convert YouTube links to placeholders that won't be affected by other processing
-        data.body = this.replaceYouTubeLinksWithPlaceholders(data.body);
+        data.body = YouTubeUtils.replaceYouTubeLinksWithPlaceholders(data.body, this.extractedVideos);
       }
     }
     
@@ -89,7 +84,11 @@ class ContentRenderer {
     
     // Restore YouTube videos from placeholders to embed iframes
     if (renderOptions.enableYouTube && this.extractedVideos.length > 0) {
-      processedContent = this.restoreYouTubeEmbeds(processedContent);
+      processedContent = YouTubeUtils.restoreYouTubeEmbeds(
+        processedContent, 
+        this.extractedVideos,
+        renderOptions.videoDimensions
+      );
     }
     
     // Extract images if needed (only if not using processBody or for backup)
@@ -150,115 +149,12 @@ class ContentRenderer {
   }
   
   /**
-   * Extract YouTube video IDs from content
-   */
-  extractYouTubeVideos(content) {
-    if (!content) return [];
-    
-    const videos = [];
-    const patterns = [
-      this.regexPatterns.youtubeStandard,
-      this.regexPatterns.youtubeShort,
-      this.regexPatterns.youtubeEmbed
-    ];
-    
-    patterns.forEach(pattern => {
-      // Reset pattern lastIndex
-      pattern.lastIndex = 0;
-      
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        if (match[1] && match[1].length === 11) {
-          // Add video if it doesn't exist already
-          if (!videos.some(v => v.id === match[1])) {
-            videos.push({
-              id: match[1],
-              url: match[0],
-              placeholder: `YOUTUBE_VIDEO_${videos.length}_${match[1]}`
-            });
-          }
-        }
-      }
-    });
-    
-    return videos;
-  }
-  
-  /**
-   * Replace YouTube links with placeholders to protect them during processing
-   */
-  replaceYouTubeLinksWithPlaceholders(content) {
-    if (!content || this.extractedVideos.length === 0) return content;
-    
-    let result = content;
-    this.extractedVideos.forEach(video => {
-      result = result.replace(video.url, video.placeholder);
-    });
-    
-    return result;
-  }
-  
-  /**
-   * Restore YouTube embeds from placeholders
-   */
-  restoreYouTubeEmbeds(content) {
-    if (!content || this.extractedVideos.length === 0) return content;
-    
-    let result = content;
-    this.extractedVideos.forEach(video => {
-      const embedCode = this.createYouTubeEmbed(video.id);
-      result = result.replace(video.placeholder, embedCode);
-      
-      // Also try to replace any remaining direct links to YouTube
-      const patterns = [
-        new RegExp(`<a[^>]*href=["']${video.url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}["'][^>]*>.*?<\/a>`, 'gi'),
-        new RegExp(video.url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi')
-      ];
-      
-      patterns.forEach(pattern => {
-        result = result.replace(pattern, embedCode);
-      });
-    });
-    
-    return result;
-  }
-  
-  /**
-   * Create YouTube embed iframe
-   */
-  createYouTubeEmbed(videoId) {
-    const { width, height } = this.options.videoDimensions;
-    
-    return `<div class="youtube-embed-container">
-      <iframe 
-        width="${width}" 
-        height="${height}" 
-        src="https://www.youtube.com/embed/${videoId}" 
-        frameborder="0" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-        allowfullscreen>
-      </iframe>
-    </div>`;
-  }
-  
-  /**
    * Detect if content has large images that might need special handling
    */
   detectLargeImages(content) {
     if (!content) return false;
     
-    // Look for image patterns that typically indicate large images
-    const largeImagePatterns = [
-      // Discord large image links
-      /https:\/\/media\.discordapp\.net\/attachments\/[^\s<>"']+/i,
-      
-      // Steemit full-size image links (not thumbnails)
-      /https:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/(?:0x0|DQm|p\/)/i,
-      
-      // Imgur direct links to large images (not thumbnails)
-      /https:\/\/i\.imgur\.com\/[a-zA-Z0-9]+\.(?:jpg|png|gif)/i
-    ];
-    
+    // Usa i pattern per immagini grandi importati
     return largeImagePatterns.some(pattern => pattern.test(content));
   }
   
@@ -328,16 +224,12 @@ class ContentRenderer {
     
     // Process each regex pattern
     Object.values(this.regexPatterns).forEach(pattern => {
-      // Only process image patterns (skip YouTube patterns)
-      if (pattern === this.regexPatterns.discordImages || 
-          pattern === this.regexPatterns.steemitImages) {
-        // Reset regex state
-        pattern.lastIndex = 0;
-        
-        let match;
-        while ((match = pattern.exec(content)) !== null) {
-          images.add(match[0]);
-        }
+      // Resetta il lastIndex prima dell'uso
+      pattern.lastIndex = 0;
+      
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        images.add(match[0]);
       }
     });
     
