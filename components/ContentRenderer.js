@@ -14,6 +14,8 @@ class ContentRenderer {
       containerClass: 'markdown-content',
       useProcessBody: true, // Whether to use the legacy process_body.js
       maxImageWidth: 800,  // Add max width for large images
+      enableYouTube: true, // Enable YouTube embedding
+      videoDimensions: { width: '100%', height: '480px' }, // Default video dimensions
       ...options
     };
     
@@ -21,10 +23,14 @@ class ContentRenderer {
     this.regexPatterns = {
       discordImages: /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi,
       steemitImages: /https:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/[^\s<>")]+/gi,
-      // Add more regex patterns as needed
+      // YouTube video patterns
+      youtubeStandard: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:[&?].*)?/gi,
+      youtubeShort: /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?].*)?/gi,
+      youtubeEmbed: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?].*)?/gi
     };
     
     this.extractedImages = [];
+    this.extractedVideos = [];
   }
   
   /**
@@ -38,6 +44,7 @@ class ContentRenderer {
   render(data, options = {}) {
     const renderOptions = { ...this.options, ...options };
     this.extractedImages = [];
+    this.extractedVideos = [];
     
     // Process content based on the type of content
     let processedContent = '';
@@ -46,6 +53,13 @@ class ContentRenderer {
     // First check if post appears to contain large images
     if (data.body) {
       hasLargeImages = this.detectLargeImages(data.body);
+      
+      // Extract YouTube videos before processing content
+      if (renderOptions.enableYouTube) {
+        this.extractedVideos = this.extractYouTubeVideos(data.body);
+        // Convert YouTube links to placeholders that won't be affected by other processing
+        data.body = this.replaceYouTubeLinksWithPlaceholders(data.body);
+      }
     }
     
     // Process main body content
@@ -71,6 +85,11 @@ class ContentRenderer {
     } else {
       // Use our simpler markdown processing
       processedContent = this.processMarkdown(data.body);
+    }
+    
+    // Restore YouTube videos from placeholders to embed iframes
+    if (renderOptions.enableYouTube && this.extractedVideos.length > 0) {
+      processedContent = this.restoreYouTubeEmbeds(processedContent);
     }
     
     // Extract images if needed (only if not using processBody or for backup)
@@ -128,6 +147,98 @@ class ContentRenderer {
       contentElement,
       imagesContainer
     };
+  }
+  
+  /**
+   * Extract YouTube video IDs from content
+   */
+  extractYouTubeVideos(content) {
+    if (!content) return [];
+    
+    const videos = [];
+    const patterns = [
+      this.regexPatterns.youtubeStandard,
+      this.regexPatterns.youtubeShort,
+      this.regexPatterns.youtubeEmbed
+    ];
+    
+    patterns.forEach(pattern => {
+      // Reset pattern lastIndex
+      pattern.lastIndex = 0;
+      
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1] && match[1].length === 11) {
+          // Add video if it doesn't exist already
+          if (!videos.some(v => v.id === match[1])) {
+            videos.push({
+              id: match[1],
+              url: match[0],
+              placeholder: `YOUTUBE_VIDEO_${videos.length}_${match[1]}`
+            });
+          }
+        }
+      }
+    });
+    
+    return videos;
+  }
+  
+  /**
+   * Replace YouTube links with placeholders to protect them during processing
+   */
+  replaceYouTubeLinksWithPlaceholders(content) {
+    if (!content || this.extractedVideos.length === 0) return content;
+    
+    let result = content;
+    this.extractedVideos.forEach(video => {
+      result = result.replace(video.url, video.placeholder);
+    });
+    
+    return result;
+  }
+  
+  /**
+   * Restore YouTube embeds from placeholders
+   */
+  restoreYouTubeEmbeds(content) {
+    if (!content || this.extractedVideos.length === 0) return content;
+    
+    let result = content;
+    this.extractedVideos.forEach(video => {
+      const embedCode = this.createYouTubeEmbed(video.id);
+      result = result.replace(video.placeholder, embedCode);
+      
+      // Also try to replace any remaining direct links to YouTube
+      const patterns = [
+        new RegExp(`<a[^>]*href=["']${video.url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}["'][^>]*>.*?<\/a>`, 'gi'),
+        new RegExp(video.url.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi')
+      ];
+      
+      patterns.forEach(pattern => {
+        result = result.replace(pattern, embedCode);
+      });
+    });
+    
+    return result;
+  }
+  
+  /**
+   * Create YouTube embed iframe
+   */
+  createYouTubeEmbed(videoId) {
+    const { width, height } = this.options.videoDimensions;
+    
+    return `<div class="youtube-embed-container">
+      <iframe 
+        width="${width}" 
+        height="${height}" 
+        src="https://www.youtube.com/embed/${videoId}" 
+        frameborder="0" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowfullscreen>
+      </iframe>
+    </div>`;
   }
   
   /**
@@ -217,12 +328,16 @@ class ContentRenderer {
     
     // Process each regex pattern
     Object.values(this.regexPatterns).forEach(pattern => {
-      // Reset regex state
-      pattern.lastIndex = 0;
-      
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        images.add(match[0]);
+      // Only process image patterns (skip YouTube patterns)
+      if (pattern === this.regexPatterns.discordImages || 
+          pattern === this.regexPatterns.steemitImages) {
+        // Reset regex state
+        pattern.lastIndex = 0;
+        
+        let match;
+        while ((match = pattern.exec(content)) !== null) {
+          images.add(match[0]);
+        }
       }
     });
     
