@@ -3,11 +3,18 @@ import eventEmitter from '../utils/EventEmitter.js';
 import steemService from '../services/SteemService.js';
 import authService from '../services/AuthService.js';
 import Post from '../models/Post.js';
+import ContentRenderer from '../components/ContentRenderer.js';
 
 export default class CreatePostView extends View {
   constructor(params) {
     super(params);
     this.isSubmitting = false;
+    this.contentRenderer = new ContentRenderer({
+      containerClass: 'preview-content',
+      imageClass: 'preview-image',
+      imagePosition: 'top',
+      useProcessBody: false  // We don't need the complex processing for preview
+    });
   }
 
   async render(container) {
@@ -107,7 +114,6 @@ export default class CreatePostView extends View {
     const previewContainer = this.element.querySelector('#preview-container');
     const previewContent = this.element.querySelector('#preview-content');
     
-    // Prepare preview content
     const title = titleInput.value.trim();
     const body = bodyInput.value.trim();
     
@@ -116,15 +122,19 @@ export default class CreatePostView extends View {
       return;
     }
     
-    // Convert markdown to HTML safely
-    const htmlContent = DOMPurify.sanitize(marked.parse(body));
+    // Clear previous content
+    previewContent.innerHTML = '';
     
-    previewContent.innerHTML = `
-      <div class="preview-title">${title}</div>
-      <div class="preview-body">${htmlContent}</div>
-    `;
+    // Use our ContentRenderer to render the preview
+    const renderedContent = this.contentRenderer.render({
+      title: title,
+      body: body
+    });
     
-    // Hide form, show preview
+    // Add the rendered content to the preview
+    previewContent.appendChild(renderedContent.container);
+    
+    // Show the preview, hide the form
     form.classList.add('hidden');
     previewContainer.classList.remove('hidden');
   }

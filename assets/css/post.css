@@ -331,6 +331,55 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
+/* Special handling for large content images */
+.content-images-container {
+  margin: var(--space-lg) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  align-items: center;
+  width: 100%;
+}
+
+.content-image {
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  display: block;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.content-image:hover {
+  transform: scale(1.01);
+}
+
+/* Improve responsive behavior for large images */
+img[src*="discord"], 
+img[src*="discordapp"], 
+img[src*="steemitimages"], 
+img[src*="imgur"] {
+  max-width: 100% !important; /* Override any inline width */
+  height: auto !important;
+  margin: var(--space-md) auto;
+  display: block;
+}
+
+/* Specific handling for very large images */
+@media (min-width: 769px) {
+  img[width="1000"], img[width="1200"], img[width="1280"], img[width="1920"], 
+  img[width="2000"], img[width="2400"], img[width="3000"],
+  img[data-width="1000"], img[data-width="1200"], img[data-width="1280"], 
+  img[data-width="1920"], img[data-width="2000"], img[data-width="2400"], 
+  img[data-width="3000"] {
+    max-width: calc(100% - var(--space-md) * 2);
+    box-shadow: 0 3px 16px rgba(0, 0, 0, 0.15);
+    margin: var(--space-lg) auto;
+  }
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,

@@ -3,6 +3,7 @@ import steemService from '../services/SteemService.js'; // Changed from SteemSer
 import router from '../utils/Router.js';
 import { generatePostContent } from '../utils/process_body.js';  // Import the content processor
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
+import ContentRenderer from '../components/ContentRenderer.js';
 
 class PostView extends View {
   constructor(params = {}) {
@@ -15,6 +16,14 @@ class PostView extends View {
     this.comments = [];
     this.element = null; // Initialize element as null
     this.loadingIndicator = null; // Will hold the LoadingIndicator instance
+    
+    // Initialize ContentRenderer with post-specific options
+    this.contentRenderer = new ContentRenderer({
+      containerClass: 'post-content-body',
+      imageClass: 'post-image',
+      imagePosition: 'top',
+      useProcessBody: true // Use process_body.js for backward compatibility
+    });
     
     // Dictionary of regex patterns for content processing
     this.contentRegexPatterns = {
@@ -229,18 +238,13 @@ class PostView extends View {
     // Add header first to ensure it's at the top
     this.postContent.appendChild(postHeader);
     
-    // Process the post content using process_body
-    const processedContent = generatePostContent(this.post.body);
+    // Use ContentRenderer for post body
+    const renderedContent = this.contentRenderer.render({
+      body: this.post.body
+    });
     
-    // Create a temporary container for the processed content
-    const tempContainer = document.createElement('div');
-    tempContainer.innerHTML = processedContent;
-    
-    // Append the processed content
-    this.postContent.appendChild(tempContainer);
-    
-    // Extract any Discord images that might not have been handled by the processor
-    this.appendDiscordImagesIfNeeded(this.post.body);
+    // Append rendered content
+    this.postContent.appendChild(renderedContent.container);
     
     // Create actions
     const postActions = document.createElement('div');
@@ -298,74 +302,6 @@ class PostView extends View {
     
     // Render comments
     this.renderComments();
-  }
-
-  // Helper method to append Discord images if they weren't handled by the processor
-  appendDiscordImagesIfNeeded(content) {
-    const imageUrls = this.extractDiscordImageUrls(content);
-    
-    if (imageUrls.length > 0) {
-      const featuredImageContainer = document.createElement('div');
-      featuredImageContainer.className = 'featured-image-container';
-      
-      imageUrls.forEach(imageUrl => {
-        const featuredImage = this.createImageWithFallback(imageUrl, 'featured-image', 'Featured image');
-        featuredImageContainer.appendChild(featuredImage);
-      });
-      
-      // Find where to insert the images - after the header but before the content
-      const postHeader = this.postContent.querySelector('.post-header');
-      if (postHeader && postHeader.nextSibling) {
-        this.postContent.insertBefore(featuredImageContainer, postHeader.nextSibling);
-      } else {
-        // Fall back to appending at the beginning of the post content
-        this.postContent.insertBefore(featuredImageContainer, this.postContent.firstChild);
-      }
-    }
-  }
-
-  // Create an image element with error handling
-  createImageWithFallback(imageUrl, className, altText) {
-    const image = document.createElement('img');
-    image.className = className;
-    image.alt = altText || 'Image';
-    image.loading = 'lazy';
-    
-    // Add error handling
-    image.onerror = () => {
-      console.warn(`Failed to load image: ${imageUrl}`);
-      image.style.display = 'none';
-    };
-    
-    // Add click event
-    image.addEventListener('click', () => {
-      window.open(imageUrl, '_blank');
-    });
-    
-    // Set source
-    image.src = imageUrl;
-    
-    return image;
-  }
-
-  // Extract all Discord image URLs from content
-  extractDiscordImageUrls(content) {
-    if (!content) return [];
-    
-    const imageUrls = [];
-    let match;
-    const regex = this.contentRegexPatterns?.discordImages || 
-                 /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi;
-    
-    // Reset regex lastIndex
-    regex.lastIndex = 0;
-    
-    // Find all matches
-    while ((match = regex.exec(content)) !== null) {
-      imageUrls.push(match[0]);
-    }
-    
-    return imageUrls;
   }
 
   createActionButton(className, icon, countOrText) {
@@ -480,27 +416,21 @@ class PostView extends View {
     commentHeader.appendChild(authorName);
     commentHeader.appendChild(commentDate);
     
-    // Comment body - Use process_body instead of markdown renderer
+    // Comment body - Use ContentRenderer instead of directly using process_body.js
     const commentBody = document.createElement('div');
-    commentBody.className = 'comment-body markdown-content';
+    commentBody.className = 'comment-body';
     
-    // Use process_body for comment content
-    const processedComment = generatePostContent(comment.body);
-    commentBody.innerHTML = processedComment;
+    const commentRenderer = new ContentRenderer({
+      containerClass: 'comment-content',
+      imageClass: 'comment-image',
+      useProcessBody: false // Simpler rendering for comments
+    });
     
-    // Append Discord images if needed
-    const imageUrls = this.extractDiscordImageUrls(comment.body);
-    if (imageUrls.length > 0) {
-      const commentImagesContainer = document.createElement('div');
-      commentImagesContainer.className = 'comment-images-container';
-      
-      imageUrls.forEach(imageUrl => {
-        const commentImage = this.createImageWithFallback(imageUrl, 'comment-image', 'Comment image');
-        commentImagesContainer.appendChild(commentImage);
-      });
-      
-      commentBody.appendChild(commentImagesContainer);
-    }
+    const renderedComment = commentRenderer.render({
+      body: comment.body
+    });
+    
+    commentBody.appendChild(renderedComment.container);
     
     // Comment actions
     const commentActions = document.createElement('div');
