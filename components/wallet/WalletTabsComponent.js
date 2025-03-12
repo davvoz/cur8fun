@@ -3,8 +3,7 @@ import TransferTab from './tabs/TransferTab.js';
 import PowerManagementTab from './tabs/PowerManagementTab.js';
 import DelegationTab from './tabs/DelegationTab.js';
 import TransactionHistoryTab from './tabs/TransactionHistoryTab.js';
-import RewardsTab from './tabs/RewardsTab.js';
-import CurationTab from './tabs/CurationTab.js'; // Add this import
+import CurationTab from './tabs/CurationTab.js';
 
 export default class WalletTabsComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -23,14 +22,13 @@ export default class WalletTabsComponent extends Component {
     const tabButtonsContainer = document.createElement('div');
     tabButtonsContainer.className = 'tab-buttons';
     
-    // Define tab data
+    // Define tab data - Removed the rewards tab
     const tabData = [
       { id: 'transfer', label: 'Transfer', isActive: true },
       { id: 'power', label: 'Power Up/Down', isActive: false },
       { id: 'delegate', label: 'Delegate', isActive: false },
       { id: 'history', label: 'History', isActive: false },
-      { id: 'rewards', label: 'Rewards', isActive: false },
-      { id: 'curation', label: 'Curation', isActive: false } // Add this tab
+      { id: 'curation', label: 'Curation', isActive: false }
     ];
     
     // Create all tab buttons
@@ -111,9 +109,6 @@ export default class WalletTabsComponent extends Component {
         break;
       case 'history':
         tabComponent = new TransactionHistoryTab(this.tabContent);
-        break;
-      case 'rewards':
-        tabComponent = new RewardsTab(this.tabContent);
         break;
       case 'curation':
         tabComponent = new CurationTab(this.tabContent);

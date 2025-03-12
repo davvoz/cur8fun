@@ -380,15 +380,33 @@ class WalletService {
         throw new Error('No rewards to claim');
       }
       
+      // Use requestBroadcast with the claim_reward_balance operation
       return new Promise((resolve, reject) => {
-        window.steem_keychain.requestClaimRewards(
+        const operations = [
+          ["claim_reward_balance", {
+            account: this.currentUser,
+            reward_steem: rewardSteem,
+            reward_sbd: rewardSBD,
+            reward_vests: rewardVests
+          }]
+        ];
+        
+        window.steem_keychain.requestBroadcast(
           this.currentUser,
-          rewardSteem,
-          rewardSBD,
-          rewardVests,
+          operations,
+          "Active", // The key type needed for claiming rewards
           function(response) {
+            console.log('Claim rewards response:', response);
+            
             if (response.success) {
-              resolve(response);
+              resolve({ 
+                success: true,
+                rewards: {
+                  steem: rewardSteem.split(' ')[0],
+                  sbd: rewardSBD.split(' ')[0],
+                  vests: rewardVests.split(' ')[0]
+                }
+              });
             } else {
               reject(new Error(response.message || 'Claim rewards failed'));
             }

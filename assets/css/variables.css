@@ -25,6 +25,7 @@
     --text-secondary: #a0a0a0; /* Slightly darker secondary text */
     --text-muted: #707070; /* For less important text */
     --text-on-primary: #ffffff; /* Text on primary color */
+    --text-heading: #ffffff; /* Text for headings */
     
     /* Layout measurements */
     --nav-height: 60px;
