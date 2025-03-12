@@ -24,6 +24,7 @@ h4 {
 
 p {
     margin-bottom: 1rem;
+    color : var(--text-color);
 }
 
 a {
