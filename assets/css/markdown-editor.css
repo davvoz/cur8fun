@@ -1,0 +1,174 @@
+/* Markdown Editor Styles */
+.markdown-editor {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-color);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-lg);
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: var(--space-xs);
+  background-color: var(--background-lighter);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  color: var(--text-secondary);
+}
+
+.toolbar-button:hover {
+  background-color: var(--background-hover);
+  color: var(--primary-color);
+}
+
+.toolbar-button.active {
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+}
+
+.toolbar-button .material-icons {
+  font-size: 1.2rem;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  margin: 0 var(--space-xs);
+}
+
+.editor-container {
+  position: relative;
+  flex: 1;
+}
+
+.markdown-textarea {
+  width: 100%;
+  padding: var(--space-md);
+  border: none;
+  resize: none;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--surface-color);
+  overflow-y: auto;
+  min-height: 200px;
+  box-sizing: border-box;
+}
+
+.markdown-textarea:focus {
+  outline: none;
+}
+
+.markdown-preview {
+  padding: var(--space-md);
+  overflow-y: auto;
+  background-color: var(--background-light);
+  border-top: 1px dashed var(--border-color);
+}
+
+.markdown-tips {
+  border-top: 1px solid var(--border-color);
+  background-color: var(--background-lighter);
+  padding: var(--space-xs);
+}
+
+.tips-toggle {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.tips-toggle:hover,
+.tips-toggle.active {
+  color: var(--primary-color);
+}
+
+.tips-toggle .material-icons {
+  font-size: 1rem;
+  margin-right: var(--space-xs);
+}
+
+.tips-content {
+  padding: var(--space-md);
+  background-color: var(--background-light);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-xs);
+  font-size: 0.9rem;
+}
+
+.tips-content h4 {
+  margin-top: 0;
+  margin-bottom: var(--space-sm);
+  font-size: 1rem;
+  color: var(--text-heading);
+}
+
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.tip-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.tip-item code {
+  background-color: var(--surface-alt);
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--accent-color);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .markdown-toolbar {
+    padding: var(--space-xs) var(--space-xxs);
+  }
+  
+  .toolbar-button {
+    padding: var(--space-xxs);
+  }
+  
+  .toolbar-button .material-icons {
+    font-size: 1rem;
+  }
+  
+  .tips-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .markdown-textarea {
+  background-color: var(--surface-dark);
+}
+
+[data-theme="dark"] .markdown-preview {
+  background-color: var(--surface-dark);
+}
