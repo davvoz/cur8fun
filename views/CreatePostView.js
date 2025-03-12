@@ -1,7 +1,8 @@
 import View from './View.js';
 import MarkdownEditor from '../components/MarkdownEditor.js';
 import authService from '../services/AuthService.js';
-import steemService from '../services/SteemService.js';
+import createPostService from '../services/CreatePostService.js';
+import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
 
 class CreatePostView extends View {
@@ -14,6 +15,53 @@ class CreatePostView extends View {
     this.tags = [];
     this.isSubmitting = false;
     this.markdownEditor = null;
+    
+    // Set up event listeners for post creation events
+    this.setupEventHandlers();
+  }
+  
+  setupEventHandlers() {
+    // Store handlers for cleanup
+    this.eventHandlers = [];
+    
+    // Handler for post creation started
+    const startHandler = (data) => {
+      this.showStatus(`Publishing post "${data.title}"...`, 'info');
+    };
+    eventEmitter.on('post:creation-started', startHandler);
+    this.eventHandlers.push({ event: 'post:creation-started', handler: startHandler });
+    
+    // Handler for post creation completed
+    const completedHandler = (data) => {
+      if (data.success) {
+        // Show success notification
+        eventEmitter.emit('notification', {
+          type: 'success', 
+          message: 'Your post has been published successfully!'
+        });
+        
+        // Redirect to the new post
+        router.navigate(`/@${data.author}/${data.permlink}`);
+      }
+    };
+    eventEmitter.on('post:creation-completed', completedHandler);
+    this.eventHandlers.push({ event: 'post:creation-completed', handler: completedHandler });
+    
+    // Handler for post creation error
+    const errorHandler = (data) => {
+      this.showError(`Failed to publish post: ${data.error}`);
+      
+      // Reset submit button
+      const submitBtn = document.getElementById('submit-post-btn');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Publish Post';
+      }
+      
+      this.isSubmitting = false;
+    };
+    eventEmitter.on('post:creation-error', errorHandler);
+    this.eventHandlers.push({ event: 'post:creation-error', handler: errorHandler });
   }
   
   async render(element) {
@@ -41,6 +89,12 @@ class CreatePostView extends View {
     form.className = 'post-form';
     form.addEventListener('submit', (e) => this.handleSubmit(e));
     
+    // Status message area
+    const statusArea = document.createElement('div');
+    statusArea.id = 'post-status-message';
+    statusArea.className = 'status-message hidden';
+    form.appendChild(statusArea);
+    
     // Title input
     const titleGroup = document.createElement('div');
     titleGroup.className = 'form-group';
@@ -63,7 +117,7 @@ class CreatePostView extends View {
     
     form.appendChild(titleGroup);
     
-    // Content editor container - we'll attach our Markdown editor here
+    // Content editor container
     const contentGroup = document.createElement('div');
     contentGroup.className = 'form-group';
     
@@ -138,78 +192,56 @@ class CreatePostView extends View {
     
     if (this.isSubmitting) return;
     
-    if (!this.postTitle.trim()) {
-      this.showError('Please enter a title for your post');
-      return;
-    }
-    
-    if (!this.postBody.trim()) {
-      this.showError('Please enter some content for your post');
-      return;
-    }
-    
-    if (this.tags.length === 0) {
-      this.showError('Please add at least one tag');
-      return;
-    }
-    
+    // Start submission process
     this.isSubmitting = true;
     const submitBtn = document.getElementById('submit-post-btn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Publishing...';
     
     try {
-      // Call the steemService to create the post
-      await steemService.createPost(
-        this.postTitle,
-        this.postBody,
-        this.tags
-      );
-      
-      this.emit('notification', {
-        type: 'success',
-        message: 'Your post has been published successfully!'
+      // Use the CreatePostService to handle post creation
+      await createPostService.createPost({
+        title: this.postTitle,
+        body: this.postBody,
+        tags: this.tags
       });
       
-      // Redirect to the home page
-      router.navigate('/');
+      // The success action is handled by the event handler
     } catch (error) {
       console.error('Failed to publish post:', error);
-      
-      this.showError(`Failed to publish post: ${error.message || 'Unknown error'}`);
-      
-      // Reset submit button
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Publish Post';
-    } finally {
-      this.isSubmitting = false;
+      // Error handling is done by the event handler
     }
   }
   
+  showStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('post-status-message');
+    if (!statusDiv) return;
+    
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('hidden');
+  }
+  
   showError(message) {
-    // Check if error message element already exists
-    let errorMsg = document.getElementById('post-error-message');
-    
-    if (!errorMsg) {
-      // Create the error message element
-      errorMsg = document.createElement('div');
-      errorMsg.id = 'post-error-message';
-      errorMsg.className = 'alert alert-danger';
-      
-      // Insert it at the top of the form
-      const form = document.querySelector('.post-form');
-      form.insertBefore(errorMsg, form.firstChild);
-    }
-    
-    errorMsg.textContent = message;
+    this.showStatus(message, 'error');
     
     // Hide after 5 seconds
     setTimeout(() => {
-      errorMsg.remove();
+      const statusDiv = document.getElementById('post-status-message');
+      if (statusDiv) {
+        statusDiv.classList.add('hidden');
+      }
     }, 5000);
   }
   
   unmount() {
+    // Clean up event listeners
+    if (this.eventHandlers && this.eventHandlers.length) {
+      this.eventHandlers.forEach(handler => {
+        eventEmitter.off(handler.event, handler.handler);
+      });
+    }
+    
     super.unmount();
   }
 }

@@ -409,3 +409,40 @@
     font-size: 1.8rem;
   }
 }
+
+/* Add these styles to your existing create-post.css */
+
+.status-message {
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+  animation: fade-in 0.3s ease-in-out;
+}
+
+.status-message.hidden {
+  display: none;
+}
+
+.status-message.info {
+  background-color: var(--info-light);
+  color: var(--info-dark);
+  border: 1px solid var(--info-border);
+}
+
+.status-message.error {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+  border: 1px solid var(--error-border);
+}
+
+.status-message.success {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+  border: 1px solid var(--success-border);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
