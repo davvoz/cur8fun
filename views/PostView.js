@@ -395,7 +395,11 @@ class PostView extends View {
     
     // Comment header
     const commentHeader = document.createElement('div');
-    commentHeader.className = 'comment-header';
+    commentHeader.className = 'comment-headero';
+    
+    // First container for avatar and author name
+    const authorContainer = document.createElement('div');
+    authorContainer.className = 'author-container';
     
     const authorAvatar = document.createElement('img');
     authorAvatar.className = 'author-avatar small';
@@ -403,17 +407,26 @@ class PostView extends View {
     authorAvatar.alt = comment.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${comment.author}`; // Removed the # symbol
+    authorName.href = `/@${comment.author}`;
     authorName.className = 'author-name';
     authorName.textContent = `@${comment.author}`;
+    
+    authorContainer.appendChild(authorAvatar);
+    authorContainer.appendChild(authorName);
+    
+    // Second container for date
+    const dateContainer = document.createElement('div');
+    dateContainer.className = 'date-container';
     
     const commentDate = document.createElement('span');
     commentDate.className = 'comment-date';
     commentDate.textContent = new Date(comment.created).toLocaleString();
     
-    commentHeader.appendChild(authorAvatar);
-    commentHeader.appendChild(authorName);
-    commentHeader.appendChild(commentDate);
+    dateContainer.appendChild(commentDate);
+    
+    // Add both containers to the header
+    commentHeader.appendChild(authorContainer);
+    commentHeader.appendChild(dateContainer);
     
     // Comment body - Use ContentRenderer instead of directly using process_body.js
     const commentBody = document.createElement('div');

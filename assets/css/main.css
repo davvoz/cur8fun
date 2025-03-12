@@ -16,6 +16,7 @@
 @import './grid-controller.css';
 @import './profile.css';  /* Add this line to import profile styles */
 @import './create-post.css';  /* Add this line to import create post styles */
+@import './markdown.css';  /* Add this line to import markdown styles */
 
 
 /* Fallback styles in case any imports fail */
