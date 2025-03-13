@@ -285,6 +285,104 @@
   font-size: 1.1rem;
 }
 
+/* Post Editor Styles */
+.post-editor-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+.editor-header {
+  margin-bottom: var(--space-lg);
+}
+
+.editor-header h1 {
+  font-size: 2rem;
+  color: var(--text-heading);
+}
+
+.post-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-heading);
+}
+
+.form-control {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  color: var(--text-color);
+  background-color: var(--surface-color);
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+  outline: none;
+}
+
+.form-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.alert {
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+}
+
+.alert-danger {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+  border: 1px solid var(--error-border);
+}
+
+/* Publish button */
+#submit-post-btn {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: var(--space-md);
+  align-self: flex-start;
+}
+
+#submit-post-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner for loading state */
+.spinner-border {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 0.2em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border .75s linear infinite;
+  margin-right: var(--space-sm);
+}
+
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .card-content {
@@ -299,4 +397,52 @@
   .btn {
     width: 100%;
   }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .post-editor-container {
+    padding: var(--space-sm);
+  }
+  
+  .editor-header h1 {
+    font-size: 1.8rem;
+  }
+}
+
+/* Add these styles to your existing create-post.css */
+
+.status-message {
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+  animation: fade-in 0.3s ease-in-out;
+}
+
+.status-message.hidden {
+  display: none;
+}
+
+.status-message.info {
+  background-color: var(--info-light);
+  color: var(--info-dark);
+  border: 1px solid var(--info-border);
+}
+
+.status-message.error {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+  border: 1px solid var(--error-border);
+}
+
+.status-message.success {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+  border: 1px solid var(--success-border);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

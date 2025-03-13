@@ -157,6 +157,25 @@ class AuthService {
     isAuthenticated() {
         return !!this.getCurrentUser();
     }
+
+    /**
+     * Get the posting key for the current user if available
+     * Note: For security, this should be improved in production
+     * Ideally, keys should not be stored in localStorage
+     */
+    getPostingKey() {
+        const user = this.getCurrentUser();
+        if (!user) return null;
+        
+        // For keychain users, we don't need to return a key
+        if (user.loginMethod === 'keychain') {
+            return 'USE_KEYCHAIN'; // Questo è solo un segnaposto
+        }
+        
+        // For direct key login, retrieve from secure storage
+        // In a real app, consider more secure storage options
+        return localStorage.getItem(`${user.username}_posting_key`);
+    }
 }
 
 // Export singleton instance
