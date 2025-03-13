@@ -51,8 +51,11 @@
 
 .post-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-top: var(--space-md);
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
 }
 
 .author-avatar {
@@ -359,17 +362,6 @@
   transform: scale(1.01);
 }
 
-/* Improve responsive behavior for large images */
-img[src*="discord"],
-img[src*="discordapp"],
-img[src*="steemitimages"],
-img[src*="imgur"] {
-  max-width: 100% !important;
-  /* Override any inline width */
-  height: auto !important;
-  margin: var(--space-md) auto;
-  display: block;
-}
 
 /* Specific handling for very large images */
 @media (min-width: 769px) {

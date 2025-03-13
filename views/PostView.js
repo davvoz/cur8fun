@@ -213,23 +213,36 @@ class PostView extends View {
     const postMeta = document.createElement('div');
     postMeta.className = 'post-meta';
     
+    // First container for avatar and author name
+    const avataro = document.createElement('div');
+    avataro.className = 'avataro';
+    
     const authorAvatar = document.createElement('img');
     authorAvatar.className = 'author-avatar';
     authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
     authorAvatar.alt = this.post.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${this.post.author}`; // Removed the # symbol
+    authorName.href = `/@${this.post.author}`;
     authorName.className = 'author-name';
     authorName.textContent = `@${this.post.author}`;
+    
+    avataro.appendChild(authorAvatar);
+    avataro.appendChild(authorName);
+    
+    // Second container for date
+    const dataro = document.createElement('div');
+    dataro.className = 'dataro';
     
     const postDate = document.createElement('span');
     postDate.className = 'post-date';
     postDate.textContent = new Date(this.post.created).toLocaleString();
     
-    postMeta.appendChild(authorAvatar);
-    postMeta.appendChild(authorName);
-    postMeta.appendChild(postDate);
+    dataro.appendChild(postDate);
+    
+    // Add both containers to post meta
+    postMeta.appendChild(avataro);
+    postMeta.appendChild(dataro);
     
     postHeader.appendChild(postTitle);
     postHeader.appendChild(postMeta);
