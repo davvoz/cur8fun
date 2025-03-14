@@ -11,6 +11,7 @@
 
 .grid-controller-container {
   position: relative;
+  margin-bottom: var(--space-md);
 }
 
 /* Hide grid controller on mobile */
@@ -20,11 +21,10 @@
 
 .grid-controller {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  background: var(--background-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--subtle-shadow);
-  border: 1px solid var(--border-color);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .grid-controller-toggle {
@@ -47,59 +47,54 @@
 
 .grid-controls {
   display: flex;
-  align-items: center;
   gap: var(--space-md);
-  padding: var(--space-xs) var(--space-md);
-  transition: all 0.3s ease;
+  align-items: center;
 }
 
 /* Control groups */
 .grid-control-group {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xxs);
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .grid-control-group label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-color-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-right: var(--space-xs);
 }
 
 /* Layout options */
 .grid-layout-options {
   display: flex;
-  gap: var(--space-xxs);
+  background: var(--background-light);
+  border-radius: var(--radius-sm);
+  padding: 2px;
 }
 
 .grid-layout-option {
-  background-color: var(--background-subtle);
-  border: 1px solid transparent;
-  color: var(--text-color-secondary);
-  padding: var(--space-xxs);
-  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  padding: var(--space-xs);
   cursor: pointer;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-secondary);
 }
 
 .grid-layout-option:hover {
-  background-color: var(--background-hover);
-  color: var(--text-color);
+  background-color: rgba(var(--primary-color-rgb), 0.1);
 }
 
 .grid-layout-option.active {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
 }
 
 .grid-layout-option .material-icons {
-  font-size: 1.2rem;
+  font-size: 20px;
 }
 
 /* Size control */
@@ -239,6 +234,24 @@
   gap: var(--space-md);
 }
 
+.posts-container.grid-layout-list .post-item {
+  display: flex;
+  flex-direction: row;
+  max-height: 200px;
+}
+
+.posts-container.grid-layout-list .post-thumbnail {
+  width: 200px;
+  height: 100%;
+  min-height: 150px;
+  flex-shrink: 0;
+  display: block !important; /* Ensure thumbnail is always visible */
+}
+
+.posts-container.grid-layout-list .post-content {
+  flex-grow: 1;
+}
+
 /* Layout lista solo su desktop - struttura speciale con header in cima e contenuto affiancato */
 @media (min-width: 768px) {
   .posts-container.grid-layout-list .post-card {
@@ -287,21 +300,47 @@
   /* ...existing code for grid-layout-list specific styles... */
 }
 
-/* Layout compatto - mantiene la struttura verticale */
+/* Layout compatto - mantiene la struttura verticale ma con thumbnails */
 .posts-container.grid-layout-compact {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
-/* Assicuriamoci che il compact layout mantenga la struttura verticale */
-.posts-container.grid-layout-compact .post-card {
-  flex-direction: column;
+.posts-container.grid-layout-compact .post-item {
+  margin-bottom: var(--space-xs);
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: auto;
+}
+
+.posts-container.grid-layout-compact .post-thumbnail {
+  display: block !important; /* Ensure thumbnail is always visible */
+  width: 60px;
+  height: 60px;
+  min-width: 60px;
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.posts-container.grid-layout-compact .post-content {
+  flex: 1;
+}
+
+.posts-container.grid-layout-compact .post-title {
+  font-size: 1rem;
+  -webkit-line-clamp: 1;
+  margin-bottom: var(--space-xs);
+}
+
+.posts-container.grid-layout-compact .post-excerpt {
+  -webkit-line-clamp: 1;
+}
+
+.posts-container.grid-layout-compact .post-meta {
   margin-bottom: 0;
-}
-
-.posts-container.grid-layout-compact .post-main-content {
-  flex-direction: column;
 }
 
 /* Layout lista avanzato - SOLO SU DESKTOP */
@@ -577,6 +616,42 @@
     padding-bottom: 56.25%;
     border-right: none;
     border-bottom: 1px solid var(--border-color-light);
+  }
+  
+  .posts-container.grid-layout-list .post-item,
+  .posts-container.grid-layout-compact .post-item {
+    flex-direction: row; /* Keep row direction on mobile too */
+  }
+  
+  .posts-container.grid-layout-list .post-thumbnail {
+    width: 120px; /* Smaller on mobile */
+    min-height: 120px;
+  }
+  
+  .posts-container.grid-layout-compact .post-thumbnail {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+}
+
+@media (max-width: 480px) {
+  .posts-container.grid-layout-list .post-card {
+    flex-direction: column;
+  }
+  
+  .posts-container.grid-layout-list .post-image-container {
+    width: 100%;
+    padding-bottom: 56.25%;
+  }
+  
+  .posts-container.grid-layout-list .post-item {
+    max-height: 150px;
+  }
+  
+  .posts-container.grid-layout-list .post-thumbnail {
+    width: 80px;
+    min-height: 80px;
   }
 }
 

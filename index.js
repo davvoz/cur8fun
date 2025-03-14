@@ -6,11 +6,12 @@ import ProfileView from './views/ProfileView.js';
 import CreatePostView from './views/CreatePostView.js';
 import NotFoundView from './views/NotFoundView.js';
 import WalletView from './views/WalletView.js';
+import SearchView from './views/SearchView.js';
+import TagView from './views/TagView.js';
 import eventEmitter from './utils/EventEmitter.js';
 import authService from './services/AuthService.js';
 import NavigationManager from './utils/NavigationManager.js';
-
-
+import { SearchService } from './services/SearchService.js';
 
 // Setup routes with proper handlers
 router
@@ -20,8 +21,10 @@ router
   .addRoute('/trending', HomeView, { tag: 'trending' })
   .addRoute('/hot', HomeView, { tag: 'hot' })
   .addRoute('/new', HomeView, { tag: 'created' })
-  .addRoute('/promoted', HomeView, { tag: 'promoted' }) 
-  .addRoute('/wallet', WalletView, { requiresAuth: true }) // Add this line
+  .addRoute('/promoted', HomeView, { tag: 'promoted' })
+  .addRoute('/wallet', WalletView, { requiresAuth: true })
+  .addRoute('/search', SearchView) // Add search route
+  .addRoute('/tag/:tag', TagView) // Add the TagView route
   .addRoute('/@:username', ProfileView)
   .addRoute('/@:author/:permlink', PostView)
   .setNotFound(NotFoundView);
@@ -86,7 +89,7 @@ function renderAuthenticatedNav(container, user) {
   navActions.className = 'nav-actions';
   
   // Create Post button
-  navActions.appendChild(createCreatePostButton());
+ // navActions.appendChild(createCreatePostButton());
   
   // Notifications button
   navActions.appendChild(createNotificationsButton());
@@ -178,7 +181,32 @@ function handleLogout(e) {
   router.navigate('/');
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+// Initialize search functionality
+const initializeSearch = () => {
+  const searchInput = document.querySelector('.nav-search input');
+  if (!searchInput) return;
+  
+  const searchService = new SearchService();
+
+  searchInput.addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+      const query = e.target.value;
+      if (query.trim()) {
+        try {
+          await searchService.handleSearch(query);
+        } catch (error) {
+          console.error('Search failed:', error);
+          // Handle error (show notification, etc.)
+        }
+      }
+    }
+  });
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+  initializeSearch();
+});
 
 //Per aggiungere una nuova route ,
 //aggiungere una nuova riga al metodo addRoute di router.js

@@ -1,3 +1,6 @@
 setup-steem-social-network.bat
 steem-social-network-class-diagram.mermaid
 /test
+utils/desiderata
+utils/input
+utils/output

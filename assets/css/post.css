@@ -51,8 +51,11 @@
 
 .post-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-top: var(--space-md);
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
 }
 
 .author-avatar {
@@ -262,6 +265,61 @@
   font-style: italic;
 }
 
+/* Comment threading styles - enhanced for better visibility */
+.comment {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--background-light, #fff);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #eee);
+    position: relative;
+}
+
+.replies {
+    position: relative;
+    margin-left: 2.5rem;
+    padding-left: 1.2rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0 0 0 8px;
+}
+
+.thread-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--primary-color, #ff7518);
+    opacity: 0.5;
+    border-radius: 2px;
+}
+
+/* Depth-specific styling with more distinct hierarchy */
+.depth-0 { margin-left: 0; }
+.depth-1 { margin-left: 1rem; border-left: none; }
+.depth-2 { margin-left: 1rem; border-left-color: var(--secondary-color, #36b); }
+.depth-3 { margin-left: 1rem; border-left-color: var(--accent-color, #3b3); }
+.depth-4 { margin-left: 1rem; border-left-color: var(--tertiary-color, #b3b); }
+.depth-5 { margin-left: 1rem; border-left-color: var(--primary-color, #ff7518); }
+.depth-6 { margin-left: 1rem; border-left-color: var(--text-secondary, #777); }
+
+/* Visual changes for deeper nesting - enhanced visibility */
+.depth-3 .comment,
+.depth-4 .comment,
+.depth-5 .comment,
+.depth-6 .comment {
+    border-left: 3px solid var(--border-color, #e1e4e8);
+}
+
+/* Add more clear visual indicators for each nesting level */
+.replies.depth-0 .thread-line { background-color: var(--primary-color, #ff7518); }
+.replies.depth-1 .thread-line { background-color: var(--secondary-color, #36b); }
+.replies.depth-2 .thread-line { background-color: var(--accent-color, #3b3); }
+.replies.depth-3 .thread-line { background-color: var(--tertiary-color, #b3b); }
+.replies.depth-4 .thread-line { background-color: var(--primary-color, #ff7518); }
+.replies.depth-5 .thread-line { background-color: var(--text-secondary, #777); }
+
 /* 404 Error Styling */
 .not-found-error {
   display: flex;
@@ -359,17 +417,6 @@
   transform: scale(1.01);
 }
 
-/* Improve responsive behavior for large images */
-img[src*="discord"],
-img[src*="discordapp"],
-img[src*="steemitimages"],
-img[src*="imgur"] {
-  max-width: 100% !important;
-  /* Override any inline width */
-  height: auto !important;
-  margin: var(--space-md) auto;
-  display: block;
-}
 
 /* Specific handling for very large images */
 @media (min-width: 769px) {
@@ -456,6 +503,14 @@ img[src*="imgur"] {
   .error-code {
     font-size: 4rem;
   }
+  
+  /* Make images smaller on tablets */
+  .content-image, 
+  .featured-image,
+  .post-image {
+    max-width: 95%;
+    height: auto;
+  }
 }
 
 @media (max-width: 480px) {
@@ -467,6 +522,57 @@ img[src*="imgur"] {
     margin-left: 0;
     width: 100%;
     margin-top: var(--space-sm);
+  }
+  
+
+  
+  /* Handle specific large images that might have inline width/height */
+  img[width], 
+  img[height], 
+  img[style*="width"], 
+  img[style*="height"],
+  img[data-width], 
+  img[data-height] {
+    width: auto ;
+    height: auto ;
+    max-width: 100% ;
+    max-height: 400px ;
+  }
+  
+  /* Reduce spacing around image containers */
+  .content-images-container,
+  .featured-image-container,
+  .post-content-body p:has(img) {
+    margin: var(--space-sm) 0 ;
+    padding: 0 ;
+  }
+}
+
+/* Additional breakpoint for very small devices */
+@media (max-width: 360px) {
+  .content-image, 
+  .featured-image,
+  .post-image {
+    max-height: 55vh; /* Even smaller height limit for tiny screens */
+  }
+  
+  /* Override specific legacy image sizing */
+  img[width], img[data-width] {
+    width: auto ;
+    max-width: 100% ;
+  }
+}
+
+/* Additional breakpoint for very small devices */
+@media (max-width: 360px) {
+  /* Even tighter controls for small phones */
+  .post-content img,
+  .post-content-body img,
+  .content-body img,
+  img.content-image,
+  img.featured-image,
+  img.post-image {
+    max-height: 300px ;
   }
 }
 

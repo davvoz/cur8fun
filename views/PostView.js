@@ -3,6 +3,7 @@ import steemService from '../services/SteemService.js'; // Changed from SteemSer
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
+import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
 
 class PostView extends View {
   constructor(params = {}) {
@@ -213,29 +214,48 @@ class PostView extends View {
     const postMeta = document.createElement('div');
     postMeta.className = 'post-meta';
     
+    // First container for avatar and author name
+    const avataro = document.createElement('div');
+    avataro.className = 'avataro';
+    
     const authorAvatar = document.createElement('img');
     authorAvatar.className = 'author-avatar';
     authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
     authorAvatar.alt = this.post.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${this.post.author}`; // Removed the # symbol
+    // Use click event handler instead of href for more reliable routing
+    authorName.href = "javascript:void(0)";
     authorName.className = 'author-name';
     authorName.textContent = `@${this.post.author}`;
+    authorName.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate(`/@${this.post.author}`);
+    });
+    
+    avataro.appendChild(authorAvatar);
+    avataro.appendChild(authorName);
+    
+    // Second container for date
+    const dataro = document.createElement('div');
+    dataro.className = 'dataro';
     
     const postDate = document.createElement('span');
     postDate.className = 'post-date';
     postDate.textContent = new Date(this.post.created).toLocaleString();
     
-    postMeta.appendChild(authorAvatar);
-    postMeta.appendChild(authorName);
-    postMeta.appendChild(postDate);
+    dataro.appendChild(postDate);
+    
+    // Add both containers to post meta
+    postMeta.appendChild(avataro);
+    postMeta.appendChild(dataro);
     
     postHeader.appendChild(postTitle);
     postHeader.appendChild(postMeta);
     
     // Add header first to ensure it's at the top
     this.postContent.appendChild(postHeader);
+    
     
     // Use ContentRenderer for post body
     const renderedContent = this.contentRenderer.render({
@@ -384,14 +404,16 @@ class PostView extends View {
   }
 
   createCommentElement(comment, depth = 0) {
-    if (!comment) return document.createDocumentFragment();
-    
-    const MAX_DEPTH = 6; // Prevent excessive nesting
+    const MAX_DEPTH = 6;
     const currentDepth = Math.min(depth, MAX_DEPTH);
 
     const commentDiv = document.createElement('div');
     commentDiv.className = `comment depth-${currentDepth}`;
-    commentDiv.style.marginLeft = `${currentDepth * 20}px`;
+    
+    // Add data attributes to help with debugging
+    commentDiv.dataset.author = comment.author;
+    commentDiv.dataset.permlink = comment.permlink;
+    commentDiv.dataset.depth = currentDepth;
     
     // Comment header
     const commentHeader = document.createElement('div');
@@ -407,9 +429,14 @@ class PostView extends View {
     authorAvatar.alt = comment.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${comment.author}`;
+    // Use click event handler instead of href for more reliable routing
+    authorName.href = "javascript:void(0)";
     authorName.className = 'author-name';
     authorName.textContent = `@${comment.author}`;
+    authorName.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate(`/@${comment.author}`);
+    });
     
     authorContainer.appendChild(authorAvatar);
     authorContainer.appendChild(authorName);
@@ -500,19 +527,35 @@ class PostView extends View {
       }
     });
     
-    // Render child comments
+    // Render child comments with enhanced visibility
     if (comment.children && comment.children.length > 0) {
-      const repliesContainer = document.createElement('div');
-      repliesContainer.className = 'replies';
-      
-      comment.children.forEach(reply => {
-        const replyElement = this.createCommentElement(reply, depth + 1);
-        repliesContainer.appendChild(replyElement);
-      });
-      
-      commentDiv.appendChild(repliesContainer);
+        const repliesContainer = document.createElement('div');
+        repliesContainer.className = `replies depth-${currentDepth}`;
+        
+        // Add comment count indicator
+        const repliesCount = document.createElement('div');
+        repliesCount.className = 'replies-count';
+        repliesCount.textContent = `${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}`;
+        repliesContainer.appendChild(repliesCount);
+        
+        // Add visual indicator for nested comments
+        const threadLine = document.createElement('div');
+        threadLine.className = 'thread-line';
+        repliesContainer.appendChild(threadLine);
+        
+        // Make sure replies are clearly visible
+        const repliesWrapper = document.createElement('div');
+        repliesWrapper.className = 'replies-wrapper';
+        
+        comment.children.forEach(reply => {
+            const replyElement = this.createCommentElement(reply, depth + 1);
+            repliesWrapper.appendChild(replyElement);
+        });
+        
+        repliesContainer.appendChild(repliesWrapper);
+        commentDiv.appendChild(repliesContainer);
     }
-    
+
     return commentDiv;
   }
 
@@ -524,7 +567,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to vote'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     
@@ -547,7 +591,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to comment'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     
@@ -570,7 +615,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to reply'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     
@@ -607,6 +653,23 @@ class PostView extends View {
     // In a real implementation, this would get the logged in user from state or localStorage
     return localStorage.getItem('currentUser') ? 
       JSON.parse(localStorage.getItem('currentUser')) : null;
+  }
+  
+  // Add methods to extract the best image from a post (similar to ProfileView)
+  getBestImage(post) {
+    const metadata = this.parseMetadata(post.json_metadata);
+    return ImageUtils.getBestImageUrl(post.body, metadata) || '';
+  }
+  
+  parseMetadata(jsonMetadata) {
+    try {
+      if (typeof jsonMetadata === 'string') {
+        return JSON.parse(jsonMetadata);
+      }
+      return jsonMetadata || {};
+    } catch (e) {
+      return {};
+    }
   }
 }
 

@@ -1,0 +1,226 @@
+.search-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+.search-header {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.search-filters {
+  display: flex;
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-weight: 500;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+}
+
+.search-error {
+  background-color: var(--error-background, #fee);
+  color: var(--error-color, #900);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin: var(--space-md) 0;
+  border-left: 4px solid var(--error-border, #c00);
+}
+
+.search-results {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+
+.no-results {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.result-type-indicator {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  margin-right: var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.result-type-post {
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+}
+
+.result-type-user {
+  background-color: var(--secondary-color);
+  color: var(--text-on-primary);
+}
+
+.result-type-tag {
+  background-color: var(--accent-color);
+  color: var(--text-on-primary);
+}
+
+.result-type-community {
+  background-color: var(--tertiary-color);
+  color: var(--text-on-primary);
+}
+
+/* Search Result Item Styling */
+.search-result-item {
+  background-color: var(--surface-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--subtle-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+}
+
+.search-result-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--hover-shadow);
+}
+
+.result-author {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.result-author .author-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: var(--space-sm);
+}
+
+.result-author .author-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-right: var(--space-md);
+}
+
+.result-author .post-date {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.result-content {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+}
+
+.result-thumbnail {
+  height: 100px;
+  width: 100px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--radius-sm);
+}
+
+.result-text {
+  flex-grow: 1;
+}
+
+.result-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-heading);
+  line-height: 1.4;
+}
+
+.result-excerpt {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.search-instructions {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: var(--background-light);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary-color);
+  font-size: 0.9rem;
+}
+
+.search-instructions p {
+  margin-bottom: var(--space-xs);
+  font-weight: 600;
+}
+
+.search-instructions ul {
+  margin: 0;
+  padding-left: var(--space-md);
+}
+
+.search-instructions li {
+  margin-bottom: var(--space-xs);
+}
+
+.search-instructions strong {
+  color: var(--primary-color);
+  background: rgba(255, 117, 24, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .result-content {
+    flex-direction: column;
+  }
+  
+  .result-thumbnail {
+    width: 100%;
+    height: 120px;
+    margin-bottom: var(--space-sm);
+  }
+}
+
+@media (min-width: 768px) {
+  .search-results {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

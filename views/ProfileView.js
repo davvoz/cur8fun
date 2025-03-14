@@ -5,6 +5,8 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import ImageUtils from '../utils/process-body/ImageUtils.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
+import GridController from '../components/GridController.js';
 
 class ProfileView extends View {
   constructor(params) {
@@ -21,6 +23,11 @@ class ProfileView extends View {
     this.commentsLoading = false;
     this.isFollowing = false;
     this.currentUser = authService.getCurrentUser();
+    this.page = 1;
+    this.infiniteScroll = null;
+    this.hasMorePosts = true;
+    this.hasMoreComments = true;
+    this.gridController = null;
   }
 
   async render(container) {
@@ -40,6 +47,9 @@ class ProfileView extends View {
       
       // Render the profile
       this.renderProfile(profileContainer);
+      
+      // Initialize grid controller
+      this.initGridController();
       
       // Load and render posts (default tab)
       this.loadPosts();
@@ -73,31 +83,127 @@ class ProfileView extends View {
     
     this.postsLoading = true;
     
-    try {
-      // Show loading in posts area
+    // Only show loading indicator on first load
+    if (this.page === 1) {
       postsContainer.innerHTML = '<div class="loading-indicator">Loading posts...</div>';
+    } else {
+      // For subsequent pages, just add a loader at the bottom
+      const loader = document.createElement('div');
+      loader.className = 'post-page-loader';
+      loader.innerHTML = '<div class="loading-indicator">Loading more posts...</div>';
+      postsContainer.appendChild(loader);
+    }
+    
+    try {
+      // Fetch posts with pagination
+      const newPosts = await profileService.getUserPosts(this.username, 10, this.page);
       
-      // Fetch posts
-      this.posts = await profileService.getUserPosts(this.username, 20);
+      // If this is the first page, clear the container
+      if (this.page === 1) {
+        postsContainer.innerHTML = '';
+        this.posts = [];
+      } else {
+        // Remove loader if it exists
+        const loader = postsContainer.querySelector('.post-page-loader');
+        if (loader) loader.remove();
+      }
       
-      // Render posts
-      this.renderPosts(postsContainer);
+      // Check if we have more posts
+      this.hasMorePosts = newPosts && newPosts.length === 10;
+      
+      if (newPosts && newPosts.length > 0) {
+        // Append new posts to our existing array
+        this.posts = [...this.posts, ...newPosts];
+        
+        // Render the new posts
+        newPosts.forEach(post => {
+          const postItem = this.createPostItem(post);
+          postsContainer.appendChild(postItem);
+        });
+        
+        // Initialize infinite scroll on first load
+        if (this.page === 1) {
+          this.setupInfiniteScroll();
+        }
+        
+        this.page++;
+      } else if (this.page === 1) {
+        // No posts at all
+        postsContainer.innerHTML = `
+          <div class="empty-posts-message">
+            @${this.username} hasn't published any posts yet.
+          </div>
+        `;
+      }
     } catch (error) {
       console.error('Error loading posts:', error);
-      postsContainer.innerHTML = `
-        <div class="error-message">
-          Failed to load posts for @${this.username}
-          <button class="retry-btn">Retry</button>
-        </div>
-      `;
-      
-      // Add retry handler
-      postsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
-        this.loadPosts();
-      });
+      if (this.page === 1) {
+        postsContainer.innerHTML = `
+          <div class="error-message">
+            Failed to load posts for @${this.username}
+            <button class="retry-btn">Retry</button>
+          </div>
+        `;
+        
+        // Add retry handler
+        postsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
+          this.page = 1;
+          this.loadPosts();
+        });
+      }
     } finally {
       this.postsLoading = false;
     }
+  }
+  
+  setupInfiniteScroll() {
+    // Cleanup any existing infinite scroll
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    const postsContainer = this.container.querySelector('.profile-posts');
+    if (!postsContainer) return;
+    
+    // Initialize new infinite scroll
+    this.infiniteScroll = new InfiniteScroll({
+      container: postsContainer,
+      loadMore: async (page) => {
+        if (!this.hasMorePosts) return false;
+        
+        // Skip loadPosts function logic and go straight to API
+        if (this.postsLoading) return false;
+        
+        this.postsLoading = true;
+        try {
+          const newPosts = await profileService.getUserPosts(this.username, 10, page);
+          
+          if (newPosts && newPosts.length > 0) {
+            // Append new posts to container
+            newPosts.forEach(post => {
+              const postItem = this.createPostItem(post);
+              postsContainer.appendChild(postItem);
+            });
+            
+            // Update state
+            this.posts = [...this.posts, ...newPosts];
+            this.hasMorePosts = newPosts.length === 10;
+            return this.hasMorePosts;
+          }
+          
+          this.hasMorePosts = false;
+          return false;
+        } catch (error) {
+          console.error('Error loading more posts:', error);
+          return false;
+        } finally {
+          this.postsLoading = false;
+        }
+      },
+      threshold: '200px',
+      initialPage: this.page
+    });
   }
 
   async loadComments() {
@@ -155,13 +261,18 @@ class ProfileView extends View {
     const header = this.createProfileHeader();
     container.appendChild(header);
     
+    // Add grid controller container
+    const gridControlContainer = document.createElement('div');
+    gridControlContainer.className = 'grid-controller-container';
+    container.appendChild(gridControlContainer);
+    
     // Create profile tabs
     const tabs = this.createProfileTabs();
     container.appendChild(tabs);
     
-    // Create posts container
+    // Create posts container (ensure it has the correct class for the grid controller)
     const postsArea = document.createElement('div');
-    postsArea.className = 'profile-posts';
+    postsArea.className = 'profile-posts posts-container'; // Added 'posts-container' class
     container.appendChild(postsArea);
   }
 
@@ -169,33 +280,38 @@ class ProfileView extends View {
     const header = document.createElement('div');
     header.className = 'profile-header';
     
-    // Add cover image
+    // Add cover image with better styling
     const coverDiv = document.createElement('div');
     coverDiv.className = 'profile-cover';
     if (this.profile.coverImage) {
       coverDiv.style.backgroundImage = `url(${this.profile.coverImage})`;
     }
     
-    // Add profile info section
+    // Add profile info section with modern layout
     const infoSection = document.createElement('div');
     infoSection.className = 'profile-info';
     
-    // Avatar
+    // Avatar with enhanced styling
     const avatar = document.createElement('div');
     avatar.className = 'profile-avatar';
     
     const avatarImg = document.createElement('img');
     avatarImg.src = this.profile.profileImage;
     avatarImg.alt = this.profile.username;
+    avatarImg.loading = 'eager'; // Prioritize avatar loading
     avatarImg.onerror = () => {
       avatarImg.src = '/assets/images/default-avatar.png';
     };
     
     avatar.appendChild(avatarImg);
     
-    // Profile stats (name, handle, bio, followers)
+    // Profile stats with improved layout
     const stats = document.createElement('div');
     stats.className = 'profile-stats';
+    
+    // User metadata with enhanced styling
+    const userMeta = document.createElement('div');
+    userMeta.className = 'user-metadata';
     
     const name = document.createElement('h1');
     name.className = 'profile-name';
@@ -210,12 +326,63 @@ class ProfileView extends View {
     reputation.textContent = ` (${this.profile.reputation.toFixed(1)})`;
     handle.appendChild(reputation);
     
-    // Bio
+    userMeta.appendChild(name);
+    userMeta.appendChild(handle);
+    
+    // Bio with modern styling
     const bio = document.createElement('div');
     bio.className = 'profile-bio';
-    bio.textContent = this.profile.about;
     
-    // Stats metrics (followers, following, posts)
+    // Add profile description with better formatting
+    if (this.profile.about) {
+      const bioText = document.createElement('p');
+      bioText.textContent = this.profile.about;
+      bio.appendChild(bioText);
+    } else {
+      const noBio = document.createElement('p');
+      noBio.className = 'no-bio';
+      noBio.textContent = 'No bio provided';
+      bio.appendChild(noBio);
+    }
+    
+    // Add location if available
+    if (this.profile.location) {
+      const location = document.createElement('div');
+      location.className = 'profile-location';
+      
+      const locationIcon = document.createElement('span');
+      locationIcon.className = 'material-icons';
+      locationIcon.textContent = 'location_on';
+      
+      const locationText = document.createElement('span');
+      locationText.textContent = this.profile.location;
+      
+      location.appendChild(locationIcon);
+      location.appendChild(locationText);
+      bio.appendChild(location);
+    }
+    
+    // Add website if available
+    if (this.profile.website) {
+      const website = document.createElement('div');
+      website.className = 'profile-website';
+      
+      const websiteIcon = document.createElement('span');
+      websiteIcon.className = 'material-icons';
+      websiteIcon.textContent = 'language';
+      
+      const websiteLink = document.createElement('a');
+      websiteLink.href = this.profile.website;
+      websiteLink.target = '_blank';
+      websiteLink.rel = 'noopener noreferrer';
+      websiteLink.textContent = this.profile.website.replace(/^https?:\/\//, '');
+      
+      website.appendChild(websiteIcon);
+      website.appendChild(websiteLink);
+      bio.appendChild(website);
+    }
+    
+    // Stats metrics with modern card design
     const metrics = document.createElement('div');
     metrics.className = 'profile-metrics';
     
@@ -223,7 +390,7 @@ class ProfileView extends View {
     metrics.appendChild(this.createStatElement('Followers', this.profile.followerCount));
     metrics.appendChild(this.createStatElement('Following', this.profile.followingCount));
     
-    // Actions (follow button, etc)
+    // Actions with enhanced button styling
     const actions = document.createElement('div');
     actions.className = 'profile-actions';
     
@@ -231,12 +398,59 @@ class ProfileView extends View {
       const followBtn = document.createElement('button');
       followBtn.className = 'follow-btn';
       followBtn.textContent = 'Follow';
+      
+      // Add icon to follow button
+      const followIcon = document.createElement('span');
+      followIcon.className = 'material-icons';
+      followIcon.textContent = 'person_add';
+      followBtn.prepend(followIcon);
+      
       followBtn.addEventListener('click', () => this.handleFollowAction());
       actions.appendChild(followBtn);
+      
+      // Add message button
+      const messageBtn = document.createElement('button');
+      messageBtn.className = 'message-btn';
+      
+      const msgIcon = document.createElement('span');
+      msgIcon.className = 'material-icons';
+      msgIcon.textContent = 'chat';
+      
+      messageBtn.appendChild(msgIcon);
+      messageBtn.appendChild(document.createTextNode('Message'));
+      
+      messageBtn.addEventListener('click', () => {
+        // Handle message functionality
+        console.log('Message button clicked');
+      });
+      
+      actions.appendChild(messageBtn);
+    } else if (this.currentUser && this.currentUser.username === this.profile.username) {
+      // Add edit profile button for own profile
+      const editBtn = document.createElement('button');
+      editBtn.className = 'edit-profile-btn';
+      
+      const editIcon = document.createElement('span');
+      editIcon.className = 'material-icons';
+      editIcon.textContent = 'edit';
+      
+      editBtn.appendChild(editIcon);
+      editBtn.appendChild(document.createTextNode('Edit Profile'));
+      
+      editBtn.addEventListener('click', () => {
+        // Handle edit profile functionality
+        console.log('Edit profile button clicked');
+      });
+      
+      actions.appendChild(editBtn);
     }
     
-    // Assemble everything
-    stats.append(name, handle, bio, metrics, actions);
+    // Assemble all components with improved structure
+    stats.appendChild(userMeta);
+    stats.appendChild(bio);
+    stats.appendChild(metrics);
+    stats.appendChild(actions);
+    
     infoSection.append(avatar, stats);
     header.append(coverDiv, infoSection);
     
@@ -283,6 +497,23 @@ class ProfileView extends View {
     if (this.currentTab === tabName) return;
     
     this.currentTab = tabName;
+    
+    // Reset pagination and cleanup infinite scroll
+    this.page = 1;
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Reset grid controller for the new tab content
+    if (this.gridController) {
+      const postsContainer = this.container.querySelector('.profile-posts');
+      if (postsContainer) {
+        const layout = localStorage.getItem('grid-layout') || 'grid';
+        postsContainer.className = 'profile-posts posts-container'; // Reset classes
+        postsContainer.classList.add(`grid-layout-${layout}`); // Apply saved layout
+      }
+    }
     
     // Update tab styling
     const tabs = this.container.querySelectorAll('.tab-btn');
@@ -347,23 +578,88 @@ class ProfileView extends View {
     
     // Parse metadata to extract image
     const metadata = this.parseMetadata(post.json_metadata);
-    const imageUrl = this.getBestImage(post, metadata);
+    const imageUrl = this.getBestImage(post, metadata) || 'assets/images/placeholder.png';
     
-    // Post title
+    // Add thumbnail - Always create it for all layouts
+    const thumbnail = document.createElement('div');
+    thumbnail.className = 'post-thumbnail post-grid-thumbnail';
+    thumbnail.style.backgroundImage = `url(${imageUrl})`;
+    postItem.appendChild(thumbnail);
+    
+    const postContent = document.createElement('div');
+    postContent.className = 'post-content';
+    
+    // Post title with better styling
     const title = document.createElement('h3');
-    title.textContent = post.title;
+    title.className = 'post-title';
+    title.textContent = post.title || '(Untitled)';
     
-    // Post excerpt
+    // Post metadata
+    const postMeta = document.createElement('div');
+    postMeta.className = 'post-meta';
+    
+    // Add date info
+    const dateInfo = document.createElement('span');
+    dateInfo.className = 'post-date';
+    
+    const dateIcon = document.createElement('span');
+    dateIcon.className = 'material-icons';
+    dateIcon.textContent = 'schedule';
+    dateInfo.appendChild(dateIcon);
+    
+    const dateText = document.createElement('span');
+    dateText.textContent = new Date(post.created).toLocaleDateString();
+    dateInfo.appendChild(dateText);
+    
+    // Add votes info
+    const votesInfo = document.createElement('span');
+    votesInfo.className = 'post-votes';
+    
+    const votesIcon = document.createElement('span');
+    votesIcon.className = 'material-icons';
+    votesIcon.textContent = 'thumb_up';
+    votesInfo.appendChild(votesIcon);
+    
+    const votesText = document.createElement('span');
+    votesText.textContent = post.net_votes || 0;
+    votesInfo.appendChild(votesText);
+    
+    // Add comments count
+    const commentsInfo = document.createElement('span');
+    commentsInfo.className = 'post-comments';
+    
+    const commentsIcon = document.createElement('span');
+    commentsIcon.className = 'material-icons';
+    commentsIcon.textContent = 'chat_bubble';
+    commentsInfo.appendChild(commentsIcon);
+    
+    const commentsText = document.createElement('span');
+    commentsText.textContent = post.children || 0;
+    commentsInfo.appendChild(commentsText);
+    
+    postMeta.appendChild(dateInfo);
+    postMeta.appendChild(votesInfo);
+    postMeta.appendChild(commentsInfo);
+    
+    // Post excerpt with better formatting
     const excerpt = document.createElement('p');
     excerpt.className = 'post-excerpt';
     excerpt.textContent = this.createExcerpt(post.body);
     
-    postItem.append(title, excerpt);
+    postContent.appendChild(title);
+    postContent.appendChild(postMeta);
+    postContent.appendChild(excerpt);
+    
+    // Always add content
+    postItem.appendChild(postContent);
     
     // Add click handler to navigate to post
     postItem.addEventListener('click', () => {
       router.navigate(`/@${post.author}/${post.permlink}`);
     });
+    
+    // Add hover animation class
+    postItem.classList.add('animated-card');
     
     return postItem;
   }
@@ -503,8 +799,34 @@ class ProfileView extends View {
     return ImageUtils.getBestImageUrl(post.body, metadata);
   }
 
+  initGridController() {
+    if (this.gridController) {
+      this.gridController = null;
+    }
+    
+    const gridControllerContainer = this.container.querySelector('.grid-controller-container');
+    if (!gridControllerContainer) return;
+    
+    this.gridController = new GridController({
+      targetSelector: '.profile-posts',
+    });
+    
+    this.gridController.render(gridControllerContainer);
+  }
+
   unmount() {
-    // Clean up any event listeners or resources
+    // Clean up infinite scroll
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Clean up grid controller
+    if (this.gridController) {
+      this.gridController.unmount();
+      this.gridController = null;
+    }
+    // Clean up any other event listeners or resources
   }
 }
 
