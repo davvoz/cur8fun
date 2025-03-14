@@ -503,6 +503,14 @@
   .error-code {
     font-size: 4rem;
   }
+  
+  /* Make images smaller on tablets */
+  .content-image, 
+  .featured-image,
+  .post-image {
+    max-width: 95%;
+    height: auto;
+  }
 }
 
 @media (max-width: 480px) {
@@ -514,6 +522,57 @@
     margin-left: 0;
     width: 100%;
     margin-top: var(--space-sm);
+  }
+  
+
+  
+  /* Handle specific large images that might have inline width/height */
+  img[width], 
+  img[height], 
+  img[style*="width"], 
+  img[style*="height"],
+  img[data-width], 
+  img[data-height] {
+    width: auto ;
+    height: auto ;
+    max-width: 100% ;
+    max-height: 400px ;
+  }
+  
+  /* Reduce spacing around image containers */
+  .content-images-container,
+  .featured-image-container,
+  .post-content-body p:has(img) {
+    margin: var(--space-sm) 0 ;
+    padding: 0 ;
+  }
+}
+
+/* Additional breakpoint for very small devices */
+@media (max-width: 360px) {
+  .content-image, 
+  .featured-image,
+  .post-image {
+    max-height: 55vh; /* Even smaller height limit for tiny screens */
+  }
+  
+  /* Override specific legacy image sizing */
+  img[width], img[data-width] {
+    width: auto ;
+    max-width: 100% ;
+  }
+}
+
+/* Additional breakpoint for very small devices */
+@media (max-width: 360px) {
+  /* Even tighter controls for small phones */
+  .post-content img,
+  .post-content-body img,
+  .content-body img,
+  img.content-image,
+  img.featured-image,
+  img.post-image {
+    max-height: 300px ;
   }
 }
 

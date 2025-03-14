@@ -2,6 +2,7 @@ import ImageUtils from '../utils/process-body/ImageUtils.js';
 import YouTubeUtils from '../utils/process-body/plugins/youtube.js';
 import { generatePostContent } from '../utils/process-body/process_body.js';
 import { imagePatterns, largeImagePatterns, resetRegexLastIndex } from '../utils/process-body/RegexPatterns.js';
+// Remove the marked import - we'll use the globally available marked from CDN
 
 /**
  * Content Renderer component for displaying Steem posts and previews
@@ -47,6 +48,15 @@ class ContentRenderer {
     
     // First check if post appears to contain large images
     if (data.body) {
+      // DIRECT FIX: Replace the exact problematic pattern before any processing
+      // This catches the specific |       | followed by | ----------| pattern
+      data.body = this.fixExactMinimalTablePattern(data.body);
+      
+      // Continue with other preprocessing
+      if (data.body.includes('| |') || data.body.includes('|  |')) {
+        data.body = this.replaceMinimalTables(data.body);
+      }
+      
       hasLargeImages = this.detectLargeImages(data.body);
       
       // Extract YouTube videos before processing content
@@ -77,9 +87,13 @@ class ContentRenderer {
         // Fall back to simple markdown parsing
         processedContent = this.processMarkdown(data.body);
       }
+      // After processing content with process_body.js, apply the post-processing fix
+      processedContent = this.postProcessContent(processedContent);
     } else {
       // Use our simpler markdown processing
       processedContent = this.processMarkdown(data.body);
+      // Also apply post-processing to our markdown processor output
+      processedContent = this.postProcessContent(processedContent);
     }
     
     // Restore YouTube videos from placeholders to embed iframes
@@ -149,6 +163,40 @@ class ContentRenderer {
   }
   
   /**
+   * Fix the exact minimal table pattern that's causing issues
+   * This specifically targets |       | followed by | -----------|
+   */
+  fixExactMinimalTablePattern(content) {
+    if (!content) return '';
+    
+    console.log('Looking for exact minimal table pattern');
+    
+    // First, try exact string match (most reliable)
+    if (content.includes('|       |\n| -----------|')) {
+      console.log('Found exact minimal table pattern via string match!');
+      return content.replace(
+        '|       |\n| -----------|', 
+        '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>'
+      );
+    }
+    
+    // More general matcher for slight variations, using careful regex
+    // This matches | followed by 1+ spaces, followed by | and newline
+    // Then | followed by space, followed by 5+ hyphens, followed by |
+    const exactPattern = /\|[ ]{1,}\|\n\|[ ][-]{5,}[ ]*\|/g;
+    
+    if (exactPattern.test(content)) {
+      console.log('Found minimal table via precise regex');
+      return content.replace(
+        exactPattern,
+        '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>'
+      );
+    }
+    
+    return content;
+  }
+  
+  /**
    * Detect if content has large images that might need special handling
    */
   detectLargeImages(content) {
@@ -164,11 +212,174 @@ class ContentRenderer {
   adjustLargeImagesInHtml(html, options) {
     if (!html) return '';
     
-    // Add responsive class and max-width to all images
-    return html.replace(
-      /<img([^>]*)>/gi,
-      `<img$1 style="max-width:${options.maxImageWidth}px; height:auto;" class="${options.imageClass}">`
-    );
+    // Detect mobile devices
+    const isMobile = typeof window !== 'undefined' && window.innerWidth && window.innerWidth <= 768;
+    
+    // First fix any potential markdown tables that weren't processed
+    html = this.fixUnprocessedTables(html);
+    
+    if (isMobile) {
+      // On mobile, just add the class without max-width style
+      return html.replace(
+        /<img([^>]*)>/gi,
+        `<img$1 class="${options.imageClass}">`
+      );
+    } else {
+      // On desktop, add both class and max-width
+      return html.replace(
+        /<img([^>]*)>/gi,
+        `<img$1 style="max-width:${options.maxImageWidth}px; height:auto;" class="${options.imageClass}">`
+      );
+    }
+  }
+  
+  /**
+   * Fix unprocessed markdown tables in HTML content
+   * @param {string} html - HTML content that might contain unprocessed markdown tables
+   * @returns {string} HTML with tables fixed
+   */
+  fixUnprocessedTables(html) {
+    if (!html) return '';
+    
+    // Make sure marked is available from the global scope (from CDN)
+    if (typeof window.marked === 'undefined') {
+      console.warn('marked library not loaded from CDN');
+      return html;
+    }
+    
+    // Handle the specific problematic pattern as a special case
+    // This will catch any remaining instances that weren't handled by replaceMinimalTables
+    html = html.replace(/\|\s*\|\s*\n\|\s*-+\s*\|/g, (match) => {
+      console.log('Found minimal table pattern in HTML, creating direct table');
+      return '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
+    });
+    
+    // First handle specifically the minimal empty table case that markdown parsers often miss
+    // This handles the "|       |" followed by "| -----------|" pattern exactly
+    html = html.replace(/\|\s*\|\s*\n\|\s*[-]+\s*\|/g, (match) => {
+      console.log('Found minimal table pattern, creating HTML table directly');
+      return '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
+    });
+    
+    // Special handling for minimal tables like | | and | -----|
+    html = html.replace(/\|\s*\|\s*\n\|\s*[-]+\s*\|/g, (match) => {
+      return '<table class="markdown-table"><thead><tr><th>&nbsp;</th></tr></thead><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
+    });
+    
+    // Find markdown table patterns that weren't processed
+    // Updated regex to catch more table formats including single-cell tables
+    const tableRegex = /\|[^\n]*\|\s*\n\|[\s\-:]+\|.*\n?(\|.*\|.*\n?)*/g;
+    
+    return html.replace(tableRegex, (table) => {
+      try {
+        // Handle empty or minimal cell content
+        let processedTable = table;
+        
+        // Special handling for very minimal tables
+        if (table.trim().startsWith('|') && table.trim().endsWith('|')) {
+          // Extract rows
+          const rows = table.trim().split('\n');
+          
+          // If we have the minimal format with empty cells
+          if (rows.length >= 2) {
+            const headerCells = rows[0].split('|').filter(s => s.trim().length > 0);
+            
+            // Check if this is the specific case we're having trouble with
+            if (rows.length === 2 && rows[1].includes('-') && !rows[1].includes('|--')) {
+              console.log('Handling 2-row minimal table');
+              return '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
+            }
+            
+            // If header row has no content or just whitespace
+            if (headerCells.length === 0 || headerCells.every(cell => cell.trim() === '')) {
+              // Create a manual HTML table for this case
+              return '<table class="markdown-table"><thead><tr><th>&nbsp;</th></tr></thead><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
+            }
+          }
+        }
+        
+        // Process the table with marked
+        window.marked.setOptions({ 
+          gfm: true, 
+          tables: true,
+          headerIds: false,
+          mangle: false 
+        });
+        
+        // For minimal tables, add a content row explicitly
+        if (table.split('\n').length === 2) {
+          processedTable = table + "| &nbsp; |\n";
+        }
+        
+        const htmlTable = window.marked.parse(processedTable);
+        
+        // If parsing didn't result in a table, force create one
+        if (!htmlTable.includes('<table')) {
+          return this.createManualHtmlTable(table);
+        }
+        
+        return htmlTable;
+      } catch(e) {
+        console.warn('Failed to process markdown table:', e);
+        return this.createManualHtmlTable(table);
+      }
+    });
+  }
+  
+  /**
+   * Create a manual HTML table from markdown table syntax
+   * @param {string} tableMarkdown - Markdown table text
+   * @returns {string} HTML table
+   */
+  createManualHtmlTable(tableMarkdown) {
+    try {
+      const rows = tableMarkdown.trim().split('\n');
+      if (rows.length >= 1) {
+        // Very simple format - create a basic table
+        let htmlTable = '<table class="markdown-table"><tbody>';
+        
+        // Skip separator rows when processing
+        rows.forEach((row, index) => {
+          // Skip separator rows (rows with only dashes, colons, and pipes)
+          if (index === 1 && /^[\s|\-:]+$/.test(row)) {
+            return;
+          }
+          
+          // Process each cell in the row
+          const cells = row.split('|').filter((cell, idx, arr) => 
+            // Skip first/last empty cells from pipe at beginning/end of line
+            !(idx === 0 && cell.trim() === '') && 
+            !(idx === arr.length - 1 && cell.trim() === '')
+          );
+          
+          if (cells.length > 0) {
+            htmlTable += '<tr>';
+            
+            // For completely empty rows/cells, add a non-breaking space
+            if (cells.every(cell => cell.trim() === '')) {
+              htmlTable += '<td>&nbsp;</td>';
+            } else {
+              cells.forEach(cell => {
+                htmlTable += `<td>${cell.trim() || '&nbsp;'}</td>`;
+              });
+            }
+            
+            htmlTable += '</tr>';
+          } else {
+            // For rows with no cells (just pipes), add an empty cell
+            htmlTable += '<tr><td>&nbsp;</td></tr>';
+          }
+        });
+        
+        htmlTable += '</tbody></table>';
+        return htmlTable;
+      }
+    } catch (fallbackError) {
+      console.error('Manual table creation failed:', fallbackError);
+    }
+    
+    // Last resort - return a basic table with one empty cell
+    return '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
   }
   
   /**
@@ -191,15 +402,119 @@ class ContentRenderer {
     if (!markdown) return '';
     
     try {
-      // Convert markdown to HTML
-      const html = marked.parse(markdown);
+      // First do a direct replacement of the problematic pattern before any markdown processing
+      const fixedMarkdown = markdown.replace(
+        /\|\s*\|\s*\n\|\s*[-]+\s*\|/g,
+        '<div data-special-table="1"><table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table></div>'
+      );
       
-      // Sanitize HTML to prevent XSS
-      return DOMPurify.sanitize(html);
+      // Improve table preprocessing before sending to marked
+      // Look for table-like structures and ensure they're properly formatted
+      const enhancedMarkdown = this.preprocessMarkdownTables(fixedMarkdown);
+      
+      // Configure marked to handle tables and other extended features
+      window.marked.setOptions({
+        gfm: true,         // GitHub Flavored Markdown mode (tables, strikethrough)
+        tables: true,      // Enable table support explicitly
+        breaks: true,      // Enable line breaks
+        pedantic: false,   // Conform to markdown.pl
+        smartLists: true,  // Smarter list behavior
+        headerIds: false,  // Disable header IDs to avoid deprecation warnings
+        mangle: false,     // Disable mangling to avoid deprecation warnings
+        // Add this option to render raw HTML embedded in markdown
+        renderer: new window.marked.Renderer(),
+        sanitize: false
+      });
+      
+      // Convert markdown to HTML
+      const html = window.marked.parse(enhancedMarkdown);
+      
+      // Sanitize HTML to prevent XSS with DOMPurify
+      if (typeof window.DOMPurify !== 'undefined') {
+        // Use DOMPurify with explicit allowed tags configuration
+        return window.DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: [
+            // Default HTML tags
+            'a', 'b', 'br', 'code', 'div', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'small', 's', 'span', 'strong', 'sub',
+            'sup', 'u', 'ul',
+            // Table elements
+            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            // Other elements we want to allow
+            'blockquote', 'center', 'details', 'summary'
+          ]
+        });
+      } else {
+        // If DOMPurify is not available, just return the HTML
+        console.warn('DOMPurify not loaded, returning unfiltered HTML');
+        return html;
+      }
     } catch (error) {
       console.error('Error processing markdown:', error);
       return `<p>Failed to render content: ${error.message}</p>`;
     }
+  }
+  
+  /**
+   * Preprocess markdown to ensure tables are properly formatted
+   * @param {string} markdown - Raw markdown content
+   * @returns {string} Processed markdown
+   */
+  preprocessMarkdownTables(markdown) {
+    if (!markdown) return '';
+    
+    // Special direct handling for our problematic pattern
+    const modifiedMarkdown = markdown.replace(
+      /\|\s*\|\s*\n\|\s*-+\s*\|/g,
+      '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tbody></table>'
+    );
+    
+    if (modifiedMarkdown !== markdown) {
+      console.log('Replaced minimal table during preprocessing');
+      return modifiedMarkdown;
+    }
+    
+    // Special handling for minimal single-cell tables with just a divider in second row
+    let enhancedMarkdown = markdown.replace(
+      /(\|\s*\|\s*\n\|\s*[-]+\s*\|)(?!\s*\n\|)/gm,
+      (match) => {
+        // Add an additional cell row to make sure it's recognized
+        console.log('Preprocessing minimal table format');
+        return match + "\n| &nbsp; |";
+      }
+    );
+    
+    // Special handling for minimal tables
+    enhancedMarkdown = enhancedMarkdown.replace(
+      /(\|\s*\|\s*\n\|\s*[-]+\s*\|)/g,
+      (match) => {
+        // Add a content row to minimal tables
+        return match + "\n| &nbsp; |";
+      }
+    );
+    
+    // Check for tables at the very end of content
+    if (/\|\s*[-]+\s*\|\s*$/.test(enhancedMarkdown)) {
+      enhancedMarkdown += "\n| &nbsp; |";
+    }
+    
+    // Identify potential table patterns, particularly minimal or malformed ones
+    enhancedMarkdown = enhancedMarkdown.replace(
+      /(\|[^\n]*\|\s*\n\|[\s\-:]+\|[^\n]*\n)(?!\|)/g,
+      (match) => {
+        // This looks like a table header and separator without content rows
+        // Add a content row to make it a valid table
+        return match + "| &nbsp; |\n";
+      }
+    ).replace(
+      /(\|[^\n\|]+\|\s*\n)(\|[\s\-:]+\|[^\n]*\n)$/gm,
+      (match, headerRow, separatorRow) => {
+        // Table at the end of text or section without content rows
+        return match + "| &nbsp; |\n";
+      }
+    );
+    
+    return enhancedMarkdown;
   }
   
   /**
@@ -286,6 +601,82 @@ class ContentRenderer {
     });
     
     return image;
+  }
+  
+  /**
+   * Handle minimal empty tables directly in the markdown
+   * @param {string} markdown - Raw markdown content
+   * @returns {string} - Processed markdown with handled empty tables
+   */
+  handleMinimalEmptyTables(markdown) {
+    if (!markdown) return '';
+    
+    // Direct replacement for the problematic pattern
+    return markdown.replace(
+      /\|\s*\|\s*\n\|\s*[-]+\s*\|/g, 
+      '<div class="manual-table-html"><table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table></div>'
+    );
+  }
+  
+  /**
+   * Replace minimal tables with direct HTML before any other processing
+   * This is a direct and focused approach for the specific pattern we're having trouble with
+   */
+  replaceMinimalTables(markdown) {
+    if (!markdown) return '';
+    
+    // Create a line-by-line analysis for more precise replacement
+    const lines = markdown.split('\n');
+    const newLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      // Debug the current line to help troubleshoot
+      if (lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        console.log('Potential table line:', lines[i]);
+        
+        // Check for multi-space pattern specifically
+        if (lines[i].match(/^\|\s{3,}\|$/)) {
+          console.log('Found multi-space line pattern!');
+        }
+      }
+      
+      // Enhanced check for the first line of our problematic pattern
+      // Much more precise matching than before
+      if ((lines[i].match(/^\|\s{1,}\|$/) || lines[i].trim() === '| |' || lines[i].trim() === '|  |') && 
+          i + 1 < lines.length && 
+          lines[i+1].match(/^\|\s*[-]{1,}\s*\|$/)) {
+        
+        console.log('Found minimal table at line', i, 'Line content:', lines[i], 'Next line:', lines[i+1]);
+        
+        // Add a direct HTML table replacement
+        newLines.push('<div class="minimal-table-wrapper">');
+        newLines.push('<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>');
+        newLines.push('</div>');
+        
+        // Skip the next line as we've already handled it
+        i++;
+      } else {
+        // Keep existing line
+        newLines.push(lines[i]);
+      }
+    }
+    
+    return newLines.join('\n');
+  }
+
+  /**
+   * Post-process HTML content to fix any issues with tables that were incorrectly rendered as paragraphs
+   * @param {string} html - HTML content that might contain incorrectly formatted tables
+   * @returns {string} Fixed HTML content
+   */
+  postProcessContent(html) {
+    if (!html) return '';
+    
+    // Look for the exact pattern where a minimal table is wrapped in paragraph tags
+    return html.replace(
+      /<p>\s*\|\s*\|\s*<\/p>\s*<p>\s*\|\s*[-]+\s*\|\s*<\/p>/g,
+      '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>'
+    );
   }
 }
 
