@@ -1,0 +1,31 @@
+/* Wallet-specific variables that can be customized */
+:root {
+  /* Currency colors */
+  --steem-color: #1a5099;
+  --sbd-color: #6b4e3b;
+  --sp-color: #4ba2f2;
+  
+  /* Action colors */
+  --transfer-color: var(--blue);
+  --upvote-color: var(--green);
+  --downvote-color: var(--red);
+  --reply-color: var(--purple);
+  --post-color: var(--teal);
+  --claim-color: var(--amber);
+  --power-up-color: var(--green);
+  --power-down-color: var(--orange);
+  --curation-color: var(--green);
+  --reward-color: var(--amber);
+  --delegation-color: var(--blue);
+  
+  /* Wallet specific sizing */
+  --wallet-card-min-width: 250px;
+  --wallet-stat-min-width: 180px;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] {
+  --steem-color: #2f80ed;
+  --sbd-color: #b89975;
+  --sp-color: #6ab0f3;
+}

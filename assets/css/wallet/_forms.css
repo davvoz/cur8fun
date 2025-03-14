@@ -1,0 +1,191 @@
+/* Form styling for wallet */
+.form-group {
+  margin-bottom: var(--space-md);
+}
+
+.info-text {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-md);
+}
+
+.info-text .material-icons {
+  margin-right: var(--space-xs);
+  font-size: 1.1rem;
+}
+
+/* Memo field styling */
+.memo-group {
+  position: relative;
+}
+
+.label-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.optional-badge {
+  font-size: 0.75rem;
+  background-color: var(--background-lighter);
+  color: var(--text-muted);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-xs);
+}
+
+.memo-container {
+  position: relative;
+}
+
+.memo-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.memo-textarea:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.memo-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.char-counter {
+  position: absolute;
+  bottom: var(--space-xs);
+  right: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.char-counter.approaching-limit {
+  color: var(--warning-color);
+  font-weight: 500;
+}
+
+.memo-info-wrapper {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-xs);
+}
+
+.memo-info-icon {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin-right: var(--space-xs);
+}
+
+.memo-info-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+/* Currency selector styling */
+.input-group {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.input-group input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  padding: var(--space-sm);
+  background-color: var(--background);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-group input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+}
+
+.currency-selector {
+  width: auto;
+  min-width: 100px;
+}
+
+.select-wrapper {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.currency-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--background-lighter);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-lg) var(--space-sm) var(--space-md);
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  cursor: pointer;
+  height: 100%;
+  width: 100%;
+}
+
+.currency-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+}
+
+.select-icon {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+/* Make inputs and selects the same height */
+.input-group input,
+.currency-select,
+.input-suffix {
+  height: 40px;
+  line-height: normal;
+}
+
+/* Improve input suffix styling to match currency selector */
+.input-suffix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  background-color: var(--background-lighter);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 500;
+}

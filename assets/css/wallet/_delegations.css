@@ -1,0 +1,41 @@
+/* Delegation table styles */
+.delegations-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-md);
+}
+
+.delegations-table th,
+.delegations-table td {
+  padding: var(--space-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delegations-table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.edit-btn,
+.remove-btn {
+  background: none;
+  border: none;
+  padding: var(--space-xs) var(--space-sm);
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.edit-btn {
+  color: var(--primary-color);
+}
+
+.remove-btn {
+  color: var(--error-color);
+}
+
+.edit-btn:hover,
+.remove-btn:hover {
+  background-color: var(--background-lighter);
+}

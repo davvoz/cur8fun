@@ -1,0 +1,93 @@
+/* Basic wallet layout styling */
+.wallet-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+/* General form cards */
+.form-card {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+/* Status messages */
+.message {
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm) 0;
+}
+
+.message.hidden {
+  display: none;
+}
+
+.message.success {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+}
+
+.message.error {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: var(--space-md);
+  color: var(--text-muted);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+}
+
+.error-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--error-color);
+}
+
+/* Status messages for all wallet sections */
+.status-message {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.status-message.info {
+  background-color: #e3f2fd;
+  color: #0d47a1;
+}
+
+.status-message.error {
+  background-color: #ffebee;
+  color: #b71c1c;
+}
+
+.status-message.warning {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+/* Utility class */
+.hidden {
+  display: none;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .wallet-container {
+    padding: var(--space-sm);
+  }
+}

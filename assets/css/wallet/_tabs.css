@@ -1,0 +1,52 @@
+/* Tab system styling */
+.wallet-tabs {
+  margin-top: var(--space-xl);
+}
+
+.tab-buttons {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-lg);
+  overflow-x: auto;
+}
+
+.tab-button {
+  padding: var(--space-md) var(--space-lg);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tab-button:hover {
+  color: var(--primary-color);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* Responsive tab adjustments */
+@media (max-width: 768px) {
+  .tab-buttons {
+    flex-wrap: nowrap;
+    gap: var(--space-xs);
+  }
+  
+  .tab-button {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    white-space: nowrap;
+  }
+}

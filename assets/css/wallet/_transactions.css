@@ -1,0 +1,215 @@
+/* Transaction History styling */
+.transaction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.filter-container {
+  margin-top: var(--space-sm);
+}
+
+.filter-container summary {
+  cursor: pointer;
+  color: var(--primary-color);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-container summary:hover {
+  text-decoration: underline;
+}
+
+.filter-container summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-container summary::before {
+  content: 'expand_more';
+  font-family: 'Material Icons';
+  margin-right: 4px;
+  transition: transform 0.2s;
+}
+
+.filter-container[open] summary::before {
+  transform: rotate(180deg);
+}
+
+.filter-options {
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.filter-group input[type="checkbox"] {
+  margin-right: var(--space-xs);
+}
+
+.transaction-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.transaction-item {
+  display: flex;
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.transaction-item:hover {
+  background-color: var(--background-hover);
+}
+
+.transaction-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: var(--space-sm);
+  color: white;
+  flex-shrink: 0;
+}
+
+.transaction-icon.transfer { background-color: var(--blue); }
+.transaction-icon.upvote { background-color: var(--green); }
+.transaction-icon.downvote { background-color: var(--red); }
+.transaction-icon.reply { background-color: var(--purple); }
+.transaction-icon.post { background-color: var(--teal); }
+.transaction-icon.claim { background-color: var(--amber); }
+.transaction-icon.power-up { background-color: var(--green); }
+.transaction-icon.power-down { background-color: var(--orange); }
+.transaction-icon.curation { background-color: var (--green); }
+.transaction-icon.reward { background-color: var(--amber); }
+.transaction-icon.delegation { background-color: var(--blue); }
+.transaction-icon.custom { background-color: var(--grey); }
+.transaction-icon.other { background-color: var(--grey); }
+
+.transaction-details {
+  flex-grow: 1;
+  min-width: 0; /* Prevents overflow in flex container */
+}
+
+.transaction-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 4px;
+  color: var(--text-heading);
+}
+
+.transaction-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.transaction-date {
+  white-space: nowrap;
+}
+
+.transaction-memo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-direction {
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 12px;
+}
+
+.transaction-direction.incoming {
+  background-color: var(--success-light);
+  color: var(--success-dark);
+}
+
+.transaction-direction.outgoing {
+  background-color: var(--info-light);
+  color: var(--info-dark);
+}
+
+.transaction-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--link-color);
+  text-decoration: none;
+}
+
+.transaction-link:hover {
+  text-decoration: underline;
+}
+
+.transaction-link .material-icons {
+  font-size: 14px;
+  margin-right: 2px;
+}
+
+.transaction-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+
+.loading-state, .error-state, .empty-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.error-state {
+  color: var(--error-color);
+}
+
+.loading-icon {
+  animation: spin 1.5s linear infinite;
+  vertical-align: middle;
+  margin-right: var(--space-xs);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .transaction-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .filter-container {
+    width: 100%;
+    margin-top: var(--space-md);
+  }
+  
+  .filter-group {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+}
