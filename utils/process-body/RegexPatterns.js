@@ -18,7 +18,13 @@ export const imagePatterns = {
   postImageLinks: /https:\/\/(?:[a-z0-9-]+\.)*postimg\.cc\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/gi,
   
   // General image URLs
-  generalImages: /https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi
+  generalImages: /https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?/gi,
+  
+  // Add support for peakd.com URLs
+  peakdImages: /https?:\/\/files\.peakd\.com\/file\/.*?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?/gi,
+
+  //https://cdn.steemitimages.com/DQmbjYs5ePmb9zTdTRRsbJqEHixBCXms5BeA6DAg2T97Br2/olk63-H-2-Gif19ms11St.gif	
+  otherImages: /https:\/\/cdn\.steemitimages\.com\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/gi
 };
 
 // Pattern per immagini di grandi dimensioni
@@ -30,7 +36,13 @@ export const largeImagePatterns = [
   /https:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/(?:0x0|DQm|p\/)/i,
   
   // Imgur direct links to large images
-  /https:\/\/i\.imgur\.com\/[a-zA-Z0-9]+\.(?:jpg|png|gif)/i
+  /https:\/\/i\.imgur\.com\/[a-zA-Z0-9]+\.(?:jpg|png|gif)/i,
+  
+  // Large peakd.com images
+  /https?:\/\/files\.peakd\.com\/file\/.*?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?/gi,
+
+  //https://cdn.steemitimages.com/DQmXLEEVNfKza15Y4VGaoEZWRxJNYQNo4ZjS4EDG8aF2aFm/olk63-H-13-Gif19ms11St.gif
+  /https:\/\/cdn\.steemitimages\.com\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/i
 ];
 
 // Pattern video YouTube

@@ -211,6 +211,18 @@ class ImageUtils {
 
       // Step 1: Clean the URL
       url = this.sanitizeUrl(url);
+      
+      // Special handling for peakd.com URLs - return as is, they don't need proxy
+      if (url.includes('files.peakd.com')) {
+        this.cachedUrls.set(cacheKey, url);
+        return url;
+      }
+      
+      // Special handling for DQm format URLs from steemitimages.com - return as is
+      if (url.includes('steemitimages.com/DQm') || url.includes('cdn.steemitimages.com/DQm')) {
+        this.cachedUrls.set(cacheKey, url);
+        return url;
+      }
 
       // Step 2: Process steemitimages URLs
       if (url.includes('steemitimages.com') || url.includes('cdn.steemitimages.com')) {

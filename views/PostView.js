@@ -3,6 +3,7 @@ import steemService from '../services/SteemService.js'; // Changed from SteemSer
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
+import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
 
 class PostView extends View {
   constructor(params = {}) {
@@ -254,6 +255,7 @@ class PostView extends View {
     
     // Add header first to ensure it's at the top
     this.postContent.appendChild(postHeader);
+    
     
     // Use ContentRenderer for post body
     const renderedContent = this.contentRenderer.render({
@@ -651,6 +653,23 @@ class PostView extends View {
     // In a real implementation, this would get the logged in user from state or localStorage
     return localStorage.getItem('currentUser') ? 
       JSON.parse(localStorage.getItem('currentUser')) : null;
+  }
+  
+  // Add methods to extract the best image from a post (similar to ProfileView)
+  getBestImage(post) {
+    const metadata = this.parseMetadata(post.json_metadata);
+    return ImageUtils.getBestImageUrl(post.body, metadata) || '';
+  }
+  
+  parseMetadata(jsonMetadata) {
+    try {
+      if (typeof jsonMetadata === 'string') {
+        return JSON.parse(jsonMetadata);
+      }
+      return jsonMetadata || {};
+    } catch (e) {
+      return {};
+    }
   }
 }
 

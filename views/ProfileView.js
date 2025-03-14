@@ -582,7 +582,7 @@ class ProfileView extends View {
     
     // Add thumbnail - Always create it for all layouts
     const thumbnail = document.createElement('div');
-    thumbnail.className = 'post-thumbnail';
+    thumbnail.className = 'post-thumbnail post-grid-thumbnail';
     thumbnail.style.backgroundImage = `url(${imageUrl})`;
     postItem.appendChild(thumbnail);
     

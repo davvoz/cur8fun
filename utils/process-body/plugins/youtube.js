@@ -46,9 +46,12 @@ class YouTubeUtils {
           // Create a unique placeholder for this video using our format
           const placeholder = `${this.PLACEHOLDER_PREFIX}${videoId}${this.PLACEHOLDER_SUFFIX}`;
           
+          // Ensure original URL has https:// prefix
+          const normalizedUrl = this.normalizeYouTubeUrl(originalUrl);
+          
           videos.push({
             id: videoId,
-            originalUrl,
+            originalUrl: normalizedUrl, // Use normalized URL with https:// prefix
             placeholder
           });
           
@@ -147,6 +150,32 @@ class YouTubeUtils {
    */
   static escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  /**
+   * Ensures a YouTube URL has the proper https:// prefix
+   * @param {string} url - YouTube URL that might be missing protocol
+   * @returns {string} Normalized URL with https:// prefix
+   */
+  static normalizeYouTubeUrl(url) {
+    if (!url) return url;
+    
+    // If URL starts with www., add https://
+    if (url.startsWith('www.')) {
+      return `https://${url}`;
+    }
+    
+    // If URL starts with youtube.com or youtu.be without protocol, add it
+    if (url.startsWith('youtube.com/') || url.startsWith('youtu.be/')) {
+      return `https://${url}`;
+    }
+    
+    // If URL doesn't have a protocol at all, add https://
+    if (!url.match(/^https?:\/\//)) {
+      return `https://${url}`;
+    }
+    
+    return url;
   }
 }
 

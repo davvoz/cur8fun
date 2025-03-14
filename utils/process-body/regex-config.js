@@ -18,8 +18,9 @@ export const REGEX_PATTERNS = {
   
   // Video Platform Patterns
   YOUTUBE: {
-    MAIN: /(?:youtube.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu.be\/)([^"&?\/\s]{11})/g,
-    EMBED: /^(https?:)?\/\/www.youtube.com\/(embed|shorts)\/.*/i
+    MAIN: /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:&\S+)?/g,
+    EMBED: /<iframe[^>]*src=["'](?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:\?[^"'>]+)?["'][^>]*><\/iframe>/g,
+    SHORTS: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:\?\S+)?/g
   },
   VIMEO: {
     MAIN: /(https?:\/\/)?(www\.)?(?:vimeo)\.com.*(?:videos|video|channels|)\/([\d]+)/i,
@@ -57,3 +58,5 @@ export const REGEX_PATTERNS = {
   ENTITY: /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig,
   SECTION: /\B(\#[\da-zA-Z-_]+\b)(?!;)/i
 };
+
+export default REGEX_PATTERNS;

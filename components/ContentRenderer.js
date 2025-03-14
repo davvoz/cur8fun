@@ -57,6 +57,10 @@ class ContentRenderer {
         data.body = this.replaceMinimalTables(data.body);
       }
       
+      // Enhance image URL detection before processing markdown
+      // This is especially important for peakd.com URLs
+      data.body = this.enhanceImageUrls(data.body);
+      
       hasLargeImages = this.detectLargeImages(data.body);
       
       // Extract YouTube videos before processing content
@@ -89,11 +93,17 @@ class ContentRenderer {
       }
       // After processing content with process_body.js, apply the post-processing fix
       processedContent = this.postProcessContent(processedContent);
+      
+      // Fix image links that might have been missed
+      processedContent = this.fixImageTags(processedContent);
     } else {
       // Use our simpler markdown processing
       processedContent = this.processMarkdown(data.body);
       // Also apply post-processing to our markdown processor output
       processedContent = this.postProcessContent(processedContent);
+      
+      // Fix image links that might have been missed
+      processedContent = this.fixImageTags(processedContent);
     }
     
     // Restore YouTube videos from placeholders to embed iframes
@@ -218,19 +228,12 @@ class ContentRenderer {
     // First fix any potential markdown tables that weren't processed
     html = this.fixUnprocessedTables(html);
     
-    if (isMobile) {
+
       // On mobile, just add the class without max-width style
       return html.replace(
         /<img([^>]*)>/gi,
         `<img$1 class="${options.imageClass}">`
       );
-    } else {
-      // On desktop, add both class and max-width
-      return html.replace(
-        /<img([^>]*)>/gi,
-        `<img$1 style="max-width:${options.maxImageWidth}px; height:auto;" class="${options.imageClass}">`
-      );
-    }
   }
   
   /**
@@ -537,14 +540,23 @@ class ContentRenderer {
     // Fallback to our own extraction
     const images = new Set();
     
-    // Process each regex pattern
+    // Add special handling for peakd.com URLs
+    const peakdRegex = /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
+    let match;
+    while ((match = peakdRegex.exec(content)) !== null) {
+      if (match[1]) {
+        images.add(match[1]);
+      }
+    }
+    
+    // Process each regex pattern from ImagePatterns
     Object.values(this.regexPatterns).forEach(pattern => {
       // Resetta il lastIndex prima dell'uso
       pattern.lastIndex = 0;
       
       let match;
       while ((match = pattern.exec(content)) !== null) {
-        images.add(match[0]);
+        images.add(match[1] || match[0]);
       }
     });
     
@@ -677,6 +689,136 @@ class ContentRenderer {
       /<p>\s*\|\s*\|\s*<\/p>\s*<p>\s*\|\s*[-]+\s*\|\s*<\/p>/g,
       '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>'
     );
+  }
+
+  /**
+   * Enhance image URLs in the content before processing
+   * Particularly useful for peakd.com URLs and other complex formats
+   */
+  enhanceImageUrls(content) {
+    if (!content) return '';
+    
+    // Function to convert plain URLs to markdown image syntax
+    const convertUrlsToMarkdown = (text) => {
+      // Make sure we're looking for peakd.com URLs specifically
+      const peakdRegex = /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
+      
+      return text.replace(peakdRegex, (match) => {
+        // Wrap in markdown image syntax if not already wrapped
+        if (!text.includes(`![](${match})`) && !text.includes(`<img src="${match}"`)) {
+          return `![](${match})`;
+        }
+        return match;
+      });
+    };
+    
+    return convertUrlsToMarkdown(content);
+  }
+
+  /**
+   * Fix image tags in the processed HTML content
+   * Ensures all image URLs are properly handled, especially peakd.com URLs
+   */
+  fixImageTags(html) {
+    if (!html) return '';
+    
+    // Fix images in table cells first - this is important for properly displaying images in tables
+    html = this.fixImagesInTableCells(html);
+    
+    // Find all img tags
+    return html.replace(/<img\s+([^>]*?)src=(['"])(.*?)\2([^>]*?)>/gi, (match, beforeSrc, quote, src, afterSrc) => {
+      // Check if this is a peakd.com URL
+      if (src.includes('files.peakd.com')) {
+        // Make sure it has proper loading attributes and class
+        return `<img ${beforeSrc}src=${quote}${src}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
+      }
+      
+      // Special handling for DQm format URLs from steemitimages.com
+      if (src.includes('steemitimages.com/DQm') || src.includes('cdn.steemitimages.com/DQm')) {
+        return `<img ${beforeSrc}src=${quote}${src}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
+      }
+      
+      // For other URLs, optimize with ImageUtils if available
+      if (typeof ImageUtils === 'object' && typeof ImageUtils.optimizeImageUrl === 'function') {
+        const optimizedSrc = ImageUtils.optimizeImageUrl(src);
+        return `<img ${beforeSrc}src=${quote}${optimizedSrc}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
+      }
+      
+      return match;
+    });
+  }
+  
+  /**
+   * Special processor for fixing images inside table cells
+   * Table cells often need special handling to ensure images display correctly
+   */
+  fixImagesInTableCells(html) {
+    if (!html) return '';
+    
+    // Look for image URLs inside table cells
+    return html.replace(/<td[^>]*>(.*?)<\/td>/gi, (match, cellContent) => {
+      // First check for Markdown image syntax - this is what we were missing!
+      const markdownImgRegex = /!\[(?:.*?)\]\(([^)]+)\)/gi;
+      
+      // Check if the cell content looks like an image URL but isn't wrapped in an img tag
+      const imageUrlRegex = /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
+      
+      // Special check for steemitimages.com DQm format URLs
+      const dqmRegex = /(https?:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/DQm[^\s<>"']+)/gi;
+      
+      // Check for peakd.com URLs
+      const peakdRegex = /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+)/gi;
+      
+      // Replace direct image URLs with proper img tags
+      let processedContent = cellContent;
+      
+      // Handle Markdown image syntax first
+      processedContent = processedContent.replace(markdownImgRegex, (markdown, url) => {
+        // Check if the content already has an img tag with this URL
+        if (processedContent.includes(`<img`) && processedContent.includes(url)) {
+          return markdown;
+        }
+        return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+      });
+      
+      // Handle DQm format URLs
+      processedContent = processedContent.replace(dqmRegex, (url) => {
+        if (!processedContent.includes(`<img`) || !processedContent.includes(url)) {
+          return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+        }
+        return url;
+      });
+      
+      // Handle peakd.com URLs
+      processedContent = processedContent.replace(peakdRegex, (url) => {
+        if (!processedContent.includes(`<img`) || !processedContent.includes(url)) {
+          return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+        }
+        return url;
+      });
+      
+      // Handle general image URLs 
+      processedContent = processedContent.replace(imageUrlRegex, (url) => {
+        // Skip if this URL is already in an img tag or has already been processed
+        if (
+          (processedContent.includes(`<img`) && 
+          processedContent.includes(url) && 
+          processedContent.includes('src=')) ||
+          url.includes('steemitimages.com/DQm') ||
+          url.includes('cdn.steemitimages.com/DQm') ||
+          url.includes('files.peakd.com')
+        ) {
+          return url;
+        }
+        return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+      });
+      
+      if (processedContent !== cellContent) {
+        return `<td>${processedContent}</td>`;
+      }
+      
+      return match;
+    });
   }
 }
 
