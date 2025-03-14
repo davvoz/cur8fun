@@ -1,36 +1,46 @@
 import View from './View.js';
 
 class NotFoundView extends View {
-  async render() {
-    // Clear existing content
-    while (this.element.firstChild) {
-      this.element.removeChild(this.element.firstChild);
+  render(element) {
+    // Check if element exists before proceeding
+    if (!element) {
+      console.error('No element provided to NotFoundView.render()');
+      return;
     }
     
-    // Create container
+    // Clear the container
+    while (element.firstChild) {
+      element.removeChild(element.firstChild);
+    }
+
     const container = document.createElement('div');
-    container.classList.add('not-found-view');
+    container.className = 'not-found-container';
     
-    // Create heading
-    const heading = document.createElement('h1');
-    heading.textContent = '404 - Not Found';
+    const errorCode = document.createElement('h1');
+    errorCode.className = 'error-code';
+    errorCode.textContent = '404';
     
-    // Create paragraph
-    const paragraph = document.createElement('p');
-    paragraph.textContent = "The page you're looking for doesn't exist.";
+    const errorHeading = document.createElement('h2');
+    errorHeading.className = 'error-heading';
+    errorHeading.textContent = 'Page Not Found';
     
-    // Create link
-    const link = document.createElement('a');
-    link.textContent = 'Back to Home';
-    link.href = '/';
-    link.classList.add('back-home');
+    const errorDesc = document.createElement('p');
+    errorDesc.className = 'error-description';
+    errorDesc.textContent = "We couldn't find the page you were looking for.";
     
-    // Append elements
-    container.appendChild(heading);
-    container.appendChild(paragraph);
-    container.appendChild(link);
+    const homeButton = document.createElement('button');
+    homeButton.className = 'back-to-home-btn';
+    homeButton.textContent = 'Back to Home';
+    homeButton.addEventListener('click', () => {
+      window.location.href = '/';
+    });
     
-    this.element.appendChild(container);
+    container.appendChild(errorCode);
+    container.appendChild(errorHeading);
+    container.appendChild(errorDesc);
+    container.appendChild(homeButton);
+    
+    element.appendChild(container);
   }
 }
 

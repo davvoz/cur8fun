@@ -223,9 +223,14 @@ class PostView extends View {
     authorAvatar.alt = this.post.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${this.post.author}`;
+    // Use click event handler instead of href for more reliable routing
+    authorName.href = "javascript:void(0)";
     authorName.className = 'author-name';
     authorName.textContent = `@${this.post.author}`;
+    authorName.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate(`/@${this.post.author}`);
+    });
     
     avataro.appendChild(authorAvatar);
     avataro.appendChild(authorName);
@@ -397,14 +402,16 @@ class PostView extends View {
   }
 
   createCommentElement(comment, depth = 0) {
-    if (!comment) return document.createDocumentFragment();
-    
-    const MAX_DEPTH = 6; // Prevent excessive nesting
+    const MAX_DEPTH = 6;
     const currentDepth = Math.min(depth, MAX_DEPTH);
 
     const commentDiv = document.createElement('div');
     commentDiv.className = `comment depth-${currentDepth}`;
-    commentDiv.style.marginLeft = `${currentDepth * 20}px`;
+    
+    // Add data attributes to help with debugging
+    commentDiv.dataset.author = comment.author;
+    commentDiv.dataset.permlink = comment.permlink;
+    commentDiv.dataset.depth = currentDepth;
     
     // Comment header
     const commentHeader = document.createElement('div');
@@ -420,9 +427,14 @@ class PostView extends View {
     authorAvatar.alt = comment.author;
     
     const authorName = document.createElement('a');
-    authorName.href = `/@${comment.author}`;
+    // Use click event handler instead of href for more reliable routing
+    authorName.href = "javascript:void(0)";
     authorName.className = 'author-name';
     authorName.textContent = `@${comment.author}`;
+    authorName.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate(`/@${comment.author}`);
+    });
     
     authorContainer.appendChild(authorAvatar);
     authorContainer.appendChild(authorName);
@@ -513,19 +525,35 @@ class PostView extends View {
       }
     });
     
-    // Render child comments
+    // Render child comments with enhanced visibility
     if (comment.children && comment.children.length > 0) {
-      const repliesContainer = document.createElement('div');
-      repliesContainer.className = 'replies';
-      
-      comment.children.forEach(reply => {
-        const replyElement = this.createCommentElement(reply, depth + 1);
-        repliesContainer.appendChild(replyElement);
-      });
-      
-      commentDiv.appendChild(repliesContainer);
+        const repliesContainer = document.createElement('div');
+        repliesContainer.className = `replies depth-${currentDepth}`;
+        
+        // Add comment count indicator
+        const repliesCount = document.createElement('div');
+        repliesCount.className = 'replies-count';
+        repliesCount.textContent = `${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}`;
+        repliesContainer.appendChild(repliesCount);
+        
+        // Add visual indicator for nested comments
+        const threadLine = document.createElement('div');
+        threadLine.className = 'thread-line';
+        repliesContainer.appendChild(threadLine);
+        
+        // Make sure replies are clearly visible
+        const repliesWrapper = document.createElement('div');
+        repliesWrapper.className = 'replies-wrapper';
+        
+        comment.children.forEach(reply => {
+            const replyElement = this.createCommentElement(reply, depth + 1);
+            repliesWrapper.appendChild(replyElement);
+        });
+        
+        repliesContainer.appendChild(repliesWrapper);
+        commentDiv.appendChild(repliesContainer);
     }
-    
+
     return commentDiv;
   }
 
@@ -537,7 +565,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to vote'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     
@@ -560,7 +589,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to comment'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     
@@ -583,7 +613,8 @@ class PostView extends View {
         type: 'error', 
         message: 'You need to log in to reply'
       });
-      router.navigate('/login', { returnUrl: window.location.pathname });
+      // Use the current path without hash for more reliable routing
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
     

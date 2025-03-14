@@ -476,6 +476,98 @@ class SteemService {
             throw error;
         }
     }
+
+    async getPostsByAuthor(options = {}) {
+        const { author, limit = 10, start_permlink = '' } = options;
+        
+        try {
+            // Get posts by specific author
+            const query = {
+                tag: author,
+                limit: limit,
+                truncate_body: 1
+            };
+            
+            if (start_permlink) {
+                query.start_permlink = start_permlink;
+            }
+            
+            const response = await this.api.getDiscussionsByBlogAsync(query);
+            return response || [];
+        } catch (error) {
+            console.error('Error fetching posts by author:', error);
+            return [];
+        }
+    }
+    
+    async getPostsFromAll(options = {}) {
+        const { limit = 20, start_author = '', start_permlink = '' } = options;
+        
+        try {
+            // Get posts from entire site (trending)
+            const response = await this.api.getDiscussionsByTrendingAsync({
+                tag: '',
+                limit: limit,
+                start_author: start_author,
+                start_permlink: start_permlink,
+                truncate_body: 1
+            });
+            return response || [];
+        } catch (error) {
+            console.error('Error fetching posts:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get posts by tag
+     * @param {Object} options - Options for the request
+     * @param {string} options.tag - Tag to fetch posts for
+     * @param {number} options.page - Page number (default: 1)
+     * @param {number} options.limit - Number of posts per page (default: 20)
+     * @returns {Promise<{posts: Array, hasMore: boolean}>}
+     */
+    async getPostsByTag(options = {}) {
+        const { tag, page = 1, limit = 20 } = options;
+        
+        if (!tag) {
+            console.error('No tag provided to getPostsByTag');
+            return { posts: [], hasMore: false };
+        }
+        
+        await this.ensureLibraryLoaded();
+        
+        try {
+            // Use the tag to fetch content
+            const query = {
+                tag: tag.toLowerCase(),
+                limit: limit
+            };
+            
+            if (page > 1 && this.lastTagPost) {
+                query.start_author = this.lastTagPost.author;
+                query.start_permlink = this.lastTagPost.permlink;
+            }
+            
+            // Use trending to get popular posts with this tag
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
+            
+            if (!posts || posts.length === 0) {
+                return { posts: [], hasMore: false };
+            }
+            
+            // Store the last post for pagination
+            this.lastTagPost = posts[posts.length - 1];
+            
+            return {
+                posts: posts,
+                hasMore: posts.length > 0
+            };
+        } catch (error) {
+            console.error(`Error fetching posts for tag ${tag}:`, error);
+            return { posts: [], hasMore: false };
+        }
+    }
 }
 
 // Initialize singleton instance

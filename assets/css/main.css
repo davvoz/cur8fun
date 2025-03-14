@@ -14,8 +14,10 @@
 @import './wallet.css';
 @import './post.css';
 @import './grid-controller.css';
-@import './profile.css';  /* Add this line to import profile styles */
-@import './create-post.css';  /* Add this line to import create post styles */
+@import './profile.css';
+@import './create-post.css';
+@import './search.css';
+@import './tag.css'; /* Add tag styles */
 /* @import './markdown.css';  */
 @import url('markdown.css');
 @import url('markdown-editor.css');
