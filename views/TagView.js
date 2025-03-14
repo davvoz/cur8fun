@@ -3,6 +3,7 @@ import steemService from '../services/SteemService.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import GridController from '../components/GridController.js';
 
 class TagView extends View {
   constructor(params = {}) {
@@ -14,6 +15,7 @@ class TagView extends View {
     this.hasMorePosts = true;
     this.element = null;
     this.loadingIndicator = null;
+    this.gridController = null;
   }
 
   async render(element) {
@@ -47,9 +49,14 @@ class TagView extends View {
     header.appendChild(title);
     tagContainer.appendChild(header);
     
-    // Create posts container
+    // Add grid controller container
+    const gridControlContainer = document.createElement('div');
+    gridControlContainer.className = 'grid-controller-container';
+    tagContainer.appendChild(gridControlContainer);
+    
+    // Create posts container with class for grid controller
     const postsContainer = document.createElement('div');
-    postsContainer.className = 'posts-grid';
+    postsContainer.className = 'posts-grid posts-container';
     tagContainer.appendChild(postsContainer);
     
     // Create loading container
@@ -63,6 +70,9 @@ class TagView extends View {
     this.postsContainer = postsContainer;
     this.loadingContainer = loadingContainer;
     
+    // Initialize grid controller
+    this.initGridController(gridControlContainer);
+    
     // Initialize loading indicator
     this.loadingIndicator = new LoadingIndicator('spinner');
     
@@ -74,6 +84,19 @@ class TagView extends View {
     
     // Emit view loaded event
     eventEmitter.emit('view:loaded', { name: 'tag', params: { tag: this.tag } });
+  }
+
+  initGridController(container) {
+    if (this.gridController) {
+      this.gridController.unmount();
+      this.gridController = null;
+    }
+    
+    this.gridController = new GridController({
+      targetSelector: '.posts-container',
+    });
+    
+    this.gridController.render(container);
   }
 
   async loadPosts() {
@@ -180,13 +203,16 @@ class TagView extends View {
     const cardContent = document.createElement('div');
     cardContent.className = 'post-card-content';
     
-    const postTitle = document.createElement('h3');
-    postTitle.className = 'post-title';
-    postTitle.textContent = title || '(Untitled)';
-    
+    // Always create and add the thumbnail first
     const thumbnail = document.createElement('div');
     thumbnail.className = 'post-thumbnail';
     thumbnail.style.backgroundImage = `url(${thumbnailUrl})`;
+    cardContent.appendChild(thumbnail);
+    
+    const postTitle = document.createElement('h3');
+    postTitle.className = 'post-title';
+    postTitle.textContent = title || '(Untitled)';
+    cardContent.appendChild(postTitle);
     
     // Excerpt
     const excerpt = document.createElement('p');
@@ -198,8 +224,6 @@ class TagView extends View {
       ? plainText.substring(0, 140) + '...' 
       : plainText;
     
-    cardContent.appendChild(postTitle);
-    cardContent.appendChild(thumbnail);
     cardContent.appendChild(excerpt);
     
     // Card footer with tags and stats
@@ -280,6 +304,14 @@ class TagView extends View {
     this.element.appendChild(sentinel);
     
     observer.observe(sentinel);
+  }
+
+  unmount() {
+    // Clean up any observers or event listeners
+    if (this.gridController) {
+      this.gridController.unmount();
+      this.gridController = null;
+    }
   }
 }
 

@@ -57,42 +57,93 @@ class ProfileService {
     }
     
     /**
-     * Get posts by a user
-     * @param {string} username - Steem username
-     * @param {number} limit - Maximum number of posts to fetch
-     * @param {boolean} forceRefresh - Force a refresh from the blockchain
-     * @returns {Promise<Array>} User posts
+     * Get posts by a user with pagination
+     * @param {string} username - The username to fetch posts for
+     * @param {number} limit - Number of posts per page
+     * @param {number} page - Page number to fetch (starts at 1)
+     * @returns {Promise<Array>} - Array of posts
      */
-    async getUserPosts(username, limit = 10, forceRefresh = false) {
-        if (!username) {
-            throw new Error('Username is required');
-        }
-        
-        // Check cache first unless forceRefresh is true
-        const cacheKey = `${username}_posts`;
-        if (!forceRefresh) {
-            const cachedPosts = this.getCachedPosts(cacheKey);
-            if (cachedPosts) {
-                return cachedPosts;
-            }
-        }
-        
+    async getUserPosts(username, limit = 10, page = 1) {
         try {
-            // Fetch user posts from Steem blockchain
-            const posts = await steemService.getUserPosts(username, limit);
+            // If we have posts cached for this page and user, return them
+            if (this.cachedPosts && this.cachedPosts[username] && this.cachedPosts[username][page]) {
+                return this.cachedPosts[username][page];
+            }
             
-            // Cache the posts
-            this.cachePosts(cacheKey, posts);
+            let posts = [];
             
-            return posts;
+            // For pagination, we need to get all posts up to the page we want
+            // and then slice the right chunk.
+            // For efficiency, we cache results
+            if (page > 1 && this.cachedPosts && this.cachedPosts[username]) {
+                // Find the highest page we have cached
+                const cachedPages = Object.keys(this.cachedPosts[username])
+                    .map(Number)
+                    .sort((a, b) => b - a);
+                
+                if (cachedPages.length > 0) {
+                    const highestPage = cachedPages[0];
+                    
+                    if (highestPage >= page) {
+                        // We already have this page cached
+                        return this.cachedPosts[username][page];
+                    }
+                    
+                    // We have some cached pages, but not the one we want
+                    const startAuthor = '';
+                    const startPermlink = '';
+                    
+                    // Get posts from Steem
+                    posts = await steemService.getUserPosts(username, page * limit);
+                    
+                    // Process and cache
+                    this._processPosts(posts, username, page, limit);
+                    
+                    return this.cachedPosts[username][page];
+                }
+            }
+            
+            // No cached data, get everything from scratch
+            posts = await steemService.getUserPosts(username, page * limit);
+            
+            // Process and cache
+            return this._processPosts(posts, username, page, limit);
         } catch (error) {
-            console.error(`Error fetching posts for ${username}:`, error);
-            eventEmitter.emit('notification', {
-                type: 'error',
-                message: `Failed to load posts for ${username}`
-            });
-            throw error;
+            console.error(`Error fetching posts for user ${username}:`, error);
+            return [];
         }
+    }
+    
+    /**
+     * Process posts for pagination and caching
+     * @private
+     */
+    _processPosts(posts, username, page, limit) {
+        if (!posts || posts.length === 0) {
+            return [];
+        }
+        
+        // Initialize cache if needed
+        if (!this.cachedPosts) {
+            this.cachedPosts = {};
+        }
+        
+        if (!this.cachedPosts[username]) {
+            this.cachedPosts[username] = {};
+        }
+        
+        // Split posts into pages and cache them
+        const totalPosts = posts.length;
+        const totalPages = Math.ceil(totalPosts / limit);
+        
+        for (let p = 1; p <= totalPages; p++) {
+            const start = (p - 1) * limit;
+            const end = Math.min(start + limit, totalPosts);
+            this.cachedPosts[username][p] = posts.slice(start, end);
+        }
+        
+        // Return requested page
+        return this.cachedPosts[username][page] || [];
     }
     
     /**
