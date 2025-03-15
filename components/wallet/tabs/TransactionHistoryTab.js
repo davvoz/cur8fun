@@ -392,7 +392,7 @@ export default class TransactionHistoryTab extends Component {
   createExplorerLink(transaction, data) {
     // Link alle transazioni su steemblocks o altro explorer
     if (data.author && data.permlink) {
-      return `https://peakd.com/@${data.author}/${data.permlink}`;
+      return `https://davvoz.github.io/steemee/#/@${data.author}/${data.permlink}`;
     }
     return `https://steemblocks.com/tx/${transaction.trx_id}`;
   }
