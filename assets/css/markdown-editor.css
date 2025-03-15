@@ -145,6 +145,40 @@
   color: var(--accent-color);
 }
 
+/* Mini toolbar per dispositivi mobili */
+.mini-formatting-toolbar {
+  display: flex;
+  background: var(--background-lighter, #ffffff);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  z-index: 1000;
+}
+
+.mini-toolbar-btn {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 2px;
+  cursor: pointer;
+  color: var(--text-color, #333);
+}
+
+.mini-toolbar-btn:hover {
+  background-color: var(--background-hover, #f0f0f0);
+}
+
+/* Disabilita la selezione del testo non necessaria */
+.markdown-textarea::selection {
+  background: var(--primary-light, rgba(33, 150, 243, 0.2));
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .markdown-toolbar {
@@ -161,6 +195,15 @@
   
   .tips-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  
+  .markdown-textarea {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  }
+  
+  /* Previene lo zoom automatico su focus in iOS */
+  .markdown-textarea {
+    font-size: 16px;
   }
 }
 

@@ -95,6 +95,34 @@ export default class MarkdownEditor extends Component {
     this.registerEventHandler(this.textarea, 'input', this.handleInput);
     editorContainer.appendChild(this.textarea);
     
+    // Disabilita menu contestuale su mobile ma mantiene selezione
+    this.textarea.addEventListener('contextmenu', (e) => {
+      // Verifica se è un dispositivo mobile
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        e.preventDefault();
+        return false;
+      }
+    });
+    
+    // Evento per gestire la selezione del testo senza menu contestuale
+    this.textarea.addEventListener('touchend', (e) => {
+      // Non interferisce con la selezione ma evita il menu contestuale
+      if (this.isSelectionInProgress) {
+        e.preventDefault();
+        this.isSelectionInProgress = false;
+        
+        // Mostra la mini-toolbar di formattazione se c'è testo selezionato
+        if (this.textarea.selectionStart !== this.textarea.selectionEnd) {
+          this.showFormattingToolbar();
+        }
+      }
+    });
+    
+    // Rilevare l'inizio della selezione
+    this.textarea.addEventListener('touchstart', () => {
+      this.isSelectionInProgress = true;
+    });
+    
     // Preview area
     this.previewArea = document.createElement('div');
     this.previewArea.className = 'markdown-preview content-body';
@@ -356,5 +384,67 @@ export default class MarkdownEditor extends Component {
     }
     
     return this;
+  }
+  
+  showFormattingToolbar() {
+    // Se esiste già una mini toolbar, rimuovila
+    const existingToolbar = document.querySelector('.mini-formatting-toolbar');
+    if (existingToolbar) {
+      existingToolbar.remove();
+    }
+    
+    // Ottieni la selezione corrente
+    const selectedText = this.textarea.value.substring(
+      this.textarea.selectionStart, 
+      this.textarea.selectionEnd
+    );
+    
+    if (!selectedText) return;
+    
+    // Crea una mini toolbar contestuale
+    const toolbar = document.createElement('div');
+    toolbar.className = 'mini-formatting-toolbar';
+    
+    // Aggiungi pulsanti comuni di formattazione
+    const actions = [
+      { icon: 'format_bold', action: 'bold', label: 'Bold' },
+      { icon: 'format_italic', action: 'italic', label: 'Italic' },
+      { icon: 'link', action: 'link', label: 'Link' }
+    ];
+    
+    actions.forEach(item => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mini-toolbar-btn';
+      button.innerHTML = `<span class="material-icons">${item.icon}</span>`;
+      button.setAttribute('aria-label', item.label);
+      button.addEventListener('click', () => {
+        this.handleToolbarAction(item.action);
+        toolbar.remove();
+      });
+      toolbar.appendChild(button);
+    });
+    
+    // Posiziona la toolbar vicino alla selezione
+    const rect = this.textarea.getBoundingClientRect();
+    const selectionRect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+    
+    // Se non possiamo ottenere la posizione esatta, posizionala sopra la textarea
+    const top = selectionRect.top ? (selectionRect.top - 40) : (rect.top - 40);
+    const left = selectionRect.left ? selectionRect.left : rect.left;
+    
+    toolbar.style.position = 'absolute';
+    toolbar.style.top = `${top}px`;
+    toolbar.style.left = `${left}px`;
+    
+    // Aggiungi la toolbar al DOM
+    document.body.appendChild(toolbar);
+    
+    // Auto rimozione dopo 5 secondi
+    setTimeout(() => {
+      if (document.body.contains(toolbar)) {
+        toolbar.remove();
+      }
+    }, 5000);
   }
 }
