@@ -148,30 +148,35 @@
 /* Mini toolbar per dispositivi mobili */
 .mini-formatting-toolbar {
   display: flex;
-  background: var(--background-lighter, #ffffff);
+  background: var(--background-light, #ffffff);
   border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 6px;
-  z-index: 1000;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  z-index: 1050;
+  transition: opacity 0.2s ease;
+  opacity: 0.95;
 }
 
 .mini-toolbar-btn {
   background: none;
   border: none;
   border-radius: 4px;
-  width: 36px;
-  height: 36px;
+  width: 42px; /* Più grande per mobile */
+  height: 42px; /* Più grande per mobile */
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 2px;
+  margin: 0 3px;
   cursor: pointer;
   color: var(--text-color, #333);
+  touch-action: manipulation; /* Migliora la risposta al tocco */
+  -webkit-tap-highlight-color: transparent; /* Rimuove il flash di highlight su iOS */
 }
 
-.mini-toolbar-btn:hover {
+.mini-toolbar-btn:active {
   background-color: var(--background-hover, #f0f0f0);
+  transform: scale(0.97);
 }
 
 /* Disabilita la selezione del testo non necessaria */
@@ -204,6 +209,19 @@
   /* Previene lo zoom automatico su focus in iOS */
   .markdown-textarea {
     font-size: 16px;
+  }
+}
+
+/* Media query per dispositivi piccoli */
+@media (max-width: 480px) {
+  .mini-formatting-toolbar {
+    left: 50% !important; /* Ignora il posizionamento inline calcolato in JS */
+    transform: translateX(-50%); /* Centra orizzontalmente */
+    bottom: 10px !important; /* Posiziona in basso */
+    top: auto !important; /* Ignora il posizionamento in alto */
+    position: fixed !important;
+    width: calc(100% - 40px); /* Larghezza quasi piena con margini */
+    justify-content: space-around; /* Distribuire uniformemente i pulsanti */
   }
 }
 

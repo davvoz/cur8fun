@@ -104,23 +104,51 @@ export default class MarkdownEditor extends Component {
       }
     });
     
-    // Evento per gestire la selezione del testo senza menu contestuale
-    this.textarea.addEventListener('touchend', (e) => {
-      // Non interferisce con la selezione ma evita il menu contestuale
-      if (this.isSelectionInProgress) {
-        e.preventDefault();
-        this.isSelectionInProgress = false;
-        
-        // Mostra la mini-toolbar di formattazione se c'è testo selezionato
-        if (this.textarea.selectionStart !== this.textarea.selectionEnd) {
-          this.showFormattingToolbar();
-        }
+    // Gestione migliorata del tocco su mobile
+    let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let hasMoved = false;
+    
+    this.textarea.addEventListener('touchstart', (e) => {
+      // Registra il momento e la posizione di inizio tocco
+      touchStartTime = Date.now();
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      hasMoved = false;
+    });
+    
+    this.textarea.addEventListener('touchmove', (e) => {
+      // Controlla se il dito si è mosso significativamente
+      const moveX = Math.abs(e.touches[0].clientX - touchStartX);
+      const moveY = Math.abs(e.touches[0].clientY - touchStartY);
+      
+      if (moveX > 10 || moveY > 10) {
+        hasMoved = true;
       }
     });
     
-    // Rilevare l'inizio della selezione
-    this.textarea.addEventListener('touchstart', () => {
-      this.isSelectionInProgress = true;
+    this.textarea.addEventListener('touchend', (e) => {
+      const touchDuration = Date.now() - touchStartTime;
+      
+      // Se è un tap rapido, non fare nulla di speciale (comportamento nativo)
+      if (touchDuration < 300 && !hasMoved) {
+        return;
+      }
+      
+      // Solo per tocchi lunghi o movimenti (selezioni)
+      const hasSelection = this.textarea.selectionStart !== this.textarea.selectionEnd;
+      
+      // Se c'è testo selezionato dopo un tocco lungo, mostra la toolbar
+      if (hasSelection) {
+        // Preveniamo il menu contestuale nativo
+        e.preventDefault();
+        
+        // Piccolo timeout per assicurarci che la selezione sia completa
+        setTimeout(() => {
+          this.showFormattingToolbar();
+        }, 10);
+      }
     });
     
     // Preview area
@@ -425,26 +453,57 @@ export default class MarkdownEditor extends Component {
       toolbar.appendChild(button);
     });
     
-    // Posiziona la toolbar vicino alla selezione
+    // Calcola la posizione migliore per la toolbar
     const rect = this.textarea.getBoundingClientRect();
-    const selectionRect = window.getSelection().getRangeAt(0).getBoundingClientRect();
     
-    // Se non possiamo ottenere la posizione esatta, posizionala sopra la textarea
-    const top = selectionRect.top ? (selectionRect.top - 40) : (rect.top - 40);
-    const left = selectionRect.left ? selectionRect.left : rect.left;
+    // In mobile potrebbe non esserci una selection range precisa,
+    // quindi posizionare sopra l'area di testo è più affidabile
+    let top = rect.top - 50; // Posiziona la toolbar sopra la textarea
+    let left = rect.left + (rect.width / 2) - 75; // Centra orizzontalmente
     
-    toolbar.style.position = 'absolute';
+    try {
+      // Prova a ottenere una posizione più precisa se possibile
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const selectionRect = range.getBoundingClientRect();
+        
+        if (selectionRect && selectionRect.top) {
+          top = selectionRect.top - 45;
+          left = selectionRect.left;
+        }
+      }
+    } catch (e) {
+      console.log('Fallback to default positioning');
+    }
+    
+    // Assicura che la toolbar rimanga all'interno della viewport
+    top = Math.max(10, top); // Non posizionarla troppo in alto
+    left = Math.max(10, Math.min(left, window.innerWidth - 150)); // Limita orizzontalmente
+    
+    toolbar.style.position = 'fixed'; // Use fixed position for better mobile support
     toolbar.style.top = `${top}px`;
     toolbar.style.left = `${left}px`;
     
     // Aggiungi la toolbar al DOM
     document.body.appendChild(toolbar);
     
-    // Auto rimozione dopo 5 secondi
-    setTimeout(() => {
+    // Auto rimozione dopo 5 secondi o tap altrove
+    const removeToolbar = () => {
       if (document.body.contains(toolbar)) {
         toolbar.remove();
       }
-    }, 5000);
+      document.removeEventListener('touchstart', documentTapHandler);
+    };
+    
+    // Rimuovi quando si tocca altrove
+    const documentTapHandler = (e) => {
+      if (!toolbar.contains(e.target)) {
+        removeToolbar();
+      }
+    };
+    
+    document.addEventListener('touchstart', documentTapHandler);
+    setTimeout(removeToolbar, 5000);
   }
 }
