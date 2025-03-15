@@ -394,6 +394,6 @@ export default class TransactionHistoryTab extends Component {
     if (data.author && data.permlink) {
       return `https://davvoz.github.io/steemee/#/@${data.author}/${data.permlink}`;
     }
-    return `https://steemblocks.com/tx/${transaction.trx_id}`;
+    return `https://steemblockexplorer.com/tx/${transaction.trx_id}`;
   }
 }
