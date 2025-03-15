@@ -1,19 +1,19 @@
 /* Wallet styles - Main file that imports all wallet modules */
 
 /* Import wallet-specific variables first */
-@import './_variables.css';  /* Relative to wallet.css */
+@import './variables.css';
 
 /* Import layout and structure */
-@import './_layout.css';
-@import './_tabs.css';
+@import './layout.css';
+@import './tabs.css';
 
 /* Import component styles */
-@import './_balances.css';
-@import './_forms.css';
-@import './_delegations.css';
-@import './_power.css';
-@import './_transactions.css';
-@import './_curation.css';
+@import './balances.css';
+@import './forms.css';
+@import './delegations.css';
+@import './power.css';
+@import './transactions.css';
+@import './curation.css';
 
 /* Note: This file serves as an entry point for all wallet styles.
    Individual components should be modified in their respective files. */
