@@ -1,7 +1,7 @@
 /* Wallet styles - Main file that imports all wallet modules */
 
 /* Import wallet-specific variables first */
-@import './_variables.css';
+@import './_variables.css';  /* Relative to wallet.css */
 
 /* Import layout and structure */
 @import './_layout.css';

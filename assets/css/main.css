@@ -14,11 +14,10 @@
 @import './wallet/wallet.css';  /* Import the modular wallet CSS */
 @import './post.css';
 @import './grid-controller.css';
-@import './profile.css';  /* Add this line to import profile styles */
-@import './create-post.css';  /* Add this line to import create post styles */
-/* @import './markdown.css';  */
-@import url('markdown.css');
-@import url('markdown-editor.css');
+@import './profile.css';
+@import './create-post.css';
+@import './markdown.css';
+@import './markdown-editor.css';
 
 /* Fallback styles in case any imports fail */
 :root {
