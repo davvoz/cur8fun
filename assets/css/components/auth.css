@@ -120,6 +120,51 @@
   margin: 0.5rem 0;
 }
 
+/* OAuth buttons */
+.oauth-section {
+  margin-bottom: 1.5rem;
+}
+
+.steemlogin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1a5099;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.steemlogin-btn:hover {
+  background-color: #0e3b7d;
+}
+
+.oauth-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+/* Miglioramento generale dei pulsanti di login */
+.btn.full-width {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.btn-secondary {
+  background-color: #4a7aad;
+  color: white;
+  border: none;
+  padding: 0.875rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #3b6291;
+}
+
 @media (max-width: 600px) {
   .auth-container {
     max-width: 100%;

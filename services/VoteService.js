@@ -70,6 +70,8 @@ class VoteService {
       
       if (loginMethod === 'keychain' && window.steem_keychain) {
         result = await this._voteWithKeychain(voter, author, permlink, weight);
+      } else if (loginMethod === 'steemlogin') {
+        result = await this._voteWithSteemLogin(voter, author, permlink, weight);
       } else {
         const postingKey = authService.getPostingKey();
         if (!postingKey) {
@@ -159,6 +161,48 @@ class VoteService {
   }
   
   /**
+   * Vote with SteemLogin
+   * @private
+   */
+  async _voteWithSteemLogin(voter, author, permlink, weight) {
+    const token = authService.getSteemLoginToken();
+    if (!token) {
+        throw new Error('SteemLogin token not available');
+    }
+    
+    try {
+        // Chiamata all'API SteemLogin per votare
+        const response = await fetch('https://api.steemlogin.com/api/broadcast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                operations: [
+                    ['vote', {
+                        voter,
+                        author,
+                        permlink,
+                        weight
+                    }]
+                ]
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to vote through SteemLogin');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('SteemLogin vote error:', error);
+        throw error;
+    }
+}
+
+/**
    * Vote with posting key
    * @private
    */
