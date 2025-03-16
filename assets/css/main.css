@@ -26,8 +26,7 @@
 
 /* Page-specific styles */
 @import 'pages/tag.css';
-@import 'pages/wallet/transactions.css';
-@import 'pages/wallet/balances.css';
+@import 'pages/wallet/wallet.css';
 
 /* Utilities - apply last to ensure they can override */
 @import 'utils/responsive.css';
