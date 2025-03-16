@@ -19,7 +19,14 @@ class VoteService {
   }
   
   /**
-   * Vote on a post or comment
+   * Determine se siamo su un dispositivo mobile
+   */
+  isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+  
+  /**
+   * Vote on a post or comment with automatic platform detection
    * @param {Object} options - Voting options
    * @param {string} options.author - Post author
    * @param {string} options.permlink - Post permlink
@@ -36,7 +43,7 @@ class VoteService {
     const { author, permlink, weight = 10000 } = options;
     const voter = currentUser.username;
     
-    // Generate unique vote identifier
+    // Generate unique vote identifier to prevent duplicates
     const voteId = `${voter}_${author}_${permlink}`;
     
     // Prevent duplicate votes
@@ -50,11 +57,18 @@ class VoteService {
       
       await steemService.ensureLibraryLoaded();
       
-      // Determine login method
+      // Determine login method and platform
       const loginMethod = currentUser.loginMethod || 'privateKey';
+      const isMobile = this.isMobileDevice();
+      
       let result;
       
-      if (loginMethod === 'keychain') {
+      // Su mobile, se l'utente ha usato keychain ma non è disponibile, possiamo notificarlo
+      if (loginMethod === 'keychain' && isMobile && !window.steem_keychain) {
+        throw new Error('Steem Keychain not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
+      }
+      
+      if (loginMethod === 'keychain' && window.steem_keychain) {
         result = await this._voteWithKeychain(voter, author, permlink, weight);
       } else {
         const postingKey = authService.getPostingKey();

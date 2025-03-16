@@ -104,9 +104,9 @@ class AuthService {
      */
     async login(username, privateKey, remember = true) {
         try {
-            // Here you'd typically verify credentials with Steem API
-            // For now, we're just simulating a successful login
-
+            // Verifica della validità della chiave posting
+            await this.verifyPostingKey(username, privateKey);
+            
             // Get user profile information
             const userProfile = await steemService.getProfile(username);
             
@@ -125,6 +125,9 @@ class AuthService {
             // Save to storage if remember is true
             if (remember) {
                 localStorage.setItem('currentUser', JSON.stringify(user));
+                
+                // Salva la chiave posting in localStorage (con encryption se possibile)
+                this.securelyStorePostingKey(username, privateKey, remember);
             }
             
             // Emit auth changed event
@@ -134,6 +137,77 @@ class AuthService {
         } catch (error) {
             console.error('Login failed:', error);
             throw new Error(error.message || 'Authentication failed');
+        }
+    }
+
+    /**
+     * Verifica che una chiave posting sia valida
+     * @param {string} username - Username Steem
+     * @param {string} postingKey - Chiave posting da verificare
+     */
+    async verifyPostingKey(username, postingKey) {
+        await steemService.ensureLibraryLoaded();
+        
+        try {
+            // Verifica che la chiave sia del formato corretto
+            const isPubkey = window.steem.auth.isPubkey(postingKey);
+            const isWif = window.steem.auth.isWif(postingKey);
+            
+            if (!isWif) {
+                throw new Error('Invalid posting key format');
+            }
+            
+            // Ottieni l'account per verificare che la chiave corrisponda
+            const accounts = await new Promise((resolve, reject) => {
+                window.steem.api.getAccounts([username], (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+            
+            if (!accounts || accounts.length === 0) {
+                throw new Error('Account not found');
+            }
+            
+            const account = accounts[0];
+            const publicWif = window.steem.auth.wifToPublic(postingKey);
+            
+            // Verifica che la chiave pubblica derivata dalla posting key sia una delle chiavi autorizzate
+            const postingAuth = account.posting.key_auths;
+            const isValid = postingAuth.some(auth => auth[0] === publicWif);
+            
+            if (!isValid) {
+                throw new Error('Invalid posting key for this account');
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error verifying posting key:', error);
+            throw new Error('Invalid posting key');
+        }
+    }
+
+    /**
+     * Store posting key securely (as securely as possible in a web context)
+     */
+    securelyStorePostingKey(username, postingKey, remember = true) {
+        // In una versione più sicura, potresti usare Web Crypto API per la crittografia
+        // Ma per semplicità in questo esempio usiamo localStorage con un'avvertenza
+        
+        if (remember) {
+            try {
+                // Utilizza una chiave semplice per questo esempio educativo
+                // In produzione, dovresti implementare una soluzione più robusta
+                localStorage.setItem(`${username}_posting_key`, postingKey);
+                
+                // Aggiungi un timestamp di scadenza (24 ore)
+                const expiry = Date.now() + (24 * 60 * 60 * 1000);
+                localStorage.setItem(`${username}_posting_key_expiry`, expiry.toString());
+                
+                console.info('Posting key stored for mobile operations');
+            } catch (error) {
+                console.error('Failed to store posting key:', error);
+            }
         }
     }
 
@@ -159,7 +233,7 @@ class AuthService {
     }
 
     /**
-     * Get the posting key for the current user if available
+     * Get the posting key for the current user
      * Note: For security, this should be improved in production
      * Ideally, keys should not be stored in localStorage
      */
@@ -167,14 +241,28 @@ class AuthService {
         const user = this.getCurrentUser();
         if (!user) return null;
         
-        // For keychain users, we don't need to return a key
+        // Per utenti Keychain
         if (user.loginMethod === 'keychain') {
-            return 'USE_KEYCHAIN'; // Questo è solo un segnaposto
+            return null; // Keychain gestirà l'operazione 
         }
         
-        // For direct key login, retrieve from secure storage
-        // In a real app, consider more secure storage options
-        return localStorage.getItem(`${user.username}_posting_key`);
+        // Per login con chiave diretta
+        try {
+            const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+            
+            // Verifica scadenza
+            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+                // Chiave scaduta, rimuovila
+                localStorage.removeItem(`${user.username}_posting_key`);
+                localStorage.removeItem(`${user.username}_posting_key_expiry`);
+                return null;
+            }
+            
+            return localStorage.getItem(`${user.username}_posting_key`);
+        } catch (error) {
+            console.error('Error retrieving posting key:', error);
+            return null;
+        }
     }
 }
 
