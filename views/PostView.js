@@ -4,6 +4,8 @@ import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
 import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
+import voteService from '../services/VoteService.js';
+import authService from '../services/AuthService.js'; // Aggiungi questa importazione
 
 class PostView extends View {
   constructor(params = {}) {
@@ -556,42 +558,53 @@ class PostView extends View {
         commentDiv.appendChild(repliesContainer);
     }
 
+    // Add upvote button handler
+    upvoteBtn.addEventListener('click', () => this.handleCommentVote(commentDiv, upvoteBtn));
+
     return commentDiv;
   }
 
-  handleUpvote() {
-    // Check if user is logged in
-    const user = this.getCurrentUser();
-    if (!user) {
-      this.emit('notification', { 
-        type: 'error', 
-        message: 'You need to log in to vote'
-      });
-      // Use the current path without hash for more reliable routing
-      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
-      return;
-    }
-    
-    // In a real implementation, you would call the SteemService to vote
-    console.log('Voting for post', this.post.author, this.post.permlink);
+async handleUpvote() {
+  const upvoteBtn = this.element.querySelector('.upvote-btn');
+  const countElement = upvoteBtn.querySelector('.count');
+  
+  // Check if user is logged in
+  const user = authService.getCurrentUser();
+  if (!user) {
     this.emit('notification', { 
-      type: 'success', 
-      message: 'Your vote was recorded'
+      type: 'error', 
+      message: 'You need to log in to vote'
+    });
+    router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+    return;
+  }
+  
+  try {
+    const result = await voteService.vote({
+      author: this.post.author,
+      permlink: this.post.permlink,
+      weight: 10000 // Peso scelto dall'utente
+    });
+  } catch (error) {
+    console.error('Failed to vote on post:', error);
+    this.emit('notification', { 
+      type: 'error', 
+      message: error.message || 'Failed to vote on post. Please try again.'
     });
   }
+}
 
   handleComment() {
     const commentText = this.postContent.querySelector('.comment-form textarea').value;
     if (!commentText.trim()) return;
     
     // Check if user is logged in
-    const user = this.getCurrentUser();
+    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
     if (!user) {
       this.emit('notification', { 
         type: 'error', 
         message: 'You need to log in to comment'
       });
-      // Use the current path without hash for more reliable routing
       router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
@@ -609,13 +622,12 @@ class PostView extends View {
 
   handleReply(parentComment, replyText) {
     // Check if user is logged in
-    const user = this.getCurrentUser();
+    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
     if (!user) {
       this.emit('notification', { 
         type: 'error', 
         message: 'You need to log in to reply'
       });
-      // Use the current path without hash for more reliable routing
       router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
@@ -648,12 +660,6 @@ class PostView extends View {
       }).catch(err => console.error('Could not copy link:', err));
     }
   }
-
-  getCurrentUser() {
-    // In a real implementation, this would get the logged in user from state or localStorage
-    return localStorage.getItem('currentUser') ? 
-      JSON.parse(localStorage.getItem('currentUser')) : null;
-  }
   
   // Add methods to extract the best image from a post (similar to ProfileView)
   getBestImage(post) {
@@ -669,6 +675,80 @@ class PostView extends View {
       return jsonMetadata || {};
     } catch (e) {
       return {};
+    }
+  }
+
+  // Aggiungi questo metodo alla classe PostView
+  async handleCommentVote(commentElement, upvoteBtn) {
+    // Ottieni i dati del commento dagli attributi data-*
+    const author = commentElement.dataset.author;
+    const permlink = commentElement.dataset.permlink;
+    const countElement = upvoteBtn.querySelector('.count');
+    
+    // Check if user is logged in
+    const user = authService.getCurrentUser();
+    if (!user) {
+      this.emit('notification', { 
+        type: 'error', 
+        message: 'You need to log in to vote'
+      });
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+      return;
+    }
+    
+    try {
+      // Disabilita il pulsante durante il voto
+      upvoteBtn.disabled = true;
+      upvoteBtn.classList.add('voting');
+      
+      // Feedback visivo
+      const originalContent = upvoteBtn.innerHTML;
+      upvoteBtn.innerHTML = `
+        <span class="material-icons loading">refresh</span>
+      `;
+      
+      // Effettua il voto
+      await voteService.vote({
+        author,
+        permlink,
+        weight: 10000 // 100%
+      });
+      
+      // Aggiorna il contatore dei voti
+      const currentCount = parseInt(countElement.textContent) || 0;
+      countElement.textContent = currentCount + 1;
+      
+      // Aggiorna la classe del pulsante
+      upvoteBtn.classList.add('voted');
+      
+      // Mostra notifica di successo
+      this.emit('notification', { 
+        type: 'success', 
+        message: 'Your vote was recorded successfully!'
+      });
+    } catch (error) {
+      // Verifica se l'errore è dovuto a un annullamento da parte dell'utente
+      if (error.isCancelled) {
+        console.log('Comment vote was cancelled by user');
+        // Non mostrare alcuna notifica di errore
+      } else {
+        console.error('Failed to vote on comment:', error);
+        this.emit('notification', { 
+          type: 'error', 
+          message: error.message || 'Failed to vote on comment. Please try again.'
+        });
+      }
+    } finally {
+      // Ripristina il pulsante
+      upvoteBtn.disabled = false;
+      upvoteBtn.classList.remove('voting');
+      
+      // Ripristina contenuto originale con icona appropriata
+      const isVoted = upvoteBtn.classList.contains('voted');
+      upvoteBtn.innerHTML = `
+        <span class="material-icons">${isVoted ? 'thumb_up_alt' : 'thumb_up'}</span>
+        <span class="count">${upvoteBtn.querySelector('.count').textContent}</span>
+      `;
     }
   }
 }
