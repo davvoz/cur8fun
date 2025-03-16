@@ -65,6 +65,12 @@ class LoginView {
     form.appendChild(this.createRememberMeGroup());
     form.appendChild(this.createButton('Login', 'submit', 'btn-primary full-width'));
 
+    // Aggiungi un link alla registrazione nella LoginView
+    const registerLink = document.createElement('div');
+    registerLink.className = 'auth-link';
+    registerLink.innerHTML = 'Don\'t have an account? <a href="/register">Create one here</a>';
+    form.appendChild(registerLink);
+
     passwordSection.appendChild(form);
     loginContainer.appendChild(passwordSection);
 

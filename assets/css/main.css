@@ -14,6 +14,7 @@
 @import 'components/cards.css';
 @import 'components/loaders.css';
 @import 'components/notifications.css';
+@import 'components/auth.css'; /* Aggiungi questa riga */
 
 /* Feature-specific styles */
 @import 'features/post.css';
