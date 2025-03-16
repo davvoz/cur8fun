@@ -308,14 +308,14 @@ class AuthService {
      * Inizia il processo di login con SteemLogin
      */
     loginWithSteemLogin() {
-        if (!window.steemconnect) {
+        if (!window.steemlogin) {
             throw new Error('SteemConnect library not loaded');
         }
         
         try {
             // Inizializza client SteemConnect
-            const steemClient = new window.steemconnect.Client({
-                app: this.steemLoginConfig.app,
+            const steemClient = new window.steemlogin.Client({
+                app: "cur8",
                 callbackURL: this.steemLoginConfig.callbackURL,
                 scope: this.steemLoginConfig.scope
             });
@@ -347,7 +347,7 @@ class AuthService {
             // Ottieni dati utente da SteemLogin
             const userData = await this.getSteemLoginUserData(accessToken);
             
-            if (!userData || !userData.username) {
+            if (!userData || !userData.name) {
                 throw new Error('Invalid response from SteemLogin');
             }
             
