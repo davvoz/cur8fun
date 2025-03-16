@@ -14,7 +14,8 @@ class LoginView {
     this.element = null;
     this.boundHandlers = {
       handleSubmit: null,
-      handleKeychainLogin: null
+      handleKeychainLogin: null,
+      handleSteemLogin: null
     };
   }
 
@@ -36,6 +37,34 @@ class LoginView {
 
     loginContainer.appendChild(this.createHeading());
 
+    // Sezione login con SteemLogin e HiveSigner
+    const oauthSection = document.createElement('div');
+    oauthSection.className = 'auth-section oauth-section';
+    
+    // Pulsante SteemLogin
+    const steemLoginBtn = this.createButton(
+        'Login with SteemLogin', 
+        'button',
+        'btn-secondary steemlogin-btn full-width'
+    );
+    steemLoginBtn.id = 'steemlogin-btn';
+    
+    // Icona SteemLogin
+    const steemIcon = document.createElement('img');
+    steemIcon.src = 'assets/icons/steem-logo.png'; // Assicurati di avere questa immagine
+    steemIcon.alt = 'Steem';
+    steemIcon.className = 'oauth-icon';
+    steemLoginBtn.prepend(steemIcon);
+    
+    oauthSection.appendChild(steemLoginBtn);
+    
+    // Separatore
+    oauthSection.appendChild(this.createDivider());
+    
+    // Aggiungi la sezione di login OAuth
+    loginContainer.appendChild(oauthSection);
+
+    // Resto del codice esistente (Keychain e login con password)
     // Password form section
     const passwordSection = document.createElement('div');
     passwordSection.className = 'auth-section password-section';
@@ -50,14 +79,14 @@ class LoginView {
 
     // Keychain login section (if available)
     if (authService.isKeychainInstalled()) {
-      const keychainButton = this.createButton(
-        'Login with SteemKeychain',
-        'button',
-        'btn-primary keychain-login-btn full-width'
-      );
-      keychainButton.id = 'keychain-login-btn';
-      form.appendChild(keychainButton);
-      form.appendChild(this.createDivider());
+        const keychainButton = this.createButton(
+            'Login with SteemKeychain',
+            'button',
+            'btn-primary keychain-login-btn full-width'
+        );
+        keychainButton.id = 'keychain-login-btn';
+        form.appendChild(keychainButton);
+        form.appendChild(this.createDivider());
     }
 
     const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
@@ -201,9 +230,11 @@ class LoginView {
   bindEvents() {
     const loginForm = this.element.querySelector('#login-form');
     const keychainButton = this.element.querySelector('#keychain-login-btn');
+    const steemLoginButton = this.element.querySelector('#steemlogin-btn');
 
     this.boundHandlers.handleSubmit = this.handleSubmit.bind(this);
     this.boundHandlers.handleKeychainLogin = this.handleKeychainLogin.bind(this);
+    this.boundHandlers.handleSteemLogin = this.handleSteemLogin.bind(this);
 
     if (loginForm) {
       loginForm.addEventListener('submit', this.boundHandlers.handleSubmit);
@@ -211,6 +242,10 @@ class LoginView {
 
     if (keychainButton) {
       keychainButton.addEventListener('click', this.boundHandlers.handleKeychainLogin);
+    }
+    
+    if (steemLoginButton) {
+      steemLoginButton.addEventListener('click', this.boundHandlers.handleSteemLogin);
     }
   }
 
@@ -257,6 +292,16 @@ class LoginView {
     }
   }
 
+  async handleSteemLogin() {
+    try {
+      await authService.loginWithSteemLogin();
+      // Non c'è bisogno di gestire il redirect qui, poiché loginWithSteemLogin reindirizza l'utente
+    } catch (error) {
+      const messageEl = this.element.querySelector('.login-message');
+      this.showError(messageEl, `SteemLogin failed: ${error.message}`);
+    }
+  }
+
   handleLoginSuccess(username) {
     eventEmitter.emit('notification', {
       type: 'success',
@@ -278,6 +323,7 @@ class LoginView {
 
     const loginForm = this.element.querySelector('#login-form');
     const keychainButton = this.element.querySelector('#keychain-login-btn');
+    const steemLoginButton = this.element.querySelector('#steemlogin-btn');
 
     if (loginForm && this.boundHandlers.handleSubmit) {
       loginForm.removeEventListener('submit', this.boundHandlers.handleSubmit);
@@ -286,8 +332,12 @@ class LoginView {
     if (keychainButton && this.boundHandlers.handleKeychainLogin) {
       keychainButton.removeEventListener('click', this.boundHandlers.handleKeychainLogin);
     }
+    
+    if (steemLoginButton && this.boundHandlers.handleSteemLogin) {
+      steemLoginButton.removeEventListener('click', this.boundHandlers.handleSteemLogin);
+    }
 
-    this.boundHandlers = { handleSubmit: null, handleKeychainLogin: null };
+    this.boundHandlers = { handleSubmit: null, handleKeychainLogin: null, handleSteemLogin: null };
   }
 }
 
