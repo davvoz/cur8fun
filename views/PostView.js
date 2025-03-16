@@ -125,6 +125,9 @@ class PostView extends View {
       this.loadingIndicator.updateProgress(100);
       
       this.renderPost();
+      
+      // Controlla lo stato di voto
+      await this.checkVoteStatus();
     } catch (error) {
       console.error('Failed to load post:', error);
       
@@ -561,6 +564,32 @@ class PostView extends View {
     // Add upvote button handler
     upvoteBtn.addEventListener('click', () => this.handleCommentVote(commentDiv, upvoteBtn));
 
+    // Controlla se l'utente ha già votato questo commento
+    voteService.hasVoted(comment.author, comment.permlink)
+      .then(existingVote => {
+        if (existingVote) {
+          // Imposta lo stato votato
+          upvoteBtn.classList.add('voted');
+          
+          // Aggiungi l'icona piena invece di quella vuota
+          const iconElement = upvoteBtn.querySelector('.material-icons');
+          if (iconElement) {
+            iconElement.textContent = 'thumb_up_alt';
+          }
+          
+          // Aggiungi indicatore di percentuale se è > 0
+          if (existingVote.percent > 0) {
+            const percentIndicator = document.createElement('span');
+            percentIndicator.className = 'vote-percent-indicator';
+            percentIndicator.textContent = `${existingVote.percent / 100}%`;
+            upvoteBtn.appendChild(percentIndicator);
+          }
+        }
+      })
+      .catch(err => {
+        console.log('Error checking vote status for comment', err);
+      });
+
     return commentDiv;
   }
 
@@ -569,6 +598,7 @@ class PostView extends View {
  */
 async handleUpvote() {
   const upvoteBtn = this.element.querySelector('.upvote-btn');
+  const countElement = upvoteBtn.querySelector('.count');
   
   // Check if user is logged in
   const user = authService.getCurrentUser();
@@ -600,8 +630,6 @@ async handleUpvote() {
   
   // Mostra il popup con slider per la percentuale
   this.showVotePercentagePopup(upvoteBtn, async (weight) => {
-    const countElement = upvoteBtn.querySelector('.count');
-    
     try {
       // Disabilita il pulsante durante il voto
       upvoteBtn.disabled = true;
@@ -627,11 +655,25 @@ async handleUpvote() {
       });
       
       // Aggiorna il contatore dei voti
-      const currentCount = parseInt(countElement.textContent) || 0;
-      countElement.textContent = currentCount + 1;
+      const currentCount = parseInt(countElement?.textContent) || 0;
       
-      // Aggiorna la classe del pulsante per mostrare che l'utente ha votato
+      // Ripristina il pulsante con lo stato votato
+      upvoteBtn.disabled = false;
+      upvoteBtn.classList.remove('voting');
       upvoteBtn.classList.add('voted');
+      
+      // Mostra l'icona votata e il contatore aggiornato
+      upvoteBtn.innerHTML = `
+        <span class="material-icons">thumb_up_alt</span>
+        <span class="count">${currentCount + 1}</span>
+        <span class="vote-percent-indicator">${weight/100}%</span>
+      `;
+      
+      // Aggiungi l'animazione di successo
+      upvoteBtn.classList.add('vote-success-animation');
+      setTimeout(() => {
+        upvoteBtn.classList.remove('vote-success-animation');
+      }, 600);
       
       // Mostra notifica di successo
       this.emit('notification', { 
@@ -650,16 +692,13 @@ async handleUpvote() {
           message: error.message || 'Failed to vote. Please try again.'
         });
       }
-    } finally {
-      // Ripristina il pulsante
+      
+      // Ripristina il pulsante originale
       upvoteBtn.disabled = false;
       upvoteBtn.classList.remove('voting');
-      
-      // Ripristina contenuto originale con icona appropriata
-      const isVoted = upvoteBtn.classList.contains('voted');
       upvoteBtn.innerHTML = `
-        <span class="material-icons">${isVoted ? 'thumb_up_alt' : 'thumb_up'}</span>
-        <span class="count">${countElement ? countElement.textContent : '0'}</span>
+        <span class="material-icons">thumb_up</span>
+        <span class="count">${countElement?.textContent || '0'}</span>
       `;
     }
   });
@@ -817,6 +856,19 @@ async handleUpvote() {
         
         // Aggiorna la classe del pulsante
         upvoteBtn.classList.add('voted');
+        
+        // Aggiorna anche l'icona e aggiungi l'indicatore della percentuale
+        upvoteBtn.innerHTML = `
+          <span class="material-icons">thumb_up_alt</span>
+          <span class="count">${currentCount + 1}</span>
+          <span class="vote-percent-indicator">${weight/100}%</span>
+        `;
+        
+        // Aggiungi l'animazione di successo
+        upvoteBtn.classList.add('vote-success-animation');
+        setTimeout(() => {
+          upvoteBtn.classList.remove('vote-success-animation');
+        }, 600);
         
         // Mostra notifica di successo
         this.emit('notification', { 
@@ -1032,6 +1084,41 @@ positionPopup(popup, targetElement) {
         popup.style.bottom = '10px';
       }
     }, 0);
+  }
+}
+
+/**
+ * Controlla lo stato di voto per il post corrente
+ */
+async checkVoteStatus() {
+  if (!this.post || !authService.isAuthenticated()) return;
+  
+  try {
+    const upvoteBtn = this.element.querySelector('.upvote-btn');
+    if (!upvoteBtn) return;
+    
+    const vote = await voteService.hasVoted(this.post.author, this.post.permlink);
+    
+    if (vote) {
+      // Imposta lo stato votato
+      upvoteBtn.classList.add('voted');
+      
+      // Aggiorna l'icona al formato "pieno"
+      const iconElement = upvoteBtn.querySelector('.material-icons');
+      if (iconElement) {
+        iconElement.textContent = 'thumb_up_alt';
+      }
+      
+      // Aggiungi l'indicatore di percentuale
+      if (vote.percent > 0) {
+        const percentIndicator = document.createElement('span');
+        percentIndicator.className = 'vote-percent-indicator';
+        percentIndicator.textContent = `${vote.percent / 100}%`;
+        upvoteBtn.appendChild(percentIndicator);
+      }
+    }
+  } catch (error) {
+    console.log('Error checking vote status:', error);
   }
 }
 }

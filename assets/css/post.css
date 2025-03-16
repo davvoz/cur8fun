@@ -776,3 +776,79 @@
     padding: var(--space-md);
   }
 }
+
+/* Aggiungi questi stili alla fine del file */
+
+/* Stile migliorato per pulsanti di voto */
+.action-btn.upvote-btn {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* Stato votato per pulsante principale */
+.action-btn.upvote-btn.voted {
+  color: var(--success-color, #28a745);
+  background-color: rgba(40, 167, 69, 0.08);
+}
+
+.action-btn.upvote-btn.voted .material-icons {
+  color: var(--success-color, #28a745);
+}
+
+/* Indicazione percentuale di voto */
+.vote-percent-indicator {
+  display: inline-block;
+  font-size: 0.7rem;
+  background-color: var(--success-color, #28a745);
+  color: white;
+  border-radius: 10px;
+  padding: 1px 6px;
+  position: absolute;
+  top: -8px;
+  right: -5px;
+  opacity: 0.9;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Stato votato per pulsanti di commenti */
+.comment-actions .upvote-btn.voted {
+  color: var(--success-color, #28a745);
+}
+
+.comment-actions .upvote-btn.voted .material-icons {
+  color: var(--success-color, #28a745);
+}
+
+/* Animazione per il voto completato */
+@keyframes votePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.vote-success-animation {
+  animation: votePulse 0.5s ease;
+}
+
+/* Badge di stato del voto */
+.vote-status-badge {
+  font-size: 0.7rem;
+  margin-left: 4px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: var(--success-color, #28a745);
+  color: white;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.vote-status-badge.visible {
+  opacity: 1;
+}
+
+/* Potenzia visibilità pulsante votato anche su hover */
+.action-btn.upvote-btn.voted:hover {
+  background-color: rgba(40, 167, 69, 0.15);
+  color: var(--success-color, #28a745);
+}
