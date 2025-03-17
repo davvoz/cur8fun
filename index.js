@@ -12,11 +12,13 @@ import eventEmitter from './utils/EventEmitter.js';
 import authService from './services/AuthService.js';
 import NavigationManager from './utils/NavigationManager.js';
 import { SearchService } from './services/SearchService.js';
+import RegisterView from './views/RegisterView.js';
 
 // Setup routes with proper handlers
 router
   .addRoute('/', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
+  .addRoute('/register', RegisterView) // Aggiungi questa riga
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/trending', HomeView, { tag: 'trending' })
   .addRoute('/hot', HomeView, { tag: 'hot' })
@@ -100,12 +102,28 @@ function renderAuthenticatedNav(container, user) {
   container.appendChild(navActions);
 }
 
+// Nel metodo renderUnauthenticatedNav aggiungi anche il pulsante di registrazione
+
 function renderUnauthenticatedNav(container) {
+  // Contenitore per i pulsanti
+  const navActions = document.createElement('div');
+  navActions.className = 'nav-actions';
+  
+  // Login button
   const loginBtn = document.createElement('a');
   loginBtn.href = '/login';
   loginBtn.className = 'login-btn';
   loginBtn.textContent = 'Login';
-  container.appendChild(loginBtn);
+  
+  // Register button
+  const registerBtn = document.createElement('a');
+  registerBtn.href = '/register';
+  registerBtn.className = 'register-btn';
+  registerBtn.textContent = 'Create Account';
+  
+  navActions.appendChild(loginBtn);
+  navActions.appendChild(registerBtn);
+  container.appendChild(navActions);
 }
 
 function createCreatePostButton() {

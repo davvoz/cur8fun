@@ -16,6 +16,14 @@ class CreatePostService {
   }
 
   /**
+   * Determine se siamo su un dispositivo mobile
+   * @returns {boolean} true se il dispositivo è mobile
+   */
+  isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  /**
    * Create a new post on the Steem blockchain
    * 
    * @param {Object} postData - Post data
@@ -54,14 +62,24 @@ class CreatePostService {
       
       // Get necessary user data
       const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated. Please login again.');
+      }
+      
       const username = currentUser.username;
+      const loginMethod = currentUser.loginMethod || 'privateKey';
+      const isMobile = this.isMobileDevice();
       
-      let postingKey;
+      // Verifica la disponibilità di keychain su mobile
+      if (loginMethod === 'keychain' && isMobile && !window.steem_keychain) {
+        throw new Error('Steem Keychain is not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
+      }
       
-      if (currentUser.loginMethod === 'keychain' && window.steem_keychain) {
-        postingKey = null; // Non serve la chiave, usiamo keychain
-      } else {
-        postingKey = localStorage.getItem(`${username}_posting_key`);
+      // Ottieni la posting key tramite authService anziché direttamente da localStorage
+      const postingKey = authService.getPostingKey();
+      
+      if (loginMethod !== 'keychain' && !postingKey) {
+        throw new Error('Posting key not available. You may need to login again.');
       }
       
       // Generate a permlink from the title
@@ -90,7 +108,7 @@ class CreatePostService {
       // Broadcast to the blockchain
       let result;
       
-      if (currentUser.loginMethod === 'keychain' && window.steem_keychain) {
+      if (loginMethod === 'keychain' && window.steem_keychain) {
         // Usa Keychain per firmare la transazione
         result = await this.broadcastPostWithKeychain({
           username,
@@ -114,7 +132,7 @@ class CreatePostService {
           beneficiaries
         });
       } else {
-        throw new Error('Posting key not available. You may need to login again.');
+        throw new Error('No valid posting credentials available. Please login again.');
       }
       
       // Emit success event
@@ -129,10 +147,19 @@ class CreatePostService {
     } catch (error) {
       console.error('Error creating post:', error);
       
-      // Emit error event
-      eventEmitter.emit('post:creation-error', {
-        error: error.message || 'Unknown error occurred while creating post'
-      });
+      // Gestione errori più dettagliata
+      let errorMessage = error.message || 'Unknown error occurred while creating post';
+      
+      // Gestisci specificamente l'errore di annullamento da keychain
+      if (error.message && (
+          error.message.includes('cancel') || 
+          error.message.includes('Cancel') ||
+          error.message.includes('Request was canceled'))) {
+        errorMessage = 'Operation was cancelled.';
+      }
+      
+      // Emit error event con messaggio appropriato
+      eventEmitter.emit('post:creation-error', { error: errorMessage });
       
       throw error;
     } finally {
@@ -194,7 +221,17 @@ class CreatePostService {
           if (response.success) {
             resolve(response.result);
           } else {
-            reject(new Error(response.message || 'Keychain broadcast failed'));
+            // Gestione migliorata dell'errore di keychain
+            if (response.error && (
+                response.error.includes('cancel') || 
+                response.error.includes('Cancel') ||
+                response.error === 'user_cancel')) {
+              const cancelError = new Error('Operation cancelled by user');
+              cancelError.isCancelled = true;
+              reject(cancelError);
+            } else {
+              reject(new Error(response.message || response.error || 'Keychain broadcast failed'));
+            }
           }
         }
       );

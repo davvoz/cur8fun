@@ -1,23 +1,36 @@
-/* Main CSS File - Imports all styles */
-@import './variables.css';
-@import './reset.css';
-@import './typography.css';
-@import './layout.css';
-@import './navigation.css';
-@import './sidebar.css';
-@import './content.css';
-@import './cards.css';
-@import './notifications.css';
-@import './loaders.css';
-@import './components.css';
-@import './responsive.css';
-@import './wallet/wallet.css';  /* Import the modular wallet CSS */
-@import './post.css';
-@import './grid-controller.css';
-@import './profile.css';
-@import './create-post.css';
-@import './markdown.css';
-@import './markdown-editor.css';
+/* Base styles - fundamental styling */
+@import 'base/reset.css';
+@import 'base/variables.css';
+@import 'base/typography.css';
+@import 'base/layout.css';
+
+/* Layout components */
+@import 'layout/navigation.css';
+@import 'layout/sidebar.css';
+@import 'layout/grid-controller.css';
+
+/* Reusable components */
+@import 'components/components.css';
+@import 'components/cards.css';
+@import 'components/loaders.css';
+@import 'components/notifications.css';
+@import 'components/auth.css'; /* Aggiungi questa riga */
+
+/* Feature-specific styles */
+@import 'features/post.css';
+@import 'features/profile.css';
+@import 'features/search.css';
+@import 'features/markdown.css';
+@import 'features/markdown-editor.css';
+@import 'features/create-post.css';
+
+/* Page-specific styles */
+@import 'pages/tag.css';
+@import 'pages/wallet/wallet.css';
+
+/* Utilities - apply last to ensure they can override */
+@import 'utils/responsive.css';
+@import 'utils/content.css';
 
 /* Fallback styles in case any imports fail */
 :root {

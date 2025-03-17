@@ -18,54 +18,36 @@ export default class TransactionHistoryTab extends Component {
       onUser: true
     };
     this.limit = 50; // Inizia con 50 transazioni
+    
+    // Riferimenti agli elementi DOM
+    this.transactionListElement = null;
+    this.loadMoreButton = null;
+    this.filterCheckboxes = {};
+    
+    // Binding dei metodi
+    this.handleApplyFilters = this.handleApplyFilters.bind(this);
+    this.handleLoadMore = this.handleLoadMore.bind(this);
   }
   
   render() {
+    // Crea l'elemento principale del tab
     this.element = document.createElement('div');
     this.element.className = 'tab-pane';
     this.element.id = 'history-tab';
     
-    // Crea l'intestazione con filtri
-    const header = document.createElement('div');
-    header.className = 'transaction-header';
-    header.innerHTML = `
-      <h3>Transaction History</h3>
-      
-      <div class="filter-container">
-        <details>
-          <summary>Advanced Filters</summary>
-          <div class="filter-options">
-            <div class="filter-group">
-              <label><input type="checkbox" id="filter-transfer" checked> Transfers</label>
-              <label><input type="checkbox" id="filter-vote" checked> Votes</label>
-              <label><input type="checkbox" id="filter-comment" checked> Comments</label>
-              <label><input type="checkbox" id="filter-other" checked> Other</label>
-            </div>
-            <div class="filter-group">
-              <label><input type="checkbox" id="filter-by" checked> Actions performed by account</label>
-              <label><input type="checkbox" id="filter-on" checked> Actions received by account</label>
-            </div>
-            <button id="apply-filters" class="btn secondary-btn">Apply Filters</button>
-          </div>
-        </details>
-      </div>
-    `;
+    // Aggiungi l'intestazione con filtri
+    this.element.appendChild(this.createHeaderElement());
     
-    // Contenitore delle transazioni
-    const transactionContainer = document.createElement('div');
-    transactionContainer.className = 'transaction-container';
-    transactionContainer.innerHTML = `
-      <div id="transaction-list" class="transaction-list">
-        <div class="loading-state">Loading transaction history...</div>
-      </div>
-      <div class="transaction-actions">
-        <button id="load-more" class="btn primary-btn">Load More</button>
-      </div>
-    `;
-    
-    this.element.appendChild(header);
+    // Aggiungi il contenitore delle transazioni
+    const transactionContainer = this.createTransactionContainer();
     this.element.appendChild(transactionContainer);
+    
+    // Aggiungi al DOM
     this.parentElement.appendChild(this.element);
+    
+    // Salva riferimenti agli elementi DOM che dovranno essere aggiornati
+    this.transactionListElement = this.element.querySelector('#transaction-list');
+    this.loadMoreButton = this.element.querySelector('#load-more');
     
     // Aggiungi event listeners
     this.setupEventListeners();
@@ -76,53 +58,191 @@ export default class TransactionHistoryTab extends Component {
     return this.element;
   }
   
+  createHeaderElement() {
+    const header = document.createElement('div');
+    header.className = 'transaction-header';
+    
+    // Titolo
+    const title = document.createElement('h3');
+    title.textContent = 'Transaction History';
+    header.appendChild(title);
+    
+    // Contenitore filtri
+    const filterContainer = document.createElement('div');
+    filterContainer.className = 'filter-container';
+    
+    const details = document.createElement('details');
+    
+    const summary = document.createElement('summary');
+    summary.textContent = 'Advanced Filters';
+    details.appendChild(summary);
+    
+    const filterOptions = document.createElement('div');
+    filterOptions.className = 'filter-options';
+    
+    // Gruppo filtri per tipo
+    const typeFilterGroup = document.createElement('div');
+    typeFilterGroup.className = 'filter-group';
+    
+    // Checkboxes per tipi di transazioni
+    const typeFilters = [
+      { id: 'filter-transfer', label: 'Transfers' },
+      { id: 'filter-vote', label: 'Votes' },
+      { id: 'filter-comment', label: 'Comments' },
+      { id: 'filter-other', label: 'Other' }
+    ];
+    
+    typeFilters.forEach(filter => {
+      const label = document.createElement('label');
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = filter.id;
+      checkbox.checked = true;
+      
+      // Salva riferimento alla checkbox
+      this.filterCheckboxes[filter.id] = checkbox;
+      
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(' ' + filter.label));
+      
+      typeFilterGroup.appendChild(label);
+    });
+    
+    // Gruppo filtri per direzione
+    const directionFilterGroup = document.createElement('div');
+    directionFilterGroup.className = 'filter-group';
+    
+    // Checkboxes per direzione
+    const directionFilters = [
+      { id: 'filter-by', label: 'Actions performed by account' },
+      { id: 'filter-on', label: 'Actions received by account' }
+    ];
+    
+    directionFilters.forEach(filter => {
+      const label = document.createElement('label');
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = filter.id;
+      checkbox.checked = true;
+      
+      // Salva riferimento alla checkbox
+      this.filterCheckboxes[filter.id] = checkbox;
+      
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(' ' + filter.label));
+      
+      directionFilterGroup.appendChild(label);
+    });
+    
+    // Pulsante per applicare i filtri
+    const applyButton = document.createElement('button');
+    applyButton.id = 'apply-filters';
+    applyButton.className = 'btn secondary-btn';
+    applyButton.textContent = 'Apply Filters';
+    
+    // Assembla i filtri
+    filterOptions.appendChild(typeFilterGroup);
+    filterOptions.appendChild(directionFilterGroup);
+    filterOptions.appendChild(applyButton);
+    
+    details.appendChild(filterOptions);
+    filterContainer.appendChild(details);
+    header.appendChild(filterContainer);
+    
+    return header;
+  }
+  
+  createTransactionContainer() {
+    const container = document.createElement('div');
+    container.className = 'transaction-container';
+    
+    // Contenitore lista transazioni
+    const transactionList = document.createElement('div');
+    transactionList.id = 'transaction-list';
+    transactionList.className = 'transaction-list';
+    
+    // Stato di caricamento iniziale
+    const loadingState = document.createElement('div');
+    loadingState.className = 'loading-state';
+    loadingState.textContent = 'Loading transaction history...';
+    
+    transactionList.appendChild(loadingState);
+    container.appendChild(transactionList);
+    
+    // Azioni per le transazioni (load more)
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'transaction-actions';
+    
+    const loadMoreButton = document.createElement('button');
+    loadMoreButton.id = 'load-more';
+    loadMoreButton.className = 'btn primary-btn';
+    loadMoreButton.textContent = 'Load More';
+    
+    actionsContainer.appendChild(loadMoreButton);
+    container.appendChild(actionsContainer);
+    
+    return container;
+  }
+  
   setupEventListeners() {
     // Gestisci i clic sul pulsante dei filtri
     const applyFiltersBtn = this.element.querySelector('#apply-filters');
     if (applyFiltersBtn) {
-      this.registerEventHandler(applyFiltersBtn, 'click', () => {
-        this.updateFilters();
-        this.renderTransactions();
-      });
+      this.registerEventHandler(applyFiltersBtn, 'click', this.handleApplyFilters);
     }
     
     // Gestisci i clic sul pulsante "Load More"
-    const loadMoreBtn = this.element.querySelector('#load-more');
-    if (loadMoreBtn) {
-      this.registerEventHandler(loadMoreBtn, 'click', () => {
-        this.limit += 50; // Carica altre 50 transazioni
-        this.loadTransactions();
-      });
+    if (this.loadMoreButton) {
+      this.registerEventHandler(this.loadMoreButton, 'click', this.handleLoadMore);
     }
+  }
+  
+  handleApplyFilters() {
+    this.updateFilters();
+    this.renderTransactions();
+  }
+  
+  handleLoadMore() {
+    this.limit += 50; // Carica altre 50 transazioni
+    this.loadTransactions();
   }
   
   updateFilters() {
     this.filters = {
-      transfer: this.element.querySelector('#filter-transfer').checked,
-      vote: this.element.querySelector('#filter-vote').checked,
-      comment: this.element.querySelector('#filter-comment').checked,
-      other: this.element.querySelector('#filter-other').checked,
-      byUser: this.element.querySelector('#filter-by').checked,
-      onUser: this.element.querySelector('#filter-on').checked
+      transfer: this.filterCheckboxes['filter-transfer']?.checked ?? true,
+      vote: this.filterCheckboxes['filter-vote']?.checked ?? true,
+      comment: this.filterCheckboxes['filter-comment']?.checked ?? true,
+      other: this.filterCheckboxes['filter-other']?.checked ?? true,
+      byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
+      onUser: this.filterCheckboxes['filter-on']?.checked ?? true
     };
   }
   
   async loadTransactions() {
-    if (!this.username || this.isLoading) return;
-    
-    const container = this.element.querySelector('#transaction-list');
-    const loadMoreBtn = this.element.querySelector('#load-more');
-    
-    if (!container) return;
+    if (!this.username || this.isLoading || !this.transactionListElement) return;
     
     this.isLoading = true;
     
-    // Mostra stato di caricamento solo la prima volta
+    // Mostra stato di caricamento
     if (this.allTransactions.length === 0) {
-      container.innerHTML = '<div class="loading-state"><span class="material-icons loading-icon">hourglass_top</span> Loading transaction history...</div>';
-    } else if (loadMoreBtn) {
-      loadMoreBtn.disabled = true;
-      loadMoreBtn.innerHTML = '<span class="material-icons loading-icon">hourglass_top</span> Loading...';
+      this.showLoadingState();
+    } else if (this.loadMoreButton) {
+      this.loadMoreButton.disabled = true;
+      
+      // Rimuovi il testo esistente
+      while (this.loadMoreButton.firstChild) {
+        this.loadMoreButton.removeChild(this.loadMoreButton.firstChild);
+      }
+      
+      // Aggiungi icona di caricamento e testo
+      const loadingIcon = document.createElement('span');
+      loadingIcon.className = 'material-icons loading-icon';
+      loadingIcon.textContent = 'hourglass_top';
+      this.loadMoreButton.appendChild(loadingIcon);
+      
+      this.loadMoreButton.appendChild(document.createTextNode(' Loading...'));
     }
     
     try {
@@ -142,78 +262,181 @@ export default class TransactionHistoryTab extends Component {
       }
     } catch (error) {
       console.error('Failed to load transactions:', error);
-      container.innerHTML = `<div class="error-state">Failed to load transactions: ${error.message || 'Unknown error'}</div>`;
+      this.showErrorState(error.message || 'Unknown error');
     } finally {
       this.isLoading = false;
-      if (loadMoreBtn) {
-        loadMoreBtn.disabled = false;
-        loadMoreBtn.textContent = 'Load More';
+      if (this.loadMoreButton) {
+        this.loadMoreButton.disabled = false;
+        this.loadMoreButton.textContent = 'Load More';
       }
     }
   }
   
+  showLoadingState() {
+    if (!this.transactionListElement) return;
+    
+    // Rimuovi contenuti esistenti
+    while (this.transactionListElement.firstChild) {
+      this.transactionListElement.removeChild(this.transactionListElement.firstChild);
+    }
+    
+    const loadingState = document.createElement('div');
+    loadingState.className = 'loading-state';
+    
+    const loadingIcon = document.createElement('span');
+    loadingIcon.className = 'material-icons loading-icon';
+    loadingIcon.textContent = 'hourglass_top';
+    
+    loadingState.appendChild(loadingIcon);
+    loadingState.appendChild(document.createTextNode(' Loading transaction history...'));
+    
+    this.transactionListElement.appendChild(loadingState);
+  }
+  
+  showErrorState(errorMessage) {
+    if (!this.transactionListElement) return;
+    
+    // Rimuovi contenuti esistenti
+    while (this.transactionListElement.firstChild) {
+      this.transactionListElement.removeChild(this.transactionListElement.firstChild);
+    }
+    
+    const errorState = document.createElement('div');
+    errorState.className = 'error-state';
+    errorState.textContent = `Failed to load transactions: ${errorMessage}`;
+    
+    this.transactionListElement.appendChild(errorState);
+  }
+  
+  showEmptyState() {
+    if (!this.transactionListElement) return;
+    
+    // Rimuovi contenuti esistenti
+    while (this.transactionListElement.firstChild) {
+      this.transactionListElement.removeChild(this.transactionListElement.firstChild);
+    }
+    
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.textContent = 'No transactions found matching your filters';
+    
+    this.transactionListElement.appendChild(emptyState);
+  }
+  
   renderTransactions() {
-    const container = this.element.querySelector('#transaction-list');
-    if (!container) return;
+    if (!this.transactionListElement) return;
     
     const filteredTransactions = this.filterTransactions(this.allTransactions);
     
     if (filteredTransactions.length === 0) {
-      container.innerHTML = '<div class="empty-state">No transactions found matching your filters</div>';
+      this.showEmptyState();
       return;
     }
     
-    // Costruisci l'HTML per ogni transazione
-    let html = '<ul class="transaction-list">';
+    // Rimuovi contenuti esistenti
+    while (this.transactionListElement.firstChild) {
+      this.transactionListElement.removeChild(this.transactionListElement.firstChild);
+    }
     
+    // Crea lista transazioni
+    const transactionListElement = document.createElement('ul');
+    transactionListElement.className = 'transaction-list';
+    
+    // Aggiungi ogni transazione alla lista
     filteredTransactions.forEach(([id, transaction]) => {
-      const op = transaction.op;
-      const type = op[0];
-      const data = op[1];
-      
-      // Determina se è un'azione dell'utente o verso l'utente
-      const isActionByUser = this.isActionBy(type, data, this.username);
-      const isActionOnUser = this.isActionOn(type, data, this.username);
-      
-      // Seleziona l'icona appropriata e colore per il tipo di transazione
-      const { icon, iconClass } = this.getIconForType(type, data);
-      
-      // Formatta la descrizione della transazione in base al tipo
-      const description = this.formatTransactionDescription(type, data);
-      
-      // Crea il link all'explorer
-      const peakdLink = this.createExplorerLink(transaction, data);
-      
-      // Determina la direzione dell'azione
-      let directionLabel = '';
-      if (isActionByUser && this.filters.byUser) {
-        directionLabel = '<span class="transaction-direction outgoing">Outgoing</span>';
-      } else if (isActionOnUser && this.filters.onUser) {
-        directionLabel = '<span class="transaction-direction incoming">Incoming</span>';
-      }
-      
-      html += `
-        <li class="transaction-item">
-          <div class="transaction-icon ${iconClass}">
-            <span class="material-icons">${icon}</span>
-          </div>
-          <div class="transaction-details">
-            <div class="transaction-title">${this.formatTitle(type)}</div>
-            <div class="transaction-meta">
-              <span class="transaction-date">${formatDate(transaction.timestamp)}</span>
-              <span class="transaction-memo">${description}</span>
-              ${directionLabel}
-            </div>
-            <a href="${peakdLink}" target="_blank" class="transaction-link">
-              <span class="material-icons">open_in_new</span> View on Explorer
-            </a>
-          </div>
-        </li>
-      `;
+      const transactionItem = this.createTransactionItem(transaction);
+      transactionListElement.appendChild(transactionItem);
     });
     
-    html += '</ul>';
-    container.innerHTML = html;
+    this.transactionListElement.appendChild(transactionListElement);
+  }
+  
+  createTransactionItem(transaction) {
+    const op = transaction.op;
+    const type = op[0];
+    const data = op[1];
+    
+    // Crea l'elemento della transazione
+    const listItem = document.createElement('li');
+    listItem.className = 'transaction-item';
+    
+    // Determina se è un'azione dell'utente o verso l'utente
+    const isActionByUser = this.isActionBy(type, data, this.username);
+    const isActionOnUser = this.isActionOn(type, data, this.username);
+    
+    // Seleziona l'icona appropriata e colore per il tipo di transazione
+    const { icon, iconClass } = this.getIconForType(type, data);
+    
+    // Crea l'icona della transazione
+    const iconElement = document.createElement('div');
+    iconElement.className = `transaction-icon ${iconClass}`;
+    
+    const iconText = document.createElement('span');
+    iconText.className = 'material-icons';
+    iconText.textContent = icon;
+    
+    iconElement.appendChild(iconText);
+    listItem.appendChild(iconElement);
+    
+    // Crea i dettagli della transazione
+    const detailsElement = document.createElement('div');
+    detailsElement.className = 'transaction-details';
+    
+    // Titolo della transazione
+    const titleElement = document.createElement('div');
+    titleElement.className = 'transaction-title';
+    titleElement.textContent = this.formatTitle(type);
+    detailsElement.appendChild(titleElement);
+    
+    // Metadati della transazione
+    const metaElement = document.createElement('div');
+    metaElement.className = 'transaction-meta';
+    
+    const dateElement = document.createElement('span');
+    dateElement.className = 'transaction-date';
+    dateElement.textContent = formatDate(transaction.timestamp);
+    metaElement.appendChild(dateElement);
+    
+    const memoElement = document.createElement('span');
+    memoElement.className = 'transaction-memo';
+    memoElement.textContent = this.formatTransactionDescription(type, data);
+    metaElement.appendChild(memoElement);
+    
+    // Direzione della transazione
+    if ((isActionByUser && this.filters.byUser) || (isActionOnUser && this.filters.onUser)) {
+      const directionElement = document.createElement('span');
+      directionElement.className = 'transaction-direction';
+      
+      if (isActionByUser && this.filters.byUser) {
+        directionElement.classList.add('outgoing');
+        directionElement.textContent = 'Outgoing';
+      } else if (isActionOnUser && this.filters.onUser) {
+        directionElement.classList.add('incoming');
+        directionElement.textContent = 'Incoming';
+      }
+      
+      metaElement.appendChild(directionElement);
+    }
+    
+    detailsElement.appendChild(metaElement);
+    
+    // Link all'explorer
+    const linkElement = document.createElement('a');
+    linkElement.href = this.createExplorerLink(transaction, data);
+    linkElement.target = '_blank';
+    linkElement.className = 'transaction-link';
+    
+    const linkIconElement = document.createElement('span');
+    linkIconElement.className = 'material-icons';
+    linkIconElement.textContent = 'open_in_new';
+    
+    linkElement.appendChild(linkIconElement);
+    linkElement.appendChild(document.createTextNode(' View on Explorer'));
+    
+    detailsElement.appendChild(linkElement);
+    listItem.appendChild(detailsElement);
+    
+    return listItem;
   }
   
   filterTransactions(transactions) {
@@ -395,5 +618,15 @@ export default class TransactionHistoryTab extends Component {
       return `https://davvoz.github.io/steemee/#/@${data.author}/${data.permlink}`;
     }
     return `https://steemblockexplorer.com/tx/${transaction.trx_id}`;
+  }
+  
+  destroy() {
+    // Rimuovi i riferimenti agli elementi DOM
+    this.transactionListElement = null;
+    this.loadMoreButton = null;
+    this.filterCheckboxes = {};
+    
+    // Chiama il metodo destroy della classe genitore
+    super.destroy();
   }
 }

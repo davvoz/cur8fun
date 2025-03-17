@@ -7,6 +7,16 @@ import steemService from './SteemService.js';
 class AuthService {
     constructor() {
         this.currentUser = this.loadUserFromStorage();
+        
+        // Aggiungi configurazione per SteemLogin
+        this.steemLoginConfig = {
+            app: 'steemee',
+            callbackURL: window.location.origin + window.location.pathname,
+            scope: ['login', 'vote', 'comment', 'custom_json']
+        };
+        
+        // Controlla automaticamente il callback all'avvio
+        this.checkSteemLoginCallback();
     }
 
     /**
@@ -104,9 +114,9 @@ class AuthService {
      */
     async login(username, privateKey, remember = true) {
         try {
-            // Here you'd typically verify credentials with Steem API
-            // For now, we're just simulating a successful login
-
+            // Verifica della validità della chiave posting
+            await this.verifyPostingKey(username, privateKey);
+            
             // Get user profile information
             const userProfile = await steemService.getProfile(username);
             
@@ -125,6 +135,9 @@ class AuthService {
             // Save to storage if remember is true
             if (remember) {
                 localStorage.setItem('currentUser', JSON.stringify(user));
+                
+                // Salva la chiave posting in localStorage (con encryption se possibile)
+                this.securelyStorePostingKey(username, privateKey, remember);
             }
             
             // Emit auth changed event
@@ -138,17 +151,113 @@ class AuthService {
     }
 
     /**
+     * Verifica che una chiave posting sia valida
+     * @param {string} username - Username Steem
+     * @param {string} postingKey - Chiave posting da verificare
+     */
+    async verifyPostingKey(username, postingKey) {
+        await steemService.ensureLibraryLoaded();
+        
+        try {
+            // Verifica che la chiave sia del formato corretto
+            const isPubkey = window.steem.auth.isPubkey(postingKey);
+            const isWif = window.steem.auth.isWif(postingKey);
+            
+            if (!isWif) {
+                throw new Error('Invalid posting key format');
+            }
+            
+            // Ottieni l'account per verificare che la chiave corrisponda
+            const accounts = await new Promise((resolve, reject) => {
+                window.steem.api.getAccounts([username], (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+            
+            if (!accounts || accounts.length === 0) {
+                throw new Error('Account not found');
+            }
+            
+            const account = accounts[0];
+            const publicWif = window.steem.auth.wifToPublic(postingKey);
+            
+            // Verifica che la chiave pubblica derivata dalla posting key sia una delle chiavi autorizzate
+            const postingAuth = account.posting.key_auths;
+            const isValid = postingAuth.some(auth => auth[0] === publicWif);
+            
+            if (!isValid) {
+                throw new Error('Invalid posting key for this account');
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error verifying posting key:', error);
+            throw new Error('Invalid posting key');
+        }
+    }
+
+    /**
+     * Store posting key securely (as securely as possible in a web context)
+     */
+    securelyStorePostingKey(username, postingKey, remember = true) {
+        // In una versione più sicura, potresti usare Web Crypto API per la crittografia
+        // Ma per semplicità in questo esempio usiamo localStorage con un'avvertenza
+        
+        if (remember) {
+            try {
+                // Utilizza una chiave semplice per questo esempio educativo
+                // In produzione, dovresti implementare una soluzione più robusta
+                localStorage.setItem(`${username}_posting_key`, postingKey);
+                
+                // Aggiungi un timestamp di scadenza (24 ore)
+                const expiry = Date.now() + (24 * 60 * 60 * 1000);
+                localStorage.setItem(`${username}_posting_key_expiry`, expiry.toString());
+                
+                console.info('Posting key stored for mobile operations');
+            } catch (error) {
+                console.error('Failed to store posting key:', error);
+            }
+        }
+    }
+
+    /**
      * Log out the current user
      */
     logout() {
-        // Clear from memory
-        this.currentUser = null;
-        
-        // Clear from storage
-        localStorage.removeItem('currentUser');
-        
-        // Emit auth changed event with null user
-        eventEmitter.emit('auth:changed', { user: null });
+        try {
+            const user = this.getCurrentUser();
+            if (user) {
+                // Se è un login con steemlogin, pulisci anche il token
+                if (user.loginMethod === 'steemlogin') {
+                    console.log('Clearing SteemLogin token');
+                    sessionStorage.removeItem('steemLoginToken');
+                    localStorage.removeItem(`${user.username}_steemlogin_token`);
+                } else if (user.loginMethod === 'privateKey') {
+                    // Pulisci chiave privata salvata
+                    localStorage.removeItem(`${user.username}_posting_key`);
+                    localStorage.removeItem(`${user.username}_posting_key_expiry`);
+                }
+            }
+            
+            // Pulisci stato auth generale
+            console.log('Logging out user');
+            this.currentUser = null;
+            localStorage.removeItem('currentUser');
+            
+            // Emetti evento per aggiornare l'UI
+            eventEmitter.emit('auth:changed', { user: null });
+            
+            // Notifica all'utente
+            eventEmitter.emit('notification', {
+                type: 'info',
+                message: 'You have been logged out'
+            });
+            
+            console.log('Logout completed successfully');
+        } catch (error) {
+            console.error('Error during logout:', error);
+        }
     }
 
     /**
@@ -159,7 +268,7 @@ class AuthService {
     }
 
     /**
-     * Get the posting key for the current user if available
+     * Get the posting key for the current user
      * Note: For security, this should be improved in production
      * Ideally, keys should not be stored in localStorage
      */
@@ -167,14 +276,226 @@ class AuthService {
         const user = this.getCurrentUser();
         if (!user) return null;
         
-        // For keychain users, we don't need to return a key
+        // Per utenti Keychain
         if (user.loginMethod === 'keychain') {
-            return 'USE_KEYCHAIN'; // Questo è solo un segnaposto
+            return null; // Keychain gestirà l'operazione 
         }
         
-        // For direct key login, retrieve from secure storage
-        // In a real app, consider more secure storage options
-        return localStorage.getItem(`${user.username}_posting_key`);
+        // Per login con chiave diretta
+        try {
+            const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+            
+            // Verifica scadenza
+            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+                // Chiave scaduta, rimuovila
+                localStorage.removeItem(`${user.username}_posting_key`);
+                localStorage.removeItem(`${user.username}_posting_key_expiry`);
+                return null;
+            }
+            
+            return localStorage.getItem(`${user.username}_posting_key`);
+        } catch (error) {
+            console.error('Error retrieving posting key:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Verifica se siamo arrivati da un redirect SteemLogin
+     */
+    checkSteemLoginCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const state = urlParams.get('state');
+        
+        if (accessToken && state) {
+            const savedState = sessionStorage.getItem('steemLoginState');
+            if (state === savedState) {
+                console.log('SteemLogin callback detected: Valid state');
+                // Pulisci i parametri URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Completa il login
+                this.completeSteemLogin(accessToken);
+            } else {
+                console.error('SteemLogin state mismatch');
+                eventEmitter.emit('notification', {
+                    type: 'error',
+                    message: 'Authentication error: state mismatch'
+                });
+            }
+            sessionStorage.removeItem('steemLoginState');
+        }
+    }
+    
+    /**
+     * Inizia il processo di login con SteemLogin
+     */
+    loginWithSteemLogin() {
+        // Verifica che uno degli oggetti globali sia disponibile
+        if (!window.steemlogin && !window.steemconnect) {
+            console.error('SteemLogin library not available globally');
+            throw new Error('SteemConnect/SteemLogin library not loaded');
+        }
+        
+        try {
+            // Usa la libreria disponibile (steemlogin o steemconnect)
+            const SteemClient = window.steemlogin?.Client || window.steemconnect?.Client;
+            
+            if (!SteemClient) {
+                throw new Error('No valid SteemLogin client found');
+            }
+            
+            // Inizializza client con configurazione unificata
+            const steemClient = new SteemClient({
+                app: "cur8", // Usa lo stesso nome app usato nel test.js
+                callbackURL: this.steemLoginConfig.callbackURL,
+                scope: this.steemLoginConfig.scope
+            });
+            
+            // Genera uno stato casuale per sicurezza
+            const state = Math.random().toString(36).substring(7);
+            sessionStorage.setItem('steemLoginState', state);
+            
+            console.log('Redirecting to SteemLogin...', steemClient);
+            
+            // Ottieni URL di login e reindirizza
+            const loginUrl = steemClient.getLoginURL(state);
+            window.location.href = loginUrl;
+            
+            return true;
+        } catch (error) {
+            console.error('Error initiating SteemLogin:', error);
+            throw new Error('Failed to initiate SteemLogin: ' + error.message);
+        }
+    }
+    
+    /**
+     * Completa il processo di login dopo il callback di SteemLogin
+     * @param {string} accessToken - Token di accesso ricevuto
+     */
+    async completeSteemLogin(accessToken) {
+        try {
+            // Salva il token temporaneamente
+            sessionStorage.setItem('steemLoginToken', accessToken);
+            
+            // Ottieni dati utente da SteemLogin
+            const userData = await this.getSteemLoginUserData(accessToken);
+            console.log('SteemLogin user data:', userData);
+            
+            // Verifica la presenza dell'username (il campo potrebbe essere 'name' o 'username')
+            const username = userData?.name || userData?.username;
+            
+            if (!userData || !username) {
+                throw new Error('Invalid response from SteemLogin: Username not found');
+            }
+            
+            console.log('SteemLogin authenticated username:', username);
+            
+            try {
+                // Ottieni profilo utente
+                const userProfile = await steemService.getProfile(username);
+                
+                // Crea l'oggetto utente
+                const user = {
+                    username: username,
+                    avatar: `https://steemitimages.com/u/${username}/avatar`,
+                    isAuthenticated: true,
+                    profile: userProfile?.profile || {},
+                    timestamp: Date.now(),
+                    loginMethod: 'steemlogin',
+                    steemLoginToken: accessToken
+                };
+                
+                console.log('Creating SteemLogin user object:', user);
+                
+                // Salva l'utente
+                this.currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                
+                // Notifica il cambiamento di autenticazione
+                eventEmitter.emit('auth:changed', { user });
+                
+                // Mostra notifica di successo
+                eventEmitter.emit('notification', {
+                    type: 'success',
+                    message: `Welcome back, ${username}!`
+                });
+                
+                return user;
+            } catch (error) {
+                console.error('Error getting Steem profile:', error);
+                
+                // Crea un oggetto utente minimo senza profilo completo
+                const minimalUser = {
+                    username: username,
+                    avatar: `https://steemitimages.com/u/${username}/avatar`,
+                    isAuthenticated: true,
+                    profile: {},
+                    timestamp: Date.now(),
+                    loginMethod: 'steemlogin',
+                    steemLoginToken: accessToken
+                };
+                
+                this.currentUser = minimalUser;
+                localStorage.setItem('currentUser', JSON.stringify(minimalUser));
+                
+                eventEmitter.emit('auth:changed', { user: minimalUser });
+                
+                eventEmitter.emit('notification', {
+                    type: 'success',
+                    message: `Welcome back, ${username}! (Profile data could not be loaded)`
+                });
+                
+                return minimalUser;
+            }
+        } catch (error) {
+            console.error('SteemLogin completion error:', error);
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: 'Failed to complete login: ' + error.message
+            });
+            throw error;
+        }
+    }
+    
+    /**
+     * Ottiene i dati utente da SteemLogin API
+     * @param {string} accessToken - Token di accesso
+     * @returns {Promise<Object>} - Dati utente
+     */
+    async getSteemLoginUserData(accessToken) {
+        try {
+            console.log('Fetching SteemLogin user data with token:', accessToken);
+            const response = await fetch('https://api.steemlogin.com/api/me', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('SteemLogin API error:', response.status, response.statusText);
+                throw new Error(`Failed to fetch user data from SteemLogin: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('SteemLogin API response:', data);
+            return data;
+        } catch (error) {
+            console.error('Error fetching SteemLogin user data:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Ottiene il token SteemLogin per l'utente corrente
+     * @returns {string|null} - Token di accesso o null se non disponibile
+     */
+    getSteemLoginToken() {
+        const user = this.getCurrentUser();
+        if (!user || user.loginMethod !== 'steemlogin') {
+            return null;
+        }
+        return user.steemLoginToken || null;
     }
 }
 

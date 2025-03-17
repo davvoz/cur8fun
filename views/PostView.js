@@ -4,6 +4,8 @@ import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
 import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
+import voteService from '../services/VoteService.js';
+import authService from '../services/AuthService.js'; // Aggiungi questa importazione
 
 class PostView extends View {
   constructor(params = {}) {
@@ -123,6 +125,9 @@ class PostView extends View {
       this.loadingIndicator.updateProgress(100);
 
       this.renderPost();
+      
+      // Controlla lo stato di voto
+      await this.checkVoteStatus();
     } catch (error) {
       console.error('Failed to load post:', error);
 
@@ -557,42 +562,160 @@ class PostView extends View {
       commentDiv.appendChild(repliesContainer);
     }
 
+    // Add upvote button handler
+    upvoteBtn.addEventListener('click', () => this.handleCommentVote(commentDiv, upvoteBtn));
+
+    // Controlla se l'utente ha già votato questo commento
+    voteService.hasVoted(comment.author, comment.permlink)
+      .then(existingVote => {
+        if (existingVote) {
+          // Imposta lo stato votato
+          upvoteBtn.classList.add('voted');
+          
+          // Aggiungi l'icona piena invece di quella vuota
+          const iconElement = upvoteBtn.querySelector('.material-icons');
+          if (iconElement) {
+            iconElement.textContent = 'thumb_up_alt';
+          }
+          
+          // Aggiungi indicatore di percentuale se è > 0
+          if (existingVote.percent > 0) {
+            const percentIndicator = document.createElement('span');
+            percentIndicator.className = 'vote-percent-indicator';
+            percentIndicator.textContent = `${existingVote.percent / 100}%`;
+            upvoteBtn.appendChild(percentIndicator);
+          }
+        }
+      })
+      .catch(err => {
+        console.log('Error checking vote status for comment', err);
+      });
+
     return commentDiv;
   }
 
-  handleUpvote() {
-    // Check if user is logged in
-    const user = this.getCurrentUser();
-    if (!user) {
-      this.emit('notification', {
-        type: 'error',
-        message: 'You need to log in to vote'
+/**
+ * Gestisce il voto sul post
+ */
+async handleUpvote() {
+  const upvoteBtn = this.element.querySelector('.upvote-btn');
+  const countElement = upvoteBtn.querySelector('.count');
+  
+  // Check if user is logged in
+  const user = authService.getCurrentUser();
+  if (!user) {
+    this.emit('notification', { 
+      type: 'error', 
+      message: 'You need to log in to vote'
+    });
+    router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+    return;
+  }
+  
+  // Controlla se l'utente ha già votato
+  try {
+    const existingVote = await voteService.hasVoted(this.post.author, this.post.permlink);
+    if (existingVote) {
+      // Se l'utente ha già votato, mostra un messaggio informativo
+      const currentPercent = existingVote.percent / 100;
+      this.emit('notification', { 
+        type: 'info', 
+        message: `You've already voted on this post (${currentPercent}%)`
       });
-      // Use the current path without hash for more reliable routing
-      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
-
-    // In a real implementation, you would call the SteemService to vote
-    console.log('Voting for post', this.post.author, this.post.permlink);
-    this.emit('notification', {
-      type: 'success',
-      message: 'Your vote was recorded'
-    });
+  } catch (error) {
+    console.log('Error checking vote status:', error);
+    // Continua anche se non riusciamo a verificare il voto esistente
   }
+  
+  // Mostra il popup con slider per la percentuale
+  this.showVotePercentagePopup(upvoteBtn, async (weight) => {
+    try {
+      // Disabilita il pulsante durante il voto
+      upvoteBtn.disabled = true;
+      upvoteBtn.classList.add('voting');
+      
+      // Mostra feedback visivo
+      const originalContent = upvoteBtn.innerHTML;
+      upvoteBtn.innerHTML = `
+        <span class="material-icons loading">refresh</span>
+        <span>Voting ${weight/100}%...</span>
+      `;
+      
+      // Verifica se il peso è 0 (downvote)
+      if (weight === 0) {
+        throw new Error('Vote weight cannot be zero');
+      }
+      
+      // Usa il servizio dedicato per votare con il peso scelto
+      const result = await voteService.vote({
+        author: this.post.author,
+        permlink: this.post.permlink,
+        weight: weight
+      });
+      
+      // Aggiorna il contatore dei voti
+      const currentCount = parseInt(countElement?.textContent) || 0;
+      
+      // Ripristina il pulsante con lo stato votato
+      upvoteBtn.disabled = false;
+      upvoteBtn.classList.remove('voting');
+      upvoteBtn.classList.add('voted');
+      
+      // Mostra l'icona votata e il contatore aggiornato
+      upvoteBtn.innerHTML = `
+        <span class="material-icons">thumb_up_alt</span>
+        <span class="count">${currentCount + 1}</span>
+        <span class="vote-percent-indicator">${weight/100}%</span>
+      `;
+      
+      // Aggiungi l'animazione di successo
+      upvoteBtn.classList.add('vote-success-animation');
+      setTimeout(() => {
+        upvoteBtn.classList.remove('vote-success-animation');
+      }, 600);
+      
+      // Mostra notifica di successo
+      this.emit('notification', { 
+        type: 'success', 
+        message: `Your ${weight/100}% vote was recorded successfully!`
+      });
+    } catch (error) {
+      // Verifica se l'errore è dovuto a un annullamento da parte dell'utente
+      if (error.isCancelled) {
+        console.log('Vote was cancelled by user');
+        // Non mostrare alcuna notifica di errore
+      } else {
+        console.error('Failed to vote:', error);
+        this.emit('notification', { 
+          type: 'error', 
+          message: error.message || 'Failed to vote. Please try again.'
+        });
+      }
+      
+      // Ripristina il pulsante originale
+      upvoteBtn.disabled = false;
+      upvoteBtn.classList.remove('voting');
+      upvoteBtn.innerHTML = `
+        <span class="material-icons">thumb_up</span>
+        <span class="count">${countElement?.textContent || '0'}</span>
+      `;
+    }
+  });
+}
 
   handleComment() {
     const commentText = this.postContent.querySelector('.comment-form textarea').value;
     if (!commentText.trim()) return;
 
     // Check if user is logged in
-    const user = this.getCurrentUser();
+    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
     if (!user) {
       this.emit('notification', {
         type: 'error',
         message: 'You need to log in to comment'
       });
-      // Use the current path without hash for more reliable routing
       router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
@@ -651,13 +774,12 @@ class PostView extends View {
 
   handleReply(parentComment, replyText) {
     // Check if user is logged in
-    const user = this.getCurrentUser();
+    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
     if (!user) {
       this.emit('notification', {
         type: 'error',
         message: 'You need to log in to reply'
       });
-      // Use the current path without hash for more reliable routing
       router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
       return;
     }
@@ -690,13 +812,7 @@ class PostView extends View {
       }).catch(err => console.error('Could not copy link:', err));
     }
   }
-
-  getCurrentUser() {
-    // In a real implementation, this would get the logged in user from state or localStorage
-    return localStorage.getItem('currentUser') ?
-      JSON.parse(localStorage.getItem('currentUser')) : null;
-  }
-
+  
   // Add methods to extract the best image from a post (similar to ProfileView)
   getBestImage(post) {
     const metadata = this.parseMetadata(post.json_metadata);
@@ -713,6 +829,340 @@ class PostView extends View {
       return {};
     }
   }
+
+  // Aggiungi questo metodo alla classe PostView
+  async handleCommentVote(commentElement, upvoteBtn) {
+    // Ottieni i dati del commento dagli attributi data-*
+    const author = commentElement.dataset.author;
+    const permlink = commentElement.dataset.permlink;
+    const countElement = upvoteBtn.querySelector('.count');
+    
+    // Check if user is logged in
+    const user = authService.getCurrentUser();
+    if (!user) {
+      this.emit('notification', { 
+        type: 'error', 
+        message: 'You need to log in to vote'
+      });
+      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+      return;
+    }
+    
+    // Controlla se l'utente ha già votato
+    try {
+      const existingVote = await voteService.hasVoted(author, permlink);
+      if (existingVote) {
+        // Se l'utente ha già votato, mostra un messaggio informativo
+        const currentPercent = existingVote.percent / 100;
+        this.emit('notification', { 
+          type: 'info', 
+          message: `You've already voted on this comment (${currentPercent}%)`
+        });
+        return;
+      }
+    } catch (error) {
+      console.log('Error checkings comment vote status:', error);
+      // Continua anche se non riusciamo a verificare il voto esistente
+    }
+    
+    // Mostra il popup con slider per la percentuale
+    this.showVotePercentagePopup(upvoteBtn, async (weight) => {
+      const countElement = upvoteBtn.querySelector('.count');
+      
+      try {
+        // Disabilita il pulsante durante il voto
+        upvoteBtn.disabled = true;
+        upvoteBtn.classList.add('voting');
+        
+        // Feedback visivo
+        const originalContent = upvoteBtn.innerHTML;
+        upvoteBtn.innerHTML = `
+          <span class="material-icons loading">refresh</span>
+        `;
+        
+        // Verifica se il peso è 0 (downvote)
+        if (weight === 0) {
+          throw new Error('Vote weight cannot be zero');
+        }
+        
+        // Effettua il voto con il peso scelto
+        await voteService.vote({
+          author,
+          permlink,
+          weight
+        });
+        
+        // Aggiorna il contatore dei voti
+        const currentCount = parseInt(countElement.textContent) || 0;
+        countElement.textContent = currentCount + 1;
+        
+        // Aggiorna la classe del pulsante
+        upvoteBtn.classList.add('voted');
+        
+        // Aggiorna anche l'icona e aggiungi l'indicatore della percentuale
+        upvoteBtn.innerHTML = `
+          <span class="material-icons">thumb_up_alt</span>
+          <span class="count">${currentCount + 1}</span>
+          <span class="vote-percent-indicator">${weight/100}%</span>
+        `;
+        
+        // Aggiungi l'animazione di successo
+        upvoteBtn.classList.add('vote-success-animation');
+        setTimeout(() => {
+          upvoteBtn.classList.remove('vote-success-animation');
+        }, 600);
+        
+        // Mostra notifica di successo
+        this.emit('notification', { 
+          type: 'success', 
+          message: `Your ${weight/100}% vote on this comment was recorded successfully!`
+        });
+      } catch (error) {
+        // Verifica se l'errore è dovuto a un annullamento da parte dell'utente
+        if (error.isCancelled) {
+          console.log('Comment vote was cancelled by user');
+          // Non mostrare alcuna notifica di errore
+        } else {
+          console.error('Failed to vote on comment:', error);
+          this.emit('notification', { 
+            type: 'error', 
+            message: error.message || 'Failed to vote on comment. Please try again.'
+          });
+        }
+      } finally {
+        // Ripristina il pulsante
+        upvoteBtn.disabled = false;
+        upvoteBtn.classList.remove('voting');
+        
+        // Ripristina contenuto originale con icona appropriata
+        const isVoted = upvoteBtn.classList.contains('voted');
+        upvoteBtn.innerHTML = `
+          <span class="material-icons">${isVoted ? 'thumb_up_alt' : 'thumb_up'}</span>
+          <span class="count">${countElement.textContent}</span>
+        `;
+      }
+    });
+  }
+
+/**
+ * Mostra un popup con slider per selezionare la percentuale di voto
+ * @param {HTMLElement} targetElement - L'elemento di riferimento per il posizionamento del popup
+ * @param {Function} callback - Funzione da chiamare con il peso del voto scelto
+ * @param {number} [defaultValue=100] - Valore percentuale predefinito dello slider
+ */
+showVotePercentagePopup(targetElement, callback, defaultValue = 100) {
+  // Rimuovi eventuali popup esistenti
+  const existingPopup = document.querySelector('.vote-percentage-popup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+  
+  // Crea il popup
+  const popup = document.createElement('div');
+  popup.className = 'vote-percentage-popup';
+  
+  // Intestazione del popup
+  const header = document.createElement('div');
+  header.className = 'popup-header';
+  header.textContent = 'Select Vote Percentage';
+  
+  // Contenuto del popup
+  const content = document.createElement('div');
+  content.className = 'popup-content';
+  
+  // Slider per la percentuale
+  const sliderContainer = document.createElement('div');
+  sliderContainer.className = 'slider-container';
+  
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '100';
+  slider.value = defaultValue.toString();
+  slider.className = 'percentage-slider';
+  
+  const percentageDisplay = document.createElement('div');
+  percentageDisplay.className = 'percentage-display';
+  percentageDisplay.textContent = `${defaultValue}%`;
+  
+  // Etichette min/max
+  const sliderLabels = document.createElement('div');
+  sliderLabels.className = 'slider-labels';
+  
+  const minLabel = document.createElement('span');
+  minLabel.textContent = '0%';
+  
+  const maxLabel = document.createElement('span');
+  maxLabel.textContent = '100%';
+  
+  sliderLabels.appendChild(minLabel);
+  sliderLabels.appendChild(maxLabel);
+  
+  sliderContainer.appendChild(slider);
+  sliderContainer.appendChild(percentageDisplay);
+  sliderContainer.appendChild(sliderLabels);
+  
+  // Pulsanti di azione
+  const actions = document.createElement('div');
+  actions.className = 'popup-actions';
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'cancel-btn';
+  cancelBtn.textContent = 'Cancel';
+  
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'confirm-btn';
+  confirmBtn.textContent = 'Vote';
+  
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+  
+  // Assembla il popup
+  content.appendChild(sliderContainer);
+  content.appendChild(actions);
+  
+  popup.appendChild(header);
+  popup.appendChild(content);
+  
+  // Aggiungi il popup al DOM
+  document.body.appendChild(popup);
+  
+  // Posiziona il popup
+  this.positionPopup(popup, targetElement);
+  
+  // Event listener per lo slider
+  slider.addEventListener('input', () => {
+    const value = slider.value;
+    percentageDisplay.textContent = `${value}%`;
+    
+    // Cambia colore in base al valore
+    if (value > 75) {
+      percentageDisplay.style.color = 'var(--success-color, #28a745)';
+    } else if (value > 25) {
+      percentageDisplay.style.color = 'var(--primary-color, #ff7518)';
+    } else if (value > 0) {
+      percentageDisplay.style.color = 'var(--warning-color, #fd7e14)';
+    } else {
+      percentageDisplay.style.color = 'var(--error-color, #dc3545)';
+    }
+  });
+  
+  // Event listeners per i pulsanti
+  cancelBtn.addEventListener('click', () => {
+    popup.remove();
+  });
+  
+  confirmBtn.addEventListener('click', () => {
+    const weight = parseInt(slider.value) * 100; // Converti percentuale in peso (0-10000)
+    popup.remove();
+    callback(weight);
+  });
+  
+  // Chiudi il popup se si clicca fuori
+  const closeOnOutsideClick = (event) => {
+    if (!popup.contains(event.target) && event.target !== targetElement) {
+      popup.remove();
+      document.removeEventListener('click', closeOnOutsideClick);
+    }
+  };
+  
+  // Previeni che i clic all'interno del popup propaghino all'event listener del documento
+  popup.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  
+  // Aggiungi l'event listener dopo un breve ritardo per evitare che catturi il clic corrente
+  setTimeout(() => {
+    document.addEventListener('click', closeOnOutsideClick);
+  }, 100);
+}
+
+/**
+ * Posiziona il popup in base all'elemento target
+ * @param {HTMLElement} popup - Elemento popup
+ * @param {HTMLElement} targetElement - Elemento di riferimento
+ */
+positionPopup(popup, targetElement) {
+  const targetRect = targetElement.getBoundingClientRect();
+  popup.style.position = 'fixed';
+  
+  // Verifica se siamo su mobile
+  const isMobile = window.innerWidth <= 480;
+  
+  if (isMobile) {
+    // Su mobile, posiziona sempre dal basso
+    popup.style.bottom = '0';
+    popup.style.left = '0';
+    popup.style.width = '100%';
+    popup.style.borderBottomLeftRadius = '0';
+    popup.style.borderBottomRightRadius = '0';
+    popup.style.transform = 'translateY(0)';
+  } else {
+    // Su desktop, posiziona in base allo spazio disponibile
+    const popupHeight = 180; // Altezza stimata del popup
+    
+    // Se c'è spazio sopra, mettiamo il popup sopra il pulsante
+    if (targetRect.top > popupHeight + 10) {
+      popup.style.bottom = `${window.innerHeight - targetRect.top + 5}px`;
+      popup.style.left = `${targetRect.left}px`;
+    } else {
+      // Altrimenti mettiamo il popup sotto il pulsante
+      popup.style.top = `${targetRect.bottom + 5}px`;
+      popup.style.left = `${targetRect.left}px`;
+    }
+    
+    // Dopo che il popup è stato renderizzato, controlla che non esca dallo schermo
+    setTimeout(() => {
+      const popupRect = popup.getBoundingClientRect();
+      
+      // Correggi posizionamento orizzontale se necessario
+      if (popupRect.right > window.innerWidth) {
+        popup.style.left = `${window.innerWidth - popupRect.width - 10}px`;
+      }
+      
+      // Correggi posizionamento verticale se necessario
+      if (popupRect.bottom > window.innerHeight) {
+        popup.style.top = 'auto';
+        popup.style.bottom = '10px';
+      }
+    }, 0);
+  }
+}
+
+/**
+ * Controlla lo stato di voto per il post corrente
+ */
+async checkVoteStatus() {
+  if (!this.post || !authService.isAuthenticated()) return;
+  
+  try {
+    const upvoteBtn = this.element.querySelector('.upvote-btn');
+    if (!upvoteBtn) return;
+    
+    const vote = await voteService.hasVoted(this.post.author, this.post.permlink);
+    
+    if (vote) {
+      // Imposta lo stato votato
+      upvoteBtn.classList.add('voted');
+      
+      // Aggiorna l'icona al formato "pieno"
+      const iconElement = upvoteBtn.querySelector('.material-icons');
+      if (iconElement) {
+        iconElement.textContent = 'thumb_up_alt';
+      }
+      
+      // Aggiungi l'indicatore di percentuale
+      if (vote.percent > 0) {
+        const percentIndicator = document.createElement('span');
+        percentIndicator.className = 'vote-percent-indicator';
+        percentIndicator.textContent = `${vote.percent / 100}%`;
+        upvoteBtn.appendChild(percentIndicator);
+      }
+    }
+  } catch (error) {
+    console.log('Error checking vote status:', error);
+  }
+}
 }
 
 export default PostView;
