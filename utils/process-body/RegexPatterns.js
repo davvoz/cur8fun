@@ -23,8 +23,32 @@ export const imagePatterns = {
   // Add support for peakd.com URLs
   peakdImages: /https?:\/\/files\.peakd\.com\/file\/.*?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?/gi,
 
-  //https://cdn.steemitimages.com/DQmbjYs5ePmb9zTdTRRsbJqEHixBCXms5BeA6DAg2T97Br2/olk63-H-2-Gif19ms11St.gif	
-  otherImages: /https:\/\/cdn\.steemitimages\.com\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/gi
+  // CDN Steemitimages links
+  cdnSteemitImages: /https:\/\/cdn\.steemitimages\.com\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/gi,
+  
+  // Markdown image syntax
+  markdownImages: /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/gi,
+  
+  // HTML img tags
+  htmlImages: /<img[^>]+src=["']([^"']+)["']/gi,
+  
+  // Markdown reference images
+  markdownReference: /!\[([^\]]+)\]\[([^\]]+)\]/gi
+};
+
+// Pattern per immagini animate
+export const animatedImagePatterns = {
+  // GIF direct links
+  gifImages: /https?:\/\/[^\s<>"']+\.gif(?:\?[^\s<>"']*)?/gi,
+  
+  // Animated WebP
+  animatedWebp: /https?:\/\/[^\s<>"']+\.webp(?:\?[^\s<>"']*)?\b(?:[^\s<>"']*animation|[^\s<>"']*animated)/gi,
+  
+  // Giphy links
+  giphyImages: /https?:\/\/(?:media\.giphy\.com|giphy\.com\/media)\/[^\s<>"']+/gi,
+  
+  // Tenor GIF links
+  tenorImages: /https?:\/\/(?:media\.tenor\.com|tenor\.com\/view)\/[^\s<>"']+/gi
 };
 
 // Pattern per immagini di grandi dimensioni
@@ -41,8 +65,8 @@ export const largeImagePatterns = [
   // Large peakd.com images
   /https?:\/\/files\.peakd\.com\/file\/.*?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?/gi,
 
-  //https://cdn.steemitimages.com/DQmXLEEVNfKza15Y4VGaoEZWRxJNYQNo4ZjS4EDG8aF2aFm/olk63-H-13-Gif19ms11St.gif
-  /https:\/\/cdn\.steemitimages\.com\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/i
+  // Large CDN Steemitimages links
+  /https:\/\/cdn\.steemitimages\.com\/DQm[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)/i
 ];
 
 // Pattern video YouTube
@@ -61,6 +85,21 @@ export const youtubePatterns = {
   
   // HTML iframe embeds
   iframeEmbed: /<iframe[^>]*src=["'](?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:\?[^"'>]+)?["'][^>]*><\/iframe>/g
+};
+
+// Pattern per formattazione del testo
+export const formattingPatterns = {
+  // Headers
+  header1: /^#\s+(.+)$/gm,
+  header2: /^##\s+(.+)$/gm,
+  header3: /^###\s+(.+)$/gm,
+  
+  // Text formatting
+  bold: /\*\*([^*]+)\*\*/g,
+  italic: /(?<!\*)\*([^*]+)\*(?!\*)/g,
+  
+  // Lists
+  unorderedList: /^[\s]*[-*+]\s+(.+)$/gm
 };
 
 // Funzione di utility per resettare lastIndex in tutte le regex di un oggetto
@@ -85,8 +124,10 @@ export function escapeRegExp(string) {
 
 export default {
   imagePatterns,
+  animatedImagePatterns,
   largeImagePatterns,
   youtubePatterns,
+  formattingPatterns,
   resetRegexLastIndex,
   escapeRegExp
 };

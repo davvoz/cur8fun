@@ -2,10 +2,12 @@ import { REGEX_PATTERNS } from './regex-config.js';
 import { MediaHandlers } from './media-handlers.js';
 import { TableHandler } from './table-handlers.js';
 import YouTubeUtils from './plugins/youtube.js';
+import ImageProcessor from './plugins/ImageProcessor.js';
+import AnimationHandlers from './plugins/AnimationHandlers.js';
+import MediaExtractor from './plugins/MediaExtractor.js';
 
 /**
- * ContentProcessor - A structured pipeline for processing post content
- * Handles various transformations with a clear, step-by-step approach
+ * ContentProcessor - Elaborazione strutturata del contenuto post
  */
 class ContentProcessor {
   constructor(rawContent) {
@@ -29,6 +31,7 @@ class ContentProcessor {
       
       // Process in a clear, sequential way
       this.processMarkdownImages()
+          .processAnimations()  // Aggiungi questa riga
           .processLinks()
           .processTables()
           .processUserMentions()
@@ -65,48 +68,27 @@ class ContentProcessor {
 
   /**
    * Process markdown image syntax: ![alt](url)
+   * Delegating to ImageHandlers module
    */
   processMarkdownImages() {
-    // Process direct image URLs
-    this.processedContent = this.processedContent.replace(
-      /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))(?:\s|$)/gi,
-      (match, url) => {
-        return `<img src="https://steemitimages.com/0x0/${url}" class="markdown-img-link medium-zoom-image">\n`;
-      }
-    );
+    this.processedContent = ImageProcessor.processMarkdownImages(this.processedContent);
+    return this;
+  }
 
-    // Process centered markdown images
-    this.processedContent = this.processedContent.replace(
-      /<center>\s*!\[([^\]]*)\]\((https?:\/\/[^)]+)\)\s*<\/center>/g,
-      (match, alt, url) => {
-        return `<center><img src="https://steemitimages.com/0x0/${url}" alt="${alt}" class="markdown-img-link medium-zoom-image"></center>`;
-      }
-    );
-
-    // Process centered markdown images with links
-    this.processedContent = this.processedContent.replace(
-      /<center>\s*\[\!\[([^\]]*)\]\((https?:\/\/[^)]+)\)\]\((https?:\/\/[^)]+)\)\s*<\/center>/g,
-      (match, alt, imgUrl, linkUrl) => {
-        return `<center><a href="${linkUrl}" class="markdown-external-link" target="_blank" rel="noopener"><img src="https://steemitimages.com/0x0/${imgUrl}" alt="${alt}"></a></center>`;
-      }
-    );
-
-    // Process regular markdown images
-    this.processedContent = this.processedContent.replace(
-      /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
-      (match, alt, url) => {
-        return `<img src="https://steemitimages.com/0x0/${url}" alt="${alt}" class="markdown-img-link medium-zoom-image">`;
-      }
-    );
-
-    // Process markdown images with links
-    this.processedContent = this.processedContent.replace(
-      /\[\!\[([^\]]*)\]\((https?:\/\/[^)]+)\)\]\((https?:\/\/[^)]+)\)/g,
-      (match, alt, imgUrl, linkUrl) => {
-        return `<a href="${linkUrl}" class="markdown-external-link" target="_blank" rel="noopener"><img src="https://steemitimages.com/0x0/${imgUrl}" alt="${alt}"></a>`;
-      }
-    );
-
+  /**
+   * Process animations like GIFs and animated WebP
+   */
+  processAnimations() {
+    this.processedContent = AnimationHandlers.processAnimations(this.processedContent);
+    
+    // Optimize large GIFs for performance if not disabled
+    if (!this.options?.disableGifOptimization) {
+      this.processedContent = AnimationHandlers.convertLargeGifsToVideo(this.processedContent);
+    }
+    
+    // Apply animation policy (reduced motion, etc)
+    this.processedContent = AnimationHandlers.applyAnimationPolicy(this.processedContent);
+    
     return this;
   }
 
@@ -222,6 +204,9 @@ class ContentProcessor {
     }
     
     this.processedContent = lines.join('\n');
+    
+    // Final enhancement of image tags
+    this.processedContent = ImageProcessor.enhanceImageTags(this.processedContent);
     
     return this;
   }

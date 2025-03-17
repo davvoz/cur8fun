@@ -7,6 +7,7 @@ import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils 
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js'; // Aggiungi questa importazione
 import commentService from '../services/CommentService.js';
+import { initializeAnimationControls } from '../utils/animation-init.js'; // Aggiungi alle importazioni esistenti
 
 class PostView extends View {
   constructor(params = {}) {
@@ -125,10 +126,14 @@ class PostView extends View {
       // Final progress update
       this.loadingIndicator.updateProgress(100);
 
+      // Render the post content (this already handles the HTML insertion)
       this.renderPost();
       
       // Controlla lo stato di voto
       await this.checkVoteStatus();
+      
+      // Inizializza i controlli per le animazioni
+      initializeAnimationControls();
     } catch (error) {
       console.error('Failed to load post:', error);
 
