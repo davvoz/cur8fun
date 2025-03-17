@@ -6,6 +6,7 @@ import ContentRenderer from '../components/ContentRenderer.js';
 import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js'; // Aggiungi questa importazione
+import commentService from '../services/CommentService.js';
 
 class PostView extends View {
   constructor(params = {}) {
@@ -705,92 +706,285 @@ async handleUpvote() {
   });
 }
 
-  handleComment() {
-    const commentText = this.postContent.querySelector('.comment-form textarea').value;
-    if (!commentText.trim()) return;
+// Sostituisci il metodo handleComment esistente con questa versione migliorata
 
-    // Check if user is logged in
-    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
-    if (!user) {
-      this.emit('notification', {
-        type: 'error',
-        message: 'You need to log in to comment'
-      });
-      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
-      return;
-    }
-
-    // Get the necessary parameters for creating a comment
-    const parentAuthor = this.post.author;
-    const parentPermlink = this.post.permlink;
-    const author = user.username;
-
-    // Generate a unique permlink for the comment
-    const permlink = `re-${parentPermlink}-${Date.now()}`;
-    
-    // Empty title for comments
-    const title = '';
-    
-    // The comment body
-    const body = commentText;
-    
-    // Simple JSON metadata
-    const jsonMetadata = JSON.stringify({
-      app: 'steemgram',
-      format: 'markdown'
-    });
-
-    // Create the comment using SteemService
-    this.steemService.createComment(
-      parentAuthor, 
-      parentPermlink, 
-      author, 
-      permlink, 
-      title, 
-      body, 
-      jsonMetadata
-    )
-    .then(() => {
-      // Show success notification
-      this.emit('notification', {
-        type: 'success',
-        message: 'Your comment was posted successfully'
-      });
-      
-      // Reload comments to show the new one
-      this.loadPost();
-    })
-    .catch(error => {
-      console.error('Error posting comment:', error);
-      this.emit('notification', {
-        type: 'error',
-        message: `Failed to post comment: ${error.message || 'Unknown error'}`
-      });
-    });
-
-    // Clear the form
-    this.postContent.querySelector('.comment-form textarea').value = '';
+async handleComment() {
+  const textarea = this.postContent.querySelector('.comment-form textarea');
+  const commentText = textarea.value.trim();
+  
+  if (!commentText) {
+    // Feedback visivo se il campo è vuoto
+    textarea.classList.add('error-input');
+    setTimeout(() => textarea.classList.remove('error-input'), 1500);
+    return;
   }
-
-  handleReply(parentComment, replyText) {
-    // Check if user is logged in
-    const user = authService.getCurrentUser(); // Usa authService invece di this.getCurrentUser()
-    if (!user) {
-      this.emit('notification', {
-        type: 'error',
-        message: 'You need to log in to reply'
-      });
-      router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
-      return;
-    }
-
-    // In a real implementation, you would call the SteemService to post reply
-    console.log('Adding reply to comment:', parentComment.permlink, replyText);
+  
+  // Valida la lunghezza del commento
+  if (commentText.length < 3) {
+    this.emit('notification', {
+      type: 'error',
+      message: 'Comment too short. Please write at least 3 characters.'
+    });
+    return;
+  }
+  
+  // Check if user is logged in
+  const user = authService.getCurrentUser();
+  if (!user) {
+    this.emit('notification', {
+      type: 'error',
+      message: 'You need to log in to comment'
+    });
+    router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+    return;
+  }
+  
+  // Aggiorna UI per mostrare che stiamo processando
+  const submitButton = this.postContent.querySelector('.submit-comment');
+  const originalText = submitButton.textContent;
+  submitButton.disabled = true;
+  submitButton.innerHTML = '<span class="material-icons loading">refresh</span> Posting...';
+  
+  // Aggiunge classe animata al pulsante
+  submitButton.classList.add('processing');
+  
+  // Disabilita textarea durante l'invio
+  textarea.disabled = true;
+  
+  try {
+    // Crea il commento utilizzando il servizio commentService
+    const result = await commentService.createComment({
+      parentAuthor: this.post.author,
+      parentPermlink: this.post.permlink,
+      body: commentText,
+      metadata: {
+        app: 'steemee/1.0',
+        format: 'markdown',
+        tags: this.extractTags(commentText) // Estrae tag e menzioni
+      }
+    });
+    
+    // Mostra un feedback di successo
     this.emit('notification', {
       type: 'success',
-      message: 'Your reply was posted'
+      message: 'Your comment was posted successfully'
+    });
+    
+    // Animazione di successo prima di pulire il form
+    submitButton.classList.remove('processing');
+    submitButton.classList.add('success');
+    submitButton.innerHTML = '<span class="material-icons">check_circle</span> Posted!';
+    
+    // Pulisci il form dopo un breve ritardo
+    setTimeout(() => {
+      textarea.value = '';
+      textarea.disabled = false;
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
+      submitButton.classList.remove('success');
+      
+      // Aggiungi nuovi commenti direttamente senza ricaricare tutto il post
+      this.updateWithNewComment(result);
+    }, 1000);
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    
+    // Elabora messaggio di errore specifico
+    let errorMessage = 'Failed to post comment';
+    
+    if (error.message.includes('Keychain')) {
+      errorMessage = this.getKeychainErrorMessage(error.message);
+    } else if (error.message.includes('posting key')) {
+      errorMessage = 'Invalid posting key. Please login again.';
+    } else {
+      errorMessage = `Error: ${error.message}`;
+    }
+    
+    this.emit('notification', {
+      type: 'error',
+      message: errorMessage
+    });
+    
+    // Ripristina lo stato di input
+    textarea.disabled = false;
+    submitButton.disabled = false;
+    submitButton.innerHTML = originalText;
+    submitButton.classList.remove('processing');
+  }
+}
+
+/**
+ * Analizza un messaggio di errore Keychain e restituisce un messaggio più user-friendly
+ */
+getKeychainErrorMessage(errorMessage) {
+  if (errorMessage.includes('user canceled')) {
+    return 'You cancelled the operation';
+  } else if (errorMessage.includes('not installed')) {
+    return 'Steem Keychain extension not detected';
+  } else if (errorMessage.includes('transaction')) {
+    return 'Transaction rejected by the blockchain';
+  }
+  return 'Keychain error: ' + errorMessage;
+}
+
+/**
+ * Estrae tag e menzioni dal testo del commento
+ */
+extractTags(text) {
+  const tags = [];
+  
+  // Estrai tag
+  const hashtagMatches = text.match(/#[\w-]+/g);
+  if (hashtagMatches) {
+    hashtagMatches.forEach(tag => {
+      const cleanTag = tag.substring(1).toLowerCase(); // Rimuovi # e converti in lowercase
+      if (!tags.includes(cleanTag) && cleanTag.length >= 3) {
+        tags.push(cleanTag);
+      }
     });
   }
+  
+  // Estrai menzioni
+  const mentionMatches = text.match(/@[\w.-]+/g);
+  if (mentionMatches) {
+    mentionMatches.forEach(mention => {
+      const username = mention.substring(1); // Rimuovi @
+      if (username && username.length >= 3) {
+        // Aggiungi alla lista delle menzioni
+      }
+    });
+  }
+  
+  return tags.slice(0, 5); // Limita a 5 tag
+}
+
+/**
+ * Aggiorna la vista con un nuovo commento senza ricaricare tutto il post
+ */
+updateWithNewComment(commentResult) {
+  if (!commentResult || !commentResult.success) return;
+  
+  // Crea un oggetto commento rappresentativo
+  const newComment = {
+    author: commentResult.author,
+    permlink: commentResult.permlink,
+    parent_author: this.post.author,
+    parent_permlink: this.post.permlink,
+    body: commentResult.body || 'New comment',
+    created: new Date().toISOString(),
+    net_votes: 0,
+    children: []
+  };
+  
+  // Aggiungi il commento all'array locale
+  if (!this.comments) this.comments = [];
+  this.comments.push(newComment);
+  
+  // Aggiorna solo la lista dei commenti
+  this.renderComments();
+  
+  // Aggiorna anche il contatore dei commenti
+  const commentBtn = this.postContent.querySelector('.comment-btn');
+  if (commentBtn) {
+    const countElement = commentBtn.querySelector('.count');
+    if (countElement) {
+      const currentCount = parseInt(countElement.textContent) || 0;
+      countElement.textContent = currentCount + 1;
+    }
+  }
+}
+
+// Sostituisci il metodo handleReply esistente
+
+async handleReply(parentComment, replyText) {
+  if (!replyText.trim()) return;
+  
+  // Check if user is logged in
+  const user = authService.getCurrentUser();
+  if (!user) {
+    this.emit('notification', {
+      type: 'error',
+      message: 'You need to log in to reply'
+    });
+    router.navigate('/login', { returnUrl: window.location.pathname + window.location.search });
+    return;
+  }
+  
+  // Ottieni l'elemento di riferimento per aggiornare l'UI
+  const commentElement = this.element.querySelector(`[data-author="${parentComment.author}"][data-permlink="${parentComment.permlink}"]`);
+  const replyForm = commentElement?.querySelector('.reply-form');
+  const submitButton = replyForm?.querySelector('.submit-reply');
+  const textarea = replyForm?.querySelector('textarea');
+  
+  if (!submitButton || !textarea) return;
+  
+  // Cambia lo stato dell'interfaccia
+  const originalText = submitButton.textContent;
+  submitButton.disabled = true;
+  submitButton.innerHTML = '<span class="material-icons loading">refresh</span> Replying...';
+  textarea.disabled = true;
+  
+  try {
+    // Utilizza il servizio dedicato per i commenti
+    const result = await commentService.createComment({
+      parentAuthor: parentComment.author,
+      parentPermlink: parentComment.permlink,
+      body: replyText,
+      metadata: {
+        app: 'steemee/1.0',
+        format: 'markdown',
+        tags: this.extractTags(replyText)
+      }
+    });
+    
+    // Mostra notifica di successo
+    this.emit('notification', {
+      type: 'success',
+      message: 'Your reply was posted successfully'
+    });
+    
+    // Animazione di successo
+    submitButton.innerHTML = '<span class="material-icons">check_circle</span> Posted!';
+    submitButton.classList.add('success');
+    
+    // Dopo un breve ritardo, ripristina e nascondi il form
+    setTimeout(() => {
+      // Ripristina lo stato
+      textarea.value = '';
+      textarea.disabled = false;
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
+      submitButton.classList.remove('success');
+      
+      // Nascondi il form di risposta
+      replyForm.style.display = 'none';
+      
+      // Ricarica il post per mostrare il nuovo commento
+      this.loadPost();
+    }, 1000);
+  } catch (error) {
+    console.error('Error posting reply:', error);
+    
+    // Elabora messaggio di errore specifico
+    let errorMessage = 'Failed to post reply';
+    
+    if (error.message.includes('Keychain')) {
+      errorMessage = this.getKeychainErrorMessage(error.message);
+    } else {
+      errorMessage = `Error: ${error.message}`;
+    }
+    
+    this.emit('notification', {
+      type: 'error',
+      message: errorMessage
+    });
+    
+    // Ripristina lo stato dell'interfaccia
+    textarea.disabled = false;
+    submitButton.disabled = false;
+    submitButton.textContent = originalText;
+  }
+}
 
   handleShare() {
     const url = window.location.href;

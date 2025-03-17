@@ -1,0 +1,155 @@
+/* Stili per migliorare l'esperienza dei commenti */
+
+/* Stili dei form di commento */
+.comment-form, .reply-form {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--background-lighter, #f8f9fa);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color-light, #e9ecef);
+}
+
+.comment-form textarea, .reply-form textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: var(--radius-sm, 4px);
+  margin-bottom: 0.5rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.comment-form textarea.error-input, .reply-form textarea.error-input {
+  border-color: var(--error-color, #dc3545);
+  animation: shake 0.4s linear;
+}
+
+.submit-comment, .submit-reply {
+  background-color: var(--primary-color, #ff7518);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.submit-comment:hover, .submit-reply:hover {
+  background-color: var(--primary-color-dark, #e66000);
+}
+
+.submit-comment:disabled, .submit-reply:disabled {
+  background-color: var(--border-color, #dee2e6);
+  cursor: not-allowed;
+}
+
+/* Stili per indicatore di caricamento */
+.material-icons.loading {
+  animation: rotate 1s infinite linear;
+}
+
+.processing {
+  position: relative;
+  overflow: hidden;
+}
+
+.processing::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background-color: rgba(255, 255, 255, 0.2);
+  animation: loading-shimmer 1.5s infinite;
+  transform: skewX(-20deg);
+}
+
+/* Stile per stato di successo */
+.success {
+  background-color: var(--success-color, #28a745) !important;
+}
+
+/* Stili per commenti */
+.comment {
+  position: relative;
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--background, #ffffff);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color-light, #e9ecef);
+  transition: all 0.2s ease;
+}
+
+.comment:hover {
+  border-color: var(--border-color, #dee2e6);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Stile per thread di commenti */
+.replies {
+  margin-left: 2rem;
+  position: relative;
+}
+
+.thread-line {
+  position: absolute;
+  left: -1rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--border-color, #dee2e6);
+}
+
+/* Animazioni */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loading-shimmer {
+  0% { transform: translateX(-100%) skewX(-20deg); }
+  100% { transform: translateX(400%) skewX(-20deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+/* Classe per nuovo commento aggiunto */
+.comment.new-comment {
+  animation: highlight-new 3s ease;
+}
+
+@keyframes highlight-new {
+  0% { background-color: var(--primary-color-light, #ffe0cc); }
+  100% { background-color: var(--background, #ffffff); }
+}
+
+/* Miglioramenti per la visualizzazione delle risposte */
+.replies-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6c757d);
+  margin-bottom: 0.5rem;
+}
+
+.reply-link {
+  color: var(--primary-color, #ff7518);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.reply-link:hover {
+  text-decoration: underline;
+}
