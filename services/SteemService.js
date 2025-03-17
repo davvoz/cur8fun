@@ -136,7 +136,7 @@ class SteemService {
         if (this.seenPostIds[category].has(postId)) {
             return false;
         }
-        
+
         this.seenPostIds[category].add(postId);
         return true;
     }
@@ -185,9 +185,9 @@ class SteemService {
      */
     async getPostsByCategory(category, page = 1, limit = 20) {
         await this.ensureLibraryLoaded();
-        
+
         const method = this.getCategoryMethod(category);
-        
+
         try {
             // Reset tracking when starting a new session
             if (page === 1) {
@@ -196,9 +196,9 @@ class SteemService {
 
             const MAX_REQUEST_LIMIT = 100;
             const query = this.buildCategoryQuery(category, page, limit, MAX_REQUEST_LIMIT);
-            
+
             const posts = await this.fetchAndProcessPosts(method, query, category, limit);
-            
+
             return {
                 posts: posts || [],
                 hasMore: Boolean(posts && posts.length > 0)
@@ -208,7 +208,7 @@ class SteemService {
             return { posts: [], hasMore: false };
         }
     }
-    
+
     /**
      * Maps category to appropriate API method
      * @param {string} category - The category of posts
@@ -222,15 +222,15 @@ class SteemService {
             'created': 'getDiscussionsByCreated',
             'promoted': 'getDiscussionsByPromoted'
         };
-        
+
         const method = categoryToMethod[category];
         if (!method) {
             throw new Error(`Invalid category: ${category}`);
         }
-        
+
         return method;
     }
-    
+
     /**
      * Builds the query object for category requests
      * @param {string} category - The post category
@@ -244,16 +244,16 @@ class SteemService {
             tag: '',
             limit: Math.min(limit + 5, maxLimit) // Request slightly more to handle duplicates
         };
-        
+
         const lastPostData = this.lastPostByCategory && this.lastPostByCategory[category];
         if (page > 1 && lastPostData) {
             query.start_author = lastPostData.author;
             query.start_permlink = lastPostData.permlink;
         }
-        
+
         return query;
     }
-    
+
     /**
      * Fetches posts and processes them for display
      * @param {string} method - The API method to call
@@ -264,20 +264,20 @@ class SteemService {
      */
     async fetchAndProcessPosts(method, query, category, limit) {
         let posts = await this._getDiscussionsByMethod(method, query);
-        
+
         if (!Array.isArray(posts)) {
             return [];
         }
-        
+
         // Filter out any posts we've seen before
         posts = posts.filter(post => this._isNewPost(post, category));
-        
+
         this.updateLastPostReference(posts, category);
-        
+
         // Trim back to requested limit
         return posts.length > limit ? posts.slice(0, limit) : posts;
     }
-    
+
     /**
      * Updates the reference to the last post for pagination
      * @param {Array} posts - The posts array
@@ -287,11 +287,11 @@ class SteemService {
         if (posts.length === 0) {
             return;
         }
-        
+
         if (!this.lastPostByCategory) {
             this.lastPostByCategory = {};
         }
-        
+
         // Use the last item as the pagination marker
         this.lastPostByCategory[category] = posts[posts.length - 1];
     }
@@ -394,7 +394,7 @@ class SteemService {
      */
     async getUserData(username, options = { includeProfile: false }) {
         await this.ensureLibraryLoaded();
-        
+
         try {
             const accounts = await new Promise((resolve, reject) => {
                 this.steem.api.getAccounts([username], (err, result) => {
@@ -406,9 +406,9 @@ class SteemService {
             if (!accounts || accounts.length === 0) {
                 return null;
             }
-            
+
             const userData = accounts[0];
-            
+
             if (options.includeProfile && userData) {
                 try {
                     const metadata = JSON.parse(userData.json_metadata || '{}');
@@ -420,7 +420,7 @@ class SteemService {
                     console.error('Error parsing user metadata:', e);
                 }
             }
-            
+
             return userData;
         } catch (error) {
             console.error('Error fetching user data:', error);
@@ -459,7 +459,7 @@ class SteemService {
             return await new Promise((resolve, reject) => {
                 // Use getDiscussionsByBlog which is more reliable for fetching a user's blog posts
                 this.steem.api.getDiscussionsByBlog(
-                    { tag: username, limit }, 
+                    { tag: username, limit },
                     (err, result) => {
                         if (err) {
                             console.error('API Error details:', err);
@@ -479,7 +479,7 @@ class SteemService {
 
     async getPostsByAuthor(options = {}) {
         const { author, limit = 10, start_permlink = '' } = options;
-        
+
         try {
             // Get posts by specific author
             const query = {
@@ -487,11 +487,11 @@ class SteemService {
                 limit: limit,
                 truncate_body: 1
             };
-            
+
             if (start_permlink) {
                 query.start_permlink = start_permlink;
             }
-            
+
             const response = await this.api.getDiscussionsByBlogAsync(query);
             return response || [];
         } catch (error) {
@@ -499,10 +499,10 @@ class SteemService {
             return [];
         }
     }
-    
+
     async getPostsFromAll(options = {}) {
         const { limit = 20, start_author = '', start_permlink = '' } = options;
-        
+
         try {
             // Get posts from entire site (trending)
             const response = await this.api.getDiscussionsByTrendingAsync({
@@ -529,36 +529,36 @@ class SteemService {
      */
     async getPostsByTag(options = {}) {
         const { tag, page = 1, limit = 20 } = options;
-        
+
         if (!tag) {
             console.error('No tag provided to getPostsByTag');
             return { posts: [], hasMore: false };
         }
-        
+
         await this.ensureLibraryLoaded();
-        
+
         try {
             // Use the tag to fetch content
             const query = {
                 tag: tag.toLowerCase(),
                 limit: limit
             };
-            
+
             if (page > 1 && this.lastTagPost) {
                 query.start_author = this.lastTagPost.author;
                 query.start_permlink = this.lastTagPost.permlink;
             }
-            
+
             // Use trending to get popular posts with this tag
             const posts = await this._getDiscussionsByMethod('getDiscussionsByTrending', query);
-            
+
             if (!posts || posts.length === 0) {
                 return { posts: [], hasMore: false };
             }
-            
+
             // Store the last post for pagination
             this.lastTagPost = posts[posts.length - 1];
-            
+
             return {
                 posts: posts,
                 hasMore: posts.length > 0
@@ -567,6 +567,118 @@ class SteemService {
             console.error(`Error fetching posts for tag ${tag}:`, error);
             return { posts: [], hasMore: false };
         }
+    }
+
+    /**
+     * Creates a comment on a post or another comment
+     */
+    async createComment(parentAuthor, parentPermlink, author, permlink, title, body, jsonMetadata) {
+        console.log('createComment method called with:', { parentAuthor, parentPermlink, author, permlink, title });
+        
+        await this.ensureLibraryLoaded();
+        
+        // Sanitize the permlink for base58 compatibility
+        const sanitizedPermlink = this.sanitizePermlink(permlink);
+        
+        console.log('About to broadcast comment to Steem blockchain');
+        
+        // Check if Steem Keychain is available
+        if (window.steem_keychain) {
+            console.log('Using Steem Keychain for signing');
+            
+            return new Promise((resolve, reject) => {
+                const operations = [
+                    ['comment', {
+                        parent_author: parentAuthor,
+                        parent_permlink: parentPermlink,
+                        author: author,
+                        permlink: sanitizedPermlink,
+                        title: title,
+                        body: body,
+                        json_metadata: JSON.stringify(jsonMetadata)
+                    }]
+                ];
+                
+                window.steem_keychain.requestBroadcast(author, operations, 'posting', (response) => {
+                    if (response.success) {
+                        console.log('Comment posted successfully with Keychain:', response);
+                        resolve(response);
+                    } else {
+                        console.error('Keychain broadcast error:', response.error);
+                        reject(new Error(response.error));
+                    }
+                });
+            });
+        } else {
+            // Fallback to posting key method
+            const postingKey = localStorage.getItem('postingKey');
+            
+            if (!postingKey) {
+                throw new Error('No posting key found and Keychain not available. Please log in to comment.');
+            }
+            
+            // Use the standard broadcast.comment method with a Promise wrapper
+            return new Promise((resolve, reject) => {
+                this.steem.broadcast.comment(
+                    postingKey,
+                    parentAuthor,
+                    parentPermlink,
+                    author,
+                    sanitizedPermlink,
+                    title,
+                    body,
+                    jsonMetadata,
+                    (err, result) => {
+                        if (err) {
+                            console.error('Comment broadcast error:', err);
+                            reject(err);
+                        } else {
+                            console.log('Comment posted successfully:', result);
+                            resolve(result);
+                        }
+                    }
+                );
+            });
+        }
+    }
+
+    /**
+     * Sanitizes a permlink to ensure it's valid for the Steem blockchain
+     * @param {string} permlink - The original permlink
+     * @returns {string} A sanitized permlink that's valid for Steem
+     */
+    sanitizePermlink(permlink) {
+        if (!permlink || typeof permlink !== 'string') {
+            // Generate a fallback permlink based on timestamp
+            return `re-comment-${Date.now().toString(36)}`;
+        }
+
+        // First, convert to lowercase (Steem requires lowercase)
+        let sanitized = permlink.toLowerCase();
+
+        // Replace spaces with hyphens
+        sanitized = sanitized.replace(/\s+/g, '-');
+
+        // Keep only alphanumeric characters, hyphens, and dots
+        sanitized = sanitized.replace(/[^a-z0-9\-\.]/g, '');
+
+        // Steem doesn't like permalinks starting with numbers or dots
+        if (/^[0-9\.]/.test(sanitized)) {
+            sanitized = `re-${sanitized}`;
+        }
+
+        // Make sure it's not too long (max 256 characters)
+        if (sanitized.length > 256) {
+            sanitized = sanitized.substring(0, 256);
+        }
+
+        // Ensure the permlink is not empty
+        if (!sanitized || sanitized.length === 0) {
+            sanitized = `re-comment-${Date.now().toString(36)}`;
+        }
+
+        console.log('Sanitized permlink:', sanitized);
+        return sanitized;
     }
 }
 

@@ -4,3 +4,6 @@ steem-social-network-class-diagram.mermaid
 utils/desiderata
 utils/input
 utils/output
+assets/tests/input.txt
+assets/tests/output.txt
+assets/tests/target.txt

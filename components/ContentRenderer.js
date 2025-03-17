@@ -19,6 +19,7 @@ class ContentRenderer {
       maxImageWidth: 800,  // Add max width for large images
       enableYouTube: true, // Enable YouTube embedding
       videoDimensions: { width: '100%', height: '480px' }, // Default video dimensions
+      useSteemContentRenderer: true, // Whether to use the steem-content-renderer from unpkg
       ...options
     };
     
@@ -27,6 +28,12 @@ class ContentRenderer {
     
     this.extractedImages = [];
     this.extractedVideos = [];
+    
+    // Check if steem-content-renderer is available
+    this.steemRenderer = typeof window !== 'undefined' && window.steemContentRenderer;
+    if (this.options.useSteemContentRenderer && !this.steemRenderer) {
+      console.warn('steem-content-renderer not found. Fallback to custom renderer.');
+    }
   }
   
   /**
@@ -48,17 +55,7 @@ class ContentRenderer {
     
     // First check if post appears to contain large images
     if (data.body) {
-      // DIRECT FIX: Replace the exact problematic pattern before any processing
-      // This catches the specific |       | followed by | ----------| pattern
-      data.body = this.fixExactMinimalTablePattern(data.body);
-      
-      // Continue with other preprocessing
-      if (data.body.includes('| |') || data.body.includes('|  |')) {
-        data.body = this.replaceMinimalTables(data.body);
-      }
-      
       // Enhance image URL detection before processing markdown
-      // This is especially important for peakd.com URLs
       data.body = this.enhanceImageUrls(data.body);
       
       hasLargeImages = this.detectLargeImages(data.body);
@@ -71,39 +68,18 @@ class ContentRenderer {
       }
     }
     
-    // Process main body content
-    if (renderOptions.useProcessBody) {
-      // Use the process_body.js function that we've imported
+    // Process main body content using steem-content-renderer if available and enabled
+    if (renderOptions.useSteemContentRenderer && this.steemRenderer) {
       try {
-        const htmlResult = generatePostContent(data.body);
-        // Extract just the inner content from the result
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlResult;
-        const contentDiv = tempDiv.querySelector('.post-body');
-        processedContent = contentDiv ? contentDiv.innerHTML : htmlResult;
-        
-        // Adjust any remaining large images in the processed content
-        if (hasLargeImages) {
-          processedContent = this.adjustLargeImagesInHtml(processedContent, renderOptions);
-        }
+        processedContent = this.renderWithSteemRenderer(data.body);
       } catch (error) {
-        console.error('Error using generatePostContent:', error);
-        // Fall back to simple markdown parsing
-        processedContent = this.processMarkdown(data.body);
+        console.error('Error using steem-content-renderer:', error);
+        // Fall back to our custom processing
+        processedContent = this.renderWithFallback(data.body, renderOptions);
       }
-      // After processing content with process_body.js, apply the post-processing fix
-      processedContent = this.postProcessContent(processedContent);
-      
-      // Fix image links that might have been missed
-      processedContent = this.fixImageTags(processedContent);
     } else {
-      // Use our simpler markdown processing
-      processedContent = this.processMarkdown(data.body);
-      // Also apply post-processing to our markdown processor output
-      processedContent = this.postProcessContent(processedContent);
-      
-      // Fix image links that might have been missed
-      processedContent = this.fixImageTags(processedContent);
+      // Use our custom processing as fallback
+      processedContent = this.renderWithFallback(data.body, renderOptions);
     }
     
     // Restore YouTube videos from placeholders to embed iframes
@@ -115,8 +91,8 @@ class ContentRenderer {
       );
     }
     
-    // Extract images if needed (only if not using processBody or for backup)
-    if (renderOptions.extractImages && (!renderOptions.useProcessBody || hasLargeImages)) {
+    // Extract images if needed
+    if (renderOptions.extractImages && hasLargeImages) {
       this.extractedImages = this.extractAllImages(data.body);
     }
     
@@ -164,12 +140,169 @@ class ContentRenderer {
       }
     }
     
+    // Apply responsive image processing to all images in the container
+    this.makeImagesResponsive(container);
+    
+    // Add proper attributes to external links
+    this.enhanceExternalLinks(container);
+    
     return {
       container,
       titleElement,
       contentElement,
       imagesContainer
     };
+  }
+  
+  /**
+   * Render content using the steem-content-renderer library
+   * @param {string} markdown - Raw markdown content
+   * @returns {string} HTML content
+   */
+  renderWithSteemRenderer(markdown) {
+    if (!markdown) return '';
+    
+    try {
+      // Create a new renderer with default options
+      const renderer = new window.steemContentRenderer.DefaultRenderer({
+        baseUrl: 'https://steemit.com/',
+        breaks: true,
+        skipSanitization: false,
+        allowInsecureScriptTags: false,
+        addNofollowToLinks: true,
+        doNotShowImages: false,
+        ipfsPrefix: '',
+        assetsWidth: 640,
+        assetsHeight: 480,
+        imageProxyFn: (url) => url.startsWith('https://steemitimages.com') ? url : `https://steemitimages.com/640x0/${url}`,
+        usertagUrlFn: (account) => `/@${account}`,
+        hashtagUrlFn: (hashtag) => `/trending/${hashtag}`,
+        isLinkSafeFn: (url) => true
+      });
+      
+      // Render the content
+      const rendered = renderer.render(markdown);
+      
+      // Fix image links that might have been missed
+      return this.fixImageTags(rendered);
+    } catch (error) {
+      console.error('Error in steem-content-renderer:', error);
+      // Fall back to our custom markdown processing
+      return this.processMarkdown(markdown);
+    }
+  }
+  
+  /**
+   * Fallback render method using our custom logic
+   * @param {string} markdown - Raw markdown content
+   * @param {Object} options - Rendering options
+   * @returns {string} HTML content
+   */
+  renderWithFallback(markdown, options) {
+    if (!markdown) return '';
+    
+    // DIRECT FIX: Replace the exact problematic pattern before any processing
+    // This catches the specific |       | followed by | ----------| pattern
+    markdown = this.fixExactMinimalTablePattern(markdown);
+      
+    // Continue with other preprocessing
+    if (markdown.includes('| |') || markdown.includes('|  |')) {
+      markdown = this.replaceMinimalTables(markdown);
+    }
+    
+    let processedContent = '';
+    
+    if (options.useProcessBody) {
+      // Use the process_body.js function that we've imported
+      try {
+        const htmlResult = generatePostContent(markdown);
+        // Extract just the inner content from the result
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlResult;
+        const contentDiv = tempDiv.querySelector('.post-body');
+        processedContent = contentDiv ? contentDiv.innerHTML : htmlResult;
+      } catch (error) {
+        console.error('Error using generatePostContent:', error);
+        // Fall back to simple markdown parsing
+        processedContent = this.processMarkdown(markdown);
+      }
+      // After processing content with process_body.js, apply the post-processing fix
+      processedContent = this.postProcessContent(processedContent);
+    } else {
+      // Use our simpler markdown processing
+      processedContent = this.processMarkdown(markdown);
+      // Also apply post-processing to our markdown processor output
+      processedContent = this.postProcessContent(processedContent);
+    }
+    
+    // Fix image links that might have been missed
+    return this.fixImageTags(processedContent);
+  }
+  
+  /**
+   * Make all images in the container responsive with srcset attributes
+   * @param {HTMLElement} container - The container with images to process
+   */
+  makeImagesResponsive(container) {
+    if (!container) return;
+    
+    const images = container.querySelectorAll('img');
+    images.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src) {
+        // Skip if already has srcset
+        if (!img.hasAttribute('srcset') && !src.includes('srcset=')) {
+          // Create responsive srcset for steemit images
+          if (src.includes('cdn.steemitimages.com') || 
+              src.includes('steemitimages.com') || 
+              src.includes('files.peakd.com')) {
+            
+            // Create 1x and 2x versions for srcset
+            let baseUrl = src;
+            
+            // Replace any existing dimension parameters
+            if (baseUrl.includes('steemitimages.com/0x0/')) {
+              baseUrl = baseUrl.replace('steemitimages.com/0x0/', 'steemitimages.com/640x0/');
+            } else if (!baseUrl.includes('steemitimages.com/640x0/')) {
+              baseUrl = `https://steemitimages.com/640x0/${baseUrl}`;
+            }
+            
+            // Create 2x version for high resolution
+            const highResUrl = baseUrl.replace('640x0', '1280x0');
+            
+            // Set srcset attribute
+            img.setAttribute('srcset', `${baseUrl} 1x, ${highResUrl} 2x`);
+            
+            // Ensure the src is the 1x version
+            img.src = baseUrl;
+          }
+        }
+      }
+    });
+  }
+  
+  /**
+   * Enhance external links with proper attributes
+   * @param {HTMLElement} container - The container with links to process
+   */
+  enhanceExternalLinks(container) {
+    if (!container) return;
+    
+    const links = container.querySelectorAll('a');
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && (href.startsWith('http') || href.startsWith('https'))) {
+        // This is an external link
+        if (!link.hasAttribute('rel')) {
+          link.setAttribute('rel', 'noopener');
+        }
+        
+        // Add title for better accessibility if not already present
+        if (!link.hasAttribute('title')) {
+          link.setAttribute('title', 'This link will take you away from steemit.com');
+        }
+      }
+    });
   }
   
   /**
