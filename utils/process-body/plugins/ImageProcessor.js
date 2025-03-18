@@ -44,14 +44,39 @@ class ImageProcessor {
       }
     );
 
-    // Process markdown images with links
+    // Process markdown images with links - VERSIONE MIGLIORATA che gestisce interruzioni di riga
     processedContent = processedContent.replace(
-      /\[\!\[([^\]]*)\]\((https?:\/\/[^)]+)\)\]\((https?:\/\/[^)]+)\)/g,
+      /\[\!\[([^\]]*)\]\(\s*(https?:\/\/[^)]+|"[^"]+"|'[^']+')\s*\)\]\(\s*(https?:\/\/[^)]+)\s*\)/gs,
       (match, alt, imgUrl, linkUrl) => {
+        // Ripulisci le URL da eventuali virgolette
+        imgUrl = imgUrl.replace(/^["']|["']$/g, '');
+        
+        // Verifica se imgUrl è realmente un'URL o solo un placeholder testuale
+        if (!imgUrl.match(/^https?:\/\//)) {
+          console.warn('Detected invalid image URL:', imgUrl);
+          imgUrl = 'https://steemitimages.com/0x0/https://i.imgur.com/placeholder.png';
+        }
+
         return `<a href="${linkUrl}" class="markdown-external-link" target="_blank" rel="noopener"><img src="${ImageCore.proxyImageUrl(imgUrl)}" alt="${alt}"></a>`;
       }
     );
     
+    // Versione alternativa per il pattern multilinea specifico menzionato
+    processedContent = processedContent.replace(
+      /\[\!\[([^\]]*)\]\(\s*\n*["']?(.*?)["']?\s*\n*\)\]\(\s*(https?:\/\/[^)]+)\s*\)/gs,
+      (match, alt, imgUrl, linkUrl) => {
+        console.log('Fixing multiline image link:', {alt, imgUrl, linkUrl});
+        
+        // Se imgUrl è solo testo come "immagine", usa un placeholder
+        if (!imgUrl.match(/^https?:\/\//)) {
+          imgUrl = 'https://steemitimages.com/0x0/https://i.imgur.com/placeholder.png';
+        }
+
+        return `<a href="${linkUrl}" class="markdown-external-link" target="_blank" rel="noopener"><img src="${ImageCore.proxyImageUrl(imgUrl)}" alt="${alt}"></a>`;
+      }
+    );
+    
+    // Anche in ImageHandlers.js dobbiamo fare la stessa modifica
     return processedContent;
   }
   

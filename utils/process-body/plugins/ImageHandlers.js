@@ -46,11 +46,51 @@ class ImageHandlers {
       }
     );
 
-    // Process markdown images with links
+    // Process markdown images with links (versione ottimizzata per visualizzazione)
     processedContent = processedContent.replace(
-      /\[\!\[([^\]]*)\]\((https?:\/\/[^)]+)\)\]\((https?:\/\/[^)]+)\)/g,
+      /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/gs,
       (match, alt, imgUrl, linkUrl) => {
-        return `<a href="${linkUrl}" class="markdown-external-link" target="_blank" rel="noopener"><img src="https://steemitimages.com/0x0/${imgUrl}" alt="${alt}"></a>`;
+        // Pulisci l'URL dell'immagine
+        imgUrl = imgUrl.trim().replace(/^["']|["']$/g, '');
+        
+        // Verifica se imgUrl è un URL valido
+        const isValidUrl = imgUrl.match(/^https?:\/\//i);
+        
+        // Se non è un URL valido, crea un'anteprima migliore
+        if (!isValidUrl) {
+          console.log(`Rendering preview for invalid image URL: "${imgUrl}"`);
+          
+          // Verifica se è un nome file con estensione
+          if (imgUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            // Potrebbe essere un nome file senza URL completo, prova ad usarlo
+            return `<a href="${linkUrl}" class="markdown-external-link image-link" target="_blank" rel="noopener">
+              <img src="https://steemitimages.com/0x0/${imgUrl}" alt="${alt}" class="markdown-img-link" onerror="this.onerror=null; this.src='https://i.imgur.com/7GJeeIX.png';">
+              <div class="image-link-overlay">
+                <span class="image-link-icon">🔗</span>
+              </div>
+            </a>`;
+          }
+          
+          // Crea un banner-link più attraente e visibile per immagini non valide
+          return `<a href="${linkUrl}" class="markdown-external-link image-link" target="_blank" rel="noopener">
+            <div class="preview-banner" style="background-color: #f5f8fa; border: 1px solid #e1e8ed; border-radius: 4px; padding: 15px; text-align: center; width: 100%; max-width: 400px; position: relative;">
+              <img src="https://i.imgur.com/7GJeeIX.png" class="link-preview-icon" style="width: 48px; height: 48px; margin-bottom: 10px;">
+              <h4 style="margin: 0 0 5px 0; color: #14171a;">${alt || "Link esterno"}</h4>
+              <p style="margin: 0; color: #657786; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${linkUrl}</p>
+              <div class="image-link-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.02); opacity: 0; transition: opacity 0.2s;">
+                <span class="image-link-icon" style="font-size: 24px;">🔗</span>
+              </div>
+            </div>
+          </a>`;
+        }
+        
+        // URL valido, procedi normalmente ma aggiungi overlay per indicare che è cliccabile
+        return `<a href="${linkUrl}" class="markdown-external-link image-link" target="_blank" rel="noopener">
+          <img src="https://steemitimages.com/0x0/${imgUrl}" alt="${alt}" class="markdown-img-link">
+          <div class="image-link-overlay">
+            <span class="image-link-icon">🔗</span>
+          </div>
+        </a>`;
       }
     );
     
