@@ -2,6 +2,9 @@ import ImageUtils from '../utils/process-body/ImageUtils.js';
 import YouTubeUtils from '../utils/process-body/plugins/youtube.js';
 import { generatePostContent } from '../utils/process-body/process_body.js';
 import { imagePatterns, largeImagePatterns, resetRegexLastIndex } from '../utils/process-body/RegexPatterns.js';
+import PluginSystem from '../utils/markdown/PluginSystem.js';
+import YouTubePlugin from '../utils/markdown/plugins/YouTubePlugin.js';
+import ImagePlugin from '../utils/markdown/plugins/ImagePlugin.js';
 // Remove the marked import - we'll use the globally available marked from CDN
 
 /**
@@ -34,6 +37,14 @@ class ContentRenderer {
     if (this.options.useSteemContentRenderer && !this.steemRenderer) {
       console.warn('steem-content-renderer not found. Fallback to custom renderer.');
     }
+
+    // Initialize plugin system
+    this.pluginSystem = new PluginSystem();
+    
+    // Register plugins
+    this.pluginSystem.registerPlugin(new YouTubePlugin());
+    this.pluginSystem.registerPlugin(new ImagePlugin());
+    // Register other plugins as needed
   }
   
   /**
@@ -49,8 +60,20 @@ class ContentRenderer {
     this.extractedImages = [];
     this.extractedVideos = [];
     
+    // Pre-process content with plugin system
+    let processedMarkdown = data.body;
+    if (processedMarkdown) {
+      processedMarkdown = this.pluginSystem.preProcess(processedMarkdown, renderOptions);
+    }
+    
+    // Render markdown to HTML
+    let processedContent = this.renderWithFallback(processedMarkdown, renderOptions);
+    
+    // Post-process content to restore rich elements
+    processedContent = this.pluginSystem.postProcess(processedContent, renderOptions);
+    
+    // Continue with rest of render method as before
     // Process content based on the type of content
-    let processedContent = '';
     let hasLargeImages = false;
     
     // First check if post appears to contain large images
