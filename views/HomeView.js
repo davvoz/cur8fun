@@ -3,7 +3,7 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
-import ImageUtils from '../utils/process-body/ImageUtils.js';
+import imageService from '../services/ImageService.js';
 import router from '../utils/Router.js';
 
 class HomeView {
@@ -252,26 +252,26 @@ class HomeView {
 
   getBestImage(post, metadata) {
     // First try the simpler extractImageFromContent method which gets the first image
-    const directImageUrl = ImageUtils.extractImageFromContent(post);
+    const directImageUrl = imageService.extractImageFromContent(post);
     
     if (directImageUrl) {
       return directImageUrl;
     }
     
     // Fall back to the more comprehensive getBestImageUrl if direct extraction failed
-    const fallbackImageUrl = ImageUtils.getBestImageUrl(post.body, metadata);
+    const fallbackImageUrl = imageService.getBestImageUrl(post.body, metadata);
     
     if (fallbackImageUrl) {
       return fallbackImageUrl;
     }
     
     // If no image is found, return a placeholder
-    return ImageUtils.getDataUrlPlaceholder();
+    return imageService.getDataUrlPlaceholder();
   }
 
   optimizeImageUrl(url) {
     // Use higher quality image sizes for cards
-    return ImageUtils.optimizeImageUrl(url, {
+    return imageService.optimizeImageUrl(url, {
       width: 640,   // Larger size for better quality
       height: 0,    // Auto height
       quality: 95   // Higher quality for sharper images
@@ -386,7 +386,7 @@ class HomeView {
     image.decoding = 'async';
     
     // Enforce a clean URL before we start
-    imageUrl = ImageUtils.sanitizeUrl(imageUrl);
+    imageUrl = imageService.sanitizeUrl(imageUrl);
     
     // Determine current card size AND layout from container classes
     const { size: cardSize, layout } = this.getCardConfig();
@@ -469,10 +469,10 @@ class HomeView {
       errorDisplay.textContent = 'Image not available';
       
       // Mark this URL as permanently failed to avoid future attempts
-      ImageUtils.markImageAsFailed(imageUrl);
+      imageService.markImageAsFailed(imageUrl);
       
       // Use data URL placeholder
-      image.src = ImageUtils.getDataUrlPlaceholder();
+      image.src = imageService.getDataUrlPlaceholder();
       
       // Add error info to container
       content.appendChild(errorDisplay);
@@ -532,22 +532,7 @@ class HomeView {
   }
 
   sanitizeImageUrl(url) {
-    if (!url || url.startsWith('data:')) return url;
-    
-    try {
-      // Fix double slashes (except after protocol)
-      url = url.replace(/:\/\/+/g, '://').replace(/([^:])\/+/g, '$1/');
-      
-      // Fix missing protocol
-      if (url.startsWith('//')) {
-        url = 'https:' + url;
-      }
-      
-      return url;
-    } catch (e) {
-      console.error('Error sanitizing URL:', e);
-      return url;
-    }
+    return imageService.sanitizeUrl(url);
   }
 
   createPostTitle(title) {

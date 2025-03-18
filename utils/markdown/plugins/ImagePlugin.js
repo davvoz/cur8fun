@@ -1,30 +1,18 @@
 import BasePlugin from '../BasePlugin.js';
-import { REGEX_PATTERNS } from './regex-config.js';
+import { REGEX_PATTERNS, SHARED_CACHE, REGEX_UTILS } from '../regex-config.js';
 
 /**
  * Plugin per gestire immagini nel contenuto markdown
- * Supporta immagini standard e immagini cliccabili (link)
+ * Incorpora funzionalità complete da ImageUtils
  */
 export default class ImagePlugin extends BasePlugin {
   constructor() {
     super();
     this.name = 'image';
-    this.priority = 30; // Priorità più alta di YouTube per processare prima
+    this.priority = 30;
     
-    // Pattern regex per diversi tipi di immagini
-    this.patterns = [
-      // Immagini cliccabili: [![alt](img_url)](link_url)
-      /!\[(.*?)\]\((.*?)\)(?=\(([^)]+)\))/g,
-      
-      // Pattern markdown per immagini: ![alt text](url)
-      /!\[(.*?)\]\((.*?)\)(?!\()/g,
-      
-      // Pattern per URL diretti di immagini
-      REGEX_PATTERNS.IMAGE,
-      
-      // Pattern specifici per cdn di Steem
-      /https:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/DQm[a-zA-Z0-9]{46}\/[^)\s"]*/g
-    ];
+    // Tutti i pattern regex per le immagini
+    this.patterns = Object.values(REGEX_PATTERNS.IMAGE);
     
     this.placeholderPrefix = 'IMAGE_PLACEHOLDER_';
     this.placeholderSuffix = '_IMG_END';
@@ -36,14 +24,12 @@ export default class ImagePlugin extends BasePlugin {
       optimizeUrls: true,
       responsiveImages: true,
       maxWidth: '100%',
-      addLinkIndicator: true  // Aggiunge un indicatore visivo per immagini cliccabili
+      addLinkIndicator: true
     };
   }
   
   /**
-   * Estrae le immagini dal contenuto, incluse le immagini cliccabili
-   * @param {string} content - Contenuto da analizzare
-   * @returns {Array<Object>} - Informazioni sulle immagini estratte
+   * Estrattore migliorato che include tutte le funzionalità di ImageUtils.extractAllImageUrls
    */
   extract(content) {
     if (!content) return [];
@@ -51,133 +37,282 @@ export default class ImagePlugin extends BasePlugin {
     const images = [];
     const seenUrls = new Set(); // Previene duplicati
     
-    // Prima cerca le immagini cliccabili (priorità)
-    const clickableImageRegex = /!\[(.*?)\]\((.*?)\)\(([^)]+)\)/g;
-    let clickableMatch;
-    while ((clickableMatch = clickableImageRegex.exec(content)) !== null) {
-      const altText = clickableMatch[1] || '';
-      const imageUrl = clickableMatch[2] || '';
-      const linkUrl = clickableMatch[3] || '';
-      const originalText = clickableMatch[0];
-      
-      if (imageUrl && !seenUrls.has(imageUrl)) {
-        seenUrls.add(imageUrl);
-        
-        const id = this.generateImageId(imageUrl);
-        images.push({
-          id,
-          url: this.normalizeImageUrl(imageUrl),
-          altText: altText || 'Image',
-          originalText,
-          isClickable: true,
-          linkUrl,
-          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-        });
-      }
-    }
+    // 1. Prima estrai le immagini cliccabili (alta priorità)
+    this.extractClickableImages(content, images, seenUrls);
     
-    // Poi cerca le immagini standard
-    const standardImageRegex = /!\[(.*?)\]\((.*?)\)(?!\()/g;
-    let standardMatch;
-    while ((standardMatch = standardImageRegex.exec(content)) !== null) {
-      const altText = standardMatch[1] || '';
-      const imageUrl = standardMatch[2] || '';
-      const originalText = standardMatch[0];
-      
-      if (imageUrl && !seenUrls.has(imageUrl)) {
-        seenUrls.add(imageUrl);
-        
-        const id = this.generateImageId(imageUrl);
-        images.push({
-          id,
-          url: this.normalizeImageUrl(imageUrl),
-          altText: altText || 'Image',
-          originalText,
-          isClickable: false,
-          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-        });
-      }
-    }
+    // 2. Poi estrai le immagini standard markdown
+    this.extractMarkdownImages(content, images, seenUrls);
     
-    // Infine, cerca immagini da URL diretti
-    if (REGEX_PATTERNS.IMAGE) {
-      const urlRegex = new RegExp(REGEX_PATTERNS.IMAGE.source, REGEX_PATTERNS.IMAGE.flags);
-      let urlMatch;
-      
-      while ((urlMatch = urlRegex.exec(content)) !== null) {
-        const imageUrl = urlMatch[1];
-        const originalText = urlMatch[0];
-        
-        if (imageUrl && !seenUrls.has(imageUrl)) {
-          seenUrls.add(imageUrl);
-          
-          const id = this.generateImageId(imageUrl);
-          images.push({
-            id,
-            url: this.normalizeImageUrl(imageUrl),
-            altText: 'Image',
-            originalText,
-            isClickable: false,
-            placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-          });
-        }
-      }
-    }
+    // 3. Estrai immagini HTML
+    this.extractHtmlImages(content, images, seenUrls);
+    
+    // 4. Estrai URL diretti di immagini
+    this.extractDirectImageUrls(content, images, seenUrls);
     
     return images;
   }
   
   /**
-   * Sostituisce le immagini con placeholder
-   * @param {string} content - Contenuto originale
-   * @param {Array<Object>} images - Informazioni sulle immagini
-   * @returns {string} - Contenuto con placeholder
+   * Estrae immagini cliccabili (Markdown con link)
+   * @private
    */
-  createPlaceholders(content, images) {
-    if (!images || images.length === 0) return content;
+  extractClickableImages(content, images, seenUrls) {
+    const clickableImageRegex = /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g;
+    let match;
     
-    let processedContent = content;
-    
-    images.forEach(image => {
-      // Escape caratteri speciali per regex
-      const escapedText = this.escapeRegExp(image.originalText);
-      const textRegex = new RegExp(escapedText, 'g');
+    while ((match = clickableImageRegex.exec(content)) !== null) {
+      const altText = match[1] || '';
+      const imageUrl = match[2] || '';
+      const linkUrl = match[3] || '';
+      const originalText = match[0];
       
-      // Sostituisci il testo originale con il placeholder
-      processedContent = processedContent.replace(textRegex, image.placeholder);
-    });
-    
-    return processedContent;
+      // Verifica che l'URL dell'immagine sia valido
+      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+      
+      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+        seenUrls.add(normalizedImgUrl);
+        
+        const id = this.generateImageId(normalizedImgUrl);
+        images.push({
+          id,
+          url: normalizedImgUrl,
+          altText,
+          originalText,
+          isClickable: true,
+          linkUrl: REGEX_UTILS.sanitizeUrl(linkUrl),
+          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+        });
+      }
+    }
   }
   
   /**
-   * Ripristina i placeholder con tag HTML immagine
-   * @param {string} content - Contenuto con placeholder
-   * @param {Array<Object>} images - Informazioni sulle immagini
-   * @param {Object} options - Opzioni di rendering
-   * @returns {string} - Contenuto con tag HTML immagine
+   * Estrae immagini standard markdown
+   * @private
    */
-  restoreContent(content, images, options = {}) {
-    if (!images || images.length === 0) return content;
+  extractMarkdownImages(content, images, seenUrls) {
+    const standardImageRegex = /!\[([^\]]*)\]\(([^)]+)\)(?!\()/g;
+    let match;
     
-    // Combina le opzioni predefinite con quelle passate
-    const renderOptions = { ...this.config, ...options };
+    while ((match = standardImageRegex.exec(content)) !== null) {
+      const altText = match[1] || '';
+      const imageUrl = match[2] || '';
+      const originalText = match[0];
+      
+      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+      
+      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+        seenUrls.add(normalizedImgUrl);
+        
+        const id = this.generateImageId(normalizedImgUrl);
+        images.push({
+          id,
+          url: normalizedImgUrl,
+          altText,
+          originalText,
+          isClickable: false,
+          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+        });
+      }
+    }
+  }
+  
+  /**
+   * Estrae immagini da tag HTML
+   * @private
+   */
+  extractHtmlImages(content, images, seenUrls) {
+    // Per ogni pattern HTML di immagini
+    [
+      REGEX_PATTERNS.IMAGE.HTML_IMG_DOUBLE_QUOTES,
+      REGEX_PATTERNS.IMAGE.HTML_IMG_SINGLE_QUOTES,
+      REGEX_PATTERNS.IMAGE.HTML_IMG_NO_QUOTES
+    ].forEach(pattern => {
+      let match;
+      const regex = new RegExp(pattern.source, pattern.flags);
+      
+      while ((match = regex.exec(content)) !== null) {
+        const imageUrl = match[1] || '';
+        const originalText = match[0];
+        
+        // Estrai attributo alt se presente
+        const altMatch = originalText.match(/alt=["']([^"']*)["']/i);
+        const altText = altMatch ? altMatch[1] : '';
+        
+        const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+        
+        if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+          seenUrls.add(normalizedImgUrl);
+          
+          const id = this.generateImageId(normalizedImgUrl);
+          images.push({
+            id,
+            url: normalizedImgUrl,
+            altText,
+            originalText,
+            isClickable: false,
+            isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+            placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+          });
+        }
+      }
+    });
+  }
+  
+  /**
+   * Estrae URL diretti di immagini
+   * @private
+   */
+  extractDirectImageUrls(content, images, seenUrls) {
+    const imageRegex = REGEX_PATTERNS.IMAGE.RAW_IMAGE_URL;
+    let match;
     
-    let processedContent = content;
+    while ((match = imageRegex.exec(content)) !== null) {
+      const imageUrl = match[1] || '';
+      const originalText = match[0];
+      
+      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+      
+      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+        seenUrls.add(normalizedImgUrl);
+        
+        const id = this.generateImageId(normalizedImgUrl);
+        images.push({
+          id,
+          url: normalizedImgUrl,
+          altText: 'Image',  // Default alt text
+          originalText,
+          isClickable: false,
+          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+        });
+      }
+    }
+  }
+  
+  /**
+   * Verifica se un URL è un'immagine valida
+   * @param {string} url - URL da verificare
+   * @returns {boolean} - True se è un'immagine valida
+   */
+  isValidImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
     
-    images.forEach(image => {
-      let imgHtml;
-      if (image.isClickable) {
-        imgHtml = this.generateClickableImageHtml(image, renderOptions);
-      } else {
-        imgHtml = this.generateImageHtml(image, renderOptions);
+    // Trim the URL
+    url = url.trim();
+    
+    // Reject invalid URLs
+    if (url.length < 10) return false;
+    
+    try {
+      // Check for common image file extensions
+      const hasImageExtension = /\.(jpe?g|png|gif|webp|bmp|svg)(?:\?.*)?$/i.test(url);
+      
+      // Check for common image hosting domains
+      const isImageHost = /(imgur\.com|steemitimages\.com|cdn\.steemitimages\.com|ibb\.co)/i.test(url);
+      
+      // Check for steemit CDN image URLs
+      const isSteemitCDN = /steemitimages\.com\/.*(?:0x0|[0-9]+x[0-9]+)\/.*/.test(url) ||
+        /steemitimages\.com\/DQm.*/.test(url);
+      
+      // Check for IPFS content
+      const isIPFS = /ipfs\.[^\/]+\/ipfs\/\w+/.test(url);
+      
+      return hasImageExtension || isImageHost || isSteemitCDN || isIPFS;
+    } catch (e) {
+      console.error('Error validating image URL:', e);
+      return false;
+    }
+  }
+  
+  /**
+   * Normalizza l'URL dell'immagine
+   * @param {string} url - URL originale
+   * @returns {string} - URL normalizzato
+   */
+  normalizeImageUrl(url) {
+    if (!url) return '';
+    
+    // Rimuovi eventuali virgolette
+    url = url.trim().replace(/^["']|["']$/g, '');
+    
+    // Pulisci l'URL
+    return REGEX_UTILS.sanitizeUrl(url);
+  }
+  
+  /**
+   * Ottimizza l'URL dell'immagine
+   * @param {string} url - URL originale
+   * @param {Object} options - Opzioni di ottimizzazione
+   * @returns {string} - URL ottimizzato
+   */
+  optimizeImageUrl(url, options = {}) {
+    const { width = 640, height = 0 } = options;
+    
+    if (!url) return this.getDataUrlPlaceholder('No Image');
+    
+    // Early return for placeholders and failed images
+    if (url.startsWith('data:') ||
+        url.includes('/placeholder.png') ||
+        url.includes('/default-avatar') ||
+        SHARED_CACHE.failedImageUrls.has(url)) {
+      return this.getDataUrlPlaceholder('No Image');
+    }
+    
+    try {
+      // Check cache first
+      const cacheKey = `${url}_${width}x${height}`;
+      if (SHARED_CACHE.optimizedUrls.has(cacheKey)) {
+        return SHARED_CACHE.optimizedUrls.get(cacheKey);
       }
       
-      const placeholderRegex = new RegExp(this.escapeRegExp(image.placeholder), 'g');
-      processedContent = processedContent.replace(placeholderRegex, imgHtml);
-    });
-    
-    return processedContent;
+      // Clean URL
+      url = REGEX_UTILS.sanitizeUrl(url);
+      
+      // Special handling for specific domains
+      let optimizedUrl = url;
+      
+      // peakd.com URLs - return as is
+      if (url.includes('files.peakd.com')) {
+        return url;
+      }
+      
+      // DQm format URLs - return as is
+      if (url.includes('steemitimages.com/DQm') || url.includes('cdn.steemitimages.com/DQm')) {
+        return url;
+      }
+      
+      // Handle imgur URLs
+      if (url.includes('imgur.com')) {
+        const imgurId = url.match(/imgur\.com\/([a-zA-Z0-9]+)/i);
+        if (imgurId && imgurId[1]) {
+          optimizedUrl = `https://i.imgur.com/${imgurId[1]}l.jpg`;
+          SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
+          return optimizedUrl;
+        }
+      }
+      
+      // Default proxy
+      optimizedUrl = `https://steemitimages.com/${width}x${height}/${url}`;
+      SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
+      return optimizedUrl;
+      
+    } catch (error) {
+      console.error('Error optimizing URL:', url, error);
+      return url;
+    }
+  }
+  
+  /**
+   * Genera un placeholder con SVG per immagini mancanti
+   * @param {string} text - Testo da visualizzare
+   * @returns {string} - Data URL con SVG
+   */
+  getDataUrlPlaceholder(text = 'No Image') {
+    const safeText = String(text).replace(/[^\w\s-]/g, '');
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150" viewBox="0 0 200 150"><rect fill="%23f0f0f0" width="200" height="150"/><text fill="%23999999" font-family="sans-serif" font-size="18" text-anchor="middle" x="100" y="75">${safeText}</text></svg>`;
   }
   
   /**
@@ -187,8 +322,19 @@ export default class ImagePlugin extends BasePlugin {
    * @returns {string} - Tag HTML per l'immagine
    */
   generateImageHtml(image, options) {
+    // Se l'immagine è invalida, mostra un placeholder
+    if (image.isInvalidImage) {
+      return `<div class="markdown-invalid-img">
+        <img src="${this.getDataUrlPlaceholder(image.altText || 'Invalid Image')}" 
+          alt="${this.escapeHtml(image.altText)}" 
+          class="markdown-img invalid-image-placeholder">
+        <span class="invalid-image-note">Invalid image URL</span>
+      </div>`;
+    }
+    
     // Ottimizza l'URL dell'immagine se richiesto
-    const imageUrl = options.optimizeUrls ? this.optimizeImageUrl(image.url) : image.url;
+    const imageUrl = options.optimizeUrls ? 
+      this.optimizeImageUrl(image.url) : image.url;
     
     // Crea srcset per immagini responsive
     const srcset = options.responsiveImages ? this.createSrcSet(imageUrl) : '';
@@ -203,12 +349,16 @@ export default class ImagePlugin extends BasePlugin {
     // Crea attributo srcset se disponibile
     const srcsetAttr = srcset ? `srcset="${srcset}"` : '';
     
+    // Gestisci errori di caricamento
+    const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
+    
     // Genera il tag img
     return `<img src="${imageUrl}" 
       alt="${this.escapeHtml(image.altText)}" 
       class="${cssClasses}" 
       ${lazyAttr} 
       ${srcsetAttr}
+      ${onErrorFunc}
       style="max-width:${options.maxWidth}">`;
   }
   
@@ -219,8 +369,23 @@ export default class ImagePlugin extends BasePlugin {
    * @returns {string} - HTML per l'immagine cliccabile
    */
   generateClickableImageHtml(image, options) {
+    // Per immagini non valide, genera un banner-link più visibile
+    if (image.isInvalidImage) {
+      return `<a href="${image.linkUrl}" class="markdown-external-link image-link" target="_blank" rel="noopener noreferrer">
+        <div class="preview-banner">
+          <img src="https://i.imgur.com/7GJeeIX.png" class="link-preview-icon">
+          <h4>${this.escapeHtml(image.altText || "Link esterno")}</h4>
+          <p class="preview-url">${this.escapeHtml(image.linkUrl)}</p>
+          <div class="image-link-overlay">
+            <span class="image-link-icon">🔗</span>
+          </div>
+        </div>
+      </a>`;
+    }
+    
     // Ottimizza l'URL dell'immagine se richiesto
-    const imageUrl = options.optimizeUrls ? this.optimizeImageUrl(image.url) : image.url;
+    const imageUrl = options.optimizeUrls ? 
+      this.optimizeImageUrl(image.url) : image.url;
     
     // Crea srcset per immagini responsive
     const srcset = options.responsiveImages ? this.createSrcSet(imageUrl) : '';
@@ -230,7 +395,7 @@ export default class ImagePlugin extends BasePlugin {
     if (options.addZoomClass) imgClasses += ' medium-zoom-image';
     
     // Costruisci le classi per il container
-    let linkClasses = 'img-link-container';
+    let linkClasses = 'image-link markdown-external-link';
     
     // Aggiungi attributi per lazy loading
     const lazyAttr = options.lazyLoad ? 'loading="lazy"' : '';
@@ -240,27 +405,24 @@ export default class ImagePlugin extends BasePlugin {
     
     // Indicatore di link (icona di reindirizzamento)
     const linkIndicator = options.addLinkIndicator ? 
-      `<div class="img-link-indicator">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>
+      `<div class="image-link-overlay">
+        <span class="image-link-icon">🔗</span>
       </div>` : '';
     
+    // Gestisci errori di caricamento
+    const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
+    
     // Genera il tag img all'interno di un tag a
-    return `
-      <div class="${linkClasses}">
-        <a href="${image.linkUrl}" target="_blank" rel="noopener noreferrer">
-          <img src="${imageUrl}" 
-            alt="${this.escapeHtml(image.altText)}" 
-            class="${imgClasses}" 
-            ${lazyAttr} 
-            ${srcsetAttr}
-            style="max-width:${options.maxWidth}">
-          ${linkIndicator}
-        </a>
-      </div>`;
+    return `<a href="${image.linkUrl}" class="${linkClasses}" target="_blank" rel="noopener noreferrer">
+      <img src="${imageUrl}" 
+        alt="${this.escapeHtml(image.altText)}" 
+        class="${imgClasses}" 
+        ${lazyAttr} 
+        ${srcsetAttr}
+        ${onErrorFunc}
+        style="max-width:${options.maxWidth}">
+      ${linkIndicator}
+    </a>`;
   }
   
   /**
@@ -297,41 +459,56 @@ export default class ImagePlugin extends BasePlugin {
   }
   
   /**
-   * Normalizza l'URL dell'immagine
-   * @param {string} url - URL originale
-   * @returns {string} - URL normalizzato
+   * Sostituisci le immagini con placeholder
+   * @param {string} content - Contenuto originale
+   * @param {Array<Object>} images - Informazioni sulle immagini
+   * @returns {string} - Contenuto con placeholder
    */
-  normalizeImageUrl(url) {
-    if (!url) return '';
+  createPlaceholders(content, images) {
+    if (!images || images.length === 0) return content;
     
-    // Rimuovi caratteri di spaziatura
-    url = url.trim();
+    let processedContent = content;
     
-    // Assicurati che l'URL abbia uno schema http/https
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url.replace(/^\/\//, '');
-    }
+    images.forEach(image => {
+      // Escape caratteri speciali per regex
+      const escapedText = REGEX_UTILS.escapeRegExp(image.originalText);
+      const textRegex = new RegExp(escapedText, 'g');
+      
+      // Sostituisci il testo originale con il placeholder
+      processedContent = processedContent.replace(textRegex, image.placeholder);
+    });
     
-    return url;
+    return processedContent;
   }
   
   /**
-   * Ottimizza l'URL dell'immagine per prestazioni migliori
-   * @param {string} url - URL originale
-   * @returns {string} - URL ottimizzato
+   * Ripristina i placeholder con tag HTML immagine
+   * @param {string} content - Contenuto con placeholder
+   * @param {Array<Object>} images - Informazioni sulle immagini
+   * @param {Object} options - Opzioni di rendering
+   * @returns {string} - Contenuto con tag HTML immagine
    */
-  optimizeImageUrl(url) {
-    if (!url) return '';
+  restoreContent(content, images, options = {}) {
+    if (!images || images.length === 0) return content;
     
-    // Se è un'immagine steemitimages.com, usa il proxy per ottimizzazione
-    if (url.includes('steemitimages.com') || url.includes('cdn.steemitimages.com')) {
-      // Evita doppia ottimizzazione
-      if (!url.includes('/0x0/') && !url.includes('/640x0/')) {
-        return `https://steemitimages.com/0x0/${url}`;
+    // Combina le opzioni predefinite con quelle passate
+    const renderOptions = { ...this.config, ...options };
+    
+    let processedContent = content;
+    
+    images.forEach(image => {
+      let imgHtml;
+      if (image.isClickable) {
+        imgHtml = this.generateClickableImageHtml(image, renderOptions);
+      } else {
+        imgHtml = this.generateImageHtml(image, renderOptions);
       }
-    }
+      
+      const placeholderRegex = new RegExp(REGEX_UTILS.escapeRegExp(image.placeholder), 'g');
+      processedContent = processedContent.replace(placeholderRegex, imgHtml);
+    });
     
-    return url;
+    return processedContent;
   }
   
   /**
@@ -351,21 +528,12 @@ export default class ImagePlugin extends BasePlugin {
   }
   
   /**
-   * Escape caratteri speciali per regex
-   * @param {string} string - Stringa da elaborare
-   * @returns {string} - Stringa elaborata
-   */
-  escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-  
-  /**
    * Escape caratteri HTML speciali
    * @param {string} html - Testo da sanitizzare
    * @returns {string} - Testo sanitizzato
    */
   escapeHtml(html) {
-    return html
+    return String(html)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')

@@ -26,6 +26,15 @@ export default class PluginSystem {
   }
   
   /**
+   * Get a plugin by its name
+   * @param {string} name - Plugin name
+   * @returns {BasePlugin|null} Plugin instance or null if not found
+   */
+  getPluginByName(name) {
+    return this.plugins.find(plugin => plugin.name === name) || null;
+  }
+  
+  /**
    * Process content through all the registered plugins
    * @param {string} content - Original markdown content
    * @param {Object} options - Processing options
