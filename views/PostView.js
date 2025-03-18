@@ -3,11 +3,11 @@ import steemService from '../services/SteemService.js'; // Changed from SteemSer
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
-import ImageUtils from '../utils/process-body/ImageUtils.js'; // Add ImageUtils import
+import imageService from '../services/ImageService.js'; // Sostituisci ImageUtils con imageService
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js'; // Aggiungi questa importazione
 import commentService from '../services/CommentService.js';
-import { initializeAnimationControls } from '../utils/animation-init.js'; // Aggiungi alle importazioni esistenti
+// Remove animation-init.js import
 
 class PostView extends View {
   constructor(params = {}) {
@@ -26,7 +26,7 @@ class PostView extends View {
       containerClass: 'post-content-body',
       imageClass: 'post-image',
       imagePosition: 'top',
-      useProcessBody: true // Use process_body.js for backward compatibility
+      useProcessBody: false // Updated to false since process_body.js is deprecated
     });
 
     // Dictionary of regex patterns for content processing
@@ -132,8 +132,7 @@ class PostView extends View {
       // Controlla lo stato di voto
       await this.checkVoteStatus();
       
-      // Inizializza i controlli per le animazioni
-      initializeAnimationControls();
+      // Remove initialization of animation controls
     } catch (error) {
       console.error('Failed to load post:', error);
 
@@ -467,14 +466,14 @@ class PostView extends View {
     commentHeader.appendChild(authorContainer);
     commentHeader.appendChild(dateContainer);
 
-    // Comment body - Use ContentRenderer instead of directly using process_body.js
+    // Comment body - Use ContentRenderer instead of process_body.js
     const commentBody = document.createElement('div');
     commentBody.className = 'comment-body';
 
     const commentRenderer = new ContentRenderer({
       containerClass: 'comment-content',
       imageClass: 'comment-image',
-      useProcessBody: false // Simpler rendering for comments
+      useProcessBody: false // Make sure this is false
     });
 
     const renderedComment = commentRenderer.render({
@@ -1015,7 +1014,7 @@ async handleReply(parentComment, replyText) {
   // Add methods to extract the best image from a post (similar to ProfileView)
   getBestImage(post) {
     const metadata = this.parseMetadata(post.json_metadata);
-    return ImageUtils.getBestImageUrl(post.body, metadata) || '';
+    return imageService.getBestImageUrl(post.body, metadata) || '';
   }
 
   parseMetadata(jsonMetadata) {

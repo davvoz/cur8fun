@@ -22,6 +22,7 @@ export const REGEX_PATTERNS = {
     EMBED: /<iframe[^>]*src=["'](?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:\?[^"'>]+)?["'][^>]*><\/iframe>/g,
     SHORTS: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:\?\S+)?/g
   },
+  
   VIMEO: {
     MAIN: /(https?:\/\/)?(www\.)?(?:vimeo)\.com.*(?:videos|video|channels|)\/([\d]+)/i,
     EMBED: /https:\/\/player\.vimeo\.com\/video\/([0-9]+)/

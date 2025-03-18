@@ -215,6 +215,80 @@
     margin-left:  1.5rem;
 }
 
+/* Stili per le immagini gestite dal plugin */
+.markdown-img-link {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 10px 0;
+  transition: all 0.3s ease;
+}
+
+/* Effetto hover */
+.markdown-img-link:hover {
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Classe per zoom */
+.medium-zoom-image {
+  cursor: zoom-in;
+}
+
+.medium-zoom-overlay {
+  background: rgba(0,0,0,0.8) !important;
+}
+
+.medium-zoom-image--opened {
+  cursor: zoom-out;
+}
+
+/* Stili per le immagini */
+.markdown-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 10px 0;
+  transition: all 0.3s ease;
+}
+
+/* Container per immagini cliccabili */
+.img-link-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Indicatore di link per immagini cliccabili */
+.img-link-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.img-link-indicator svg {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
+/* Stile hover per immagini cliccabili */
+.img-link-container:hover .img-link-indicator {
+  opacity: 1;
+}
+
+.img-link-container:hover .clickable-img {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
 /*mobile*/
 @media (max-width: 768px) {
     .author-avatar {

@@ -1,8 +1,8 @@
-import ImageUtils from '../utils/process-body/ImageUtils.js';
-import YouTubeUtils from '../utils/process-body/plugins/youtube.js';
-import { generatePostContent } from '../utils/process-body/process_body.js';
-import { imagePatterns, largeImagePatterns, resetRegexLastIndex } from '../utils/process-body/RegexPatterns.js';
-// Remove the marked import - we'll use the globally available marked from CDN
+import imageService from '../services/ImageService.js';
+import PluginSystem from '../utils/markdown/PluginSystem.js';
+import YouTubePlugin from '../utils/markdown/plugins/YouTubePlugin.js';
+import ImagePlugin from '../utils/markdown/plugins/ImagePlugin.js';
+import { REGEX_PATTERNS, LARGE_IMAGE_PATTERNS } from '../utils/markdown/regex-config.js';
 
 /**
  * Content Renderer component for displaying Steem posts and previews
@@ -15,16 +15,19 @@ class ContentRenderer {
       renderImages: true,
       imageClass: 'content-image',
       containerClass: 'markdown-content',
-      useProcessBody: true, // Whether to use the legacy process_body.js
-      maxImageWidth: 800,  // Add max width for large images
-      enableYouTube: true, // Enable YouTube embedding
-      videoDimensions: { width: '100%', height: '480px' }, // Default video dimensions
-      useSteemContentRenderer: true, // Whether to use the steem-content-renderer from unpkg
+      useProcessBody: false,
+      maxImageWidth: 800,
+      enableYouTube: true,
+      videoDimensions: { width: '100%', height: '480px' },
+      useSteemContentRenderer: true,
       ...options
     };
     
-    // Utilizza i pattern regex importati
-    this.regexPatterns = imagePatterns;
+    // Define regex patterns from centralized config
+    this.regexPatterns = REGEX_PATTERNS;
+    
+    // Define large image patterns from centralized config
+    this.largeImagePatterns = LARGE_IMAGE_PATTERNS;
     
     this.extractedImages = [];
     this.extractedVideos = [];
@@ -34,6 +37,125 @@ class ContentRenderer {
     if (this.options.useSteemContentRenderer && !this.steemRenderer) {
       console.warn('steem-content-renderer not found. Fallback to custom renderer.');
     }
+
+    // Initialize plugin system
+    this.pluginSystem = new PluginSystem();
+    
+    // Register both YouTube and Image plugins
+    this.pluginSystem.registerPlugin(new YouTubePlugin());
+    this.pluginSystem.registerPlugin(new ImagePlugin());
+    
+    // Store plugin instances for direct access when needed
+    this.plugins = {
+      youtube: this.pluginSystem.getPluginByName('youtube'),
+      image: this.pluginSystem.getPluginByName('image')
+    };
+  }
+  
+  /**
+   * Extract YouTube videos from content - used by render method
+   */
+  extractYouTubeVideos(content) {
+    // Use the YouTube plugin directly if available
+    if (this.plugins.youtube) {
+      return this.plugins.youtube.extract(content);
+    }
+    
+    // Fallback implementation if plugin not available
+    if (!content) return [];
+    
+    const videos = [];
+    const seenIds = new Set();
+    
+    const patterns = [
+      this.regexPatterns.YOUTUBE.MAIN,
+      this.regexPatterns.YOUTUBE.SHORT,
+      this.regexPatterns.YOUTUBE.EMBED
+    ];
+    
+    patterns.forEach(pattern => {
+      let match;
+      // Reset pattern before use to avoid issues with global flag
+      const regex = new RegExp(pattern.source, pattern.flags);
+      
+      while ((match = regex.exec(content)) !== null) {
+        const videoId = match[1];
+        if (videoId && !seenIds.has(videoId)) {
+          seenIds.add(videoId);
+          videos.push({
+            id: videoId,
+            originalUrl: match[0],
+            placeholder: `YOUTUBE_EMBED_${videoId}_YT_END`,
+            embedUrl: `https://www.youtube.com/embed/${videoId}`
+          });
+        }
+      }
+    });
+    
+    return videos;
+  }
+  
+  /**
+   * Replace YouTube links with placeholders
+   */
+  replaceYouTubeLinksWithPlaceholders(content, videos) {
+    // Use the YouTube plugin directly if available
+    if (this.plugins.youtube) {
+      return this.plugins.youtube.createPlaceholders(content, videos);
+    }
+    
+    // Fallback implementation
+    if (!videos || videos.length === 0 || !content) return content;
+    
+    let processedContent = content;
+    
+    videos.forEach(video => {
+      const escapedUrl = this.escapeRegExp(video.originalUrl);
+      const urlRegex = new RegExp(escapedUrl, 'g');
+      processedContent = processedContent.replace(urlRegex, video.placeholder);
+    });
+    
+    return processedContent;
+  }
+  
+  /**
+   * Helper to escape special characters in regex patterns
+   */
+  escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  
+  /**
+   * Restore YouTube embeds from placeholders
+   */
+  restoreYouTubeEmbeds(content, videos, dimensions = { width: '100%', height: '480px' }) {
+    // Use the YouTube plugin directly if available
+    if (this.plugins.youtube && videos && videos.length > 0) {
+      return this.plugins.youtube.restoreContent(content, videos, { videoDimensions: dimensions });
+    }
+    
+    // Fallback implementation
+    if (!videos || videos.length === 0 || !content) return content;
+    
+    let processedContent = content;
+    
+    videos.forEach(video => {
+      const embedHtml = `<div class="youtube-embed">
+        <iframe 
+          width="${dimensions.width}" 
+          height="${dimensions.height}" 
+          src="${video.embedUrl}" 
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen>
+        </iframe>
+      </div>`;
+      
+      const placeholderRegex = new RegExp(this.escapeRegExp(video.placeholder), 'g');
+      processedContent = processedContent.replace(placeholderRegex, embedHtml);
+    });
+    
+    return processedContent;
   }
   
   /**
@@ -49,8 +171,19 @@ class ContentRenderer {
     this.extractedImages = [];
     this.extractedVideos = [];
     
+    // Pre-process content with plugin system
+    let processedMarkdown = data.body || '';
+    if (processedMarkdown) {
+      processedMarkdown = this.pluginSystem.preProcess(processedMarkdown, renderOptions);
+    }
+    
+    // Render markdown to HTML
+    let processedContent = this.renderWithFallback(processedMarkdown, renderOptions);
+    
+    // Post-process content to restore rich elements
+    processedContent = this.pluginSystem.postProcess(processedContent, renderOptions);
+    
     // Process content based on the type of content
-    let processedContent = '';
     let hasLargeImages = false;
     
     // First check if post appears to contain large images
@@ -62,9 +195,9 @@ class ContentRenderer {
       
       // Extract YouTube videos before processing content
       if (renderOptions.enableYouTube) {
-        this.extractedVideos = YouTubeUtils.extractYouTubeVideos(data.body);
+        this.extractedVideos = this.extractYouTubeVideos(data.body);
         // Convert YouTube links to placeholders that won't be affected by other processing
-        data.body = YouTubeUtils.replaceYouTubeLinksWithPlaceholders(data.body, this.extractedVideos);
+        data.body = this.replaceYouTubeLinksWithPlaceholders(data.body, this.extractedVideos);
       }
     }
     
@@ -84,7 +217,7 @@ class ContentRenderer {
     
     // Restore YouTube videos from placeholders to embed iframes
     if (renderOptions.enableYouTube && this.extractedVideos.length > 0) {
-      processedContent = YouTubeUtils.restoreYouTubeEmbeds(
+      processedContent = this.restoreYouTubeEmbeds(
         processedContent, 
         this.extractedVideos,
         renderOptions.videoDimensions
@@ -202,7 +335,6 @@ class ContentRenderer {
     if (!markdown) return '';
     
     // DIRECT FIX: Replace the exact problematic pattern before any processing
-    // This catches the specific |       | followed by | ----------| pattern
     markdown = this.fixExactMinimalTablePattern(markdown);
       
     // Continue with other preprocessing
@@ -212,28 +344,9 @@ class ContentRenderer {
     
     let processedContent = '';
     
-    if (options.useProcessBody) {
-      // Use the process_body.js function that we've imported
-      try {
-        const htmlResult = generatePostContent(markdown);
-        // Extract just the inner content from the result
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlResult;
-        const contentDiv = tempDiv.querySelector('.post-body');
-        processedContent = contentDiv ? contentDiv.innerHTML : htmlResult;
-      } catch (error) {
-        console.error('Error using generatePostContent:', error);
-        // Fall back to simple markdown parsing
-        processedContent = this.processMarkdown(markdown);
-      }
-      // After processing content with process_body.js, apply the post-processing fix
-      processedContent = this.postProcessContent(processedContent);
-    } else {
-      // Use our simpler markdown processing
-      processedContent = this.processMarkdown(markdown);
-      // Also apply post-processing to our markdown processor output
-      processedContent = this.postProcessContent(processedContent);
-    }
+    // Remove process_body.js dependence and always use our own markdown processor
+    processedContent = this.processMarkdown(markdown);
+    processedContent = this.postProcessContent(processedContent);
     
     // Fix image links that might have been missed
     return this.fixImageTags(processedContent);
@@ -345,8 +458,12 @@ class ContentRenderer {
   detectLargeImages(content) {
     if (!content) return false;
     
-    // Usa i pattern per immagini grandi importati
-    return largeImagePatterns.some(pattern => pattern.test(content));
+    // Use locally defined patterns instead of imported ones
+    return this.largeImagePatterns.some(pattern => {
+      // Reset lastIndex to avoid regex state issues
+      pattern.lastIndex = 0;
+      return pattern.test(content);
+    });
   }
   
   /**
@@ -661,39 +778,8 @@ class ContentRenderer {
   extractAllImages(content) {
     if (!content) return [];
     
-    // First try ImageUtils if available
-    if (typeof ImageUtils === 'object' && typeof ImageUtils.extractAllImageUrls === 'function') {
-      try {
-        return ImageUtils.extractAllImageUrls(content);
-      } catch (error) {
-        console.error('Error using ImageUtils.extractAllImageUrls:', error);
-      }
-    }
-    
-    // Fallback to our own extraction
-    const images = new Set();
-    
-    // Add special handling for peakd.com URLs
-    const peakdRegex = /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
-    let match;
-    while ((match = peakdRegex.exec(content)) !== null) {
-      if (match[1]) {
-        images.add(match[1]);
-      }
-    }
-    
-    // Process each regex pattern from ImagePatterns
-    Object.values(this.regexPatterns).forEach(pattern => {
-      // Resetta il lastIndex prima dell'uso
-      pattern.lastIndex = 0;
-      
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        images.add(match[1] || match[0]);
-      }
-    });
-    
-    return Array.from(images);
+    // Use imageService for extraction
+    return imageService.extractAllImageUrls(content);
   }
   
   /**
@@ -724,20 +810,14 @@ class ContentRenderer {
     image.loading = 'lazy';
     image.style.maxWidth = '100%';  // Ensure images don't overflow
     
-    // Use ImageUtils for optimized URL if available
-    if (typeof ImageUtils === 'object' && typeof ImageUtils.optimizeImageUrl === 'function') {
-      image.src = ImageUtils.optimizeImageUrl(imageUrl);
-    } else {
-      image.src = imageUrl;
-    }
+    // Use imageService for optimized URL
+    image.src = imageService.optimizeImageUrl(imageUrl);
     
     // Add error handling
     image.onerror = () => {
       console.warn(`Failed to load image: ${imageUrl}`);
       image.style.display = 'none';
-      if (typeof ImageUtils === 'object' && typeof ImageUtils.markImageAsFailed === 'function') {
-        ImageUtils.markImageAsFailed(imageUrl);
-      }
+      imageService.markImageAsFailed(imageUrl);
     };
     
     // Add click event to open image in new tab
@@ -747,7 +827,7 @@ class ContentRenderer {
     
     return image;
   }
-  
+
   /**
    * Handle minimal empty tables directly in the markdown
    * @param {string} markdown - Raw markdown content
@@ -789,7 +869,7 @@ class ContentRenderer {
       // Much more precise matching than before
       if ((lines[i].match(/^\|\s{1,}\|$/) || lines[i].trim() === '| |' || lines[i].trim() === '|  |') && 
           i + 1 < lines.length && 
-          lines[i+1].match(/^\|\s*[-]{1,}\s*\|$/)) {
+          lines[i+1].match(/^\|\s*[-]+\s*\|$/)) {
         
         console.log('Found minimal table at line', i, 'Line content:', lines[i], 'Next line:', lines[i+1]);
         
@@ -871,13 +951,9 @@ class ContentRenderer {
         return `<img ${beforeSrc}src=${quote}${src}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
       }
       
-      // For other URLs, optimize with ImageUtils if available
-      if (typeof ImageUtils === 'object' && typeof ImageUtils.optimizeImageUrl === 'function') {
-        const optimizedSrc = ImageUtils.optimizeImageUrl(src);
-        return `<img ${beforeSrc}src=${quote}${optimizedSrc}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
-      }
-      
-      return match;
+      // For other URLs, optimize with imageService
+      const optimizedSrc = imageService.optimizeImageUrl(src);
+      return `<img ${beforeSrc}src=${quote}${optimizedSrc}${quote} loading="lazy" class="${this.options.imageClass}" ${afterSrc}>`;
     });
   }
   
