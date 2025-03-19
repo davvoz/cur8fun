@@ -251,6 +251,27 @@
   transition: all 0.3s ease;
 }
 
+/* Aggiungi questa regola per prevenire distorsioni delle immagini */
+.markdown-img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+.image-link img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+/* Gestione migliore immagini Discord */
+img[src*="discordapp.net"],
+img[src*="discordapp.com"] {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
 /* Container per immagini cliccabili */
 .img-link-container {
   position: relative;
@@ -361,6 +382,22 @@ figcaption {
   margin-top: 0.5rem;
 }
 
+/* Tag center e immagini centrate */
+center {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+}
+
+center .img-link-container {
+  display: inline-block;
+  margin: 0 auto;
+}
+
+center .markdown-img {
+  margin: 0 auto;
+}
+
 /*mobile*/
 @media (max-width: 768px) {
     .author-avatar {
@@ -425,5 +462,31 @@ figcaption {
     .content-body h3 {
         font-size: 1.2rem;
     }
+}
+
+/* Aggiungi queste regole alla fine del file */
+
+/* Gestione della feature image */
+.feature-image-container {
+  margin: 1rem 0;
+  max-width: 100%;
+  text-align: center;
+}
+
+.feature-image {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+  display: block;
+}
+
+/* Assicura che le immagini in evidenza abbiano stesso stile delle altre */
+.feature-image-container img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
 }
 

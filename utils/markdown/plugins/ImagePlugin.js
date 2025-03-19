@@ -37,19 +37,24 @@ export default class ImagePlugin extends BasePlugin {
     const images = [];
     const seenUrls = new Set(); // Previene duplicati
     
-    // 1. Prima estrai le immagini cliccabili (alta priorità)
-    this.extractClickableImages(content, images, seenUrls);
+    // 0. Prima elabora l'HTML che contiene markdown
+    const contentAfterHtmlExtraction = this.extractHtmlWithMarkdown(content, images, seenUrls);
+    
+    // Continua con le altre estrazioni ma usa il contenuto già elaborato
+    // 1. Poi estrai le immagini cliccabili (alta priorità)
+    this.extractClickableImages(contentAfterHtmlExtraction, images, seenUrls);
     
     // 2. Poi estrai le immagini standard markdown
-    this.extractMarkdownImages(content, images, seenUrls);
+    this.extractMarkdownImages(contentAfterHtmlExtraction, images, seenUrls);
     
     // 3. Estrai immagini HTML
-    this.extractHtmlImages(content, images, seenUrls);
+    this.extractHtmlImages(contentAfterHtmlExtraction, images, seenUrls);
     
-    // 4. Estrai URL diretti di immagini
-    this.extractDirectImageUrls(content, images, seenUrls);
+    // 4. Estrai URL diretti di immagini (inclusi Discord)
+    this.extractDirectImageUrls(contentAfterHtmlExtraction, images, seenUrls);
     
-    return images;
+    // Prima di restituire le immagini, rimuovi i duplicati
+    return this.removeDuplicateImages(images);
   }
   
   /**
@@ -249,7 +254,11 @@ export default class ImagePlugin extends BasePlugin {
    * @returns {string} - URL ottimizzato
    */
   optimizeImageUrl(url, options = {}) {
-    const { width = 640, height = 0 } = options;
+    // Imposta un limite massimo di dimensione per le immagini grandi
+    const { width = 800, height = 0, maxWidth = 1200 } = options;
+    
+    // Se viene richiesta una larghezza superiore al maxWidth, usa maxWidth
+    const targetWidth = Math.min(width, maxWidth);
     
     if (!url) return this.getDataUrlPlaceholder('No Image');
     
@@ -272,7 +281,15 @@ export default class ImagePlugin extends BasePlugin {
       url = REGEX_UTILS.sanitizeUrl(url);
       
       // Special handling for specific domains
-      let optimizedUrl = url;
+      let optimizedUrl;
+      
+      // Discord URLs
+      if (url.includes('media.discordapp.net') || url.includes('cdn.discordapp.com')) {
+        // Rimuovi parametri esistenti per utilizzare l'immagine originale
+        optimizedUrl = url.split('?')[0];
+        SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
+        return optimizedUrl;
+      }
       
       // peakd.com URLs - return as is
       if (url.includes('files.peakd.com')) {
@@ -288,14 +305,15 @@ export default class ImagePlugin extends BasePlugin {
       if (url.includes('imgur.com')) {
         const imgurId = url.match(/imgur\.com\/([a-zA-Z0-9]+)/i);
         if (imgurId && imgurId[1]) {
-          optimizedUrl = `https://i.imgur.com/${imgurId[1]}l.jpg`;
+          // Usa l'immagine originale invece della thumbnail
+          optimizedUrl = `https://i.imgur.com/${imgurId[1]}.jpg`;
           SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
           return optimizedUrl;
         }
       }
       
-      // Default proxy
-      optimizedUrl = `https://steemitimages.com/${width}x${height}/${url}`;
+      // IMPORTANTE: Usa sempre height=0 per preservare aspect ratio
+      optimizedUrl = `https://steemitimages.com/${targetWidth}x0/${url}`;
       SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
       return optimizedUrl;
       
@@ -349,17 +367,25 @@ export default class ImagePlugin extends BasePlugin {
     // Crea attributo srcset se disponibile
     const srcsetAttr = srcset ? `srcset="${srcset}"` : '';
     
-    // Gestisci errori di caricamento
-    const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
+    // Attributo sizes per responsive images
+    const sizesAttr = srcset ? `sizes="(max-width: 768px) 100vw, 800px"` : '';
     
-    // Genera il tag img
-    return `<img src="${imageUrl}" 
+    // Attributi width e height per prevenire layout shift
+    const aspectAttr = `style="max-width:${options.maxWidth}; aspect-ratio: auto;"`;
+    
+    // Gestisci errori di caricamento
+    // const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
+    
+    // Genera il tag img con aspect ratio preservato
+    const tagImg = `<img src="${imageUrl}" 
       alt="${this.escapeHtml(image.altText)}" 
       class="${cssClasses}" 
       ${lazyAttr} 
       ${srcsetAttr}
-      ${onErrorFunc}
-      style="max-width:${options.maxWidth}">`;
+      ${sizesAttr}
+      ${aspectAttr}>`;
+    console.log(tagImg);
+    return tagImg;
   }
   
   /**
@@ -373,7 +399,7 @@ export default class ImagePlugin extends BasePlugin {
     if (image.isInvalidImage) {
       return `<a href="${image.linkUrl}" class="markdown-external-link image-link" target="_blank" rel="noopener noreferrer">
         <div class="preview-banner">
-          <img src="https://i.imgur.com/7GJeeIX.png" class="link-preview-icon">
+          <img src="${image.linkUrl}" class="link-preview-icon">
           <h4>${this.escapeHtml(image.altText || "Link esterno")}</h4>
           <p class="preview-url">${this.escapeHtml(image.linkUrl)}</p>
           <div class="image-link-overlay">
@@ -395,7 +421,8 @@ export default class ImagePlugin extends BasePlugin {
     if (options.addZoomClass) imgClasses += ' medium-zoom-image';
     
     // Costruisci le classi per il container
-    let linkClasses = 'image-link markdown-external-link';
+    let cssClasses = 'markdown-img';
+    if (options.addZoomClass) cssClasses += ' medium-zoom-image';
     
     // Aggiungi attributi per lazy loading
     const lazyAttr = options.lazyLoad ? 'loading="lazy"' : '';
@@ -403,26 +430,35 @@ export default class ImagePlugin extends BasePlugin {
     // Crea attributo srcset se disponibile
     const srcsetAttr = srcset ? `srcset="${srcset}"` : '';
     
-    // Indicatore di link (icona di reindirizzamento)
-    const linkIndicator = options.addLinkIndicator ? 
-      `<div class="image-link-overlay">
-        <span class="image-link-icon">🔗</span>
-      </div>` : '';
+    // Attributo sizes per responsive images
+    const sizesAttr = srcset ? `sizes="(max-width: 768px) 100vw, 800px"` : '';
+    
+    // Attributi width e height per prevenire layout shift
+    const aspectAttr = `style="max-width:${options.maxWidth}; aspect-ratio: auto;"`;
     
     // Gestisci errori di caricamento
-    const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
+    // const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
     
     // Genera il tag img all'interno di un tag a
-    return `<a href="${image.linkUrl}" class="${linkClasses}" target="_blank" rel="noopener noreferrer">
-      <img src="${imageUrl}" 
-        alt="${this.escapeHtml(image.altText)}" 
-        class="${imgClasses}" 
-        ${lazyAttr} 
-        ${srcsetAttr}
-        ${onErrorFunc}
-        style="max-width:${options.maxWidth}">
-      ${linkIndicator}
+    const imgTag = `<img src="${imageUrl}" 
+      alt="${this.escapeHtml(image.altText)}" 
+      class="${imgClasses}" 
+      ${lazyAttr} 
+      ${srcsetAttr}
+      ${sizesAttr}
+      ${aspectAttr}>`;
+    
+    // IMPORTANTE: Avvolgi l'immagine in un tag <a> per renderla cliccabile
+    const clicable = `<a href="${image.linkUrl}" class="img-link-container" target="_blank" rel="noopener noreferrer">
+      ${imgTag}
+      <div class="img-link-indicator">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V14M14 4H20M20 4V10M20 4L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
     </a>`;
+    console.log(clicable);
+    return clicable;
   }
   
   /**
@@ -498,7 +534,11 @@ export default class ImagePlugin extends BasePlugin {
     
     images.forEach(image => {
       let imgHtml;
-      if (image.isClickable) {
+      
+      // Gestisci le immagini in tag HTML
+      if (image.isInHtmlTag) {
+        imgHtml = this.generateHtmlWrappedImageHtml(image, renderOptions);
+      } else if (image.isClickable) {
         imgHtml = this.generateClickableImageHtml(image, renderOptions);
       } else {
         imgHtml = this.generateImageHtml(image, renderOptions);
@@ -539,5 +579,105 @@ export default class ImagePlugin extends BasePlugin {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  /**
+   * Estrae tag HTML che contengono immagini markdown
+   * @private
+   */
+  extractHtmlWithMarkdown(content, images, seenUrls) {
+    // Cerca tag HTML comuni che possono contenere markdown
+    const htmlTagRegex = /<(center|div|span|p)([^>]*)>([\s\S]*?)<\/\1>/gi;
+    let processedContent = content;
+    let match;
+    
+    while ((match = htmlTagRegex.exec(content)) !== null) {
+      const tagName = match[1];
+      const tagAttrs = match[2];
+      const innerContent = match[3];
+      const fullMatch = match[0];
+      
+      // Verifica se il contenuto interno contiene un'immagine cliccabile
+      if (innerContent.includes('[![') && innerContent.includes(')](')) {
+        const clickableImageRegex = /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g;
+        let imgMatch;
+        
+        if ((imgMatch = clickableImageRegex.exec(innerContent)) !== null) {
+          const altText = imgMatch[1] || '';
+          const imageUrl = imgMatch[2] || '';
+          const linkUrl = imgMatch[3] || '';
+          const originalImgText = imgMatch[0];
+          
+          // Verifica che l'URL dell'immagine sia valido
+          const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+          
+          if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+            seenUrls.add(normalizedImgUrl);
+            
+            const id = this.generateImageId(normalizedImgUrl);
+            
+            // Costruisci un oggetto immagine che include l'HTML circostante
+            images.push({
+              id,
+              url: normalizedImgUrl,
+              altText,
+              originalText: fullMatch, // Usa l'intero match HTML
+              innerMarkdown: originalImgText,
+              isClickable: true,
+              isInHtmlTag: true,
+              htmlTag: tagName,
+              htmlAttrs: tagAttrs,
+              linkUrl: REGEX_UTILS.sanitizeUrl(linkUrl),
+              isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+              placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+            });
+            
+            // Non elaborare più questa immagine come immagine markdown normale
+            // Sostituisci tutto il tag HTML con un placeholder
+            const escapedMatch = REGEX_UTILS.escapeRegExp(fullMatch);
+            const fullTagRegex = new RegExp(escapedMatch, 'g');
+            processedContent = processedContent.replace(fullTagRegex, `${this.placeholderPrefix}${id}${this.placeholderSuffix}`);
+          }
+        }
+      }
+    }
+    
+    return processedContent;
+  }
+
+  /**
+   * Genera HTML per un'immagine cliccabile dentro un tag HTML
+   * @param {Object} image - Informazioni sull'immagine
+   * @param {Object} options - Opzioni di rendering
+   * @returns {string} - HTML completo
+   */
+  generateHtmlWrappedImageHtml(image, options) {
+    // Genera prima l'immagine cliccabile interna
+    const innerHtml = this.generateClickableImageHtml({
+      ...image,
+      originalText: image.innerMarkdown,
+      isClickable: true
+    }, options);
+    
+    // Avvolgi l'immagine nel tag HTML originale
+    return `<${image.htmlTag}${image.htmlAttrs}>${innerHtml}</${image.htmlTag}>`;
+  }
+
+  /**
+   * Trova le immagini duplicate nel contenuto
+   * @param {Array<Object>} images - Array di oggetti immagine
+   * @returns {Array<Object>} Immagini senza duplicati
+   */
+  removeDuplicateImages(images) {
+    const uniqueUrls = new Set();
+    return images.filter(img => {
+      // Se l'URL è già stato visto, è un duplicato
+      if (uniqueUrls.has(img.url)) {
+        return false;
+      }
+      
+      uniqueUrls.add(img.url);
+      return true;
+    });
   }
 }
