@@ -45,6 +45,8 @@ export const REGEX_UTILS = {
 
 // All regex patterns grouped by purpose
 export const REGEX_PATTERNS = {
+  // General URL and Media Patterns
+  URL: /(https?:\/\/[^\s]+)/g,
   IMAGE: {
     // Markdown image syntax: ![alt text](url)
     MARKDOWN_IMAGE: /!\[([^\]]*)\]\(([^)]+)\)(?!\()/g,
@@ -58,35 +60,92 @@ export const REGEX_PATTERNS = {
     HTML_IMG_NO_QUOTES: /<img[^>]*src=([^ >'"]+)[^>]*>/gi,
     
     // Raw image URLs directly in the content
-    RAW_IMAGE_URL: /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi
+    RAW_IMAGE_URL: /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi,
+    
+    // Image URL pattern from regex-config-ts.js
+    URL_PATTERN: /(https?:\/\/.*\.(?:tiff?|jpe?g|gif|png|svg|ico|heic|webp))(.*)/gim
   },
   
+  // IPFS related patterns
+  IPFS: /^https?:\/\/[^/]+\/(ip[fn]s)\/([^/?#]+)/gim,
+  
+  // Post and Community Patterns
+  POST: {
+    EXTERNAL: /^https?:\/\/(.*)\/(.*)\/(@[\w.\d-]+)\/(.*)/i,
+    INTERNAL: /^\/(@[\w.\d-]+)\/(.*)$/i,
+    INTERNAL_TAG: /(.*)\/(@[\w.\d-]+)\/(.*)/i
+  },
+  
+  COMMUNITY: {
+    CCC: /^https?:\/\/(.*)\/ccc\/([\w.\d-]+)\/(.*)/i
+  },
+  
+  // User and Topic Patterns
+  USER: {
+    MENTION: /^https?:\/\/(.*)\/(@[\w.\d-]+)$/i,
+    INTERNAL_MENTION: /^\/@[\w.\d-]+$/i
+  },
+  
+  TOPIC: {
+    EXTERNAL: /^https?:\/\/(.*)\/(trending|hot|created|promoted|muted|payout)\/(.*)$/i,
+    INTERNAL: /^\/(trending|hot|created|promoted|muted|payout)\/(.*)$/i
+  },
+  
+  // Video Platform Patterns
   YOUTUBE: {
-    // Regular YouTube URLs
-    MAIN: /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?/g,
+    // Regular YouTube URLs with improved parameter handling
+    MAIN: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch(?:[?&](?:v=([a-zA-Z0-9_-]{11})|[^=&?]+=[^=&?]+))+/g,
     
-    // YouTube short URLs
-    SHORT: /https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:\?.*)?/g,
+    // YouTube short URLs - fixed to properly handle URLs with no parameters
+    SHORT: /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?#][^]*)?/g,
     
-    // YouTube embed URLs
-    EMBED: /https?:\/\/(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:\?.*)?/g
+    // YouTube embed URLs with improved parameter handling
+    EMBED: /<iframe[^>]*src=["'](?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?#][^"']*)?["'][^>]*><\/iframe>/g,
+    
+    // YouTube shorts format with better parameter support
+    SHORTS: /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:[?#][^]*)?/g,
+    
+    // Universal pattern to extract video ID from any YouTube URL format
+    EXTRACT_ID: /(?:youtube\.com\/(?:watch\?(?:.*?&)*v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?#&]|$)/i
   },
   
-  TABLES: {
-    // Detect markdown tables
-    MARKDOWN_TABLE: /\|[^\n]*\|\s*\n\|[\s\-:]+\|.*\n?(\|.*\|.*\n?)*/g,
-    
-    // Detect problematic simple tables
-    MINIMAL_TABLE: /\|\s*\|\s*\n\|\s*[-]+\s*\|/g
+  VIMEO: {
+    MAIN: /(https?:\/\/)?(www\.)?(?:vimeo)\.com.*(?:videos|video|channels|)\/([\d]+)/i,
+    EMBED: /https:\/\/player\.vimeo\.com\/video\/([0-9]+)/
   },
   
-  LINKS: {
-    // Markdown links
-    MARKDOWN_LINK: /\[([^\]]+)\]\(([^)]+)\)/g,
-    
-    // Raw URLs in text
-    PLAIN_URL: /(https?:\/\/[^\s<>"']+)/gi
+  // Other Video Platforms
+  BITCHUTE: /^(?:https?:\/\/)?(?:www\.)?bitchute.com\/(?:video|embed)\/([a-z0-9]+)/i,
+  
+  DTUBE: {
+    MAIN: /(https?:\/\/d.tube.#!\/v\/)(\w+)\/(\w+)/g,
+    SECONDARY: /(https?:\/\/d.tube\/v\/)(\w+)\/(\w+)/g,
+    EMBED: /^https:\/\/emb.d.tube\/.*/i
   },
+  
+  // Streaming Platforms
+  TWITCH: {
+    MAIN: /https?:\/\/(?:www.)?twitch.tv\/(?:(videos)\/)?([a-zA-Z0-9][\w]{3,24})/i,
+    EMBED: /^(https?:)?\/\/player.twitch.tv\/.*/i
+  },
+  
+  // Music Platforms
+  SPOTIFY: {
+    MAIN: /^https:\/\/open\.spotify\.com\/playlist\/(.*)?$/gi,
+    EMBED: /^https:\/\/open\.spotify\.com\/(embed|embed-podcast)\/(playlist|show|episode|track|album)\/(.*)/i
+  },
+  
+  SOUNDCLOUD: /^https:\/\/w.soundcloud.com\/player\/.*/i,
+  
+  // Other Media Platforms
+  DAPPLR: /^(https?:)?\/\/[a-z]*\.dapplr.in\/file\/dapplr-videos\/.*/i,
+  TRUVVL: /^https?:\/\/embed.truvvl.com\/(@[\w.\d-]+)\/(.*)/i,
+  LBRY: /^(https?:)?\/\/lbry.tv\/\$\/embed\/.*/i,
+  ODYSEE: /^(https?:)?\/\/odysee.com\/\$\/embed\/.*/i,
+  
+  // Misc Patterns
+  ENTITY: /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig,
+  SECTION: /\B(\#[\da-zA-Z-_]+\b)(?!;)/i,
   
   // Table patterns
   TABLE: {
@@ -96,12 +155,18 @@ export const REGEX_PATTERNS = {
     EMPTY_CELL: /^[\s|\-:]+$/,
   },
   
-  // Image patterns
+  // Image patterns for tables
   IMAGE_IN_TABLE: {
     MARKDOWN: /!\[(?:.*?)\]\(([^)]+)\)/gi,
     URL: /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi,
     DQM: /(https?:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/DQm[^\s<>"']+)/gi,
     PEAKD: /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+)/gi
+  },
+  
+  // Link patterns
+  LINKS: {
+    MARKDOWN_LINK: /\[([^\]]+)\]\(([^)]+)\)/g,
+    PLAIN_URL: /(https?:\/\/[^\s<>"']+)/gi
   },
   
   // HTML patterns
@@ -121,3 +186,6 @@ export const LARGE_IMAGE_PATTERNS = [
   /<img[^>]+>/gi,
   /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|gif|png|webp)(?:\?\S*)?)/gi
 ];
+
+// Export as default as well to maintain compatibility
+export default REGEX_PATTERNS;

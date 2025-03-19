@@ -178,12 +178,12 @@ class CreatePostView extends View {
     submitBtn.textContent = 'Publish Post';
     
     // Add a preview toggle button
-    const previewToggle = document.createElement('button');
-    previewToggle.type = 'button';
-    previewToggle.className = 'btn secondary-btn preview-toggle-btn';
-    previewToggle.id = 'preview-toggle-btn';
-    previewToggle.textContent = 'Show Preview';
-    previewToggle.addEventListener('click', () => this.togglePreview());
+    // const previewToggle = document.createElement('button');
+    // previewToggle.type = 'button';
+    // previewToggle.className = 'btn secondary-btn preview-toggle-btn';
+    // previewToggle.id = 'preview-toggle-btn';
+    // previewToggle.textContent = 'Show Preview';
+    // previewToggle.addEventListener('click', () => this.togglePreview());
     
     // Preview container
     const previewContainer = document.createElement('div');
@@ -202,7 +202,7 @@ class CreatePostView extends View {
     // Add buttons side by side
     const buttonGroup = document.createElement('div');
     buttonGroup.className = 'button-group';
-    buttonGroup.appendChild(previewToggle);
+    // buttonGroup.appendChild(previewToggle);
     buttonGroup.appendChild(submitBtn);
     
     form.appendChild(buttonGroup);
@@ -320,33 +320,33 @@ class CreatePostView extends View {
     }
   }
   
-  /**
-   * Toggle preview visibility
-   */
-  togglePreview() {
-    this.previewMode = !this.previewMode;
+  // /**
+  //  * Toggle preview visibility
+  //  */
+  // togglePreview() {
+  //   this.previewMode = !this.previewMode;
     
-    const previewContainer = document.getElementById('post-preview');
-    const previewToggleBtn = document.getElementById('preview-toggle-btn');
+  //   const previewContainer = document.getElementById('post-preview');
+  //   const previewToggleBtn = document.getElementById('preview-toggle-btn');
     
-    if (this.previewMode) {
-      // Update preview content
-      this.updatePreview();
+  //   if (this.previewMode) {
+  //     // Update preview content
+  //     this.updatePreview();
       
-      // Show preview
-      previewContainer.style.display = 'block';
-      previewToggleBtn.textContent = 'Hide Preview';
-      previewToggleBtn.classList.add('active');
+  //     // Show preview
+  //     previewContainer.style.display = 'block';
+  //     previewToggleBtn.textContent = 'Hide Preview';
+  //     previewToggleBtn.classList.add('active');
       
-      // Scroll to preview
-      previewContainer.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      // Hide preview
-      previewContainer.style.display = 'none';
-      previewToggleBtn.textContent = 'Show Preview';
-      previewToggleBtn.classList.remove('active');
-    }
-  }
+  //     // Scroll to preview
+  //     previewContainer.scrollIntoView({ behavior: 'smooth' });
+  //   } else {
+  //     // Hide preview
+  //     previewContainer.style.display = 'none';
+  //     previewToggleBtn.textContent = 'Show Preview';
+  //     previewToggleBtn.classList.remove('active');
+  //   }
+  // }
   
   /**
    * Update preview content
