@@ -1,5 +1,5 @@
 import BasePlugin from '../BasePlugin.js';
-import { REGEX_PATTERNS } from './regex-config.js';
+import { REGEX_PATTERNS } from '../regex-config.js';
 
 /**
  * YouTube plugin for embedding videos in markdown content

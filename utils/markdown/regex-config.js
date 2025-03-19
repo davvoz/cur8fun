@@ -108,7 +108,60 @@ export const REGEX_PATTERNS = {
   HTML: {
     IMG_TAG: /<img\s+([^>]*?)src=(['"])(.*?)\2([^>]*?)>/gi,
     TABLE_CELL: /<td[^>]*>(.*?)<\/td>/gi
-  }
+  },
+  
+  // URL and Media Patterns migrated from plugins
+  URL: /(https?:\/\/[^\s]+)/g,
+  IPFS: /^https?:\/\/[^/]+\/(ip[fn]s)\/([^/?#]+)/gim,
+  
+  // Post and Community Patterns
+  POST: /^https?:\/\/(.*)\/(.*)\/(@[\w.\d-]+)\/(.*)/i,
+  CCC: /^https?:\/\/(.*)\/ccc\/([\w.\d-]+)\/(.*)/i,
+  MENTION: /^https?:\/\/(.*)\/(@[\w.\d-]+)$/i,
+  TOPIC: /^https?:\/\/(.*)\/(trending|hot|created|promoted|muted|payout)\/(.*)$/i,
+  
+  // Internal Patterns
+  INTERNAL_MENTION: /^\/@[\w.\d-]+$/i,
+  INTERNAL_TOPIC: /^\/(trending|hot|created|promoted|muted|payout)\/(.*)$/i,
+  INTERNAL_POST_TAG: /(.*)\/(@[\w.\d-]+)\/(.*)/i,
+  INTERNAL_POST: /^\/(@[\w.\d-]+)\/(.*)$/i,
+  
+  // Additional Video Platform Patterns
+  VIMEO: {
+    MAIN: /(https?:\/\/)?(www\.)?(?:vimeo)\.com.*(?:videos|video|channels|)\/([\d]+)/i,
+    EMBED: /https:\/\/player\.vimeo\.com\/video\/([0-9]+)/
+  },
+  
+  BITCHUTE: /^(?:https?:\/\/)?(?:www\.)?bitchute.com\/(?:video|embed)\/([a-z0-9]+)/i,
+  DTUBE: {
+    MAIN: /(https?:\/\/d.tube.#!\/v\/)(\w+)\/(\w+)/g,
+    SECONDARY: /(https?:\/\/d.tube\/v\/)(\w+)\/(\w+)/g,
+    EMBED: /^https:\/\/emb.d.tube\/.*/i
+  },
+  
+  // Streaming Platforms
+  TWITCH: {
+    MAIN: /https?:\/\/(?:www.)?twitch.tv\/(?:(videos)\/)?([a-zA-Z0-9][\w]{3,24})/i,
+    EMBED: /^(https?:)?\/\/player.twitch.tv\/.*/i
+  },
+  
+  // Music Platforms
+  SPOTIFY: {
+    MAIN: /^https:\/\/open\.spotify\.com\/playlist\/(.*)?$/gi,
+    EMBED: /^https:\/\/open\.spotify\.com\/(embed|embed-podcast)\/(playlist|show|episode|track|album)\/(.*)/i
+  },
+  
+  SOUNDCLOUD: /^https:\/\/w.soundcloud.com\/player\/.*/i,
+  
+  // Other Media Platforms
+  DAPPLR: /^(https?:)?\/\/[a-z]*\.dapplr.in\/file\/dapplr-videos\/.*/i,
+  TRUVVL: /^https?:\/\/embed.truvvl.com\/(@[\w.\d-]+)\/(.*)/i,
+  LBRY: /^(https?:)?\/\/lbry.tv\/\$\/embed\/.*/i,
+  ODYSEE: /^(https?:)?\/\/odysee.com\/\$\/embed\/.*/i,
+  
+  // Misc Patterns
+  ENTITY: /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig,
+  SECTION: /\B(\#[\da-zA-Z-_]+\b)(?!;)/i
 };
 
 // Large image specific patterns

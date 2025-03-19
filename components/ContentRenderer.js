@@ -24,9 +24,6 @@ class ContentRenderer {
       ...options
     };
     
-    // Define regex patterns from centralized config
-    this.regexPatterns = REGEX_PATTERNS;
-    
     // Define large image patterns from centralized config
     this.largeImagePatterns = LARGE_IMAGE_PATTERNS;
     
@@ -70,19 +67,15 @@ class ContentRenderer {
     
     const videos = [];
     const seenIds = new Set();
-    
     const patterns = [
-      this.regexPatterns.YOUTUBE.MAIN,
-      this.regexPatterns.YOUTUBE.SHORT,
-      this.regexPatterns.YOUTUBE.EMBED
+      REGEX_PATTERNS.YOUTUBE.MAIN,
+      REGEX_PATTERNS.YOUTUBE.SHORT,
+      REGEX_PATTERNS.YOUTUBE.EMBED
     ];
     
     patterns.forEach(pattern => {
-      let match;
-      // Reset pattern before use to avoid issues with global flag
-      const regex = new RegExp(pattern.source, pattern.flags);
-      
-      while ((match = regex.exec(content)) !== null) {
+      const matches = this.regexService.matchAll(content, pattern);
+      matches.forEach(match => {
         const videoId = match[1];
         if (videoId && !seenIds.has(videoId)) {
           seenIds.add(videoId);
@@ -93,7 +86,7 @@ class ContentRenderer {
             embedUrl: `https://www.youtube.com/embed/${videoId}`
           });
         }
-      }
+      });
     });
     
     return videos;

@@ -1,5 +1,6 @@
 import BasePlugin from '../BasePlugin.js';
 import { REGEX_PATTERNS, SHARED_CACHE, REGEX_UTILS } from '../regex-config.js';
+import regexService from '../../../services/RegexService.js'; // Aggiungi questa importazione
 
 /**
  * Plugin per gestire immagini nel contenuto markdown
@@ -10,9 +11,13 @@ export default class ImagePlugin extends BasePlugin {
     super();
     this.name = 'image';
     this.priority = 30;
+    this.regexService = regexService; // Aggiungi questa riga
     
-    // Tutti i pattern regex per le immagini
-    this.patterns = Object.values(REGEX_PATTERNS.IMAGE);
+    // Use centralized patterns
+    this.patterns = [
+      ...Object.values(REGEX_PATTERNS.IMAGE),
+      ...Object.values(REGEX_PATTERNS.IMAGE_IN_TABLE)
+    ];
     
     this.placeholderPrefix = 'IMAGE_PLACEHOLDER_';
     this.placeholderSuffix = '_IMG_END';
@@ -57,33 +62,50 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractClickableImages(content, images, seenUrls) {
-    const clickableImageRegex = /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g;
-    let match;
+    // Verifica che content sia definito e che regexService sia disponibile
+    if (!content || !this.regexService) {
+      console.warn('Content o regexService non disponibile in extractClickableImages');
+      return;
+    }
     
-    while ((match = clickableImageRegex.exec(content)) !== null) {
-      const altText = match[1] || '';
-      const imageUrl = match[2] || '';
-      const linkUrl = match[3] || '';
-      const originalText = match[0];
-      
-      // Verifica che l'URL dell'immagine sia valido
-      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
-      
-      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
-        seenUrls.add(normalizedImgUrl);
-        
-        const id = this.generateImageId(normalizedImgUrl);
-        images.push({
-          id,
-          url: normalizedImgUrl,
-          altText,
-          originalText,
-          isClickable: true,
-          linkUrl: REGEX_UTILS.sanitizeUrl(linkUrl),
-          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
-          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-        });
+    try {
+      const pattern = REGEX_PATTERNS.IMAGE.CLICKABLE_IMAGE;
+      if (!pattern) {
+        console.warn('Pattern CLICKABLE_IMAGE non trovato');
+        return;
       }
+      
+      // Ottieni i match usando il RegexService
+      const matches = this.regexService.matchAll(content, pattern);
+      
+      // Processa i match come array
+      matches.forEach(match => {
+        const altText = match[1] || '';
+        const imageUrl = match[2] || '';
+        const linkUrl = match[3] || '';
+        const originalText = match[0];
+        
+        // Verifica che l'URL dell'immagine sia valido
+        const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+        
+        if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+          seenUrls.add(normalizedImgUrl);
+          
+          const id = this.generateImageId(normalizedImgUrl);
+          images.push({
+            id,
+            url: normalizedImgUrl,
+            altText,
+            originalText,
+            isClickable: true,
+            linkUrl: REGEX_UTILS.sanitizeUrl(linkUrl),
+            isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+            placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Errore in extractClickableImages:', error);
     }
   }
   
@@ -92,54 +114,27 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractMarkdownImages(content, images, seenUrls) {
-    const standardImageRegex = /!\[([^\]]*)\]\(([^)]+)\)(?!\()/g;
-    let match;
-    
-    while ((match = standardImageRegex.exec(content)) !== null) {
-      const altText = match[1] || '';
-      const imageUrl = match[2] || '';
-      const originalText = match[0];
-      
-      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
-      
-      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
-        seenUrls.add(normalizedImgUrl);
-        
-        const id = this.generateImageId(normalizedImgUrl);
-        images.push({
-          id,
-          url: normalizedImgUrl,
-          altText,
-          originalText,
-          isClickable: false,
-          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
-          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-        });
-      }
+    // Verifica che content sia definito e che regexService sia disponibile
+    if (!content || !this.regexService) {
+      console.warn('Content o regexService non disponibile in extractMarkdownImages');
+      return;
     }
-  }
-  
-  /**
-   * Estrae immagini da tag HTML
-   * @private
-   */
-  extractHtmlImages(content, images, seenUrls) {
-    // Per ogni pattern HTML di immagini
-    [
-      REGEX_PATTERNS.IMAGE.HTML_IMG_DOUBLE_QUOTES,
-      REGEX_PATTERNS.IMAGE.HTML_IMG_SINGLE_QUOTES,
-      REGEX_PATTERNS.IMAGE.HTML_IMG_NO_QUOTES
-    ].forEach(pattern => {
-      let match;
-      const regex = new RegExp(pattern.source, pattern.flags);
+    
+    try {
+      const pattern = REGEX_PATTERNS.IMAGE.MARKDOWN_IMAGE;
+      if (!pattern) {
+        console.warn('Pattern MARKDOWN_IMAGE non trovato');
+        return;
+      }
       
-      while ((match = regex.exec(content)) !== null) {
-        const imageUrl = match[1] || '';
+      // Ottieni i match usando il RegexService
+      const matches = this.regexService.matchAll(content, pattern);
+      
+      // Processa i match come array
+      matches.forEach(match => {
+        const altText = match[1] || '';
+        const imageUrl = match[2] || '';
         const originalText = match[0];
-        
-        // Estrai attributo alt se presente
-        const altMatch = originalText.match(/alt=["']([^"']*)["']/i);
-        const altText = altMatch ? altMatch[1] : '';
         
         const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
         
@@ -157,8 +152,60 @@ export default class ImagePlugin extends BasePlugin {
             placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
           });
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Errore in extractMarkdownImages:', error);
+    }
+  }
+  
+  /**
+   * Estrae immagini da tag HTML
+   * @private
+   */
+  extractHtmlImages(content, images, seenUrls) {
+    if (!content || !this.regexService) {
+      console.warn('Content o regexService non disponibile in extractHtmlImages');
+      return;
+    }
+    
+    try {
+      // Per ogni pattern HTML di immagini
+      [
+        REGEX_PATTERNS.IMAGE.HTML_IMG_DOUBLE_QUOTES,
+        REGEX_PATTERNS.IMAGE.HTML_IMG_SINGLE_QUOTES,
+        REGEX_PATTERNS.IMAGE.HTML_IMG_NO_QUOTES
+      ].forEach(pattern => {
+        const matches = this.regexService.matchAll(content, pattern);
+        
+        matches.forEach(match => {
+          const imageUrl = match[1] || '';
+          const originalText = match[0];
+          
+          // Estrai attributo alt se presente
+          const altMatch = originalText.match(/alt=["']([^"']*)["']/i);
+          const altText = altMatch ? altMatch[1] : '';
+          
+          const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+          
+          if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+            seenUrls.add(normalizedImgUrl);
+            
+            const id = this.generateImageId(normalizedImgUrl);
+            images.push({
+              id,
+              url: normalizedImgUrl,
+              altText,
+              originalText,
+              isClickable: false,
+              isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+              placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Errore in extractHtmlImages:', error);
+    }
   }
   
   /**
@@ -166,29 +213,38 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractDirectImageUrls(content, images, seenUrls) {
-    const imageRegex = REGEX_PATTERNS.IMAGE.RAW_IMAGE_URL;
-    let match;
+    if (!content || !this.regexService) {
+      console.warn('Content o regexService non disponibile in extractDirectImageUrls');
+      return;
+    }
     
-    while ((match = imageRegex.exec(content)) !== null) {
-      const imageUrl = match[1] || '';
-      const originalText = match[0];
+    try {
+      const pattern = REGEX_PATTERNS.IMAGE.RAW_IMAGE_URL;
+      const matches = this.regexService.matchAll(content, pattern);
       
-      const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
-      
-      if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
-        seenUrls.add(normalizedImgUrl);
+      matches.forEach(match => {
+        const imageUrl = match[1] || '';
+        const originalText = match[0];
         
-        const id = this.generateImageId(normalizedImgUrl);
-        images.push({
-          id,
-          url: normalizedImgUrl,
-          altText: 'Image',  // Default alt text
-          originalText,
-          isClickable: false,
-          isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
-          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
-        });
-      }
+        const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
+        
+        if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
+          seenUrls.add(normalizedImgUrl);
+          
+          const id = this.generateImageId(normalizedImgUrl);
+          images.push({
+            id,
+            url: normalizedImgUrl,
+            altText: 'Image',  // Default alt text
+            originalText,
+            isClickable: false,
+            isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
+            placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Errore in extractDirectImageUrls:', error);
     }
   }
   
