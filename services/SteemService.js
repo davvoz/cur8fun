@@ -680,6 +680,46 @@ class SteemService {
         console.log('Sanitized permlink:', sanitized);
         return sanitized;
     }
+
+    /**
+     * Get the followers of a user
+     * @param {string} username - The username to fetch followers for
+     * @returns {Promise<Array>} - Array of followers
+     */
+    async getFollowers(username) {
+        await this.ensureLibraryLoaded();
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getFollowers(username, '', 'blog', 1000, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+        } catch (error) {
+            console.error(`Error fetching followers for ${username}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the users followed by a user
+     * @param {string} username - The username to fetch following for
+     * @returns {Promise<Array>} - Array of following
+     */
+    async getFollowing(username) {
+        await this.ensureLibraryLoaded();
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getFollowing(username, '', 'blog', 1000, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+        } catch (error) {
+            console.error(`Error fetching following for ${username}:`, error);
+            throw error;
+        }
+    }
 }
 
 // Initialize singleton instance

@@ -236,6 +236,36 @@ class ProfileService {
     }
     
     /**
+     * Get the follower count for a user
+     * @param {string} username - The username to fetch follower count for
+     * @returns {Promise<number>} - The follower count
+     */
+    async getFollowerCount(username) {
+        try {
+            const followers = await steemService.getFollowers(username);
+            return followers.length;
+        } catch (error) {
+            console.error(`Error fetching follower count for ${username}:`, error);
+            return 0;
+        }
+    }
+
+    /**
+     * Get the following count for a user
+     * @param {string} username - The username to fetch following count for
+     * @returns {Promise<number>} - The following count
+     */
+    async getFollowingCount(username) {
+        try {
+            const following = await steemService.getFollowing(username);
+            return following.length;
+        } catch (error) {
+            console.error(`Error fetching following count for ${username}:`, error);
+            return 0;
+        }
+    }
+    
+    /**
      * Get profile from cache
      * @param {string} username - Username to look up
      * @returns {Profile|null} Cached profile or null

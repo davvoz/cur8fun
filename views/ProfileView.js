@@ -73,6 +73,13 @@ class ProfileView extends View {
     if (!this.profile) {
       throw new Error(`Profile not found for @${this.username}`);
     }
+
+    // Fetch follower and following counts
+    const followerCount = await profileService.getFollowerCount(this.username);
+    const followingCount = await profileService.getFollowingCount(this.username);
+
+    this.profile.followerCount = followerCount;
+    this.profile.followingCount = followingCount;
   }
 
   async loadPosts() {
