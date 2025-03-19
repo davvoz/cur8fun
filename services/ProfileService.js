@@ -266,6 +266,38 @@ class ProfileService {
     }
     
     /**
+     * Update a user profile
+     * @param {string} username - Steem username
+     * @param {Object} updatedProfile - Updated profile data
+     * @returns {Promise<boolean>} Success of the update operation
+     */
+    async updateProfile(username, updatedProfile) {
+        if (!username || !updatedProfile) {
+            throw new Error('Username and updated profile data are required');
+        }
+
+        try {
+            // This would use Steem's broadcast operations via SteemConnect or similar
+            console.log(`Updating profile for ${username}`, updatedProfile);
+
+            // For now we'll just simulate success
+            eventEmitter.emit('notification', {
+                type: 'success',
+                message: `Profile updated for @${username}`
+            });
+
+            return true;
+        } catch (error) {
+            console.error(`Error updating profile for ${username}:`, error);
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: `Failed to update profile for @${username}`
+            });
+            throw error;
+        }
+    }
+    
+    /**
      * Get profile from cache
      * @param {string} username - Username to look up
      * @returns {Profile|null} Cached profile or null

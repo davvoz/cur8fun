@@ -13,6 +13,7 @@ import authService from './services/AuthService.js';
 import NavigationManager from './utils/NavigationManager.js';
 import { SearchService } from './services/SearchService.js';
 import RegisterView from './views/RegisterView.js';
+import EditProfileView from './views/EditProfileView.js'; // Importa EditProfileView
 
 // Setup routes with proper handlers
 router
@@ -29,6 +30,7 @@ router
   .addRoute('/tag/:tag', TagView) // Add the TagView route
   .addRoute('/@:username', ProfileView)
   .addRoute('/@:author/:permlink', PostView)
+  .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true }) // Aggiungi questa riga
   .setNotFound(NotFoundView);
 
 // Auth guard middleware

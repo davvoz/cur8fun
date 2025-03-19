@@ -445,8 +445,7 @@ class ProfileView extends View {
       editBtn.appendChild(document.createTextNode('Edit Profile'));
       
       editBtn.addEventListener('click', () => {
-        // Handle edit profile functionality
-        console.log('Edit profile button clicked');
+        router.navigate(`/edit-profile/${this.username}`);
       });
       
       actions.appendChild(editBtn);
