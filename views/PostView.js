@@ -267,13 +267,12 @@ class PostView extends View {
     this.postContent.appendChild(postHeader);
 
 
-    // Use ContentRenderer for post body - FIX: uncomment and properly render content
+    // Use ContentRenderer for post body
     const renderedContent = this.contentRenderer.render({
-      title: this.post.title,
       body: this.post.body
     });
 
-    // Append rendered content
+    // Append rendered content to postContent
     this.postContent.appendChild(renderedContent.container);
 
     // Create actions

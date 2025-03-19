@@ -4,6 +4,7 @@ import authService from '../services/AuthService.js';
 import createPostService from '../services/CreatePostService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
+import ContentRenderer from '../components/ContentRenderer.js';
 
 class CreatePostView extends View {
   constructor(params = {}) {
@@ -15,6 +16,17 @@ class CreatePostView extends View {
     this.tags = [];
     this.isSubmitting = false;
     this.markdownEditor = null;
+    
+    // Initialize ContentRenderer for post previews
+    this.contentRenderer = new ContentRenderer({
+      containerClass: 'preview-content',
+      imageClass: 'preview-image',
+      useProcessBody: true,
+      maxImageWidth: 600,
+      imagePosition: 'top'
+    });
+    
+    this.previewMode = false;
     
     // Set up event listeners for post creation events
     this.setupEventHandlers();
@@ -164,27 +176,74 @@ class CreatePostView extends View {
     submitBtn.className = 'btn primary-btn';
     submitBtn.id = 'submit-post-btn';
     submitBtn.textContent = 'Publish Post';
-    form.appendChild(submitBtn);
+    
+    // Add a preview toggle button
+    const previewToggle = document.createElement('button');
+    previewToggle.type = 'button';
+    previewToggle.className = 'btn secondary-btn preview-toggle-btn';
+    previewToggle.id = 'preview-toggle-btn';
+    previewToggle.textContent = 'Show Preview';
+    previewToggle.addEventListener('click', () => this.togglePreview());
+    
+    // Preview container
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'post-preview-container';
+    previewContainer.id = 'post-preview';
+    previewContainer.style.display = 'none';
+    
+    const previewHeader = document.createElement('h2');
+    previewHeader.textContent = 'Post Preview';
+    previewContainer.appendChild(previewHeader);
+    
+    const previewContent = document.createElement('div');
+    previewContent.className = 'post-preview-content';
+    previewContainer.appendChild(previewContent);
+    
+    // Add buttons side by side
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'button-group';
+    buttonGroup.appendChild(previewToggle);
+    buttonGroup.appendChild(submitBtn);
+    
+    form.appendChild(buttonGroup);
+    form.appendChild(previewContainer);
     
     // Append form to container
     postEditor.appendChild(header);
     postEditor.appendChild(form);
     
-    // Add the container to the page
+    // IMPORTANT: Add the element to the DOM first!
     this.element.appendChild(postEditor);
     
-    // Initialize the Markdown editor
+    // AFTER DOM insertion, we can safely get the container reference
+    const markdownContainer = document.getElementById('markdown-editor-container');
+    
+    // Initialize the Markdown editor with the actual DOM element
     this.markdownEditor = new MarkdownEditor(
-      document.getElementById('markdown-editor-container'),
+      markdownContainer,
       {
         placeholder: 'Write your post content here using Markdown...',
         onChange: (value) => {
           this.postBody = value;
+          // Update preview if it's currently shown
+          if (this.previewMode) {
+            this.updatePreview();
+          }
         },
-        height: '500px'
+        height: '500px',
+        // Pass the ContentRenderer to MarkdownEditor
+        rendererOptions: {
+          containerClass: 'preview-content',
+          imageClass: 'preview-image'
+        }
       }
     );
+    
+    // Now render the editor
     this.markdownEditor.render();
+    
+    // Set up additional input handlers for real-time preview updates
+    this.setupPreviewListeners();
   }
   
   async handleSubmit(e) {
@@ -232,6 +291,109 @@ class CreatePostView extends View {
         statusDiv.classList.add('hidden');
       }
     }, 5000);
+  }
+  
+  /**
+   * Set up event listeners for preview updates
+   */
+  setupPreviewListeners() {
+    // Update preview when title changes
+    const titleInput = document.getElementById('post-title');
+    if (titleInput) {
+      titleInput.addEventListener('input', (e) => {
+        this.postTitle = e.target.value;
+        if (this.previewMode) {
+          this.updatePreview();
+        }
+      });
+    }
+    
+    // Update preview when tags change
+    const tagsInput = document.getElementById('post-tags');
+    if (tagsInput) {
+      tagsInput.addEventListener('input', (e) => {
+        this.tags = e.target.value.split(' ').filter(tag => tag.trim() !== '');
+        if (this.previewMode) {
+          this.updatePreview();
+        }
+      });
+    }
+  }
+  
+  /**
+   * Toggle preview visibility
+   */
+  togglePreview() {
+    this.previewMode = !this.previewMode;
+    
+    const previewContainer = document.getElementById('post-preview');
+    const previewToggleBtn = document.getElementById('preview-toggle-btn');
+    
+    if (this.previewMode) {
+      // Update preview content
+      this.updatePreview();
+      
+      // Show preview
+      previewContainer.style.display = 'block';
+      previewToggleBtn.textContent = 'Hide Preview';
+      previewToggleBtn.classList.add('active');
+      
+      // Scroll to preview
+      previewContainer.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Hide preview
+      previewContainer.style.display = 'none';
+      previewToggleBtn.textContent = 'Show Preview';
+      previewToggleBtn.classList.remove('active');
+    }
+  }
+  
+  /**
+   * Update preview content
+   */
+  updatePreview() {
+    const previewContent = document.querySelector('.post-preview-content');
+    if (!previewContent) return;
+    
+    // Clear previous content
+    while (previewContent.firstChild) {
+      previewContent.removeChild(previewContent.firstChild);
+    }
+    
+    // Create preview data
+    const previewData = {
+      title: this.postTitle,
+      body: this.postBody
+    };
+    
+    try {
+      // Render post content using ContentRenderer
+      const rendered = this.contentRenderer.render(previewData);
+      
+      // Add tags preview if available
+      if (this.tags && this.tags.length > 0) {
+        const tagsContainer = document.createElement('div');
+        tagsContainer.className = 'preview-tags';
+        
+        this.tags.forEach(tag => {
+          const tagElement = document.createElement('span');
+          tagElement.className = 'preview-tag';
+          tagElement.textContent = tag;
+          tagsContainer.appendChild(tagElement);
+        });
+        
+        previewContent.appendChild(tagsContainer);
+      }
+      
+      // Add the rendered content
+      previewContent.appendChild(rendered.container);
+    } catch (error) {
+      console.error('Error rendering preview:', error);
+      previewContent.innerHTML = `
+        <div class="error-message">
+          Error generating preview: ${error.message}
+        </div>`;
+    }
   }
   
   unmount() {
