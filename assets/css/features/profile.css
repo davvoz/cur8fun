@@ -560,6 +560,63 @@
   background-color: var(--primary-dark);
 }
 
+/* Image preview styling */
+.image-input-group {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.image-input-group input {
+  flex: 1;
+}
+
+.preview-btn {
+  background-color: var(--background-lighter);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.preview-btn:hover {
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+}
+
+.image-preview {
+  margin-top: var(--space-xs);
+  min-height: 60px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background-color: var(--background-light);
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+.cover-preview {
+  height: 100px;
+  background-size: cover;
+  background-position: center;
+}
+
+.image-preview p {
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+  padding: var(--space-sm);
+}
+
 @media (max-width: 768px) {
   .edit-profile-container {
     padding: var(--space-md);

@@ -287,11 +287,28 @@ class ProfileView extends View {
     const header = document.createElement('div');
     header.className = 'profile-header';
     
-    // Add cover image with better styling
+    // Add cover image with better styling and error handling
     const coverDiv = document.createElement('div');
     coverDiv.className = 'profile-cover';
     if (this.profile.coverImage) {
-      coverDiv.style.backgroundImage = `url(${this.profile.coverImage})`;
+      console.log('Cover image URL:', this.profile.coverImage); // Debug log
+      
+      // Check if URL needs proxy for CORS issues
+      let coverImageUrl = this.profile.coverImage;
+      if (!coverImageUrl.startsWith('data:') && !coverImageUrl.includes('steemitimages.com/0x0/')) {
+        // Use Steemit proxy to avoid CORS issues and ensure image loading
+        coverImageUrl = `https://steemitimages.com/0x0/${coverImageUrl}`;
+      }
+      
+      coverDiv.style.backgroundImage = `url(${coverImageUrl})`;
+      
+      // Add error handling for cover image
+      const testImg = new Image();
+      testImg.onerror = () => {
+        console.error('Failed to load cover image, using fallback gradient');
+        coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
+      };
+      testImg.src = coverImageUrl;
     }
     
     // Add profile info section with modern layout

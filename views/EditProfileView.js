@@ -43,11 +43,19 @@ class EditProfileView extends View {
         <form id="edit-profile-form" class="edit-profile-form">
           <div class="form-group">
             <label for="profile-image">Profile Image</label>
-            <input type="text" id="profile-image" name="profileImage" value="${this.profile.profileImage || ''}" placeholder="Profile Image URL">
+            <div class="image-input-group">
+              <input type="text" id="profile-image" name="profileImage" value="${this.profile.profileImage || ''}" placeholder="Profile Image URL">
+              <button type="button" class="preview-btn" data-target="profile-image">Preview</button>
+            </div>
+            <div class="image-preview" id="profile-image-preview"></div>
           </div>
           <div class="form-group">
             <label for="cover-image">Cover Image</label>
-            <input type="text" id="cover-image" name="coverImage" value="${this.profile.coverImage || ''}" placeholder="Cover Image URL">
+            <div class="image-input-group">
+              <input type="text" id="cover-image" name="coverImage" value="${this.profile.coverImage || ''}" placeholder="Cover Image URL">
+              <button type="button" class="preview-btn" data-target="cover-image">Preview</button>
+            </div>
+            <div class="image-preview cover-preview" id="cover-image-preview"></div>
           </div>
           <div class="form-group">
             <label for="about">About</label>
@@ -66,11 +74,59 @@ class EditProfileView extends View {
       </div>
     `;
 
-    // Add event listener for form submission
+    // Add event listeners for form submission
     container.querySelector('#edit-profile-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleFormSubmit();
     });
+    
+    // Add event listeners for image previews
+    const previewButtons = container.querySelectorAll('.preview-btn');
+    previewButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const inputField = document.getElementById(targetId);
+        const previewContainer = document.getElementById(`${targetId}-preview`);
+        
+        if (inputField && previewContainer) {
+          let imageUrl = inputField.value.trim();
+          
+          if (imageUrl) {
+            // Check if we need to use a proxy to avoid CORS issues
+            if (!imageUrl.startsWith('data:') && !imageUrl.includes('steemitimages.com/0x0/')) {
+              imageUrl = `https://steemitimages.com/0x0/${imageUrl}`;
+            }
+            
+            if (targetId === 'profile-image') {
+              previewContainer.innerHTML = `<img src="${imageUrl}" alt="Profile image preview">`;
+            } else if (targetId === 'cover-image') {
+              previewContainer.style.backgroundImage = `url(${imageUrl})`;
+            }
+          } else {
+            previewContainer.innerHTML = '<p>Please enter a valid image URL</p>';
+          }
+        }
+      });
+    });
+    
+    // Show initial previews if images are already set
+    if (this.profile.profileImage) {
+      const profilePreview = document.getElementById('profile-image-preview');
+      let profileImageUrl = this.profile.profileImage;
+      if (!profileImageUrl.startsWith('data:') && !profileImageUrl.includes('steemitimages.com/0x0/')) {
+        profileImageUrl = `https://steemitimages.com/0x0/${profileImageUrl}`;
+      }
+      profilePreview.innerHTML = `<img src="${profileImageUrl}" alt="Profile image preview">`;
+    }
+    
+    if (this.profile.coverImage) {
+      const coverPreview = document.getElementById('cover-image-preview');
+      let coverImageUrl = this.profile.coverImage;
+      if (!coverImageUrl.startsWith('data:') && !coverImageUrl.includes('steemitimages.com/0x0/')) {
+        coverImageUrl = `https://steemitimages.com/0x0/${coverImageUrl}`;
+      }
+      coverPreview.style.backgroundImage = `url(${coverImageUrl})`;
+    }
   }
 
   async handleFormSubmit() {
