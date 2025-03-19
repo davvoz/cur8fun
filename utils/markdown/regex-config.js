@@ -86,6 +86,28 @@ export const REGEX_PATTERNS = {
     
     // Raw URLs in text
     PLAIN_URL: /(https?:\/\/[^\s<>"']+)/gi
+  },
+  
+  // Table patterns
+  TABLE: {
+    MINIMAL: /\|\s*\|\s*\n\|\s*[-]+\s*\|/g,
+    MINIMAL_MULTISPACE: /^\|\s{3,}\|$/,
+    UNPROCESSED: /\|[^\n]*\|\s*\n\|[\s\-:]+\|.*\n?(\|.*\|.*\n?)*/g,
+    EMPTY_CELL: /^[\s|\-:]+$/,
+  },
+  
+  // Image patterns
+  IMAGE_IN_TABLE: {
+    MARKDOWN: /!\[(?:.*?)\]\(([^)]+)\)/gi,
+    URL: /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi,
+    DQM: /(https?:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/DQm[^\s<>"']+)/gi,
+    PEAKD: /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+)/gi
+  },
+  
+  // HTML patterns
+  HTML: {
+    IMG_TAG: /<img\s+([^>]*?)src=(['"])(.*?)\2([^>]*?)>/gi,
+    TABLE_CELL: /<td[^>]*>(.*?)<\/td>/gi
   }
 };
 
@@ -94,5 +116,8 @@ export const LARGE_IMAGE_PATTERNS = [
   /https?:\/\/[^\s"'<>]*?\/[^\s"'<>]*?(?:(?:imgur\.com)|(?:steemitimages\.com)|(?:files\.peakd\.com))\/[^\s"'<>]+\.(jpe?g|png|gif)/gi,
   /https?:\/\/(?:i\.imgur\.com|imgur\.com)\/[a-zA-Z0-9]{5,8}\.(jpe?g|png|gif)/gi,
   /https?:\/\/steemitimages\.com\/[0-9]+x[0-9]+\/[^\s"'<>]*/gi,
-  /https?:\/\/steemitimages\.com\/DQm[^\s"'<>]*\.(jpe?g|png|gif)/gi
+  /https?:\/\/steemitimages\.com\/DQm[^\s"'<>]*\.(jpe?g|png|gif)/gi,
+  /!\[.*?\]\(.*?\)/gi,
+  /<img[^>]+>/gi,
+  /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|gif|png|webp)(?:\?\S*)?)/gi
 ];

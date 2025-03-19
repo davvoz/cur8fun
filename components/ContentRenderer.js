@@ -1,4 +1,5 @@
 import imageService from '../services/ImageService.js';
+import regexService from '../services/RegexService.js';
 import PluginSystem from '../utils/markdown/PluginSystem.js';
 import YouTubePlugin from '../utils/markdown/plugins/YouTubePlugin.js';
 import ImagePlugin from '../utils/markdown/plugins/ImagePlugin.js';
@@ -50,6 +51,9 @@ class ContentRenderer {
       youtube: this.pluginSystem.getPluginByName('youtube'),
       image: this.pluginSystem.getPluginByName('image')
     };
+
+    // Use regexService instead of direct patterns
+    this.regexService = regexService;
   }
   
   /**
@@ -122,7 +126,7 @@ class ContentRenderer {
    * Helper to escape special characters in regex patterns
    */
   escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return this.regexService.escapeRegExp(string);
   }
   
   /**
@@ -170,6 +174,11 @@ class ContentRenderer {
     const renderOptions = { ...this.options, ...options };
     this.extractedImages = [];
     this.extractedVideos = [];
+
+    // Add raw content logging
+    if (data.body) {
+      this.logRawContent(data.body);
+    }
     
     // Pre-process content with plugin system
     let processedMarkdown = data.body || '';
@@ -449,7 +458,11 @@ class ContentRenderer {
       );
     }
     
-    return content;
+    return this.regexService.replaceAll(
+      content,
+      REGEX_PATTERNS.TABLE.MINIMAL,
+      '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>'
+    );
   }
   
   /**
@@ -502,7 +515,7 @@ class ContentRenderer {
     
     // Handle the specific problematic pattern as a special case
     // This will catch any remaining instances that weren't handled by replaceMinimalTables
-    html = html.replace(/\|\s*\|\s*\n\|\s*-+\s*\|/g, (match) => {
+    html = html.replace(/\|\s*\|\s*\n\|\s*[-]+\s*\|/g, (match) => {
       console.log('Found minimal table pattern in HTML, creating direct table');
       return '<table class="markdown-table"><tbody><tr><td>&nbsp;</td></tr></tbody></table>';
     });
@@ -964,70 +977,62 @@ class ContentRenderer {
   fixImagesInTableCells(html) {
     if (!html) return '';
     
-    // Look for image URLs inside table cells
-    return html.replace(/<td[^>]*>(.*?)<\/td>/gi, (match, cellContent) => {
-      // First check for Markdown image syntax - this is what we were missing!
-      const markdownImgRegex = /!\[(?:.*?)\]\(([^)]+)\)/gi;
-      
-      // Check if the cell content looks like an image URL but isn't wrapped in an img tag
-      const imageUrlRegex = /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi;
-      
-      // Special check for steemitimages.com DQm format URLs
-      const dqmRegex = /(https?:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/DQm[^\s<>"']+)/gi;
-      
-      // Check for peakd.com URLs
-      const peakdRegex = /(https?:\/\/files\.peakd\.com\/file\/[^\s<>"']+)/gi;
-      
-      // Replace direct image URLs with proper img tags
+    return this.regexService.replaceAll(html, REGEX_PATTERNS.HTML.TABLE_CELL, (match, cellContent) => {
       let processedContent = cellContent;
+      const patterns = REGEX_PATTERNS.IMAGE_IN_TABLE;
       
-      // Handle Markdown image syntax first
-      processedContent = processedContent.replace(markdownImgRegex, (markdown, url) => {
-        // Check if the content already has an img tag with this URL
-        if (processedContent.includes(`<img`) && processedContent.includes(url)) {
-          return markdown;
-        }
-        return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+      // Process each image pattern
+      Object.entries(patterns).forEach(([type, pattern]) => {
+        processedContent = this.regexService.replaceAll(
+          processedContent,
+          pattern,
+          (url) => this.createImageTag(url, processedContent)
+        );
       });
       
-      // Handle DQm format URLs
-      processedContent = processedContent.replace(dqmRegex, (url) => {
-        if (!processedContent.includes(`<img`) || !processedContent.includes(url)) {
-          return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
-        }
-        return url;
-      });
-      
-      // Handle peakd.com URLs
-      processedContent = processedContent.replace(peakdRegex, (url) => {
-        if (!processedContent.includes(`<img`) || !processedContent.includes(url)) {
-          return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
-        }
-        return url;
-      });
-      
-      // Handle general image URLs 
-      processedContent = processedContent.replace(imageUrlRegex, (url) => {
-        // Skip if this URL is already in an img tag or has already been processed
-        if (
-          (processedContent.includes(`<img`) && 
-          processedContent.includes(url) && 
-          processedContent.includes('src=')) ||
-          url.includes('steemitimages.com/DQm') ||
-          url.includes('cdn.steemitimages.com/DQm') ||
-          url.includes('files.peakd.com')
-        ) {
-          return url;
-        }
-        return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
-      });
-      
-      if (processedContent !== cellContent) {
-        return `<td>${processedContent}</td>`;
-      }
-      
-      return match;
+      return processedContent !== cellContent ? `<td>${processedContent}</td>` : match;
     });
+  }
+
+  // Add helper method for creating image tags
+  createImageTag(url, existingContent) {
+    if (this.shouldSkipImageCreation(url, existingContent)) {
+      return url;
+    }
+    return `<img src="${url}" loading="lazy" class="table-cell-image" alt="Table cell image">`;
+  }
+
+  shouldSkipImageCreation(url, content) {
+    return (content.includes('<img') && content.includes(url) && content.includes('src=')) ||
+           url.includes('steemitimages.com/DQm') ||
+           url.includes('cdn.steemitimages.com/DQm') ||
+           url.includes('files.peakd.com');
+  }
+
+  /**
+   * Log raw content with better visibility and reliable copy methods
+   * @param {string} content - Raw content to log
+   */
+  logRawContent(content) {
+    // Use darker background and higher contrast colors
+    console.log('%c Raw Content:', 'background: #333; color: white; padding: 4px; border-radius: 3px;');
+    
+    // Log content without special styling to make it easy to select
+    console.log(content);
+    
+    // Store content in a global variable for easy access
+    window.lastRawContent = content;
+    
+    // Rendi disponibile il comando diretto per la copia
+    window.copyRawContent = function() {
+      if (window.lastRawContent) {
+        navigator.clipboard.writeText(window.lastRawContent)
+          .then(() => console.log('%c ✓ Contenuto copiato negli appunti!', 'color: green; font-weight: bold;'))
+          .catch(err => console.error('Errore durante la copia:', err));
+        return "Contenuto copiato!";
+      }
+      return "Nessun contenuto da copiare";
+    };
   }
 }
 
