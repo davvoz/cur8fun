@@ -4,7 +4,6 @@ import authService from '../services/AuthService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
-import imageService from '../services/ImageService.js'; // Replace ImageUtils with imageService
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import GridController from '../components/GridController.js';
 
