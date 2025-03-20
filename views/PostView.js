@@ -21,12 +21,24 @@ class PostView extends View {
     this.element = null; // Initialize element as null
     this.loadingIndicator = null; // Will hold the LoadingIndicator instance
 
-    // Initialize ContentRenderer with post-specific options
-    this.contentRenderer = new ContentRenderer({
-      containerClass: 'post-content-body',
-      imageClass: 'post-image',
-      imagePosition: 'top',
-      useProcessBody: false // Updated to false since process_body.js is deprecated
+    // Ensure SteemContentRenderer is loaded before initializing ContentRenderer
+    this.ensureSteemRendererLoaded().then(() => {
+      // Initialize ContentRenderer with post-specific options
+      this.contentRenderer = new ContentRenderer({
+        containerClass: 'post-content-body',
+        imageClass: 'post-image',
+        imagePosition: 'top',
+        useProcessBody: false, // Use SteemContentRenderer instead
+        useSteemContentRenderer: true,
+        maxImageWidth: 800,
+        enableYouTube: true
+      });
+    }).catch(err => {
+      console.error('Failed to load SteemContentRenderer:', err);
+      // Initialize with fallback options
+      this.contentRenderer = new ContentRenderer({
+        useSteemContentRenderer: false
+      });
     });
 
     // Dictionary of regex patterns for content processing
@@ -34,6 +46,21 @@ class PostView extends View {
       discordImages: /https:\/\/media\.discordapp\.net\/attachments\/[\w\/\-\.]+\.(jpg|jpeg|png|gif|webp)/gi,
       // Add more regex patterns as needed for other content types
     };
+  }
+
+  /**
+   * Ensure the SteemContentRenderer library is loaded
+   */
+  async ensureSteemRendererLoaded() {
+    if (typeof SteemContentRenderer === 'undefined') {
+      try {
+        await ContentRenderer.loadSteemContentRenderer();
+      } catch (error) {
+        console.error('Error loading SteemContentRenderer:', error);
+        throw error;
+      }
+    }
+    return SteemContentRenderer;
   }
 
   async render(element) {
@@ -266,8 +293,17 @@ class PostView extends View {
     // Add header first to ensure it's at the top
     this.postContent.appendChild(postHeader);
 
+    // Use ContentRenderer for post body with SteemContentRenderer integration
+    if (!this.contentRenderer) {
+      // If contentRenderer is not initialized yet, create it now
+      this.contentRenderer = new ContentRenderer({
+        containerClass: 'post-content-body',
+        imageClass: 'post-image',
+        useSteemContentRenderer: true
+      });
+    }
 
-    // Use ContentRenderer for post body - FIX: uncomment and properly render content
+    // Render the post content using Steem Content Renderer
     const renderedContent = this.contentRenderer.render({
       title: this.post.title,
       body: this.post.body
