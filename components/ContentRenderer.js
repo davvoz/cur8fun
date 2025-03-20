@@ -5,7 +5,6 @@
 import PluginSystem from '../utils/markdown/PluginSystem.js';
 import ImagePlugin from '../utils/markdown/plugins/ImagePlugin.js';
 import YouTubePlugin from '../utils/markdown/plugins/YouTubePlugin.js';
-import imageService from '../services/ImageService.js';
 
 class ContentRenderer {
   constructor(options = {}) {
@@ -122,20 +121,8 @@ class ContentRenderer {
       // Log raw content before processing
       this.logRawData('Raw Content Before Processing', content);
       
-      // Check if we need to remove the first heading
-      let processedContent = content;
-      
-      if (!this.options.parseFirstHeadingAsTitle) {
-        // Avoid treating first # heading as a title if option is disabled
-        const firstHeadingMatch = processedContent.match(/^#\s+(.*?)(?:\n|$)/);
-        if (firstHeadingMatch) {
-          // Skip the first heading when parsing
-          processedContent = processedContent.replace(/^#\s+(.*?)(?:\n|$)/, '');
-        }
-      }
-      
       // First pass: Pre-process with plugins to extract and create placeholders
-      const preprocessed = this.pluginSystem.preProcess(processedContent, this.options);
+      const preprocessed = this.pluginSystem.preProcess(content, this.options);
       
       // Second pass: Convert markdown to HTML
       let html = this.parser.parse(preprocessed);
@@ -151,109 +138,12 @@ class ContentRenderer {
   }
   
   /**
-   * Get feature image from content if available
-   * @param {string} content - Content to extract image from
-   * @returns {Object|null} Image information or null
-   */
-  getFeatureImage(content) {
-    if (!content || !this.options.extractImages) return null;
-    
-    try {
-      // Estrai immagine usando ImagePlugin direttamente per accedere ai dettagli completi
-      const images = this.imagePlugin.extract(content);
-      
-      if (!images || images.length === 0) return null;
-      
-      // Prendi la prima immagine
-      const firstImage = images[0];
-      
-      // Salva originalMarkdown per poterlo rimuovere più tardi
-      return {
-        url: firstImage.url,
-        originalMarkdown: firstImage.originalText,
-        optimized: this.options.optimizeUrls ? 
-          imageService.optimizeImageUrl(firstImage.url, { width: this.options.maxImageWidth }) : 
-          firstImage.url,
-        linkUrl: firstImage.linkUrl, // Salva anche l'URL del link se è un'immagine cliccabile
-        isInHtmlTag: firstImage.isInHtmlTag, // Mantieni l'informazione se è in un tag HTML
-        htmlTag: firstImage.htmlTag // Salva il tipo di tag HTML
-      };
-    } catch (error) {
-      console.error('Error extracting feature image:', error);
-      return null;
-    }
-  }
-  
-  /**
-   * Create HTML element for a feature image
-   * @param {Object} imageData - Image data
-   * @returns {HTMLElement} Feature image element
-   */
-  createFeatureImageElement(imageData) {
-    const container = document.createElement('div');
-    container.className = 'feature-image-container';
-    
-    // Se l'immagine era originariamente in un tag HTML come <center>
-    // Mantenere quel tag intorno all'immagine
-    const isInHtmlTag = imageData.originalMarkdown && (
-      imageData.originalMarkdown.includes('<center>') ||
-      imageData.originalMarkdown.includes('<div')
-    );
-    
-    // Creare l'elemento img
-    const img = document.createElement('img');
-    img.className = this.options.imageClass || 'feature-image';
-    img.classList.add('markdown-img'); // Aggiungi la classe markdown-img per avere stili coerenti
-    img.src = imageData.optimized || imageData.url;
-    img.alt = 'Featured image';
-    img.loading = 'lazy';
-    
-    // Aggiungi attributi per responsive
-    img.style.maxWidth = '100%';
-    img.setAttribute('width', '100%');
-    
-    // Se è un'immagine cliccabile, renderla un link
-    if (imageData.linkUrl) {
-      const linkElement = document.createElement('a');
-      linkElement.href = imageData.linkUrl;
-      linkElement.target = '_blank';
-      linkElement.rel = 'noopener noreferrer';
-      linkElement.className = 'img-link-container';
-      
-      linkElement.appendChild(img);
-      
-      // Aggiungi indicatore di link
-      const indicator = document.createElement('div');
-      indicator.className = 'img-link-indicator';
-      indicator.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V14M14 4H20M20 4V10M20 4L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-      
-      linkElement.appendChild(indicator);
-      
-      container.appendChild(linkElement);
-    } else {
-      container.appendChild(img);
-    }
-    
-    // Se era in un tag center, mantienilo
-    if (isInHtmlTag && imageData.originalMarkdown.includes('<center>')) {
-      const wrapperDiv = document.createElement('div');
-      wrapperDiv.style.textAlign = 'center';
-      wrapperDiv.appendChild(container);
-      return wrapperDiv;
-    }
-    
-    return container;
-  }
-  
-  /**
    * Main render method - processes content and returns rendered HTML elements
    * @param {Object} data - Content data to render
    * @param {string} data.title - Post title
    * @param {string} data.body - Post body content (markdown)
    * @param {Object} options - Override default options
-   * @returns {Object} Rendered elements (container, title, content, images)
+   * @returns {Object} Rendered elements (container, title, content)
    */
   render(data, options = {}) {
     // Log raw render data
@@ -275,23 +165,8 @@ class ContentRenderer {
     const container = document.createElement('div');
     container.className = renderOptions.containerClass;
     
-    let featureImage = null;
-    let originalImageMarkdown = null;
-    let modifiedBody = body; // Crea una copia modificabile del body
-    
-    if (renderOptions.extractImages) {
-      // Estrai la feature image prima dell'elaborazione del contenuto
-      featureImage = this.getFeatureImage(body);
-      
-      // Se abbiamo trovato un'immagine in evidenza, rimuovila dal contenuto
-      if (featureImage && featureImage.originalMarkdown) {
-        // Rimuovi la prima occorrenza dell'immagine dal body
-        modifiedBody = body.replace(featureImage.originalMarkdown, '');
-      }
-    }
-    
-    // Process the modified content (senza l'immagine in evidenza)
-    const processedContent = this.processContent(modifiedBody);
+    // Process the content
+    const processedContent = this.processContent(body);
     
     // Create content element with processed HTML
     const contentElement = document.createElement('div');
@@ -306,16 +181,6 @@ class ContentRenderer {
       titleElement.textContent = title;
     }
     
-    let featureImageElement = null;
-    if (featureImage && renderOptions.renderImages) {
-      featureImageElement = this.createFeatureImageElement(featureImage);
-      
-      // Add feature image based on position preference
-      if (renderOptions.imagePosition === 'top' && featureImageElement) {
-        container.appendChild(featureImageElement);
-      }
-    }
-    
     // Add title if available
     if (titleElement) {
       container.appendChild(titleElement);
@@ -324,18 +189,11 @@ class ContentRenderer {
     // Add content
     container.appendChild(contentElement);
     
-    // Add feature image at bottom if position is not top
-    if (featureImage && renderOptions.renderImages && 
-        renderOptions.imagePosition !== 'top' && featureImageElement) {
-      container.appendChild(featureImageElement);
-    }
-    
     // Return the rendered elements
     return {
       container,
       titleElement,
-      contentElement,
-      featureImageElement
+      contentElement
     };
   }
 }
