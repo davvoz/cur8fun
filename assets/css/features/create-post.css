@@ -47,7 +47,6 @@
 
 .form-group input,
 .form-group textarea {
-  width: 100%;
   padding: var(--space-sm);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
