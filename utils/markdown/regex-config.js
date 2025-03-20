@@ -143,6 +143,10 @@ export const REGEX_PATTERNS = {
   LBRY: /^(https?:)?\/\/lbry.tv\/\$\/embed\/.*/i,
   ODYSEE: /^(https?:)?\/\/odysee.com\/\$\/embed\/.*/i,
   
+  DISCORD: {
+    IMAGE_URL: /https?:\/\/(?:media|cdn)\.discordapp\.net\/attachments\/[^\s<>"']+/gi,
+  },
+  
   // Misc Patterns
   ENTITY: /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig,
   SECTION: /\B(\#[\da-zA-Z-_]+\b)(?!;)/i,

@@ -52,6 +52,8 @@ export default class ImagePlugin extends BasePlugin {
     
     // 4. Estrai URL diretti di immagini (inclusi Discord)
     this.extractDirectImageUrls(contentAfterHtmlExtraction, images, seenUrls);
+
+    return images;
   }
   
   /**
