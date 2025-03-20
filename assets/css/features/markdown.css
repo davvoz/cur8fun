@@ -14,8 +14,9 @@
     border-radius: var(--radius-md);
     display: block;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    object-fit: contain; /* Ensures the image maintains its aspect ratio */
+    max-height: 80vh; /* Prevents images from being too tall */
 }
-
 
 .content-body h1,
 .content-body h2,
@@ -289,6 +290,61 @@
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
+/* Add styles for SteemContentRenderer images */
+.post-content-body img {
+    max-width: 100%;
+    height: auto;
+    margin: var(--space-lg) auto;
+    border-radius: var(--radius-md);
+    display: block;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    object-fit: contain;
+    max-height: 80vh;
+}
+
+/* Enhancement for image containers from SteemContentRenderer */
+.post-image-container {
+    max-width: 100%;
+    margin: var(--space-lg) auto;
+    text-align: center;
+}
+
+/* Styling for images in preview mode */
+.content-preview img, 
+.post-preview-content img {
+    max-width: 100%;
+    height: auto;
+    margin: var(--space-md) auto;
+    border-radius: var(--radius-md);
+    display: block;
+    object-fit: contain;
+    max-height: 70vh;
+}
+
+/* Specific styles for SteemContentRenderer */
+div[data-embed-src] {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: var(--space-md) auto;
+    overflow: hidden;
+}
+
+div[data-embed-src] iframe {
+    max-width: 100%;
+}
+
+/* Style adjustments for comment images */
+.comment-content img {
+    max-width: 100%;
+    height: auto;
+    margin: var(--space-sm) auto;
+    border-radius: var(--radius-sm);
+    display: block;
+    object-fit: contain;
+    max-height: 50vh;
+}
+
 /*mobile*/
 @media (max-width: 768px) {
     .author-avatar {
@@ -298,8 +354,11 @@
     .markdown-img-link {
         width: 100%;
     }
-    .content-body img {
-        margin: var(--space-md) auto;
+    .content-body img,
+    .post-content-body img,
+    .comment-content img {
+        margin: var(--space-sm) auto;
+        max-height: 60vh; /* Reduced max height on mobile */
     }
     .content-body blockquote {
         padding: var(--space-sm) var(--space-md);
