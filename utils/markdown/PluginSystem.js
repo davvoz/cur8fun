@@ -1,3 +1,5 @@
+import DiscordMediaPlugin from './plugins/DiscordMediaPlugin.js';
+
 /**
  * Central plugin system for markdown content processing
  */
@@ -97,5 +99,13 @@ export default class PluginSystem {
     });
     
     return processedContent;
+  }
+
+  registerPlugins() {
+    // Registra prima il plugin Discord con alta priorità
+    this.registerPlugin(new DiscordMediaPlugin());
+    
+    // Poi registra gli altri plugin
+    // ...codice esistente per registrare altri plugin...
   }
 }

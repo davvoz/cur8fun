@@ -24,7 +24,8 @@ export default class ImagePlugin extends BasePlugin {
       optimizeUrls: true,
       responsiveImages: true,
       maxWidth: '100%',
-      addLinkIndicator: true
+      addLinkIndicator: true,
+      preserveDiscordParams: true // Aggiungiamo questa opzione per Discord
     };
   }
   
@@ -40,17 +41,19 @@ export default class ImagePlugin extends BasePlugin {
     // 0. Prima elabora l'HTML che contiene markdown
     const contentAfterHtmlExtraction = this.extractHtmlWithMarkdown(content, images, seenUrls);
     
-    // Continua con le altre estrazioni ma usa il contenuto già elaborato
-    // 1. Poi estrai le immagini cliccabili (alta priorità)
+    // 1. Estrai prima le immagini Discord (alta priorità)
+    this.extractDiscordImages(contentAfterHtmlExtraction, images, seenUrls);
+    
+    // 2. Poi estrai le immagini cliccabili
     this.extractClickableImages(contentAfterHtmlExtraction, images, seenUrls);
     
-    // 2. Poi estrai le immagini standard markdown
+    // 3. Poi estrai le immagini standard markdown
     this.extractMarkdownImages(contentAfterHtmlExtraction, images, seenUrls);
     
-    // 3. Estrai immagini HTML
+    // 4. Estrai immagini HTML
     this.extractHtmlImages(contentAfterHtmlExtraction, images, seenUrls);
     
-    // 4. Estrai URL diretti di immagini (inclusi Discord)
+    // 5. Estrai URL diretti di immagini
     this.extractDirectImageUrls(contentAfterHtmlExtraction, images, seenUrls);
 
     return images;
@@ -61,7 +64,8 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractClickableImages(content, images, seenUrls) {
-    const clickableImageRegex = /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g;
+    // Usa pattern centralizzato invece di ridefinirlo
+    const clickableImageRegex = REGEX_PATTERNS.IMAGE.CLICKABLE_IMAGE;
     let match;
     
     while ((match = clickableImageRegex.exec(content)) !== null) {
@@ -96,7 +100,8 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractMarkdownImages(content, images, seenUrls) {
-    const standardImageRegex = /!\[([^\]]*)\]\(([^)]+)\)(?!\()/g;
+    // Usa pattern centralizzato
+    const standardImageRegex = REGEX_PATTERNS.IMAGE.MARKDOWN_IMAGE;
     let match;
     
     while ((match = standardImageRegex.exec(content)) !== null) {
@@ -170,6 +175,7 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractDirectImageUrls(content, images, seenUrls) {
+    // Usa i pattern centralizzati invece di ridefinirli
     const imageRegex = REGEX_PATTERNS.IMAGE.RAW_IMAGE_URL;
     let match;
     
@@ -191,6 +197,67 @@ export default class ImagePlugin extends BasePlugin {
           isClickable: false,
           isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
           placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+        });
+      }
+    }
+  }
+  
+  /**
+   * Estrae le URL delle immagini Discord
+   * @private
+   */
+  extractDiscordImages(content, images, seenUrls) {
+    // Cerca per righe intere che contengono solo URL Discord
+    const lines = content.split('\n');
+    
+    // Controlla prima le righe standalone (più alta priorità)
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (this.isDiscordImage(trimmedLine)) {
+        // IMPORTANTE: NON rimuovere i parametri dell'URL
+        const fullUrl = trimmedLine;
+        
+        if (!seenUrls.has(fullUrl)) {
+          seenUrls.add(fullUrl);
+          
+          const id = this.generateImageId(fullUrl);
+          images.push({
+            id,
+            url: fullUrl, // Mantieni l'URL completo con tutti i parametri
+            altText: 'Discord Image',
+            originalText: trimmedLine,
+            isDiscordImage: true,
+            isStandalone: true,
+            isClickable: false,
+            isInvalidImage: false,
+            placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`,
+            // Estrai info aggiuntive se presenti nei parametri URL
+            discordMeta: this.extractDiscordMetadata(fullUrl)
+          });
+        }
+      }
+    });
+    
+    // Cerca nel resto del contenuto (URL incorporati)
+    const discordRegex = REGEX_PATTERNS.DISCORD.IMAGE_URL;
+    let match;
+    while ((match = discordRegex.exec(content)) !== null) {
+      const fullUrl = match[0];
+      
+      if (!seenUrls.has(fullUrl)) {
+        seenUrls.add(fullUrl);
+        
+        const id = this.generateImageId(fullUrl);
+        images.push({
+          id,
+          url: fullUrl, // Mantieni l'URL completo
+          altText: 'Discord Image',
+          originalText: fullUrl,
+          isDiscordImage: true,
+          isClickable: false,
+          isInvalidImage: false,
+          placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`,
+          discordMeta: this.extractDiscordMetadata(fullUrl)
         });
       }
     }
@@ -224,7 +291,10 @@ export default class ImagePlugin extends BasePlugin {
       // Check for IPFS content
       const isIPFS = /ipfs\.[^\/]+\/ipfs\/\w+/.test(url);
       
-      return hasImageExtension || isImageHost || isSteemitCDN || isIPFS;
+      // Aggiungi controllo per Discord
+      const isDiscord = /(media\.discordapp\.net|cdn\.discordapp\.com)\/attachments\//.test(url);
+      
+      return hasImageExtension || isImageHost || isSteemitCDN || isIPFS || isDiscord;
     } catch (e) {
       console.error('Error validating image URL:', e);
       return false;
@@ -242,7 +312,12 @@ export default class ImagePlugin extends BasePlugin {
     // Rimuovi eventuali virgolette
     url = url.trim().replace(/^["']|["']$/g, '');
     
-    // Pulisci l'URL
+    // Per immagini Discord, preserva l'URL originale con i parametri
+    if (this.isDiscordImage(url)) {
+      return url; // Non modificare l'URL Discord
+    }
+    
+    // Pulisci l'URL per altre immagini
     return REGEX_UTILS.sanitizeUrl(url);
   }
   
@@ -276,19 +351,18 @@ export default class ImagePlugin extends BasePlugin {
         return SHARED_CACHE.optimizedUrls.get(cacheKey);
       }
       
-      // Clean URL
+      // Discord URLs - SEMPRE conserva l'URL originale con tutti i parametri
+      if (this.isDiscordImage(url)) {
+        // Salva in cache e restituisci senza modifiche
+        SHARED_CACHE.optimizedUrls.set(cacheKey, url);
+        return url;
+      }
+      
+      // Clean URL for non-Discord images
       url = REGEX_UTILS.sanitizeUrl(url);
       
       // Special handling for specific domains
       let optimizedUrl;
-      
-      // Discord URLs
-      if (url.includes('media.discordapp.net') || url.includes('cdn.discordapp.com')) {
-        // Rimuovi parametri esistenti per utilizzare l'immagine originale
-        optimizedUrl = url.split('?')[0];
-        SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
-        return optimizedUrl;
-      }
       
       // peakd.com URLs - return as is
       if (url.includes('files.peakd.com')) {
@@ -311,7 +385,7 @@ export default class ImagePlugin extends BasePlugin {
         }
       }
       
-      // IMPORTANTE: Usa sempre height=0 per preservare aspect ratio
+      // Usa steemitimages.com per altre immagini
       optimizedUrl = `https://steemitimages.com/${targetWidth}x0/${url}`;
       SHARED_CACHE.optimizedUrls.set(cacheKey, optimizedUrl);
       return optimizedUrl;
@@ -349,12 +423,14 @@ export default class ImagePlugin extends BasePlugin {
       </div>`;
     }
     
-    // Ottimizza l'URL dell'immagine se richiesto
+    // Gestione speciale per immagini Discord
+    if (image.isDiscordImage) {
+      return this.generateDiscordImageHtml(image, options);
+    }
+    
+    // Ottimizza l'URL dell'immagine se richiesto (per immagini non-Discord)
     const imageUrl = options.optimizeUrls ? 
       this.optimizeImageUrl(image.url) : image.url;
-    
-    // Crea srcset per immagini responsive
-    const srcset = options.responsiveImages ? this.createSrcSet(imageUrl) : '';
     
     // Costruisci le classi CSS
     let cssClasses = 'markdown-img';
@@ -363,28 +439,26 @@ export default class ImagePlugin extends BasePlugin {
     // Aggiungi attributi per lazy loading
     const lazyAttr = options.lazyLoad ? 'loading="lazy"' : '';
     
+    // Attributi width e height per prevenire layout shift
+    const aspectAttr = `style="max-width:${options.maxWidth}; aspect-ratio: auto;"`;
+    
+    // Crea srcset per immagini responsive (non Discord)
+    const srcset = (options.responsiveImages && !image.isDiscordImage) ? this.createSrcSet(imageUrl) : '';
+    
     // Crea attributo srcset se disponibile
     const srcsetAttr = srcset ? `srcset="${srcset}"` : '';
     
     // Attributo sizes per responsive images
     const sizesAttr = srcset ? `sizes="(max-width: 768px) 100vw, 800px"` : '';
     
-    // Attributi width e height per prevenire layout shift
-    const aspectAttr = `style="max-width:${options.maxWidth}; aspect-ratio: auto;"`;
-    
-    // Gestisci errori di caricamento
-    // const onErrorFunc = `onerror="this.onerror=null; this.src='${this.getDataUrlPlaceholder('Error')}'; ${SHARED_CACHE.failedImageUrls.add(image.url)}"`;
-    
     // Genera il tag img con aspect ratio preservato
-    const tagImg = `<img src="${imageUrl}" 
+    return `<img src="${imageUrl}" 
       alt="${this.escapeHtml(image.altText)}" 
       class="${cssClasses}" 
       ${lazyAttr} 
       ${srcsetAttr}
       ${sizesAttr}
       ${aspectAttr}>`;
-    console.log(tagImg);
-    return tagImg;
   }
   
   /**
@@ -461,6 +535,43 @@ export default class ImagePlugin extends BasePlugin {
   }
   
   /**
+   * Genera HTML per un'immagine Discord specifica
+   * @param {Object} image - Informazioni sull'immagine Discord
+   * @param {Object} options - Opzioni di rendering
+   * @returns {string} - Tag HTML per l'immagine Discord
+   */
+  generateDiscordImageHtml(image, options) {
+    // Costruisci le classi CSS specifiche per Discord
+    let cssClasses = 'markdown-img discord-media';
+    if (options.addZoomClass) cssClasses += ' medium-zoom-image';
+    
+    // Lazy loading
+    const lazyAttr = options.lazyLoad ? 'loading="lazy"' : '';
+    
+    // Aggiungi attributi per metadati Discord
+    let discordAttrs = 'data-discord-media="true"';
+    
+    if (image.discordMeta) {
+      const { width, height, format } = image.discordMeta;
+      if (width && height) {
+        discordAttrs += ` data-original-width="${width}" data-original-height="${height}"`;
+      }
+      if (format) {
+        discordAttrs += ` data-format="${format}"`;
+      }
+    }
+    
+    // Genera il tag img specifico per Discord
+    return `<img 
+      src="${image.url}" 
+      alt="${this.escapeHtml(image.altText)}" 
+      class="${cssClasses}" 
+      ${lazyAttr}
+      style="max-width:${options.maxWidth}; aspect-ratio: auto;"
+      ${discordAttrs}>`;
+  }
+  
+  /**
    * Crea valori srcset per immagini responsive
    * @param {string} url - URL dell'immagine
    * @returns {string} - Valori srcset
@@ -531,13 +642,36 @@ export default class ImagePlugin extends BasePlugin {
     
     let processedContent = content;
     
-    images.forEach(image => {
+    // Prima trova i contenitori HTML e le loro immagini
+    const htmlContainers = images.filter(img => img.isHtmlContainer);
+    const regularImages = images.filter(img => !img.isHtmlContainer && !img.parentTagId);
+    
+    // Elabora prima i contenitori HTML
+    htmlContainers.forEach(container => {
+      let innerContent = container.innerContent;
+      
+      // Trova tutte le immagini che appartengono a questo contenitore
+      const childImages = images.filter(img => img.parentTagId === container.id);
+      
+      // Sostituisci ogni immagine nel contenuto interno
+      childImages.forEach(image => {
+        const imgHtml = this.generateClickableImageHtml(image, renderOptions);
+        innerContent = innerContent.replace(image.originalText, imgHtml);
+      });
+      
+      // Ricostruisci il tag HTML completo con il contenuto elaborato
+      const restoredHtml = `<${container.htmlTag}${container.htmlAttrs}>${innerContent}</${container.htmlTag}>`;
+      
+      // Sostituisci il placeholder con l'HTML completo
+      const placeholderRegex = new RegExp(REGEX_UTILS.escapeRegExp(container.placeholder), 'g');
+      processedContent = processedContent.replace(placeholderRegex, restoredHtml);
+    });
+    
+    // Poi elabora le immagini normali
+    regularImages.forEach(image => {
       let imgHtml;
       
-      // Gestisci le immagini in tag HTML
-      if (image.isInHtmlTag) {
-        imgHtml = this.generateHtmlWrappedImageHtml(image, renderOptions);
-      } else if (image.isClickable) {
+      if (image.isClickable) {
         imgHtml = this.generateClickableImageHtml(image, renderOptions);
       } else {
         imgHtml = this.generateImageHtml(image, renderOptions);
@@ -585,12 +719,11 @@ export default class ImagePlugin extends BasePlugin {
    * @private
    */
   extractHtmlWithMarkdown(content, images, seenUrls) {
-    // Cerca tag HTML comuni che possono contenere markdown
+    // Usa pattern centralizzato per tag HTML
     const htmlTagRegex = /<(center|div|span|p)([^>]*)>([\s\S]*?)<\/\1>/gi;
     let processedContent = content;
-    let match;
     
-    while ((match = htmlTagRegex.exec(content)) !== null) {
+    for (const match of content.matchAll(htmlTagRegex)) {
       const tagName = match[1];
       const tagAttrs = match[2];
       const innerContent = match[3];
@@ -598,44 +731,53 @@ export default class ImagePlugin extends BasePlugin {
       
       // Verifica se il contenuto interno contiene un'immagine cliccabile
       if (innerContent.includes('[![') && innerContent.includes(')](')) {
-        const clickableImageRegex = /\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g;
-        let imgMatch;
+        // Crea un ID unico per questo intero tag HTML
+        const tagId = `HTML_TAG_${Math.random().toString(36).substring(2, 10)}`;
+        const tagPlaceholder = `${this.placeholderPrefix}${tagId}${this.placeholderSuffix}`;
         
-        if ((imgMatch = clickableImageRegex.exec(innerContent)) !== null) {
+        // Salva le informazioni sul tag HTML
+        images.push({
+          id: tagId,
+          originalText: fullMatch,
+          isHtmlContainer: true,
+          htmlTag: tagName,
+          htmlAttrs: tagAttrs,
+          innerContent,
+          placeholder: tagPlaceholder,
+        });
+        
+        // Sostituisci il tag con un placeholder
+        const escapedMatch = REGEX_UTILS.escapeRegExp(fullMatch);
+        const fullTagRegex = new RegExp(escapedMatch, 'g');
+        processedContent = processedContent.replace(fullTagRegex, tagPlaceholder);
+        
+        // Ora elabora le immagini all'interno del tag, ma senza modificare il contenuto originale
+        const clickableImageRegex = REGEX_PATTERNS.IMAGE.CLICKABLE_IMAGE;
+        for (const imgMatch of innerContent.matchAll(clickableImageRegex)) {
           const altText = imgMatch[1] || '';
           const imageUrl = imgMatch[2] || '';
           const linkUrl = imgMatch[3] || '';
           const originalImgText = imgMatch[0];
           
-          // Verifica che l'URL dell'immagine sia valido
           const normalizedImgUrl = this.normalizeImageUrl(imageUrl);
           
           if (normalizedImgUrl && !seenUrls.has(normalizedImgUrl)) {
             seenUrls.add(normalizedImgUrl);
             
-            const id = this.generateImageId(normalizedImgUrl);
-            
-            // Costruisci un oggetto immagine che include l'HTML circostante
+            const imgId = this.generateImageId(normalizedImgUrl);
+            // È importante non aggiungere placeholder per queste immagini
+            // perché le tratteremo come parte del contenitore HTML
             images.push({
-              id,
+              id: imgId,
               url: normalizedImgUrl,
               altText,
-              originalText: fullMatch, // Usa l'intero match HTML
-              innerMarkdown: originalImgText,
+              originalText: originalImgText,
+              parentTagId: tagId, // Collega l'immagine al tag genitore
               isClickable: true,
               isInHtmlTag: true,
-              htmlTag: tagName,
-              htmlAttrs: tagAttrs,
               linkUrl: REGEX_UTILS.sanitizeUrl(linkUrl),
-              isInvalidImage: !this.isValidImageUrl(normalizedImgUrl),
-              placeholder: `${this.placeholderPrefix}${id}${this.placeholderSuffix}`
+              isInvalidImage: !this.isValidImageUrl(normalizedImgUrl)
             });
-            
-            // Non elaborare più questa immagine come immagine markdown normale
-            // Sostituisci tutto il tag HTML con un placeholder
-            const escapedMatch = REGEX_UTILS.escapeRegExp(fullMatch);
-            const fullTagRegex = new RegExp(escapedMatch, 'g');
-            processedContent = processedContent.replace(fullTagRegex, `${this.placeholderPrefix}${id}${this.placeholderSuffix}`);
           }
         }
       }
@@ -660,5 +802,51 @@ export default class ImagePlugin extends BasePlugin {
     
     // Avvolgi l'immagine nel tag HTML originale
     return `<${image.htmlTag}${image.htmlAttrs}>${innerHtml}</${image.htmlTag}>`;
+  }
+
+  /**
+   * Identifica se un URL è un'immagine Discord e ne mantiene i parametri
+   * @param {string} url - URL da verificare
+   * @returns {boolean} - True se è un'immagine Discord
+   */
+  isDiscordImage(url) {
+    return url && 
+      ((url.includes('media.discordapp.net/attachments/') || 
+        url.includes('cdn.discordapp.com/attachments/')) &&
+       // Verifica alcuni parametri tipici delle immagini Discord
+       (url.includes('format=webp') || 
+        url.includes('width=') || 
+        url.includes('height=') ||
+        url.includes('ex=') ||
+        url.includes('is=')));
+  }
+
+  /**
+   * Estrae metadati dai parametri URL di Discord
+   * @param {string} url - URL Discord completo
+   * @returns {Object} - Metadati estratti
+   */
+  extractDiscordMetadata(url) {
+    const metadata = {
+      width: null,
+      height: null,
+      format: null,
+      hasParams: url.includes('?')
+    };
+    
+    if (!url.includes('?')) return metadata;
+    
+    // Estrai larghezza e altezza
+    const widthMatch = url.match(/width=(\d+)/);
+    if (widthMatch) metadata.width = parseInt(widthMatch[1]);
+    
+    const heightMatch = url.match(/height=(\d+)/);
+    if (heightMatch) metadata.height = parseInt(heightMatch[1]);
+    
+    // Estrai formato
+    const formatMatch = url.match(/format=([^&]+)/);
+    if (formatMatch) metadata.format = formatMatch[1];
+    
+    return metadata;
   }
 }

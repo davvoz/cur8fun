@@ -63,7 +63,19 @@ export const REGEX_PATTERNS = {
     RAW_IMAGE_URL: /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S*)?)/gi,
     
     // Image URL pattern from regex-config-ts.js
-    URL_PATTERN: /(https?:\/\/.*\.(?:tiff?|jpe?g|gif|png|svg|ico|heic|webp))(.*)/gim
+    URL_PATTERN: /(https?:\/\/.*\.(?:tiff?|jpe?g|gif|png|svg|ico|heic|webp))(.*)/gim,
+
+    // Aggiungi questi pattern al tuo REGEX_PATTERNS.IMAGE
+    RAW_IMAGE_URL: /(?:^|\s|\n)(https?:\/\/[^\s<>"']+?\.(?:jpe?g|png|gif|webp|svg)(?:\?[^\s<>"']*?)?)(?:\s|$|\n)/gi,
+
+    // Pattern migliorato per le URL di Discord
+    DISCORD_IMAGE: /(?:^|\s|\n)(https?:\/\/(?:media|cdn)\.discordapp\.net\/attachments\/[^\s<>"']+?)(?:\s|$|\n|\?)/gi,
+
+    // Pattern per immagini dentro link markdown
+    MARKDOWN_LINK_WITH_IMAGE: /\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)/g,
+
+    // Pattern per immagini steemit specifiche
+    STEEMIT_IMAGES: /(?:^|\s|\n)(https?:\/\/(?:steemitimages\.com|cdn\.steemitimages\.com)\/(?:DQm[^\s<>"']+|[^\s<>"']+))(?:\s|$|\n)/gi,
   },
   
   // IPFS related patterns
@@ -145,6 +157,7 @@ export const REGEX_PATTERNS = {
   
   DISCORD: {
     IMAGE_URL: /https?:\/\/(?:media|cdn)\.discordapp\.net\/attachments\/[^\s<>"']+/gi,
+    STANDALONE: /^https?:\/\/(?:media|cdn)\.(?:discordapp|discord)\.(?:net|com)\/attachments\/[^\s<>"']+$/i
   },
   
   // Misc Patterns
@@ -177,6 +190,11 @@ export const REGEX_PATTERNS = {
   HTML: {
     IMG_TAG: /<img\s+([^>]*?)src=(['"])(.*?)\2([^>]*?)>/gi,
     TABLE_CELL: /<td[^>]*>(.*?)<\/td>/gi
+  },
+
+  // Aggiungi questi pattern se mancano
+  HTML_CONTAINERS: {
+    BASIC: /<(center|div|span|p)([^>]*)>([\s\S]*?)<\/\1>/gi,
   }
 };
 
