@@ -5,6 +5,7 @@
 import PluginSystem from '../utils/markdown/PluginSystem.js';
 import ImagePlugin from '../utils/markdown/plugins/ImagePlugin.js';
 import YouTubePlugin from '../utils/markdown/plugins/YouTubePlugin.js';
+import { logRawData } from '../utils/logging/LoggingUtils.js';
 
 class ContentRenderer {
   constructor(options = {}) {
@@ -87,29 +88,6 @@ class ContentRenderer {
   }
   
   /**
-   * Log raw data in a copy-friendly format
-   * @param {string} label - Label for the log
-   * @param {any} data - Data to log
-   */
-  logRawData(label, data) {
-    if (!this.options.enableLogging) return;
-    
-    console.group(`📋 ${label} - Click to expand/collapse`);
-    console.log('%c Copy the data below:', 'font-weight: bold; color: #3498db;');
-    console.log('%c -----------------------------------------------', 'color: #7f8c8d');
-    
-    if (typeof data === 'string') {
-      console.log(data);
-    } else {
-      console.log(JSON.stringify(data, null, 2));
-    }
-    
-    console.log('%c -----------------------------------------------', 'color: #7f8c8d');
-    console.log('%c Right-click and "Copy object" or select text and copy', 'font-style: italic; color: #7f8c8d');
-    console.groupEnd();
-  }
-  
-  /**
    * Process content through the plugin system and markdown parser
    * @param {string} content - Raw markdown content
    * @returns {string} Processed HTML
@@ -119,16 +97,28 @@ class ContentRenderer {
     
     try {
       // Log raw content before processing
-      this.logRawData('Raw Content Before Processing', content);
+      logRawData('Raw Content Before Processing', content, this.options.enableLogging);
+      
+      // Verifica se il contenuto è già HTML completo
+      const isCompleteHtml = content.trim().startsWith('<') && content.includes('<div') && content.includes('</div>');
+      
+      // Per l'HTML complesso, potremmo semplicemente restituire il contenuto come è
+      if (isCompleteHtml && this.options.preserveComplexHtml) {
+        logRawData('Preserving complex HTML', 'Content appears to be complex HTML. Preserving as-is.', this.options.enableLogging);
+        return content;
+      }
       
       // First pass: Pre-process with plugins to extract and create placeholders
       const preprocessed = this.pluginSystem.preProcess(content, this.options);
+      // logRawData('Content after pre-processing', preprocessed, this.options.enableLogging);
       
       // Second pass: Convert markdown to HTML
       let html = this.parser.parse(preprocessed);
+      // logRawData('Content after markdown parsing', html, this.options.enableLogging);
       
       // Third pass: Post-process with plugins to restore rich content
       const postprocessed = this.pluginSystem.postProcess(html, this.options);
+      // logRawData('Content after post-processing', postprocessed, this.options.enableLogging);
       
       return postprocessed;
     } catch (error) {
@@ -147,10 +137,14 @@ class ContentRenderer {
    */
   render(data, options = {}) {
     // Log raw render data
-    this.logRawData('Raw Data for Rendering', data);
+    // logRawData('Raw Data for Rendering', data, this.options.enableLogging);
     
     // Merge options
-    const renderOptions = { ...this.options, ...options };
+    const renderOptions = { 
+      ...this.options, 
+      preserveComplexHtml: true, // Abilita la preservazione dell'HTML complesso per default
+      ...options 
+    };
     
     // Get data
     const { title, body } = data;
@@ -161,6 +155,9 @@ class ContentRenderer {
       return { container: emptyContainer, contentElement: emptyContainer };
     }
     
+    // Verifica la dimensione del contenuto
+    // logRawData('Content Length', body.length, renderOptions.enableLogging);
+    
     // Create main container
     const container = document.createElement('div');
     container.className = renderOptions.containerClass;
@@ -168,10 +165,32 @@ class ContentRenderer {
     // Process the content
     const processedContent = this.processContent(body);
     
+    // Verifica la dimensione del contenuto processato
+    // logRawData('Processed Content Length', processedContent.length, renderOptions.enableLogging);
+    
     // Create content element with processed HTML
     const contentElement = document.createElement('div');
     contentElement.className = 'content-body';
-    contentElement.innerHTML = processedContent;
+    
+    try {
+      // Gestisci diversamente contenuti molto grandi per evitare problemi di performance
+      if (processedContent.length > 100000) {
+        logRawData('Large Content Warning', 'Content is very large, setting innerHTML in chunks', renderOptions.enableLogging);
+        // Imposta il contenuto in blocchi per evitare blocchi del browser
+        const chunkSize = 50000;
+        for (let i = 0; i < processedContent.length; i += chunkSize) {
+          const chunk = processedContent.substring(i, i + chunkSize);
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = chunk;
+          contentElement.appendChild(tempDiv);
+        }
+      } else {
+        contentElement.innerHTML = processedContent;
+      }
+    } catch (error) {
+      console.error('Error setting innerHTML:', error);
+      contentElement.textContent = 'Error rendering content: ' + error.message;
+    }
     
     // Create title element if provided
     let titleElement = null;

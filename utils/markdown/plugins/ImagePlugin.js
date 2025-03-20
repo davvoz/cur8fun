@@ -52,9 +52,6 @@ export default class ImagePlugin extends BasePlugin {
     
     // 4. Estrai URL diretti di immagini (inclusi Discord)
     this.extractDirectImageUrls(contentAfterHtmlExtraction, images, seenUrls);
-    
-    // Prima di restituire le immagini, rimuovi i duplicati
-    return this.removeDuplicateImages(images);
   }
   
   /**
@@ -661,23 +658,5 @@ export default class ImagePlugin extends BasePlugin {
     
     // Avvolgi l'immagine nel tag HTML originale
     return `<${image.htmlTag}${image.htmlAttrs}>${innerHtml}</${image.htmlTag}>`;
-  }
-
-  /**
-   * Trova le immagini duplicate nel contenuto
-   * @param {Array<Object>} images - Array di oggetti immagine
-   * @returns {Array<Object>} Immagini senza duplicati
-   */
-  removeDuplicateImages(images) {
-    const uniqueUrls = new Set();
-    return images.filter(img => {
-      // Se l'URL è già stato visto, è un duplicato
-      if (uniqueUrls.has(img.url)) {
-        return false;
-      }
-      
-      uniqueUrls.add(img.url);
-      return true;
-    });
   }
 }

@@ -25,15 +25,26 @@ class ImageService {
   
   /**
    * Estrae la prima immagine dal contenuto
-   * @param {string} post - Post o contenuto da cui estrarre l'immagine
+   * @param {string|Object} post - Post o contenuto da cui estrarre l'immagine
    * @returns {string|null} URL della prima immagine o null
    */
   extractImageFromContent(post) {
-    const content = post?.body || post;
-    if (!content) return null;
+    // Handle undefined/null input
+    if (!post) return null;
     
+    // Get content based on whether we got a post object or a string
+    const content = typeof post === 'string' ? post : post?.body;
+    
+    // Check if content exists
+    if (!content || typeof content !== 'string' || content.length === 0) {
+      return null;
+    }
+    
+    // Now extract images from the content string
     const images = this.imagePlugin.extract(content);
-    return images.length > 0 ? images[0].url : null;
+    
+    // Return the first valid image URL or null if none found
+    return images && images.length > 0 ? images[0].url : null;
   }
   
   /**
