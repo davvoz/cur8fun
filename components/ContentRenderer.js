@@ -40,7 +40,7 @@ class ContentRenderer {
           ipfsPrefix: "",
           assetsWidth: this.options.maxImageWidth || 640,
           assetsHeight: this.options.maxImageWidth * 0.75 || 480,
-          imageProxyFn: (url) => url,
+          imageProxyFn: (url) => this.optimizeImageUrl(url),
           usertagUrlFn: (account) => "/@" + account,
           hashtagUrlFn: (hashtag) => "/trending/" + hashtag,
           isLinkSafeFn: (url) => true,
@@ -110,6 +110,85 @@ class ContentRenderer {
       images,
       title: data.title || ''
     };
+  }
+  
+  /**
+   * Optimize image URL using Steem's image proxy
+   * @param {string} url - Original image URL
+   * @param {Object} options - Size and quality options
+   * @returns {string} Optimized image URL
+   */
+  optimizeImageUrl(url, options = {}) {
+    if (!url) return '';
+    
+    // Clean the URL first
+    url = this.sanitizeUrl(url);
+    
+    // Default options
+    const defaults = {
+      width: this.options.maxImageWidth || 640,
+      height: 0, // 0 means auto height
+      quality: 85
+    };
+    
+    const settings = { ...defaults, ...options };
+    
+    // Return Steem's proxy URL with appropriate dimensions
+    if (settings.height > 0) {
+      return `https://steemitimages.com/${settings.width}x${settings.height}/${url}`;
+    } else {
+      return `https://steemitimages.com/${settings.width}x0/${url}`;
+    }
+  }
+  
+  /**
+   * Sanitize a URL to ensure it's valid
+   * @param {string} url - URL to sanitize
+   * @returns {string} Sanitized URL
+   */
+  sanitizeUrl(url) {
+    if (!url) return '';
+    
+    // Remove query parameters and fragments
+    let cleanUrl = url.split('?')[0].split('#')[0];
+    
+    // Ensure URL is properly encoded
+    try {
+      cleanUrl = new URL(cleanUrl).href;
+    } catch (e) {
+      // If URL is invalid, return original
+      return url;
+    }
+    
+    return cleanUrl;
+  }
+  
+  /**
+   * Extract the first image URL from content
+   * @param {string} content - Markdown content
+   * @returns {string} First image URL or empty string
+   */
+  extractImageFromContent(content) {
+    if (!content) return '';
+    
+    // Use regex to find the first image
+    const imgRegex = /!\[.*?\]\((.*?)\)|<img.*?src=["'](.*?)["']/i;
+    const match = content.match(imgRegex);
+    
+    if (match) {
+      // Return the URL from the match (either from markdown or HTML format)
+      return match[1] || match[2] || '';
+    }
+    
+    return '';
+  }
+  
+  /**
+   * Generate a data URL placeholder for missing images
+   * @returns {string} Data URL for a placeholder image
+   */
+  getDataUrlPlaceholder() {
+    return 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22288%22%20height%3D%22225%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20288%20225%22%20preserveAspectRatio%3D%22none%22%3E%0A%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%3Cstyle%20type%3D%22text%2Fcss%22%3E%0A%20%20%20%20%20%20%20%20%23holder%20text%20%7B%0A%20%20%20%20%20%20%20%20%20%20fill%3A%20%23ffffff%3B%0A%20%20%20%20%20%20%20%20%20%20font-family%3A%20sans-serif%3B%0A%20%20%20%20%20%20%20%20%20%20font-size%3A%2014px%3B%0A%20%20%20%20%20%20%20%20%20%20font-weight%3A%20normal%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%3C%2Fstyle%3E%0A%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%3Cg%20id%3D%22holder%22%3E%0A%20%20%20%20%20%20%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23999%22%3E%3C%2Frect%3E%0A%20%20%20%20%20%20%3Cg%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20text-anchor%3D%22middle%22%20x%3D%22144%22%20y%3D%22118%22%3EImage%20Not%20Available%3C%2Ftext%3E%0A%20%20%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%3C%2Fsvg%3E';
   }
   
   /**

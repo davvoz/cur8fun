@@ -3,11 +3,11 @@ import steemService from '../services/SteemService.js'; // Changed from SteemSer
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
 import ContentRenderer from '../components/ContentRenderer.js';
-import imageService from '../services/ImageService.js'; // Sostituisci ImageUtils con imageService
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js'; // Aggiungi questa importazione
 import commentService from '../services/CommentService.js';
 // Remove animation-init.js import
+// Remove imageService import since we're replacing it
 
 class PostView extends View {
   constructor(params = {}) {
@@ -1047,10 +1047,42 @@ async handleReply(parentComment, replyText) {
     }
   }
   
-  // Add methods to extract the best image from a post (similar to ProfileView)
+  // Replace getBestImage method to use SteemContentRenderer
   getBestImage(post) {
+    if (!post || !post.body) return '';
+    
+    if (this.contentRenderer) {
+      try {
+        // Render a small portion of the content to extract images
+        const renderedContent = this.contentRenderer.render({
+          body: post.body.substring(0, 1500) // Only render the first part for performance
+        });
+        
+        // Extract first image from rendered content
+        if (renderedContent.images && renderedContent.images.length > 0) {
+          return renderedContent.images[0].src;
+        }
+      } catch (error) {
+        console.error('Error extracting image with SteemContentRenderer:', error);
+      }
+    }
+    
+    // Fallback: Extract image with regex
     const metadata = this.parseMetadata(post.json_metadata);
-    return imageService.getBestImageUrl(post.body, metadata) || '';
+    
+    // Try to get image from metadata
+    if (metadata && metadata.image && metadata.image.length > 0) {
+      return metadata.image[0];
+    }
+    
+    // Extract first image URL from content with regex
+    const imgRegex = /https?:\/\/[^\s'"<>]+?\.(jpg|jpeg|png|gif|webp)(\?[^\s'"<>]+)?/i;
+    const match = post.body.match(imgRegex);
+    if (match) {
+      return match[0];
+    }
+    
+    return '';
   }
 
   parseMetadata(jsonMetadata) {

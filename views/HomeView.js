@@ -3,7 +3,7 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
-import imageService from '../services/ImageService.js';
+import ContentRenderer from '../components/ContentRenderer.js'; // Replace imageService with ContentRenderer
 import router from '../utils/Router.js';
 
 class HomeView {
@@ -19,6 +19,26 @@ class HomeView {
     });
     // Track post IDs to prevent duplicates
     this.renderedPostIds = new Set();
+    
+    // Initialize SteemContentRenderer for image extraction
+    this.initSteemRenderer();
+  }
+  
+  /**
+   * Initialize SteemContentRenderer for image extraction
+   */
+  async initSteemRenderer() {
+    try {
+      await ContentRenderer.loadSteemContentRenderer();
+      this.contentRenderer = new ContentRenderer({
+        useSteemContentRenderer: true,
+        extractImages: true,
+        renderImages: true
+      });
+    } catch (error) {
+      console.error('Failed to initialize SteemContentRenderer:', error);
+      this.contentRenderer = null;
+    }
   }
 
   async loadPosts(page = 1) {
@@ -251,31 +271,76 @@ class HomeView {
   }
 
   getBestImage(post, metadata) {
-    // First try the simpler extractImageFromContent method which gets the first image
-    const directImageUrl = imageService.extractImageFromContent(post);
-    
-    if (directImageUrl) {
-      return directImageUrl;
+    // If we have SteemContentRenderer available, use it for rendering a snippet and extracting image
+    if (this.contentRenderer) {
+      try {
+        // Render a small portion of the content to extract images
+        const renderedContent = this.contentRenderer.render({
+          body: post.body.substring(0, 1500) // Only render the first part for performance
+        });
+        
+        // Check if any images were extracted
+        if (renderedContent.images && renderedContent.images.length > 0) {
+          // Return the first image URL
+          return renderedContent.images[0].src;
+        }
+      } catch (error) {
+        console.error('Error using SteemContentRenderer for image extraction:', error);
+        // Fall back to old methods if SteemContentRenderer fails
+      }
     }
     
-    // Fall back to the more comprehensive getBestImageUrl if direct extraction failed
-    const fallbackImageUrl = imageService.getBestImageUrl(post.body, metadata);
-    
-    if (fallbackImageUrl) {
-      return fallbackImageUrl;
+    // Fallback method 1: Check if metadata contains an image
+    if (metadata && metadata.image && metadata.image.length > 0) {
+      return metadata.image[0];
     }
     
-    // If no image is found, return a placeholder
-    return imageService.getDataUrlPlaceholder();
+    // Fallback method 2: Simple regex extraction of first image
+    const imgRegex = /https?:\/\/[^\s'"<>]+?\.(jpg|jpeg|png|gif|webp)(\?[^\s'"<>]+)?/i;
+    const match = post.body.match(imgRegex);
+    if (match) {
+      return match[0];
+    }
+    
+    // Return placeholder if no image is found
+    return './assets/images/placeholder.png';
   }
 
   optimizeImageUrl(url) {
-    // Use higher quality image sizes for cards
-    return imageService.optimizeImageUrl(url, {
-      width: 640,   // Larger size for better quality
-      height: 0,    // Auto height
-      quality: 95   // Higher quality for sharper images
-    });
+    // Use SteemContentRenderer's proxy if available
+    if (this.contentRenderer && this.contentRenderer.steemRenderer) {
+      try {
+        // Format URL for proper sizing with Steem's proxy
+        return `https://steemitimages.com/640x0/${url}`;
+      } catch (error) {
+        console.error('Error using SteemContentRenderer for image optimization:', error);
+      }
+    }
+    
+    // Fallback to direct URL with proper formatting
+    if (url && url.startsWith('http')) {
+      // Simple proxy URL construction
+      return `https://steemitimages.com/640x0/${url}`;
+    }
+    
+    return url;
+  }
+
+  sanitizeImageUrl(url) {
+    if (!url) return '';
+    
+    // Remove query parameters and fragments
+    let cleanUrl = url.split('?')[0].split('#')[0];
+    
+    // Ensure URL is properly encoded
+    try {
+      cleanUrl = new URL(cleanUrl).href;
+    } catch (e) {
+      // If URL is invalid, return original
+      return url;
+    }
+    
+    return cleanUrl;
   }
 
   parseMetadata(jsonMetadata) {
@@ -386,7 +451,7 @@ class HomeView {
     image.decoding = 'async';
     
     // Enforce a clean URL before we start
-    imageUrl = imageService.sanitizeUrl(imageUrl);
+    imageUrl = this.sanitizeImageUrl(imageUrl);
     
     // Determine current card size AND layout from container classes
     const { size: cardSize, layout } = this.getCardConfig();
@@ -469,10 +534,9 @@ class HomeView {
       errorDisplay.textContent = 'Image not available';
       
       // Mark this URL as permanently failed to avoid future attempts
-      imageService.markImageAsFailed(imageUrl);
       
       // Use data URL placeholder
-      image.src = imageService.getDataUrlPlaceholder();
+      image.src = './assets/images/placeholder.png';
       
       // Add error info to container
       content.appendChild(errorDisplay);
@@ -529,10 +593,6 @@ class HomeView {
           {direct: true} // Direct URL as last resort
         ];
     }
-  }
-
-  sanitizeImageUrl(url) {
-    return imageService.sanitizeUrl(url);
   }
 
   createPostTitle(title) {
