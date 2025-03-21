@@ -138,10 +138,10 @@ class CreatePostView extends View {
     titleInput.required = true;
     titleInput.addEventListener('input', (e) => {
       this.postTitle = e.target.value;
-      // Update preview if enabled
-      if (this.previewEnabled) {
-        this.updatePreview();
-      }
+      // Remove the preview update reference
+      // if (this.previewEnabled) {
+      //   this.updatePreview();
+      // }
     });
     titleGroup.appendChild(titleInput);
     
@@ -156,30 +156,10 @@ class CreatePostView extends View {
     contentLabel.textContent = 'Content';
     contentGroup.appendChild(contentLabel);
     
-    // Editor actions (with preview toggle)
-    const editorActions = document.createElement('div');
-    editorActions.className = 'editor-actions';
-    
-    const previewToggle = document.createElement('button');
-    previewToggle.type = 'button';
-    previewToggle.className = 'btn preview-toggle';
-    previewToggle.textContent = 'Preview';
-    previewToggle.addEventListener('click', () => this.togglePreview());
-    editorActions.appendChild(previewToggle);
-    
-    contentGroup.appendChild(editorActions);
-    
     // Editor container
     const editorContainer = document.createElement('div');
     editorContainer.id = 'markdown-editor-container';
     contentGroup.appendChild(editorContainer);
-    
-    // Preview container (hidden by default)
-    const previewContainer = document.createElement('div');
-    previewContainer.id = 'content-preview-container';
-    previewContainer.className = 'content-preview';
-    previewContainer.style.display = 'none';
-    contentGroup.appendChild(previewContainer);
     
     form.appendChild(contentGroup);
     
@@ -231,10 +211,10 @@ class CreatePostView extends View {
         placeholder: 'Write your post content here using Markdown...',
         onChange: (value) => {
           this.postBody = value;
-          // Update preview if enabled
-          if (this.previewEnabled) {
-            this.updatePreview();
-          }
+          // Remove the preview update reference
+          // if (this.previewEnabled) {
+          //   this.updatePreview();
+          // }
         },
         height: '500px'
       }
@@ -242,66 +222,7 @@ class CreatePostView extends View {
     this.markdownEditor.render();
     
     // Store references to DOM elements
-    this.previewToggleBtn = previewToggle;
-    this.previewContainer = previewContainer;
     this.editorContainer = editorContainer;
-  }
-  
-  /**
-   * Toggle between edit and preview modes
-   */
-  togglePreview() {
-    this.previewEnabled = !this.previewEnabled;
-    
-    if (this.previewEnabled) {
-      // Switch to preview mode
-      this.previewToggleBtn.textContent = 'Edit';
-      this.editorContainer.style.display = 'none';
-      this.previewContainer.style.display = 'block';
-      this.updatePreview();
-    } else {
-      // Switch to edit mode
-      this.previewToggleBtn.textContent = 'Preview';
-      this.editorContainer.style.display = 'block';
-      this.previewContainer.style.display = 'none';
-    }
-  }
-  
-  /**
-   * Update the preview content using ContentRenderer
-   */
-  updatePreview() {
-    if (!this.contentRenderer || !this.previewContainer) return;
-    
-    // Clear the preview container
-    while (this.previewContainer.firstChild) {
-      this.previewContainer.removeChild(this.previewContainer.firstChild);
-    }
-    
-    if (!this.postBody.trim()) {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'preview-placeholder';
-      placeholder.textContent = 'Enter some content to see the preview';
-      this.previewContainer.appendChild(placeholder);
-      return;
-    }
-    
-    // Render the preview using ContentRenderer with SteemContentRenderer
-    const preview = this.contentRenderer.render({
-      title: this.postTitle,
-      body: this.postBody
-    });
-    
-    // Add a preview header if title is available
-    if (this.postTitle) {
-      const previewHeader = document.createElement('h2');
-      previewHeader.className = 'preview-title';
-      previewHeader.textContent = this.postTitle;
-      this.previewContainer.appendChild(previewHeader);
-    }
-    
-    // Add the rendered content
-    this.previewContainer.appendChild(preview.container);
   }
   
   async handleSubmit(e) {

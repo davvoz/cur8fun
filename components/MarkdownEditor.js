@@ -385,13 +385,13 @@ export default class MarkdownEditor extends Component {
       }
       
       // Use the content renderer to process the markdown
-      const { contentElement } = this.contentRenderer.render({
+      const rendered = this.contentRenderer.render({
         body: this.value
       });
       
       // Append the processed content to our preview area
-      if (contentElement) {
-        this.previewArea.appendChild(contentElement);
+      if (rendered.container) {
+        this.previewArea.appendChild(rendered.container);
       }
     } catch (error) {
       console.error('Error rendering preview:', error);
