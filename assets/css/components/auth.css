@@ -109,7 +109,7 @@
 }
 
 .auth-note {
-  background-color: var(--info-background, #e3f2fd);
+  background-color: var(--info-background);
   color: var(--info-color, #1976d2);
   padding: 0.75rem;
   border-radius: var(--radius-sm);
