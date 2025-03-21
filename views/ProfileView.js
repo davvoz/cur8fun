@@ -595,97 +595,119 @@ class ProfileView extends View {
   }
 
   createPostItem(post) {
+    if (!post) {
+      console.error('Cannot create post item: post data is missing');
+      return document.createElement('div');
+    }
+    
+    // Create post container
     const postItem = document.createElement('div');
-    postItem.className = 'post-item';
+    postItem.className = 'post-item animated-card';
+    postItem.setAttribute('role', 'article');
     
-    const imageUrl = this.getPreviewImage(post) || 'assets/images/placeholder.png';
+    // Add thumbnail with error handling
+    this.addPostThumbnail(postItem, post);
     
-    // Add thumbnail - Always create it for all layouts
-    const thumbnail = document.createElement('div');
-    thumbnail.className = 'post-thumbnail post-grid-thumbnail';
-    thumbnail.style.backgroundImage = `url(${imageUrl})`;
-    postItem.appendChild(thumbnail);
-    
+    // Create content container
     const postContent = document.createElement('div');
     postContent.className = 'post-content';
     
-    // Post title with better styling
+    // Add title
+    this.addPostTitle(postContent, post);
+    
+    // Add metadata
+    const postMeta = this.createPostMetadata(post);
+    postContent.appendChild(postMeta);
+    
+    // Add excerpt
+    this.addPostExcerpt(postContent, post);
+    
+    postItem.appendChild(postContent);
+    
+    // Add click handler
+    this.addPostNavigationHandler(postItem, post);
+    
+    return postItem;
+  }
+  
+  addPostThumbnail(element, post) {
+    const placeholderImage = 'assets/images/placeholder.png';
+    const imageUrl = this.getPreviewImage(post) || placeholderImage;
+    
+    const thumbnail = document.createElement('div');
+    thumbnail.className = 'post-thumbnail post-grid-thumbnail';
+    thumbnail.style.backgroundImage = `url(${imageUrl})`;
+    
+    // Add image error handling
+    const testImg = new Image();
+    testImg.onerror = () => {
+      thumbnail.style.backgroundImage = `url(${placeholderImage})`;
+    };
+    testImg.src = imageUrl;
+    
+    element.appendChild(thumbnail);
+  }
+  
+  addPostTitle(container, post) {
     const title = document.createElement('h3');
     title.className = 'post-title';
     title.textContent = post.title || '(Untitled)';
-    
-    // Post metadata
+    container.appendChild(title);
+  }
+  
+  addPostExcerpt(container, post) {
+    const excerpt = document.createElement('p');
+    excerpt.className = 'post-excerpt';
+    excerpt.textContent = this.createExcerpt(post.body || '');
+    container.appendChild(excerpt);
+  }
+  
+  addPostNavigationHandler(element, post) {
+    if (post.author && post.permlink) {
+      element.addEventListener('click', () => {
+        router.navigate(`/@${post.author}/${post.permlink}`);
+      });
+    }
+  }
+  
+  createPostMetadata(post) {
     const postMeta = document.createElement('div');
     postMeta.className = 'post-meta';
     
-    // Add date info
-    const dateInfo = document.createElement('span');
-    dateInfo.className = 'post-date';
+    // Date info
+    const createdDate = post.created ? new Date(post.created).toLocaleDateString() : 'Unknown date';
+    const dateInfo = this.createMetadataItem('schedule', createdDate, 'post-date');
     
-    const dateIcon = document.createElement('span');
-    dateIcon.className = 'material-icons';
-    dateIcon.textContent = 'schedule';
-    dateInfo.appendChild(dateIcon);
-    
-    const dateText = document.createElement('span');
-    dateText.textContent = new Date(post.created).toLocaleDateString();
-    dateInfo.appendChild(dateText);
-    
-    // Add votes info
-    const votesInfo = document.createElement('span');
-    votesInfo.className = 'post-votes';
-    
-    const votesIcon = document.createElement('span');
-    votesIcon.className = 'material-icons';
-    votesIcon.textContent = 'thumb_up';
-    votesInfo.appendChild(votesIcon);
-    
-    const votesText = document.createElement('span');
-
-    // Calculate total votes
+    // Votes info
     const totalVotes = this.getVoteCount(post);
-    votesText.textContent = totalVotes.toLocaleString();
-
-    votesInfo.appendChild(votesText);
+    const votesInfo = this.createMetadataItem('thumb_up', totalVotes.toLocaleString(), 'post-votes');
     
-    // Add comments count
-    const commentsInfo = document.createElement('span');
-    commentsInfo.className = 'post-comments';
-    
-    const commentsIcon = document.createElement('span');
-    commentsIcon.className = 'material-icons';
-    commentsIcon.textContent = 'chat_bubble';
-    commentsInfo.appendChild(commentsIcon);
-    
-    const commentsText = document.createElement('span');
-    commentsText.textContent = post.children || 0;
-    commentsInfo.appendChild(commentsText);
+    // Comments info
+    const commentsCount = post.children !== undefined ? post.children : 0;
+    const commentsInfo = this.createMetadataItem('chat_bubble', commentsCount.toString(), 'post-comments');
     
     postMeta.appendChild(dateInfo);
     postMeta.appendChild(votesInfo);
     postMeta.appendChild(commentsInfo);
     
-    // Post excerpt with better formatting
-    const excerpt = document.createElement('p');
-    excerpt.className = 'post-excerpt';
-    excerpt.textContent = this.createExcerpt(post.body);
+    return postMeta;
+  }
+  
+  createMetadataItem(iconName, text, className) {
+    const container = document.createElement('span');
+    container.className = className;
     
-    postContent.appendChild(title);
-    postContent.appendChild(postMeta);
-    postContent.appendChild(excerpt);
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = iconName;
     
-    // Always add content
-    postItem.appendChild(postContent);
+    const textSpan = document.createElement('span');
+    textSpan.textContent = text;
     
-    // Add click handler to navigate to post
-    postItem.addEventListener('click', () => {
-      router.navigate(`/@${post.author}/${post.permlink}`);
-    });
+    container.appendChild(icon);
+    container.appendChild(textSpan);
     
-    // Add hover animation class
-    postItem.classList.add('animated-card');
-    
-    return postItem;
+    return container;
   }
 
   getVoteCount(post) {
