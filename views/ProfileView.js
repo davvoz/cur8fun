@@ -641,7 +641,11 @@ class ProfileView extends View {
     votesInfo.appendChild(votesIcon);
     
     const votesText = document.createElement('span');
-    votesText.textContent = post.net_votes || 0;
+
+    // Calculate total votes
+    const totalVotes = this.getVoteCount(post);
+    votesText.textContent = totalVotes.toLocaleString();
+
     votesInfo.appendChild(votesText);
     
     // Add comments count
@@ -682,6 +686,21 @@ class ProfileView extends View {
     postItem.classList.add('animated-card');
     
     return postItem;
+  }
+
+  getVoteCount(post) {
+    // Try different properties that might contain vote count
+    if (typeof post.net_votes === 'number') {
+      return post.net_votes;
+    }
+    if (typeof post.active_votes === 'object' && Array.isArray(post.active_votes)) {
+      return post.active_votes.length;
+    }
+    if (typeof post.vote_count === 'number') {
+      return post.vote_count;
+    }
+    // Default to 0 if no valid vote count is found
+    return 0;
   }
 
   createCommentItem(comment) {
