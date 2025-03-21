@@ -22,7 +22,7 @@ class ProfileService {
         if (!username) {
             throw new Error('Username is required');
         }
-        
+
         // Check cache first unless forceRefresh is true
         if (!forceRefresh) {
             const cachedProfile = this.getCachedProfile(username);
@@ -30,21 +30,21 @@ class ProfileService {
                 return cachedProfile;
             }
         }
-        
+
         try {
             // Fetch user data from Steem blockchain
             const userData = await steemService.getUserData(username, { includeProfile: true });
-            
+
             if (!userData) {
                 throw new Error(`User ${username} not found`);
             }
-            
+
             // Create a Profile model from raw data
             const profile = new Profile(userData);
-            
+
             // Cache the profile
             this.cacheProfile(username, profile);
-            
+
             return profile;
         } catch (error) {
             console.error(`Error fetching profile for ${username}:`, error);
@@ -55,7 +55,70 @@ class ProfileService {
             throw error;
         }
     }
-    
+
+    /**
+     * Update a user profile
+     * @param {string} username - Steem username
+     * @param {Object} updatedFields - Updated profile data
+     * @returns {Promise<boolean>} Success of the update operation
+     */
+    async updateProfile(username, updatedFields) {
+        try {
+            console.log('ProfileService: Updating profile for', username);
+            console.log('Updated fields:', updatedFields);
+            
+            // First get the current profile from blockchain
+            const userData = await steemService.getUserData(username, { includeProfile: true });
+            
+            if (!userData) {
+                throw new Error('User data not found');
+            }
+            
+            // Get existing profile or create empty object
+            let existingProfile = {};
+            if (userData.profile) {
+                existingProfile = userData.profile;
+            } else if (userData.json_metadata) {
+                try {
+                    const metadata = JSON.parse(userData.json_metadata);
+                    if (metadata && metadata.profile) {
+                        existingProfile = metadata.profile;
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse existing metadata, starting fresh');
+                }
+            }
+            
+            console.log('Existing profile data:', existingProfile);
+            
+            // Create merged profile - start with existing, add updates
+            const mergedProfile = {
+                ...existingProfile,
+                ...updatedFields
+            };
+            
+            // Remove undefined fields
+            Object.keys(mergedProfile).forEach(key => {
+                if (mergedProfile[key] === undefined || mergedProfile[key] === '') {
+                    delete mergedProfile[key];
+                }
+            });
+            
+            console.log('Merged profile data to save:', mergedProfile);
+            
+            // Call steemService to update the profile on the blockchain
+            const result = await steemService.updateUserProfile(username, mergedProfile);
+            
+            // Clear the cache for this user to ensure fresh data on next load
+            this.clearUserCache(username);
+            
+            return result;
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            throw error;
+        }
+    }
+
     /**
      * Get posts by a user with pagination
      * @param {string} username - The username to fetch posts for
@@ -69,9 +132,9 @@ class ProfileService {
             if (this.cachedPosts && this.cachedPosts[username] && this.cachedPosts[username][page]) {
                 return this.cachedPosts[username][page];
             }
-            
+
             let posts = [];
-            
+
             // For pagination, we need to get all posts up to the page we want
             // and then slice the right chunk.
             // For efficiency, we cache results
@@ -80,32 +143,32 @@ class ProfileService {
                 const cachedPages = Object.keys(this.cachedPosts[username])
                     .map(Number)
                     .sort((a, b) => b - a);
-                
+
                 if (cachedPages.length > 0) {
                     const highestPage = cachedPages[0];
-                    
+
                     if (highestPage >= page) {
                         // We already have this page cached
                         return this.cachedPosts[username][page];
                     }
-                    
+
                     // We have some cached pages, but not the one we want
                     const startAuthor = '';
                     const startPermlink = '';
-                    
+
                     // Get posts from Steem
                     posts = await steemService.getUserPosts(username, page * limit);
-                    
+
                     // Process and cache
                     this._processPosts(posts, username, page, limit);
-                    
+
                     return this.cachedPosts[username][page];
                 }
             }
-            
+
             // No cached data, get everything from scratch
             posts = await steemService.getUserPosts(username, page * limit);
-            
+
             // Process and cache
             return this._processPosts(posts, username, page, limit);
         } catch (error) {
@@ -113,7 +176,7 @@ class ProfileService {
             return [];
         }
     }
-    
+
     /**
      * Process posts for pagination and caching
      * @private
@@ -122,30 +185,30 @@ class ProfileService {
         if (!posts || posts.length === 0) {
             return [];
         }
-        
+
         // Initialize cache if needed
         if (!this.cachedPosts) {
             this.cachedPosts = {};
         }
-        
+
         if (!this.cachedPosts[username]) {
             this.cachedPosts[username] = {};
         }
-        
+
         // Split posts into pages and cache them
         const totalPosts = posts.length;
         const totalPages = Math.ceil(totalPosts / limit);
-        
+
         for (let p = 1; p <= totalPages; p++) {
             const start = (p - 1) * limit;
             const end = Math.min(start + limit, totalPosts);
             this.cachedPosts[username][p] = posts.slice(start, end);
         }
-        
+
         // Return requested page
         return this.cachedPosts[username][page] || [];
     }
-    
+
     /**
      * Follow a user
      * @param {string} username - Username to follow
@@ -156,21 +219,21 @@ class ProfileService {
         if (!currentUser || !currentUser.username) {
             throw new Error('You must be logged in to follow a user');
         }
-        
+
         if (username === currentUser.username) {
             throw new Error('You cannot follow yourself');
         }
-        
+
         try {
             // This would use Steem's broadcast operations via SteemConnect or similar
             console.log(`Following user ${username}`);
-            
+
             // For now we'll just simulate success
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: `You are now following @${username}`
             });
-            
+
             return true;
         } catch (error) {
             console.error(`Error following ${username}:`, error);
@@ -181,7 +244,7 @@ class ProfileService {
             throw error;
         }
     }
-    
+
     /**
      * Unfollow a user
      * @param {string} username - Username to unfollow
@@ -192,17 +255,17 @@ class ProfileService {
         if (!currentUser || !currentUser.username) {
             throw new Error('You must be logged in to unfollow a user');
         }
-        
+
         try {
             // This would use Steem's broadcast operations via SteemConnect or similar
             console.log(`Unfollowing user ${username}`);
-            
+
             // For now we'll just simulate success
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: `You have unfollowed @${username}`
             });
-            
+
             return true;
         } catch (error) {
             console.error(`Error unfollowing ${username}:`, error);
@@ -213,7 +276,7 @@ class ProfileService {
             throw error;
         }
     }
-    
+
     /**
      * Check if current user is following another user
      * @param {string} username - Username to check
@@ -224,7 +287,7 @@ class ProfileService {
         if (!currentUser || !currentUser.username) {
             return false;
         }
-        
+
         try {
             // This would check follow relationships via Steem API
             // For now we'll just simulate a random response
@@ -234,7 +297,7 @@ class ProfileService {
             return false;
         }
     }
-    
+
     /**
      * Get the follower count for a user
      * @param {string} username - The username to fetch follower count for
@@ -264,39 +327,7 @@ class ProfileService {
             return 0;
         }
     }
-    
-    /**
-     * Update a user profile
-     * @param {string} username - Steem username
-     * @param {Object} updatedProfile - Updated profile data
-     * @returns {Promise<boolean>} Success of the update operation
-     */
-    async updateProfile(username, updatedProfile) {
-        if (!username || !updatedProfile) {
-            throw new Error('Username and updated profile data are required');
-        }
 
-        try {
-            // This would use Steem's broadcast operations via SteemConnect or similar
-            console.log(`Updating profile for ${username}`, updatedProfile);
-
-            // For now we'll just simulate success
-            eventEmitter.emit('notification', {
-                type: 'success',
-                message: `Profile updated for @${username}`
-            });
-
-            return true;
-        } catch (error) {
-            console.error(`Error updating profile for ${username}:`, error);
-            eventEmitter.emit('notification', {
-                type: 'error',
-                message: `Failed to update profile for @${username}`
-            });
-            throw error;
-        }
-    }
-    
     /**
      * Get profile from cache
      * @param {string} username - Username to look up
@@ -305,21 +336,21 @@ class ProfileService {
      */
     getCachedProfile(username) {
         const cacheEntry = this.profileCache.get(username);
-        
+
         if (!cacheEntry) {
             return null;
         }
-        
+
         // Check if cache is expired
         const now = Date.now();
         if (now - cacheEntry.timestamp > this.cacheExpiry) {
             this.profileCache.delete(username);
             return null;
         }
-        
+
         return cacheEntry.profile;
     }
-    
+
     /**
      * Store profile in cache
      * @param {string} username - Username
@@ -332,7 +363,7 @@ class ProfileService {
             timestamp: Date.now()
         });
     }
-    
+
     /**
      * Get posts from cache
      * @param {string} cacheKey - Cache key
@@ -341,21 +372,21 @@ class ProfileService {
      */
     getCachedPosts(cacheKey) {
         const cacheEntry = this.postCache.get(cacheKey);
-        
+
         if (!cacheEntry) {
             return null;
         }
-        
+
         // Check if cache is expired
         const now = Date.now();
         if (now - cacheEntry.timestamp > this.cacheExpiry) {
             this.postCache.delete(cacheKey);
             return null;
         }
-        
+
         return cacheEntry.posts;
     }
-    
+
     /**
      * Store posts in cache
      * @param {string} cacheKey - Cache key
@@ -368,7 +399,7 @@ class ProfileService {
             timestamp: Date.now()
         });
     }
-    
+
     /**
      * Clear cache for a specific user
      * @param {string} username - Username to clear cache for
@@ -377,7 +408,7 @@ class ProfileService {
         this.profileCache.delete(username);
         this.postCache.delete(`${username}_posts`);
     }
-    
+
     /**
      * Clear all cached data
      */

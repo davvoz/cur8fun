@@ -289,11 +289,33 @@ class ProfileView extends View {
     // Add cover image with better styling and error handling
     const coverDiv = document.createElement('div');
     coverDiv.className = 'profile-cover';
+    
+    // Check multiple possible locations for cover image
+    let coverImageUrl = null;
+    
+    // Check direct coverImage property
     if (this.profile.coverImage) {
-      console.log('Cover image URL:', this.profile.coverImage); // Debug log
+      coverImageUrl = this.profile.coverImage;
+    } 
+    // Check in posting_json_metadata.cover_image as an alternative location
+    else if (this.profile.posting_json_metadata) {
+      try {
+        const metadata = typeof this.profile.posting_json_metadata === 'string' 
+          ? JSON.parse(this.profile.posting_json_metadata) 
+          : this.profile.posting_json_metadata;
+          console.log('metadata:', metadata); // Debug log
+        if (metadata && metadata.cover_image) {
+          coverImageUrl = metadata.cover_image;
+        }
+      } catch (e) {
+        console.error('Error parsing posting_json_metadata:', e);
+      }
+    }
+    
+    if (coverImageUrl) {
+      console.log('Cover image URL:', coverImageUrl); // Debug log
       
       // Check if URL needs proxy for CORS issues
-      let coverImageUrl = this.profile.coverImage;
       if (!coverImageUrl.startsWith('data:') && !coverImageUrl.includes('steemitimages.com/0x0/')) {
         // Use Steemit proxy to avoid CORS issues and ensure image loading
         coverImageUrl = `https://steemitimages.com/0x0/${coverImageUrl}`;
@@ -311,10 +333,11 @@ class ProfileView extends View {
     }
     
     // Add profile info section with modern layout
+    
+    // Avatar with enhanced styling
     const infoSection = document.createElement('div');
     infoSection.className = 'profile-info';
     
-    // Avatar with enhanced styling
     const avatar = document.createElement('div');
     avatar.className = 'profile-avatar';
     

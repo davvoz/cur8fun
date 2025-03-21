@@ -34,6 +34,24 @@ class EditProfileView extends View {
         if (!this.profile) {
             throw new Error(`Profile not found for @${this.username}`);
         }
+        
+        console.log('Loaded profile data:', this.profile);
+        
+        // Extract profile images from correct location
+        if (this.profile.profile) {
+            // If the images are in a nested profile object
+            this.profileImage = this.profile.profile.profile_image || this.profile.profile.profileImage;
+            this.coverImage = this.profile.profile.cover_image || this.profile.profile.coverImage;
+        } else {
+            // If the images are directly on the profile object
+            this.profileImage = this.profile.profileImage || this.profile.profile_image;
+            this.coverImage = this.profile.coverImage || this.profile.cover_image;
+        }
+        
+        console.log('Extracted image data:', { 
+            profileImage: this.profileImage, 
+            coverImage: this.coverImage 
+        });
     }
 
     renderEditProfileForm(container) {
@@ -66,8 +84,9 @@ class EditProfileView extends View {
         form.id = 'edit-profile-form';
         form.className = 'edit-profile-form';
 
-        form.appendChild(this.createImageField('profile-image', 'Profile Image', this.profile.profileImage));
-        form.appendChild(this.createImageField('cover-image', 'Cover Image', this.profile.coverImage));
+        // Use the extracted image values instead of accessing from profile directly
+        form.appendChild(this.createImageField('profile-image', 'Profile Image', this.profileImage));
+        form.appendChild(this.createImageField('cover-image', 'Cover Image', this.coverImage));
         form.appendChild(this.createTextareaField('about', 'About', this.profile.about, 'Tell us about yourself'));
         form.appendChild(this.createTextField('location', 'Location', this.profile.location, 'Your Location'));
         form.appendChild(this.createTextField('website', 'Website', this.profile.website, 'Your Website URL'));
@@ -87,10 +106,14 @@ class EditProfileView extends View {
         const inputGroup = document.createElement('div');
         inputGroup.className = 'image-input-group';
 
+        // Use snake_case field names to match Steem expectations
+        const fieldName = id === 'profile-image' ? 'profile_image' : 
+                         (id === 'cover-image' ? 'cover_image' : id.replace('-', '_'));
+        
         const input = document.createElement('input');
         input.type = 'text';
         input.id = id;
-        input.name = id.replace('-', '');
+        input.name = fieldName; // Use snake_case field names
         input.value = value || '';
         input.placeholder = `${labelText} URL`;
 
@@ -211,11 +234,20 @@ class EditProfileView extends View {
     }
 
     showInitialPreviews() {
-        if (this.profile.profileImage) {
+        // Use the extracted values
+        if (this.profileImage) {
+            const inputField = document.getElementById('profile-image');
+            if (inputField && !inputField.value) {
+                inputField.value = this.profileImage;
+            }
             this.showImagePreview('profile-image');
         }
 
-        if (this.profile.coverImage) {
+        if (this.coverImage) {
+            const inputField = document.getElementById('cover-image');
+            if (inputField && !inputField.value) {
+                inputField.value = this.coverImage;
+            }
             this.showImagePreview('cover-image');
         }
     }
@@ -224,15 +256,24 @@ class EditProfileView extends View {
         const form = this.container.querySelector('#edit-profile-form');
         const formData = new FormData(form);
 
+        console.log('Form data values:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]); 
+        }
+
+        // Create proper Steem profile format with snake_case keys
         const updatedProfile = {
-            profileImage: formData.get('profileImage'),
-            coverImage: formData.get('coverImage'),
+            profile_image: formData.get('profile_image'),
+            cover_image: formData.get('cover_image'),
             about: formData.get('about'),
             location: formData.get('location'),
             website: formData.get('website')
         };
 
+        console.log('Updated profile object:', updatedProfile);
+
         try {
+            // Pass the correctly formatted profile to the profile service
             await profileService.updateProfile(this.username, updatedProfile);
             eventEmitter.emit('notification', {
                 type: 'success',
@@ -243,7 +284,7 @@ class EditProfileView extends View {
             console.error('Error updating profile:', error);
             eventEmitter.emit('notification', {
                 type: 'error',
-                message: 'Failed to update profile'
+                message: 'Failed to update profile: ' + (error.message || 'Unknown error')
             });
         }
     }
