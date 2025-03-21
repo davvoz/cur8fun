@@ -852,3 +852,13 @@
   background-color: rgba(40, 167, 69, 0.15);
   color: var(--success-color, #28a745);
 }
+
+blockquote {
+  margin: var(--space-lg) 0;
+  padding: var(--space-md);
+  background-color: var(--background-light);
+  border-left: 4px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-style: italic;
+}
