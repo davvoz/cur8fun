@@ -598,9 +598,7 @@ class ProfileView extends View {
     const postItem = document.createElement('div');
     postItem.className = 'post-item';
     
-    // Parse metadata to extract image
-    const metadata = this.parseMetadata(post.json_metadata);
-    const imageUrl = this.getBestImage(post, metadata) || 'assets/images/placeholder.png';
+    const imageUrl = this.getPreviewImage(post) || 'assets/images/placeholder.png';
     
     // Add thumbnail - Always create it for all layouts
     const thumbnail = document.createElement('div');
@@ -817,9 +815,17 @@ class ProfileView extends View {
     }
   }
 
-  getBestImage(post, metadata) {
-    // Use imageService instead of ImageUtils
-    return imageService.getBestImageUrl(post.body, metadata);
+  getPreviewImage(post) {
+    const metadata = this.parseMetadata(post.json_metadata);
+    //usiamo la prima immagine trovata nel post
+    const imageUrl = metadata?.image?.[0];
+    //se non c'è immagine nel post, cerchiamo se nel body c'è un link ad un'immagine
+    const body = post.body || '';
+    const regex = /!\[.*?\]\((.*?)\)/;
+    const match = body.match(regex);
+    const imageUrlFromBody = match ? match[1] : null;
+    //ritorniamo la prima immagine trovata
+    return imageUrl || imageUrlFromBody;
   }
 
   initGridController() {
