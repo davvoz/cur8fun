@@ -754,8 +754,8 @@ class TagView {
         
         // Add popular tags
         const popularTags = [
-            'trending', 'hot', 'new', 'photography', 'art', 'travel', 
-            'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
+           'cur8', 'photography', 'art', 'travel', 
+            'food', 'music', 'gaming', 'life', 'blockchain', 'crypto','trending', 'hot', 'new', 
         ];
         
         // Add popular tag pills

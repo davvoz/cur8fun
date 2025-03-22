@@ -65,3 +65,20 @@ blockquote {
     border-top: 1px solid var(--border-color);
     margin: var(--space-lg) 0;
   }
+
+  pre {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9em;
+    background-color: var(--background-light);
+    padding: 0.5em;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9em;
+    background-color: var(--background-light);
+    padding: 0.25em 0.5em;
+    border-radius: var(--radius-sm);
+  }
