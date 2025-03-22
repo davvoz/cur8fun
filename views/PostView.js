@@ -6,6 +6,7 @@ import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js'; 
 import commentService from '../services/CommentService.js';
 import steemService from '../services/SteemService.js'; 
+import communityService from '../services/CommunityService.js'; // Import communityService
 
 
 class PostView extends View {
@@ -237,8 +238,6 @@ class PostView extends View {
     const postHeader = document.createElement('div');
     postHeader.className = 'post-headero';
 
-    // Back button removed
-
     const postTitle = document.createElement('h1');
     postTitle.className = 'post-title';
     postTitle.textContent = this.post.title || 'Untitled';
@@ -268,6 +267,45 @@ class PostView extends View {
     avataro.appendChild(authorAvatar);
     avataro.appendChild(authorName);
 
+    // NUOVO CODICE: Estrai e visualizza la community
+    const metadata = this.parseMetadata(this.post.json_metadata);
+    const community = metadata?.community || this.post.category || null;
+    
+    if (community) {
+      // Container per la community
+      const communityContainer = document.createElement('div');
+      communityContainer.className = 'community-container';
+      
+      // Icona della community
+      const communityIcon = document.createElement('span');
+      communityIcon.className = 'material-icons community-icon';
+      communityIcon.textContent = 'group';
+      
+      // Nome della community (cliccabile)
+      const communityName = document.createElement('a');
+      communityName.href = "javascript:void(0)";
+      communityName.className = 'community-name';
+      
+      // Determina il formato da visualizzare (hive-xxx o nome leggibile)
+      const displayName = community.startsWith('hive-') 
+        ? community 
+        : `hive-${community.replace(/^hive-/, '')}`;
+        
+      communityName.textContent = displayName;
+      communityName.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Naviga alla pagina della community
+        const communitySlug = community.replace(/^hive-/, '');
+        router.navigate(`/community/${communitySlug}`);
+      });
+      
+      communityContainer.appendChild(communityIcon);
+      communityContainer.appendChild(communityName);
+      
+      // Aggiungi container della community all'avatar container
+      avataro.appendChild(communityContainer);
+    }
+
     // Second container for date
     const dataro = document.createElement('div');
     dataro.className = 'dataro';
@@ -287,8 +325,6 @@ class PostView extends View {
 
     // Add header first to ensure it's at the top
     this.postContent.appendChild(postHeader);
-
-
 
     // Use ContentRenderer for post body with SteemContentRenderer integration
     if (!this.contentRenderer) {
@@ -1458,6 +1494,116 @@ class PostView extends View {
     }
   }
 
+  // Versione più completa per la visualizzazione della community
+
+  /**
+   * Funzione per recuperare i dettagli della community
+   * @param {string} communityName - Nome della community
+   */
+  async fetchCommunityDetails(communityName) {
+    if (!communityName) return null;
+    
+    // Rimuovi il prefisso hive- se presente
+    const cleanName = communityName.replace(/^hive-/, '');
+    
+    try {
+      // Usa communityService per ottenere i dettagli
+      const communityData = await communityService.getCommunityDetails(cleanName);
+      return communityData;
+    } catch (error) {
+      console.error(`Errore nel recupero dei dettagli della community ${communityName}:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Renderizza l'elemento community
+   */
+  async renderCommunityBadge(community) {
+    if (!community) return null;
+    
+    // Container per la community
+    const communityContainer = document.createElement('div');
+    communityContainer.className = 'community-container';
+    
+    // Icona della community
+    const communityIcon = document.createElement('span');
+    communityIcon.className = 'material-icons community-icon';
+    communityIcon.textContent = 'group';
+    
+    // Aggiungi spinner mentre carichiamo i dettagli
+    const loadingSpinner = document.createElement('div');
+    loadingSpinner.className = 'community-loading-spinner';
+    
+    // Nome della community (cliccabile)
+    const communityName = document.createElement('a');
+    communityName.href = "javascript:void(0)";
+    communityName.className = 'community-name';
+    
+    // Nome base community (hive-xxx)
+    const baseDisplayName = community.startsWith('hive-') 
+      ? community 
+      : `hive-${community}`;
+      
+    communityName.textContent = baseDisplayName;
+    
+    // Aggiungi elementi base
+    communityContainer.appendChild(communityIcon);
+    communityContainer.appendChild(communityName);
+    
+    // Prova a recuperare i dettagli della community
+    try {
+      // Sostituisci l'icona con uno spinner mentre carichiamo
+      communityIcon.style.display = 'none';
+      communityContainer.insertBefore(loadingSpinner, communityName);
+      
+      const communityData = await this.fetchCommunityDetails(community);
+      
+      // Rimuovi spinner
+      if (loadingSpinner.parentNode) {
+        communityContainer.removeChild(loadingSpinner);
+      }
+      communityIcon.style.display = 'inline-flex';
+      
+      if (communityData) {
+        // Aggiorna il nome con il titolo della community
+        communityName.textContent = communityData.title || baseDisplayName;
+        
+        // Aggiungi tooltip con descrizione
+        if (communityData.about) {
+          communityContainer.title = communityData.about;
+        }
+        
+        // Se c'è un'immagine della community, usala come avatar
+        if (communityData.avatar_url) {
+          communityIcon.textContent = ''; // Rimuovi l'icona
+          
+          const avatarImg = document.createElement('img');
+          avatarImg.src = communityData.avatar_url;
+          avatarImg.alt = communityData.title || baseDisplayName;
+          avatarImg.className = 'community-avatar-img';
+          
+          communityIcon.appendChild(avatarImg);
+        }
+      }
+    } catch (error) {
+      // In caso di errore, ripristina l'icona
+      if (loadingSpinner.parentNode) {
+        communityContainer.removeChild(loadingSpinner);
+      }
+      communityIcon.style.display = 'inline-flex';
+      console.log('Error fetching community details:', error);
+    }
+    
+    // Aggiungi evento per la navigazione
+    communityName.addEventListener('click', (e) => {
+      e.preventDefault();
+      const communitySlug = community.replace(/^hive-/, '');
+      router.navigate(`/community/${communitySlug}`);
+    });
+    
+    return communityContainer;
+  }
 }
 
 export default PostView;
