@@ -346,7 +346,7 @@ class ProfileView extends View {
     avatarImg.alt = this.profile.username;
     avatarImg.loading = 'eager'; // Prioritize avatar loading
     avatarImg.onerror = () => {
-      avatarImg.src = '/assets/images/default-avatar.png';
+      avatarImg.src = '/assets/img/default-avatar.png';
     };
     
     avatar.appendChild(avatarImg);

@@ -6,21 +6,21 @@ export const mainNavItems = [
     path: '/',
     showInBottom: true
   },
-  {
-    id: 'trending',
-    label: 'Trending',
-    icon: 'trending_up',
-    path: '/trending',
-    showInBottom: true
-  },
-  {
-    id: 'hot',
-    label: 'Hot',
-    icon: 'whatshot',
-    path: '/hot',
-    showInSide: true,
-    showInBottom: false
-  },
+  // {
+  //   id: 'trending',
+  //   label: 'Trending',
+  //   icon: 'trending_up',
+  //   path: '/trending',
+  //   showInBottom: true
+  // },
+  // {
+  //   id: 'hot',
+  //   label: 'Hot',
+  //   icon: 'whatshot',
+  //   path: '/hot',
+  //   showInSide: true,
+  //   showInBottom: false
+  // },
   {
     id: 'new',
     label: 'New',
@@ -29,14 +29,14 @@ export const mainNavItems = [
     showInSide: true,
     showInBottom: false
   },
-  {
-    id: 'promoted',
-    label: 'Promoted',
-    icon: 'rocket_launch',
-    path: '/promoted',
-    showInSide: true,
-    showInBottom: false
-  },
+  // {
+  //   id: 'promoted',
+  //   label: 'Promoted',
+  //   icon: 'rocket_launch',
+  //   path: '/promoted',
+  //   showInSide: true,
+  //   showInBottom: false
+  // },
   {
     id: 'wallet',
     label: 'Wallet',

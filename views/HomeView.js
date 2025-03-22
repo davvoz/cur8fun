@@ -368,7 +368,6 @@ class HomeView {
     
     // Add retry mechanism for avatars too
     let retryCount = 0;
-    const MAX_RETRIES = 1;
     
     const loadAvatar = () => {
       // Try multiple sources in sequence
@@ -386,7 +385,7 @@ class HomeView {
       const tryNextSource = () => {
         if (currentSourceIndex >= avatarSources.length) {
           // We've tried all sources, use default
-          avatar.src = '/assets/images/default-avatar.png';
+          avatar.src = '/assets/img/default-avatar.png';
           return;
         }
         
