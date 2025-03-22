@@ -23,7 +23,8 @@
 @import 'features/markdown.css';
 @import 'features/markdown-editor.css';
 @import 'features/create-post.css';
-@import 'features/animations.css'; /* Aggiungi questa riga per importare il nuovo file CSS */
+@import 'features/animations.css'; 
+@import 'features/community.css';
 
 /* Page-specific styles */
 @import 'pages/tag.css';

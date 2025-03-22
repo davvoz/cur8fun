@@ -14,6 +14,8 @@ import NavigationManager from './utils/NavigationManager.js';
 import { SearchService } from './services/SearchService.js';
 import RegisterView from './views/RegisterView.js';
 import EditProfileView from './views/EditProfileView.js'; // Importa EditProfileView
+import CommunitiesView from './views/CommunitiesView.js';
+import CommunityView from './views/CommunityView.js';
 
 // Setup routes with proper handlers
 router
@@ -31,6 +33,10 @@ router
   .addRoute('/@:username', ProfileView)
   .addRoute('/@:author/:permlink', PostView)
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true }) // Aggiungi questa riga
+  .addRoute('/communities', CommunitiesView)
+  .addRoute('/communities/search/:query', CommunitiesView)
+  .addRoute('/communities/subscribed', CommunitiesView, { requiresAuth: true })
+  .addRoute('/community/:name', CommunityView)
   .setNotFound(NotFoundView);
 
 // Auth guard middleware

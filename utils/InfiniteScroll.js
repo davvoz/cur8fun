@@ -19,42 +19,42 @@ export default class InfiniteScroll {
   }
 
   setupObserver() {
-    // Remove any existing observer target
-    if (this.observerTarget) {
-      this.observerTarget.remove();
-    }
-    
-    // Create and add new observer target
+    const options = {
+      root: null, // use viewport as root
+      rootMargin: '100px', // Correzione: aggiungi unità (px o %)
+      threshold: 0.1
+    };
+
+    this.observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !this.loading) {
+          this.loading = true;
+          
+          this.loadMore()
+            .then(hasMore => {
+              this.loading = false;
+              
+              // Rimuovi l'observer se non ci sono altri elementi da caricare
+              if (!hasMore) {
+                this.observer.disconnect();
+                console.log('InfiniteScroll: No more content to load, disconnecting observer');
+              }
+            })
+            .catch(error => {
+              console.error('InfiniteScroll loading error:', error);
+              this.loading = false;
+            });
+        }
+      });
+    }, options);
+
+    // Crea e osserva un target alla fine del container
     this.observerTarget = document.createElement('div');
-    this.observerTarget.className = 'observer-target';
-    this.observerTarget.style.height = '20px';
-    this.observerTarget.style.width = '100%';
-    this.observerTarget.style.margin = '20px 0';
+    this.observerTarget.className = 'infinite-scroll-target';
     this.container.appendChild(this.observerTarget);
     
-    console.log('Observer target added to container:', this.observerTarget);
-
-    // Clean up any existing observer
-    if (this.observer) {
-      this.observer.disconnect();
-    }
-
-    // Create new intersection observer
-    this.observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !this.isLoading && this.hasMore) {
-          console.log('Observer target is intersecting, loading more items');
-          this.loadNextPage();
-        }
-      },
-      { 
-        rootMargin: this.threshold,
-        threshold: 0.1 
-      }
-    );
-
     this.observer.observe(this.observerTarget);
-    console.log('IntersectionObserver started observing target');
+    console.log('Observer target added to container:', this.observerTarget);
   }
 
   async loadNextPage() {
