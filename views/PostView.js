@@ -1,11 +1,11 @@
 import View from './View.js';
 import router from '../utils/Router.js';
-import LoadingIndicator from '../components/LoadingIndicator.js'; // Import LoadingIndicator
+import LoadingIndicator from '../components/LoadingIndicator.js'; 
 import ContentRenderer from '../components/ContentRenderer.js';
 import voteService from '../services/VoteService.js';
-import authService from '../services/AuthService.js'; // Aggiungi questa importazione
+import authService from '../services/AuthService.js'; 
 import commentService from '../services/CommentService.js';
-import steemService from '../services/SteemService.js'; // Add back the steemService import
+import steemService from '../services/SteemService.js'; 
 
 
 class PostView extends View {
