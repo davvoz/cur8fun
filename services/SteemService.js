@@ -1025,6 +1025,66 @@ class SteemService {
             });
         });
     }
+
+    /**
+     * Get posts by a specific tag
+     * @param {string} tag - The tag to filter posts by
+     * @param {number} page - The page number to fetch
+     * @param {number} limit - Number of posts per page
+     * @returns {Promise<Object>} Posts and pagination info
+     */
+    async getPostsByTag(tag, page = 1, limit = 20) {
+        await this.ensureLibraryLoaded();
+        
+        if (!tag || typeof tag !== 'string') {
+            console.error('Invalid tag:', tag);
+            return { posts: [], hasMore: false, currentPage: page };
+        }
+        
+        console.log(`Fetching posts for tag: "${tag}" (page ${page})`);
+        
+        try {
+            // Call the Steem API to get posts with the specified tag
+            const query = {
+                tag: tag.toLowerCase().trim(),
+                limit: limit + 1 // Get one extra to check if there are more posts
+            };
+            
+            // Add pagination if we're not on the first page
+            if (page > 1 && this.lastPost) {
+                query.start_author = this.lastPost.author;
+                query.start_permlink = this.lastPost.permlink;
+            }
+            
+            // Use the API with proper promise handling
+            const posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
+            
+            if (!posts || !Array.isArray(posts)) {
+                console.warn('Invalid response from API:', posts);
+                return { posts: [], hasMore: false, currentPage: page };
+            }
+            
+            // Store the last post for pagination
+            if (posts.length > 0) {
+                this.lastPost = posts[posts.length - 1];
+            }
+            
+            // Check if there are more posts
+            const hasMore = posts.length > limit;
+            
+            // Remove the extra post if we fetched one
+            const filteredPosts = hasMore ? posts.slice(0, limit) : posts;
+            
+            return {
+                posts: filteredPosts,
+                hasMore,
+                currentPage: page
+            };
+        } catch (error) {
+            console.error('Error fetching posts by tag:', error);
+            throw new Error('Failed to fetch posts by tag');
+        }
+    }
 }
 
 // Initialize singleton instance

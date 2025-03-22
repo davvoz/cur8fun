@@ -1,318 +1,499 @@
-import View from './View.js';
 import steemService from '../services/SteemService.js';
-import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 import GridController from '../components/GridController.js';
+import ContentRenderer from '../components/ContentRenderer.js';
+import router from '../utils/Router.js';
 
-class TagView extends View {
-  constructor(params = {}) {
-    super(params);
-    this.tag = params.tag || '';
-    this.page = 1;
-    this.posts = [];
-    this.isLoading = false;
-    this.hasMorePosts = true;
-    this.element = null;
-    this.loadingIndicator = null;
-    this.gridController = null;
-  }
-
-  async render(element) {
-    if (!element) {
-      console.error('No element provided to TagView.render()');
-      return;
-    }
-
-    this.element = element;
-
-    // Clear the container
-    while (this.element.firstChild) {
-      this.element.removeChild(this.element.firstChild);
-    }
-
-    // Set page title
-    document.title = `#${this.tag} - Posts`;
-    
-    // Create main container
-    const tagContainer = document.createElement('div');
-    tagContainer.className = 'tag-container';
-    
-    // Create header
-    const header = document.createElement('div');
-    header.className = 'tag-header';
-    
-    const title = document.createElement('h1');
-    title.className = 'tag-title';
-    title.innerHTML = `<span class="tag-symbol">#</span>${this.tag}`;
-    
-    header.appendChild(title);
-    tagContainer.appendChild(header);
-    
-    // Add grid controller container
-    const gridControlContainer = document.createElement('div');
-    gridControlContainer.className = 'grid-controller-container';
-    tagContainer.appendChild(gridControlContainer);
-    
-    // Create posts container with class for grid controller
-    const postsContainer = document.createElement('div');
-    postsContainer.className = 'posts-grid posts-container';
-    tagContainer.appendChild(postsContainer);
-    
-    // Create loading container
-    const loadingContainer = document.createElement('div');
-    loadingContainer.className = 'loading-container';
-    tagContainer.appendChild(loadingContainer);
-    
-    // Add everything to the DOM
-    this.element.appendChild(tagContainer);
-    
-    this.postsContainer = postsContainer;
-    this.loadingContainer = loadingContainer;
-    
-    // Initialize grid controller
-    this.initGridController(gridControlContainer);
-    
-    // Initialize loading indicator
-    this.loadingIndicator = new LoadingIndicator('spinner');
-    
-    // Load initial posts
-    await this.loadPosts();
-    
-    // Set up infinite scroll
-    this.setupInfiniteScroll();
-    
-    // Emit view loaded event
-    eventEmitter.emit('view:loaded', { name: 'tag', params: { tag: this.tag } });
-  }
-
-  initGridController(container) {
-    if (this.gridController) {
-      this.gridController.unmount();
-      this.gridController = null;
-    }
-    
-    this.gridController = new GridController({
-      targetSelector: '.posts-container',
-    });
-    
-    this.gridController.render(container);
-  }
-
-  async loadPosts() {
-    if (this.isLoading || !this.hasMorePosts) return;
-    
-    this.isLoading = true;
-    this.loadingIndicator.show(this.loadingContainer, 'Loading posts...');
-    
-    try {
-      const result = await steemService.getPostsByTag({
-        tag: this.tag,
-        page: this.page,
-        limit: 20
-      });
-      
-      if (result.posts && result.posts.length > 0) {
-        this.renderPosts(result.posts);
-        this.hasMorePosts = result.hasMore;
-        this.page++;
-      } else {
-        this.hasMorePosts = false;
-        if (this.page === 1) {
-          this.renderEmptyState();
+class TagView {
+    constructor(params) {
+        this.params = params || {};
+        this.tag = this.params.tag || '';
+        
+        if (!this.tag) {
+            console.error('No tag provided to TagView');
         }
-      }
-    } catch (error) {
-      console.error('Error loading posts for tag:', error);
-      this.renderError(error);
-    } finally {
-      this.isLoading = false;
-      this.loadingIndicator.hide();
-    }
-  }
-
-  renderPosts(posts) {
-    if (!posts || posts.length === 0) return;
-    
-    posts.forEach(post => {
-      const postCard = this.createPostCard(post);
-      this.postsContainer.appendChild(postCard);
-    });
-  }
-
-  createPostCard(post) {
-    // Extract post metadata
-    const { author, permlink, title, created, body, json_metadata } = post;
-    
-    // Get thumbnail if available
-    let thumbnailUrl = 'assets/img/placeholder.png';
-    try {
-      const metadata = typeof json_metadata === 'string' ? JSON.parse(json_metadata) : json_metadata;
-      if (metadata?.image && metadata.image.length > 0) {
-        thumbnailUrl = metadata.image[0];
-      } else {
-        // Try to extract from body
-        const imgMatch = body && body.match(/(https?:\/\/.*\.(?:png|jpg|jpeg|gif))/i);
-        if (imgMatch && imgMatch[0]) {
-          thumbnailUrl = imgMatch[0];
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse post metadata', e);
-    }
-    
-    // Create post card element
-    const card = document.createElement('div');
-    card.className = 'post-card';
-    card.addEventListener('click', () => {
-      router.navigate(`/@${author}/${permlink}`);
-    });
-    
-    // Card header with author info
-    const cardHeader = document.createElement('div');
-    cardHeader.className = 'post-card-header';
-    
-    const authorAvatar = document.createElement('img');
-    authorAvatar.className = 'author-avatar';
-    authorAvatar.src = `https://steemitimages.com/u/${author}/avatar`;
-    authorAvatar.alt = author;
-    
-    const authorInfo = document.createElement('div');
-    authorInfo.className = 'author-info';
-    
-    const authorName = document.createElement('a');
-    authorName.className = 'author-name';
-    authorName.textContent = `@${author}`;
-    authorName.href = `javascript:void(0)`;
-    authorName.onclick = (e) => {
-      e.stopPropagation();
-      router.navigate(`/@${author}`);
-    };
-    
-    const postDate = document.createElement('span');
-    postDate.className = 'post-date';
-    postDate.textContent = new Date(created).toLocaleDateString();
-    
-    authorInfo.appendChild(authorName);
-    authorInfo.appendChild(postDate);
-    
-    cardHeader.appendChild(authorAvatar);
-    cardHeader.appendChild(authorInfo);
-    
-    // Card content
-    const cardContent = document.createElement('div');
-    cardContent.className = 'post-card-content';
-    
-    // Always create and add the thumbnail first
-    const thumbnail = document.createElement('div');
-    thumbnail.className = 'post-thumbnail';
-    thumbnail.style.backgroundImage = `url(${thumbnailUrl})`;
-    cardContent.appendChild(thumbnail);
-    
-    const postTitle = document.createElement('h3');
-    postTitle.className = 'post-title';
-    postTitle.textContent = title || '(Untitled)';
-    cardContent.appendChild(postTitle);
-    
-    // Excerpt
-    const excerpt = document.createElement('p');
-    excerpt.className = 'post-excerpt';
-    
-    let plainText = body?.replace(/<[^>]*>?/gm, '') || '';
-    plainText = plainText.replace(/\n/g, ' ').trim();
-    excerpt.textContent = plainText.length > 140 
-      ? plainText.substring(0, 140) + '...' 
-      : plainText;
-    
-    cardContent.appendChild(excerpt);
-    
-    // Card footer with tags and stats
-    const cardFooter = document.createElement('div');
-    cardFooter.className = 'post-card-footer';
-    
-    // Tags
-    const tagsContainer = document.createElement('div');
-    tagsContainer.className = 'post-tags';
-    
-    try {
-      const metadata = typeof json_metadata === 'string' ? JSON.parse(json_metadata) : json_metadata;
-      if (metadata?.tags && Array.isArray(metadata.tags)) {
-        metadata.tags.slice(0, 3).forEach(tag => {
-          const tagElem = document.createElement('span');
-          tagElem.className = 'post-tag';
-          tagElem.textContent = `#${tag}`;
-          tagElem.onclick = (e) => {
-            e.stopPropagation();
-            router.navigate(`/tag/${tag}`);
-          };
-          tagsContainer.appendChild(tagElem);
+        
+        this.posts = [];
+        this.loading = false;
+        this.loadingIndicator = new LoadingIndicator();
+        this.infiniteScroll = null;
+        this.renderedPostIds = new Set();
+        this.gridController = new GridController({
+            targetSelector: '.posts-container'
         });
-      }
-    } catch (e) {
-      console.warn('Failed to parse post tags', e);
+        
+        // Initialize SteemContentRenderer for image extraction
+        this.initSteemRenderer();
     }
     
-    cardFooter.appendChild(tagsContainer);
-    
-    // Assemble the card
-    card.appendChild(cardHeader);
-    card.appendChild(cardContent);
-    card.appendChild(cardFooter);
-    
-    return card;
-  }
-
-  renderEmptyState() {
-    const emptyState = document.createElement('div');
-    emptyState.className = 'empty-state';
-    
-    const icon = document.createElement('span');
-    icon.className = 'material-icons';
-    icon.textContent = 'tag';
-    
-    const message = document.createElement('h3');
-    message.textContent = `No posts found with the tag #${this.tag}`;
-    
-    const description = document.createElement('p');
-    description.textContent = 'Try searching for a different tag or check back later.';
-    
-    emptyState.appendChild(icon);
-    emptyState.appendChild(message);
-    emptyState.appendChild(description);
-    
-    this.postsContainer.appendChild(emptyState);
-  }
-
-  renderError(error) {
-    const errorElement = document.createElement('div');
-    errorElement.className = 'error-message';
-    errorElement.textContent = `Error loading posts: ${error.message || 'Unknown error'}`;
-    this.postsContainer.appendChild(errorElement);
-  }
-
-  setupInfiniteScroll() {
-    // Simple intersection observer for infinite scroll
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !this.isLoading && this.hasMorePosts) {
-        this.loadPosts();
-      }
-    });
-    
-    // Create and observe sentinel element
-    const sentinel = document.createElement('div');
-    sentinel.className = 'scroll-sentinel';
-    this.element.appendChild(sentinel);
-    
-    observer.observe(sentinel);
-  }
-
-  unmount() {
-    // Clean up any observers or event listeners
-    if (this.gridController) {
-      this.gridController.unmount();
-      this.gridController = null;
+    /**
+     * Initialize SteemContentRenderer for image extraction
+     */
+    async initSteemRenderer() {
+        try {
+            await ContentRenderer.loadSteemContentRenderer();
+            this.contentRenderer = new ContentRenderer({
+                useSteemContentRenderer: true,
+                extractImages: true,
+                renderImages: true
+            });
+        } catch (error) {
+            console.error('Failed to initialize SteemContentRenderer:', error);
+            this.contentRenderer = null;
+        }
     }
-  }
+    
+    /**
+     * Render the view
+     */
+    async render(container) {
+        this.container = container;
+        
+        // Create content wrapper
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'content-wrapper';
+        
+        // Create header area with title and grid controls
+        const headerArea = document.createElement('div');
+        headerArea.className = 'header-area';
+        
+        // Create heading with tag name
+        const heading = document.createElement('h1');
+        heading.textContent = `#${this.tag} Posts`;
+        headerArea.appendChild(heading);
+        
+        // Create grid controller container
+        const gridControllerContainer = document.createElement('div');
+        gridControllerContainer.className = 'grid-controller-container';
+        headerArea.appendChild(gridControllerContainer);
+        
+        contentWrapper.appendChild(headerArea);
+        
+        // Create tag selection bar (similar to HomeView)
+        const tagSelectionBar = this.createTagSelectionBar();
+        contentWrapper.appendChild(tagSelectionBar);
+        
+        // Create posts container
+        const postsContainer = document.createElement('div');
+        postsContainer.className = 'posts-container';
+        
+        // Add to content wrapper
+        contentWrapper.appendChild(postsContainer);
+        
+        // Add to container
+        container.appendChild(contentWrapper);
+        
+        // Initialize grid controller
+        this.gridController.render(gridControllerContainer);
+        
+        // Show loading indicator while posts are loading
+        this.loadingIndicator.show(postsContainer);
+        
+        // Load posts
+        try {
+            await this.loadPosts(1);
+            
+            // Initialize infinite scroll
+            if (postsContainer) {
+                console.log('Initializing infinite scroll for TagView');
+                this.infiniteScroll = new InfiniteScroll({
+                    container: postsContainer,
+                    loadMore: (page) => this.loadPosts(page),
+                    threshold: '200px'
+                });
+            }
+        } catch (error) {
+            console.error('Error loading initial posts:', error);
+            this.handleLoadError();
+        }
+    }
+    
+    /**
+     * Load posts for the tag
+     */
+    async loadPosts(page = 1) {
+        if (page === 1) {
+            this.loading = true;
+            this.posts = [];
+            this.renderedPostIds.clear();
+            this.renderPosts();
+        }
+        
+        try {
+            if (!this.tag) {
+                throw new Error('No tag specified');
+            }
+            
+            console.log(`Loading posts for tag: ${this.tag}, page: ${page}`);
+            const result = await steemService.getPostsByTag(this.tag, page);
+            
+            // Check if result has the expected structure
+            if (!result || !result.posts) {
+                console.warn('Invalid result from getPostsByTag:', result);
+                return false;
+            }
+            
+            const { posts, hasMore } = result;
+            
+            // Filter out any duplicates before adding to the post array
+            if (Array.isArray(posts)) {
+                const uniquePosts = posts.filter(post => {
+                    // Create a unique ID using author and permlink
+                    const postId = `${post.author}_${post.permlink}`;
+                    // Only include posts we haven't seen yet
+                    const isNew = !this.renderedPostIds.has(postId);
+                    return isNew;
+                });
+                
+                if (uniquePosts.length > 0) {
+                    this.posts = [...this.posts, ...uniquePosts];
+                    this.renderPosts(page > 1);
+                } else {
+                    console.log('No new unique posts in this batch.');
+                }
+            }
+            
+            return hasMore;
+        } catch (error) {
+            console.error('Error loading posts for tag:', error);
+            this.handleLoadError();
+            return false;
+        } finally {
+            this.loading = false;
+            this.loadingIndicator.hide();
+        }
+    }
+    
+    /**
+     * Handle load errors
+     */
+    handleLoadError() {
+        eventEmitter.emit('notification', {
+            type: 'error',
+            message: 'Failed to load posts. Please try again later.'
+        });
+        
+        const postsContainer = this.container?.querySelector('.posts-container');
+        if (!postsContainer) return;
+        
+        this.clearContainer(postsContainer);
+        const errorElement = this.createErrorElement();
+        postsContainer.appendChild(errorElement);
+    }
+    
+    /**
+     * Create error element
+     */
+    createErrorElement() {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-state';
+        
+        const errorHeading = document.createElement('h3');
+        errorHeading.textContent = 'Failed to load posts';
+        
+        const errorMessage = document.createElement('p');
+        errorMessage.textContent = 'There was an error loading posts for this tag.';
+        
+        const retryButton = document.createElement('button');
+        retryButton.className = 'btn-primary retry-btn';
+        retryButton.textContent = 'Retry';
+        retryButton.addEventListener('click', () => this.loadPosts());
+        
+        errorDiv.append(errorHeading, errorMessage, retryButton);
+        return errorDiv;
+    }
+    
+    /**
+     * Clear container
+     */
+    clearContainer(container) {
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+    }
+    
+    /**
+     * Render posts
+     */
+    renderPosts(append = false) {
+        const postsContainer = this.container?.querySelector('.posts-container');
+        
+        if (!postsContainer) return;
+        
+        if (!append) {
+            this.clearContainer(postsContainer);
+            this.renderedPostIds.clear();
+        }
+        
+        // Calculate which posts to render
+        let postsToRender = [];
+        if (append) {
+            // When appending, get only the new posts
+            const currentPostCount = postsContainer.querySelectorAll('.post-card').length;
+            postsToRender = this.posts.slice(currentPostCount);
+        } else {
+            // When not appending (fresh render), get all posts
+            postsToRender = this.posts;
+        }
+        
+        console.log(`Rendering ${postsToRender.length} posts (append: ${append})`);
+        
+        // Filter out any duplicates that might have slipped through
+        const uniquePostsToRender = postsToRender.filter(post => {
+            const postId = `${post.author}_${post.permlink}`;
+            if (this.renderedPostIds.has(postId)) {
+                return false;
+            }
+            this.renderedPostIds.add(postId);
+            return true;
+        });
+        
+        console.log(`Rendering ${uniquePostsToRender.length} unique posts`);
+        
+        if (uniquePostsToRender.length === 0 && this.posts.length === 0) {
+            // If no posts at all, show message
+            const noPostsMessage = document.createElement('div');
+            noPostsMessage.className = 'no-posts-message';
+            noPostsMessage.innerHTML = `
+                <h3>No posts found</h3>
+                <p>No posts found with the tag #${this.tag}.</p>
+                <a href="/" class="btn-primary">Back to Home</a>
+            `;
+            postsContainer.appendChild(noPostsMessage);
+            return;
+        }
+        
+        // Import HomeView's renderPostCard directly for simplicity
+        // In a real app, this should be extracted to a shared component
+        uniquePostsToRender.forEach(post => this.renderPostCard(post, postsContainer));
+    }
+    
+    // Import all the post rendering methods from HomeView
+    // For brevity, we'll reference them from a HomeView instance
+    // or create a shared PostCard component in a production app
+    // Here we'll just add a simple implementation
+    
+    /**
+     * Create a tag selection bar with tag input and popular tags
+     */
+    createTagSelectionBar() {
+        const tagBarContainer = document.createElement('div');
+        tagBarContainer.className = 'tag-selection-bar';
+        
+        // Create scrollable area for tag pills
+        const tagScrollArea = document.createElement('div');
+        tagScrollArea.className = 'tag-scroll-area';
+        
+        // Add popular tags
+        const popularTags = [
+            'trending', 'hot', 'new', 'photography', 'art', 'travel', 
+            'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
+        ];
+        
+        // Add popular tag pills
+        popularTags.forEach(tag => {
+            const tagPill = this.createTagPill(tag);
+            tagScrollArea.appendChild(tagPill);
+        });
+        
+        // Add custom tag input
+        const customTagContainer = document.createElement('div');
+        customTagContainer.className = 'custom-tag-container';
+        
+        const customTagInput = document.createElement('input');
+        customTagInput.type = 'text';
+        customTagInput.placeholder = 'Enter custom tag...';
+        customTagInput.className = 'custom-tag-input';
+        customTagInput.value = this.tag; // Pre-fill with current tag
+        
+        const searchButton = document.createElement('button');
+        searchButton.className = 'custom-tag-button';
+        searchButton.innerHTML = '<span class="material-icons">search</span>';
+        
+        // Handle custom tag search
+        searchButton.addEventListener('click', () => {
+            const customTag = customTagInput.value.trim().toLowerCase();
+            if (customTag) {
+                this.navigateToTag(customTag);
+            }
+        });
+        
+        // Also handle Enter key
+        customTagInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const customTag = customTagInput.value.trim().toLowerCase();
+                if (customTag) {
+                    this.navigateToTag(customTag);
+                }
+            }
+        });
+        
+        // Add smooth scrolling for the active tag
+        this.addActiveTagScrolling(tagScrollArea);
+        
+        customTagContainer.appendChild(customTagInput);
+        customTagContainer.appendChild(searchButton);
+        
+        // Add elements to container
+        tagBarContainer.appendChild(tagScrollArea);
+        tagBarContainer.appendChild(customTagContainer);
+        
+        return tagBarContainer;
+    }
+    
+    /**
+     * Add scrolling to make active tag visible
+     */
+    addActiveTagScrolling(scrollContainer) {
+        // Wait for the next frame when elements are rendered
+        setTimeout(() => {
+            const activeTag = scrollContainer.querySelector('.tag-pill.active');
+            if (activeTag) {
+                // Calculate position to center the active tag
+                const containerWidth = scrollContainer.offsetWidth;
+                const tagWidth = activeTag.offsetWidth;
+                const tagLeft = activeTag.offsetLeft;
+                const scrollPosition = tagLeft - (containerWidth / 2) + (tagWidth / 2);
+                
+                // Scroll to position smoothly
+                scrollContainer.scrollTo({
+                    left: Math.max(0, scrollPosition),
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
+    }
+    
+    /**
+     * Creates a pill-style button for a tag
+     */
+    createTagPill(tag) {
+        const pill = document.createElement('button');
+        pill.className = 'tag-pill';
+        pill.textContent = this.formatTagName(tag);
+        
+        // Highlight the active tag
+        if (tag === this.tag) {
+            pill.classList.add('active');
+        }
+        
+        // Add click handler to navigate to tag
+        pill.addEventListener('click', () => {
+            this.navigateToTag(tag);
+        });
+        
+        return pill;
+    }
+    
+    /**
+     * Format tag name for display (capitalize first letter)
+     */
+    formatTagName(tag) {
+        return tag.charAt(0).toUpperCase() + tag.slice(1);
+    }
+    
+    /**
+     * Navigate to a specific tag
+     */
+    navigateToTag(tag) {
+        if (tag === 'trending' || tag === 'hot' || tag === 'new' || tag === 'promoted') {
+            router.navigate(`/${tag}`);
+        } else {
+            router.navigate(`/tag/${tag}`);
+        }
+    }
+    
+    // Import renderPostCard and other necessary post rendering methods from HomeView
+    // For brevity, we'll reference an example implementation
+    renderPostCard(post, container) {
+        // Create a basic post card - in real implementation, this should be shared with HomeView
+        const postCard = document.createElement('div');
+        postCard.className = 'post-card';
+        
+        // Parse metadata
+        const metadata = this.parseMetadata(post.json_metadata);
+        
+        // Basic author and title
+        const author = document.createElement('div');
+        author.className = 'post-author';
+        author.textContent = `@${post.author}`;
+        
+        const title = document.createElement('div');
+        title.className = 'post-title';
+        title.textContent = post.title;
+        
+        // Basic content
+        const content = document.createElement('div');
+        content.className = 'post-content';
+        
+        // Extract a short excerpt
+        const excerpt = document.createElement('div');
+        excerpt.className = 'post-excerpt';
+        excerpt.textContent = this.createExcerpt(post.body);
+        
+        // Add to container
+        content.append(title, excerpt);
+        postCard.append(author, content);
+        
+        // Evento click - navigate to post
+        postCard.addEventListener('click', (e) => {
+            e.preventDefault();
+            const postUrl = `/@${post.author}/${post.permlink}`;
+            router.navigate(postUrl);
+        });
+        
+        container.appendChild(postCard);
+    }
+    
+    // Utilities
+    parseMetadata(jsonMetadata) {
+        try {
+            if (typeof jsonMetadata === 'string') {
+                return JSON.parse(jsonMetadata);
+            }
+            return jsonMetadata || {};
+        } catch (e) {
+            return {};
+        }
+    }
+    
+    createExcerpt(body, maxLength = 150) {
+        if (!body) return '';
+        
+        // Simple text extraction
+        const plainText = body
+            .replace(/!\[.*?\]\(.*?\)/g, '')
+            .replace(/\[([^\]]+)\]\(.*?\)/g, '$1')
+            .replace(/<\/?[^>]+(>|$)/g, '')
+            .replace(/#{1,6}\s/g, '')
+            .replace(/(\*\*|__)(.*?)(\*\*|__)/g, '$2')
+            .replace(/(\*|_)(.*?)(\*|_)/g, '$2')
+            .replace(/~~(.*?)~~/g, '$1')
+            .replace(/```[\s\S]*?```/g, '')
+            .replace(/\n\n/g, ' ')
+            .replace(/\n/g, ' ')
+            .trim();
+        
+        // Truncate if needed
+        if (plainText.length <= maxLength) {
+            return plainText;
+        }
+        
+        return plainText.substring(0, maxLength) + '...';
+    }
+    
+    unmount() {
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
+        }
+        
+        if (this.gridController) {
+            this.gridController.unmount();
+        }
+    }
 }
 
 export default TagView;

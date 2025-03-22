@@ -33,6 +33,8 @@
 @import 'utils/responsive.css';
 @import 'utils/content.css';
 
+@import 'components/tag-selection.css'; /* Aggiungi questa riga */
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

@@ -20,6 +20,12 @@ class HomeView {
     // Track post IDs to prevent duplicates
     this.renderedPostIds = new Set();
     
+    // Popular tags that will be shown in the tag selection bar
+    this.popularTags = [
+      'trending', 'hot', 'new', 'photography', 'art', 'travel', 
+      'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
+    ];
+    
     // Initialize SteemContentRenderer for image extraction
     this.initSteemRenderer();
   }
@@ -90,6 +96,12 @@ class HomeView {
 
   async fetchPostsByTag(page = 1) {
     console.log(`Fetching ${this.tag} posts, page ${page}`);
+    
+    // Use getPostsByTag for any custom tag not in the special list
+    if (!['trending', 'hot', 'created', 'promoted'].includes(this.tag)) {
+      return steemService.getPostsByTag(this.tag, page);
+    }
+    
     const postFetchers = {
       'trending': () => steemService.getTrendingPosts(page),
       'hot': () => steemService.getHotPosts(page),
@@ -661,7 +673,7 @@ class HomeView {
     
     // Create heading
     const heading = document.createElement('h1');
-    heading.textContent = this.tag.charAt(0).toUpperCase() + this.tag.slice(1) + ' Posts';
+    heading.textContent = this.formatTagName(this.tag) + ' Posts';
     headerArea.appendChild(heading);
     
     // Create grid controller container
@@ -670,6 +682,10 @@ class HomeView {
     headerArea.appendChild(gridControllerContainer);
     
     contentWrapper.appendChild(headerArea);
+    
+    // Create tag selection bar
+    const tagSelectionBar = this.createTagSelectionBar();
+    contentWrapper.appendChild(tagSelectionBar);
 
     // Create posts container
     const postsContainer = document.createElement('div');
@@ -699,6 +715,135 @@ class HomeView {
         });
       }
     });
+  }
+  
+  /**
+   * Creates the tag selection bar with popular tags and custom tag input
+   */
+  createTagSelectionBar() {
+    const tagBarContainer = document.createElement('div');
+    tagBarContainer.className = 'tag-selection-bar';
+    
+    // Create scrollable area for tag pills
+    const tagScrollArea = document.createElement('div');
+    tagScrollArea.className = 'tag-scroll-area';
+    
+    // Add popular tag pills
+    this.popularTags.forEach(tag => {
+      const tagPill = this.createTagPill(tag);
+      tagScrollArea.appendChild(tagPill);
+    });
+    
+    // Add custom tag input
+    const customTagContainer = document.createElement('div');
+    customTagContainer.className = 'custom-tag-container';
+    
+    const customTagInput = document.createElement('input');
+    customTagInput.type = 'text';
+    customTagInput.placeholder = 'Enter custom tag...';
+    customTagInput.className = 'custom-tag-input';
+    
+    const searchButton = document.createElement('button');
+    searchButton.className = 'custom-tag-button';
+    searchButton.innerHTML = '<span class="material-icons">search</span>';
+    
+    // Handle custom tag search
+    searchButton.addEventListener('click', () => {
+      const customTag = customTagInput.value.trim().toLowerCase();
+      if (customTag) {
+        this.navigateToTag(customTag);
+      }
+    });
+    
+    // Also handle Enter key
+    customTagInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const customTag = customTagInput.value.trim().toLowerCase();
+        if (customTag) {
+          this.navigateToTag(customTag);
+        }
+      }
+    });
+    
+    // Add smooth scrolling for the active tag
+    this.addActiveTagScrolling(tagScrollArea);
+    
+    customTagContainer.appendChild(customTagInput);
+    customTagContainer.appendChild(searchButton);
+    
+    // Add elements to container
+    tagBarContainer.appendChild(tagScrollArea);
+    tagBarContainer.appendChild(customTagContainer);
+    
+    return tagBarContainer;
+  }
+
+  /**
+   * Add scrolling to make active tag visible
+   */
+  addActiveTagScrolling(scrollContainer) {
+    // Wait for the next frame when elements are rendered
+    setTimeout(() => {
+      const activeTag = scrollContainer.querySelector('.tag-pill.active');
+      if (activeTag) {
+        // Calculate position to center the active tag
+        const containerWidth = scrollContainer.offsetWidth;
+        const tagWidth = activeTag.offsetWidth;
+        const tagLeft = activeTag.offsetLeft;
+        const scrollPosition = tagLeft - (containerWidth / 2) + (tagWidth / 2);
+        
+        // Scroll to position smoothly
+        scrollContainer.scrollTo({
+          left: Math.max(0, scrollPosition),
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  }
+  
+  /**
+   * Creates a pill-style button for a tag
+   */
+  createTagPill(tag) {
+    const pill = document.createElement('button');
+    pill.className = 'tag-pill';
+    pill.textContent = this.formatTagName(tag);
+    
+    // Highlight the active tag
+    if (tag === this.tag) {
+      pill.classList.add('active');
+    }
+    
+    // Add click handler to navigate to tag
+    pill.addEventListener('click', () => {
+      this.navigateToTag(tag);
+    });
+    
+    return pill;
+  }
+  
+  /**
+   * Navigate to a specific tag
+   */
+  navigateToTag(tag) {
+    if (!tag) return;
+    
+    // Ensure the tag is properly formatted - lowercase and trimmed
+    const formattedTag = tag.trim().toLowerCase();
+    
+    if (formattedTag === 'trending' || formattedTag === 'hot' || 
+        formattedTag === 'new' || formattedTag === 'promoted') {
+      router.navigate(`/${formattedTag}`);
+    } else {
+      router.navigate(`/tag/${formattedTag}`);
+    }
+  }
+  
+  /**
+   * Format tag name for display (capitalize first letter)
+   */
+  formatTagName(tag) {
+    return tag.charAt(0).toUpperCase() + tag.slice(1);
   }
 
   unmount() {
