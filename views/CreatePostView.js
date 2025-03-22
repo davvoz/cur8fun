@@ -427,11 +427,16 @@ class CreatePostView extends View {
       // Notifica inizio creazione
       this.showStatus('Publishing your post...', 'info');
       
+      // Genera permlink dal titolo
+      const permlink = this.generatePermlink(this.postTitle);
+      const username = this.user.username;
+      
       // Dati post
       const postData = {
         title: this.postTitle,
         body: this.postBody,
-        tags: this.tags
+        tags: this.tags,
+        permlink: permlink // Passa il permlink generato
       };
       
       // Usa il servizio appropriato per pubblicare
@@ -440,7 +445,7 @@ class CreatePostView extends View {
       if (this.selectedCommunity) {
         // Pubblica in una community
         result = await communityService.postToCommunity(
-          this.user.username,
+          username,
           this.selectedCommunity.name,
           postData
         );
@@ -452,9 +457,10 @@ class CreatePostView extends View {
       // Mostra messaggio di successo
       this.showStatus('Post published successfully!', 'success');
       
-      // Reindirizza all'elenco post dopo un breve ritardo
+      // Reindirizza alla pagina del post dopo un breve ritardo
       setTimeout(() => {
-        window.location.href = '/';
+        // Usa router per navigare alla pagina del post
+        window.location.href = `#/@${username}/${permlink}`;
       }, 2000);
     } catch (error) {
       console.error('Failed to publish post:', error);
@@ -466,6 +472,24 @@ class CreatePostView extends View {
     } finally {
       this.isSubmitting = false;
     }
+  }
+  
+  /**
+   * Genera un permlink basato sul titolo
+   * @param {string} title - Titolo del post
+   * @returns {string} - Permlink generato
+   */
+  generatePermlink(title) {
+    const slug = title
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '') // Rimuovi caratteri speciali
+      .replace(/\s+/g, '-')     // Sostituisci spazi con trattini
+      .replace(/-+/g, '-')      // Evita trattini multipli
+      .trim();
+      
+    // Aggiungi timestamp per evitare conflitti
+    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    return `${slug}-${timestamp}`;
   }
   
   /**
