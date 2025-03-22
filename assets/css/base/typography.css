@@ -36,3 +36,32 @@ a {
 a:hover {
     color: var(--primary-light);
 }
+
+blockquote {
+    margin: var(--space-lg) 0;
+    padding: var(--space-md);
+    background-color: var(--background-light);
+    border-left: 4px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+  
+  ul {
+    padding-left: 1.5rem;
+  }
+  
+  li {
+    margin-bottom: 0.5rem;
+  }
+  
+  ol {
+    counter-reset: list;
+    padding-left: 1.5rem;
+  }
+  
+  hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: var(--space-lg) 0;
+  }

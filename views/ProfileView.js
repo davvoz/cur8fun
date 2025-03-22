@@ -625,8 +625,7 @@ class ProfileView extends View {
     
     // Create post container
     const postItem = document.createElement('div');
-    postItem.className = 'post-item animated-card';
-    postItem.setAttribute('role', 'article');
+    postItem.className = 'post-card';
     
     // Add thumbnail with error handling
     this.addPostThumbnail(postItem, post);

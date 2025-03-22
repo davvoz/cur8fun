@@ -14,9 +14,9 @@
   margin-bottom: var(--space-md);
 }
 
-/* Hide grid controller on mobile */
+/* Mobile grid controller styles - updating to show grid controller on mobile */
 .grid-controller-container.mobile-hidden {
-  display: none;
+  display: block; /* Show on mobile, removing the 'none' value */
 }
 
 .grid-controller {
@@ -166,7 +166,7 @@
   background-color: var(--background-subtle);
   border: 1px solid var(--border-color);
   color: var(--text-color-secondary);
-  padding: var(--space-xxs) var(--space-sm);
+  padding: var(--space-xxs) var (--space-sm);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -186,24 +186,80 @@
   font-size: 1rem;
 }
 
-/* Responsive handling */
+/* Responsive handling - update for better mobile experience */
 @media (max-width: 768px) {
-  /* Hide the grid controller completely on mobile */
+  /* Show the grid controller on mobile with compact layout */
   .grid-controller-container {
-    display: none;
+    display: block;
+  }
+
+  /* Simplify controls on mobile */
+  .grid-controller {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
   }
   
-  /* Force mobile-optimized layout regardless of settings */
+  .grid-controls {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* Adjust layout for mobile posts */
   .posts-container {
-    display: grid !important;
-    grid-template-columns: 1fr !important; /* Single column on small screens */
-    gap: var(--space-sm) !important;
+    display: grid;
+    gap: var(--space-sm);
   }
   
-  /* When screen gets very small, use compact layout */
+  /* Mobile-optimized list layout */
+  .posts-container.grid-layout-list .post-card {
+    margin-bottom: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-md);
+  }
+  
+  .posts-container.grid-layout-list .post-main-content {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .posts-container.grid-layout-list .post-image-container {
+    width: 120px;
+    height: 120px;
+    min-height: auto;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin: var(--space-xs);
+  }
+  
+  .posts-container.grid-layout-list .post-content-wrapper {
+    flex: 1;
+    padding: var(--space-xs);
+  }
+  
+  .posts-container.grid-layout-list .post-title {
+    font-size: 1rem;
+    margin-bottom: var(--space-xxs);
+  }
+  
+  /* Ensure actions are properly aligned on mobile */
+  .posts-container.grid-layout-list .post-actions {
+    padding: var(--space-xs);
+    justify-content: space-between;
+  }
+  
+  /* Improve spacing on very small screens */
   @media (max-width: 480px) {
-    .posts-container .post-card {
-      margin-bottom: var(--space-sm);
+    .posts-container.grid-layout-list .post-card,
+    .posts-container.grid-layout-compact .post-card {
+      margin-bottom: var(--space-xs);
+    }
+    
+    .posts-container.grid-layout-list .post-image-container {
+      width: 100px;
+      height: 100px;
     }
   }
 }
@@ -723,5 +779,46 @@
   .posts-container.grid-layout-list .post-image-container {
     width: 100%;
     padding-bottom: 56.25%;
+  }
+}
+
+/* Improve mobile post layouts for all grid types */
+@media (max-width: 768px) {
+  /* Grid layout on mobile */
+  .posts-container.grid-layout-grid {
+    grid-template-columns: repeat(2, 1fr); /* Two columns on mobile */
+  }
+  
+  /* List layout on mobile - improved card design */
+  .posts-container.grid-layout-list .post-card {
+    background-color: var(--background-light);
+    box-shadow: var(--card-box-shadow-sm);
+    overflow: hidden;
+  }
+  
+  .posts-container.grid-layout-list .post-header {
+    padding: var(--space-sm);
+    background-color: var(--background-subtle);
+  }
+  
+  .posts-container.grid-layout-list .post-main-content {
+    padding: 0;
+  }
+  
+  .posts-container.grid-layout-list .post-content-middle {
+    padding: var(--space-sm);
+  }
+  
+  /* Compact layout on mobile - better spacing */
+  .posts-container.grid-layout-compact {
+    grid-template-columns: 1fr 1fr 1fr 1fr; /* Single column for compact view */
+    gap: var(--space-xs);
+  }
+  
+  .posts-container.grid-layout-compact .post-card {
+    padding: var(--space-xs);
+    background-color: var(--background-light);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color-light);
   }
 }

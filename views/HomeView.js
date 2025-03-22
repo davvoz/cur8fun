@@ -373,13 +373,9 @@ class HomeView {
     const loadAvatar = () => {
       // Try multiple sources in sequence
       const avatarSources = [
-        // Default Steem avatar with small size for performance
         `https://steemitimages.com/50x50/u/${post.author}/avatar`,
-        // Direct format without size restriction as fallback
         `https://steemitimages.com/u/${post.author}/avatar`,
-        // Final fallback to local default avatar
         '/assets/images/default-avatar.png',
-        //every type of avatar
         `https://steemitimages.com/u/${post.author}/avatar`,
         `https://images.hive.blog/u/${post.author}/avatar`,
         `https://images.ecency.com/u/${post.author}/avatar`,

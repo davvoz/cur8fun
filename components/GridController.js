@@ -28,6 +28,7 @@ class GridController {
     // If mobile state changed, update UI
     if (wasMobile !== this.isMobile) {
       this.updateControllerVisibility();
+      this.applySettings(); // Make sure settings are properly applied when switching between mobile/desktop
     }
   }
   
@@ -35,19 +36,11 @@ class GridController {
   updateControllerVisibility() {
     if (!this.container) return;
     
-    if (this.isMobile) {
-      this.container.classList.add('mobile-hidden');
-      
-      // Apply mobile-specific settings
-      if (this.target) {
-        // Force grid to compact layout on mobile
-        this.target.classList.remove('grid-layout-grid', 'grid-layout-list');
-        this.target.classList.add('grid-layout-compact');
-      }
-    } else {
-      this.container.classList.remove('mobile-hidden');
-      this.applySettings(); // Re-apply user settings on desktop
-    }
+    // Remove mobile-hidden class to show the controller on mobile
+    this.container.classList.remove('mobile-hidden');
+    
+    // Apply appropriate layout settings
+    this.applySettings();
   }
 
   render(container) {
@@ -139,26 +132,13 @@ class GridController {
   applySettings() {
     if (!this.target) return;
     
-    // If on mobile, force compact layout
-    if (this.isMobile) {
-      // Clear existing classes
-      const classesToRemove = Array.from(this.target.classList)
-        .filter(cls => cls.startsWith('grid-layout-'));
-      
-      classesToRemove.forEach(cls => this.target.classList.remove(cls));
-      
-      // Apply mobile-optimized layout
-      this.target.classList.add('grid-layout-compact');
-      return;
-    }
-    
     // Clear existing layout classes
     const classesToRemove = Array.from(this.target.classList)
       .filter(cls => cls.startsWith('grid-layout-'));
     
     classesToRemove.forEach(cls => this.target.classList.remove(cls));
     
-    // Apply new layout class
+    // Apply new layout class - even on mobile, respect user selection
     this.target.classList.add(`grid-layout-${this.settings.layout}`);
   }
   
