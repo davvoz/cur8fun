@@ -35,6 +35,8 @@
 
 @import 'components/tag-selection.css'; /* Aggiungi questa riga */
 
+@import 'styles.css'; /* Aggiungi questa riga */
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

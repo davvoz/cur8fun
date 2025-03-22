@@ -122,3 +122,58 @@
     display: block;
     margin-top: 10px;
 }
+
+.post-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 10px 0 15px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-color, #eaeaea);
+  }
+  
+  .tags-label {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+    color: var(--text-muted, #666);
+    font-size: 14px;
+  }
+  
+  .tags-label .material-icons {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+  
+  .tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .tag-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    background-color: var(--tag-bg, #f0f2f5);
+    color: var(--tag-color, #4a5568);
+    border-radius: 16px;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  
+  .tag-pill:hover {
+    background-color: var(--primary-color, #ff7518);
+    color: white;
+  }
+  
+  @media (max-width: 480px) {
+    .post-tags-container {
+      margin: 8px 0 12px;
+    }
+    
+    .tag-pill {
+      padding: 3px 8px;
+      font-size: 12px;
+    }
+  }
