@@ -6,52 +6,69 @@
     <title>SteemGram</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="stylesheet" href="assets/css/tag-selection.css">
     <script src="https://cdn.jsdelivr.net/npm/steemlogin@latest/dist/steemlogin.min.js"></script>
     <script src="https://unpkg.com/steem-content-renderer"></script>
     <script>
         // Handle 404 redirects on GitHub Pages
         (function() {
-            // Detect if we're on GitHub Pages
-            const isGitHubPages = location.hostname.endsWith('github.io');
-            
-            if (isGitHubPages) {
-                console.log('GitHub Pages detected');
-                
-                // Get repository name from pathname
-                const pathParts = location.pathname.split('/');
-                const repoName = pathParts.length >= 2 ? pathParts[1] : '';
-                
-                if (repoName) {
-                    console.log('Repository name:', repoName);
-                    const basePath = '/' + repoName;
-                    
-                    // If we have a route after the repo name and no hash yet
-                    if (pathParts.length > 2 && !location.hash) {
-                        // Create the path without the repo name
-                        const routePath = '/' + pathParts.slice(2).join('/');
-                        console.log('Redirecting to hash route:', routePath);
+            // Environment detection
+            const environments = {
+                'github': {
+                    detect: () => location.hostname.endsWith('github.io'),
+                    getBasePath: () => {
+                        const pathParts = location.pathname.split('/');
+                        return pathParts.length >= 2 ? '/' + pathParts[1] : '';
+                    },
+                    handleRoutes: (basePath) => {
+                        const pathParts = location.pathname.split('/');
                         
-                        // Redirect to the base path with hash routing
-                        location.replace(basePath + '/#' + routePath);
-                    } else if (pathParts.length === 2 && pathParts[1] === repoName) {
-                        // This is the repository root - redirect to home path
-                        console.log('Repository root - redirecting to home');
-                        if (!location.hash) {
-                            location.replace(basePath + '/#/');
+                        // Map path patterns to handlers
+                        const routeHandlers = {
+                            'deeper': () => {
+                                // Has parts after repo name and no hash
+                                if (pathParts.length > 2 && !location.hash) {
+                                    const routePath = '/' + pathParts.slice(2).join('/');
+                                    console.log('Redirecting to hash route:', routePath);
+                                    location.replace(basePath + '/#' + routePath);
+                                }
+                            },
+                            'root': () => {
+                                // Repository root path
+                                if (pathParts.length === 2 && pathParts[1] === basePath.substring(1) && !location.hash) {
+                                    console.log('Repository root - redirecting to home');
+                                    location.replace(basePath + '/#/');
+                                }
+                            }
+                        };
+                        
+                        // Execute all handlers (they will only redirect if conditions match)
+                        Object.values(routeHandlers).forEach(handler => handler());
+                    }
+                },
+                'local': {
+                    detect: () => true, // Default fallback
+                    getBasePath: () => '',
+                    handleRoutes: () => {
+                        if (location.pathname !== '/' && 
+                            location.pathname !== '/index.html' && 
+                            !location.hash) {
+                            
+                            console.log('Local redirect to hash route:', location.pathname);
+                            location.replace('/#' + location.pathname);
                         }
                     }
                 }
-            } else {
-                // For local development or other hosting
-                if (location.pathname !== '/' && 
-                    location.pathname !== '/index.html' && 
-                    !location.hash) {
-                    
-                    console.log('Local redirect to hash route:', location.pathname);
-                    location.replace('/#' + location.pathname);
-                }
+            };
+
+            // Determine environment and execute appropriate handler
+            const env = Object.values(environments).find(env => env.detect());
+            const basePath = env.getBasePath();
+            
+            if (basePath) {
+                console.log('Base path detected:', basePath);
             }
+            
+            env.handleRoutes(basePath);
         })();
     </script>
 </head>
