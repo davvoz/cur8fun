@@ -534,6 +534,79 @@ class CommunityService {
     this.cachedUserSubscriptions.clear();
     this.cachedSearchResults.clear();
   }
+
+  /**
+   * Trova i dettagli di una community dalla cache o dalla lista completa
+   * @param {string} communityName - Nome della community
+   * @returns {Promise<Object|null>} - Dettagli della community o null se non trovata
+   */
+  async findCommunityByName(communityName) {
+    if (!communityName) return null;
+    
+    // Pulisci il nome della community (rimuovi prefisso hive- se presente)
+    const cleanName = communityName.replace(/^hive-/, '');
+    const searchName = `hive-${cleanName}`;
+    
+    try {
+      // Prima controlla se abbiamo già tutte le community in cache
+      if (this.cachedCommunities) {
+        const foundCommunity = this.cachedCommunities.find(
+          community => 
+            community.name === cleanName || 
+            community.name === searchName
+        );
+        
+        if (foundCommunity) {
+          console.log(`Found community ${communityName} in cache`);
+          return foundCommunity;
+        }
+      }
+      
+      // Se non in cache, prova a cercare usando il metodo di ricerca
+      // Questo sfrutterà anche le cache della ricerca
+      const searchResults = await this.searchCommunities(cleanName, 5, true);
+      
+      const exactMatch = searchResults.find(
+        community => 
+          community.name === cleanName || 
+          community.name === searchName
+      );
+      
+      if (exactMatch) {
+        console.log(`Found community ${communityName} via search`);
+        return exactMatch;
+      }
+      
+      // Se ancora non trovata, prova a caricare tutte le community se non l'abbiamo fatto
+      if (!this.cachedCommunities) {
+        await this.listCommunities();
+        
+        const foundCommunity = this.cachedCommunities.find(
+          community => 
+            community.name === cleanName || 
+            community.name === searchName
+        );
+        
+        if (foundCommunity) {
+          console.log(`Found community ${communityName} after loading all communities`);
+          return foundCommunity;
+        }
+      }
+      
+      // Se siamo qui, non siamo riusciti a trovare la community
+      // Solo a questo punto facciamo una richiesta API specifica per sicurezza
+      try {
+        console.log(`Falling back to API request for community ${communityName}`);
+        return await this.getCommunityDetails(cleanName);
+      } catch (error) {
+        console.log(`API request for community ${communityName} also failed`, error);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error finding community ${communityName}:`, error);
+      return null;
+    }
+  }
 }
 
 // Create and export singleton instance

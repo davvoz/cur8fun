@@ -896,3 +896,91 @@
   }
 }
 
+/* Aggiungi questi stili al tuo file CSS */
+
+.community-container {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  padding: 5px 12px;
+  background-color: var(--background-lighter);
+  border-radius: 16px;
+  font-size: 13px;
+  transition: background-color var(--transition-fast);
+}
+
+.community-container:hover {
+  background-color: var(--background-hover, rgba(255, 117, 24, 0.08));
+}
+
+.community-icon {
+  font-size: 18px;
+  margin-right: 8px;
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.community-avatar-img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.community-info-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.community-title {
+  color: var(--text-color);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  line-height: 1.2;
+  font-size: 13px;
+}
+
+.community-id {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.community-title:hover, 
+.community-id:hover {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+
+.community-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 117, 24, 0.2);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Per layout mobile */
+@media (max-width: 768px) {
+  .avataro {
+    flex-wrap: wrap;
+  }
+  
+  .community-container {
+    margin-left: 0;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+}
+
