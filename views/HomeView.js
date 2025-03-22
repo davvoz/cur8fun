@@ -303,7 +303,7 @@ class HomeView {
     }
     
     // Return placeholder if no image is found
-    return './assets/images/placeholder.png';
+    return './assets/img/placeholder.png';
   }
 
   optimizeImageUrl(url) {
@@ -447,11 +447,11 @@ class HomeView {
     image.decoding = 'async';
     
     // Check if we have a valid image URL before attempting to load
-    if (!imageUrl || imageUrl === './assets/images/placeholder.png') {
+    if (!imageUrl || imageUrl === './assets/img/placeholder.png') {
       // Skip the loading process entirely and use placeholder immediately
       content.classList.remove('loading');
       content.classList.add('error');
-      image.src = './assets/images/placeholder.png';
+      image.src = './assets/img/placeholder.png';
       content.appendChild(image);
       return content;
     }
@@ -524,7 +524,7 @@ class HomeView {
       content.classList.add('error');
       
       // Use placeholder image
-      image.src = './assets/images/placeholder.png';
+      image.src = './assets/img/placeholder.png';
       
       // No need to add error message, the placeholder is sufficient
     };

@@ -248,7 +248,7 @@ class SearchView extends View {
     const { author, permlink, title, created, body } = post;
     
     // Generate thumbnail URL if available, otherwise use a placeholder
-    let thumbnailUrl = 'assets/images/placeholder.png';
+    let thumbnailUrl = 'assets/img/placeholder.png';
     
     // Try to extract the first image from the post body
     const imgMatch = body && body.match(/(https?:\/\/.*\.(?:png|jpg|jpeg|gif))/i);

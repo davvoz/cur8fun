@@ -653,7 +653,7 @@ class ProfileView extends View {
   }
   
   addPostThumbnail(element, post) {
-    const placeholderImage = 'assets/images/placeholder.png';
+    const placeholderImage = 'assets/img/placeholder.png';
     const imageUrl = this.getPreviewImage(post) || placeholderImage;
     
     const thumbnail = document.createElement('div');

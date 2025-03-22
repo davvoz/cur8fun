@@ -145,7 +145,7 @@ class TagView extends View {
     const { author, permlink, title, created, body, json_metadata } = post;
     
     // Get thumbnail if available
-    let thumbnailUrl = 'assets/images/placeholder.png';
+    let thumbnailUrl = 'assets/img/placeholder.png';
     try {
       const metadata = typeof json_metadata === 'string' ? JSON.parse(json_metadata) : json_metadata;
       if (metadata?.image && metadata.image.length > 0) {
