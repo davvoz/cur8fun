@@ -372,12 +372,7 @@ class HomeView {
     const loadAvatar = () => {
       // Try multiple sources in sequence
       const avatarSources = [
-        `https://steemitimages.com/50x50/u/${post.author}/avatar`,
-        `https://steemitimages.com/u/${post.author}/avatar`,
-        '/assets/images/default-avatar.png',
-        `https://steemitimages.com/u/${post.author}/avatar`,
-        `https://images.hive.blog/u/${post.author}/avatar`,
-        `https://images.ecency.com/u/${post.author}/avatar`,
+        `https://steemitimages.com/u/${post.author}/avatar`
       ];
       
       let currentSourceIndex = 0;

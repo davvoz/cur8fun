@@ -332,7 +332,6 @@ class ProfileView extends View {
       testImg.src = coverImageUrl;
     }
     
-    // Add profile info section with modern layout
     
     // Avatar with enhanced styling
     const infoSection = document.createElement('div');
@@ -342,7 +341,8 @@ class ProfileView extends View {
     avatar.className = 'profile-avatar';
     
     const avatarImg = document.createElement('img');
-    avatarImg.src = this.profile.profileImage;
+    
+    avatarImg.src =   `https://steemitimages.com/u/${this.profile.username}/avatar`;
     avatarImg.alt = this.profile.username;
     avatarImg.loading = 'eager'; // Prioritize avatar loading
     avatarImg.onerror = () => {
