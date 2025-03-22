@@ -47,7 +47,6 @@ class PostView extends View {
     };
   }
 
-
   async ensureSteemRendererLoaded() {
     if (typeof SteemContentRenderer === 'undefined') {
       try {
@@ -219,7 +218,6 @@ class PostView extends View {
 
   }
 
-
   renderPost() {
     if (!this.post) return;
 
@@ -372,7 +370,6 @@ class PostView extends View {
     this.renderComments();
   }
 
-
   renderTagsSection() {
     const tagsContainer = document.createElement('div');
     tagsContainer.className = 'post-tags-container';
@@ -486,7 +483,6 @@ class PostView extends View {
     });
   }
 
-  // Helper method to build comment tree
   buildCommentTree(comments) {
     const commentMap = new Map();
     const rootComments = [];
@@ -808,8 +804,6 @@ class PostView extends View {
     });
   }
 
-  // Sostituisci il metodo handleComment esistente con questa versione migliorata
-
   async handleComment() {
     const textarea = this.postContent.querySelector('.comment-form textarea');
     const commentText = textarea.value.trim();
@@ -926,9 +920,6 @@ class PostView extends View {
     return 'Keychain error: ' + errorMessage;
   }
 
-  /**
-   * Estrae tag e menzioni dal testo del commento
-   */
   extractTags(text) {
     const tags = [];
 
@@ -956,7 +947,6 @@ class PostView extends View {
 
     return tags.slice(0, 5); // Limita a 5 tag
   }
-
 
   updateWithNewComment(commentResult) {
     if (!commentResult || !commentResult.success) return;
@@ -990,7 +980,6 @@ class PostView extends View {
       }
     }
   }
-
 
   async handleReply(parentComment, replyText) {
     if (!replyText.trim()) return;
@@ -1103,7 +1092,6 @@ class PostView extends View {
     }
   }
 
-  // Replace getBestImage method to use SteemContentRenderer
   getBestImage(post) {
     if (!post || !post.body) return '';
 
@@ -1152,12 +1140,10 @@ class PostView extends View {
     }
   }
 
-  // Aggiungi questo metodo alla classe PostView
   async handleCommentVote(commentElement, upvoteBtn) {
     // Ottieni i dati del commento dagli attributi data-*
     const author = commentElement.dataset.author;
     const permlink = commentElement.dataset.permlink;
-    const countElement = upvoteBtn.querySelector('.count');
 
     // Check if user is logged in
     const user = authService.getCurrentUser();
@@ -1393,11 +1379,6 @@ class PostView extends View {
     }, 100);
   }
 
-  /**
-   * Posiziona il popup in base all'elemento target
-   * @param {HTMLElement} popup - Elemento popup
-   * @param {HTMLElement} targetElement - Elemento di riferimento
-   */
   positionPopup(popup, targetElement) {
     const targetRect = targetElement.getBoundingClientRect();
     popup.style.position = 'fixed';
@@ -1445,9 +1426,6 @@ class PostView extends View {
     }
   }
 
-  /**
-   * Controlla lo stato di voto per il post corrente
-   */
   async checkVoteStatus() {
     if (!this.post || !authService.isAuthenticated()) return;
 
@@ -1479,6 +1457,7 @@ class PostView extends View {
       console.log('Error checking vote status:', error);
     }
   }
+
 }
 
 export default PostView;
