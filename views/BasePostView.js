@@ -25,7 +25,7 @@ class BasePostView {
     // Popular tags that will be shown in the tag selection bar
     this.popularTags = [
       'cur8', 'photography', 'art', 'travel', 
-      'food', 'music', 'gaming', 'life', 'blockchain', 'crypto','trending', 'hot', 'new', 
+      'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
     ];
     
     // Initialize SteemContentRenderer for image extraction
@@ -684,120 +684,59 @@ class BasePostView {
     const tagBarContainer = document.createElement('div');
     tagBarContainer.className = 'tag-selection-bar';
     
-    // Create tag dropdown container
-    const tagDropdownContainer = document.createElement('div');
-    tagDropdownContainer.className = 'tag-dropdown-container';
+    // Create scrollable tag list container
+    const tagListContainer = document.createElement('div');
+    tagListContainer.className = 'tag-list-container';
     
-    // Create dropdown trigger button
-    const dropdownTrigger = document.createElement('button');
-    dropdownTrigger.className = 'tag-dropdown-trigger';
+    // Create the actual scrollable list
+    const tagList = document.createElement('div');
+    tagList.className = 'tag-list';
     
-    // Add current tag display
-    const currentTagText = document.createElement('span');
-    currentTagText.className = 'current-tag-text';
-    currentTagText.textContent = this.formatTagName(this.getCurrentTag());
-    
-    // Add dropdown icon
-    const dropdownIcon = document.createElement('span');
-    dropdownIcon.className = 'material-icons';
-    dropdownIcon.textContent = 'arrow_drop_down';
-    
-    dropdownTrigger.appendChild(currentTagText);
-    dropdownTrigger.appendChild(dropdownIcon);
-    
-    // Create dropdown menu
-    const dropdownMenu = document.createElement('div');
-    dropdownMenu.className = 'tag-dropdown-menu';
-    
-    // Add popular tags to dropdown
+    // Add popular tags to the scrollable list
     this.popularTags.forEach(tag => {
-      const tagOption = this.createTagOption(tag);
-      dropdownMenu.appendChild(tagOption);
+      const tagItem = this.createTagItem(tag);
+      tagList.appendChild(tagItem);
     });
     
-    // Toggle dropdown visibility when clicking the trigger
-    dropdownTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dropdownMenu.classList.toggle('show');
-    });
+    // Add the list to the container
+    tagListContainer.appendChild(tagList);
     
-    // Close dropdown when clicking outside
-    document.addEventListener('click', () => {
-      dropdownMenu.classList.remove('show');
-    });
+    // Add tag list to the main container
+    tagBarContainer.appendChild(tagListContainer);
     
-    // Prevent dropdown closing when clicking inside the dropdown
-    dropdownMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-    
-    // Add dropdown components to container
-    tagDropdownContainer.appendChild(dropdownTrigger);
-    tagDropdownContainer.appendChild(dropdownMenu);
-    
-    // Add custom tag input
-    const customTagContainer = document.createElement('div');
-    customTagContainer.className = 'custom-tag-container';
-    
-    const customTagInput = document.createElement('input');
-    customTagInput.type = 'text';
-    customTagInput.placeholder = 'Enter custom tag...';
-    customTagInput.className = 'custom-tag-input';
-    customTagInput.value = this.getCurrentTag() !== 'trending' ? this.getCurrentTag() : '';
-    
-    const searchButton = document.createElement('button');
-    searchButton.className = 'custom-tag-button';
-    searchButton.innerHTML = '<span class="material-icons">search</span>';
-    
-    // Handle custom tag search
-    searchButton.addEventListener('click', () => {
-      const customTag = customTagInput.value.trim().toLowerCase();
-      if (customTag) {
-        this.navigateToTag(customTag);
+    // Scroll active tag into view
+    setTimeout(() => {
+      const activeTag = tagList.querySelector('.tag-item.active');
+      if (activeTag) {
+        activeTag.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
-    });
-    
-    // Also handle Enter key
-    customTagInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const customTag = customTagInput.value.trim().toLowerCase();
-        if (customTag) {
-          this.navigateToTag(customTag);
-        }
-      }
-    });
-    
-    customTagContainer.appendChild(customTagInput);
-    customTagContainer.appendChild(searchButton);
-    
-    // Add elements to container
-    tagBarContainer.appendChild(tagDropdownContainer);
-    tagBarContainer.appendChild(customTagContainer);
+    }, 100);
     
     return tagBarContainer;
   }
   
   /**
-   * Creates a tag option for the dropdown menu
+   * Creates a tag item for the scrollable list
    */
-  createTagOption(tag) {
-    const option = document.createElement('div');
-    option.className = 'tag-option';
-    option.textContent = this.formatTagName(tag);
+  createTagItem(tag) {
+    const item = document.createElement('div');
+    item.className = 'tag-item';
     
     // Highlight the active tag
     if (tag === this.getCurrentTag()) {
-      option.classList.add('active');
+      item.classList.add('active');
     }
     
+    item.textContent = this.formatTagName(tag);
+    
     // Add click handler to navigate to tag
-    option.addEventListener('click', () => {
+    item.addEventListener('click', () => {
       this.navigateToTag(tag);
     });
     
-    return option;
+    return item;
   }
-  
+
   /**
    * Get the current tag (to be implemented by subclasses)
    */

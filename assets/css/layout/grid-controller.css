@@ -560,8 +560,7 @@
 
 /* Immagine ridimensionata */
 .posts-container.grid-layout-list .post-image-container {
-  height: 100%;
-  min-height: 200px;
+  max-height: 100%;
   padding-bottom: 0;
   flex-shrink: 0;
   border-radius: 0;
@@ -665,9 +664,6 @@
   }
   
   .posts-container.grid-layout-list .post-image-container {
-    width: 100%;
-    height: 0;
-    padding-bottom: 56.25%;
     border-right: none;
     border-bottom: 1px solid var(--border-color-light);
   }
@@ -675,11 +671,6 @@
   .posts-container.grid-layout-list .post-item,
   .posts-container.grid-layout-compact .post-item {
     flex-direction: row; /* Keep row direction on mobile too */
-  }
-  
-  .posts-container.grid-layout-list .post-thumbnail {
-    width: 120px; /* Smaller on mobile */
-    min-height: 120px;
   }
   
   .posts-container.grid-layout-compact .post-thumbnail {
@@ -694,19 +685,11 @@
     flex-direction: column;
   }
   
-  .posts-container.grid-layout-list .post-image-container {
-    width: 100%;
-    padding-bottom: 56.25%;
-  }
-  
   .posts-container.grid-layout-list .post-item {
     max-height: 150px;
   }
   
-  .posts-container.grid-layout-list .post-thumbnail {
-    width: 80px;
-    min-height: 80px;
-  }
+
 }
 
 /* Rimuovo stili duplicati e obsoleti */
@@ -766,18 +749,6 @@
 
 .posts-container.grid-spacing-spacious {
   gap: var(--space-xl);
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-  .posts-container.grid-layout-list .post-card {
-    flex-direction: column;
-  }
-  
-  .posts-container.grid-layout-list .post-image-container {
-    width: 100%;
-    padding-bottom: 56.25%;
-  }
 }
 
 /* Improve mobile post layouts for all grid types */

@@ -86,7 +86,8 @@ class HomeView extends BasePostView {
   render(container) {
     const { postsContainer } = this.renderBaseView(
       container,
-      `${this.formatTagName(this.tag)} Posts`
+      `${this.formatTagName(this.tag)} Posts`,
+      { showSearchForm: false } // Add this parameter to indicate we don't want the search form
     );
     
     // Destroy existing infinite scroll if it exists
