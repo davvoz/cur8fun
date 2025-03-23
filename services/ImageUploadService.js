@@ -1,6 +1,10 @@
 /**
- * Service for handling image uploads
+ * Service for handling image uploads using only Steem Keychain
  */
+import authService from './AuthService.js';
+import steemService from './SteemService.js';
+import eventEmitter from '../utils/EventEmitter.js';
+
 class ImageUploadService {
   constructor() {
     this.MAX_FILE_SIZE_MB = 15;
@@ -9,8 +13,6 @@ class ImageUploadService {
 
   /**
    * Verifica se la dimensione del file è valida
-   * @param {File} file - File da verificare
-   * @returns {boolean} true se la dimensione è valida
    */
   isFileSizeValid(file) {
     const fileSizeInMB = file.size / (1024 * 1024);
@@ -18,12 +20,74 @@ class ImageUploadService {
   }
 
   /**
-   * Carica un'immagine su STEEM/HIVE
-   * @param {File} file - File immagine da caricare
-   * @param {string} username - Username dell'utente
-   * @returns {Promise<string>} URL dell'immagine caricata
+   * Verifica se Keychain è disponibile nel browser
+   */
+  isKeychainAvailable() {
+    return typeof window.steem_keychain !== 'undefined';
+  }
+
+  /**
+   * Comprime l'immagine se necessario
+   */
+  async compressImage(file, maxWidthHeight = 1920) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Ridimensiona se l'immagine è troppo grande
+        if (width > maxWidthHeight || height > maxWidthHeight) {
+          if (width > height) {
+            height *= maxWidthHeight / width;
+            width = maxWidthHeight;
+          } else {
+            width *= maxWidthHeight / height;
+            height = maxWidthHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Determina il tipo MIME dall'originale
+        const mimeType = file.type || 'image/jpeg';
+        
+        // Usa la qualità massima per PNG, altrimenti qualità 90% per JPEG
+        const quality = mimeType === 'image/png' ? 1.0 : 0.9;
+        
+        canvas.toBlob(
+          blob => resolve(blob),
+          mimeType,
+          quality
+        );
+      };
+      
+      img.onerror = () => reject(new Error('Error loading image for compression'));
+    });
+  }
+
+  /**
+   * Genera un nome file univoco con timestamp
+   */
+  generateUniqueFilename(file) {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 10);
+    const extension = file.name.split('.').pop().toLowerCase();
+    return `image_${timestamp}_${randomString}.${extension}`;
+  }
+
+  /**
+   * Carica un'immagine utilizzando esclusivamente Steem Keychain
    */
   async uploadImage(file, username) {
+    // Validazione input
     if (!file || !file.type.startsWith('image/')) {
       throw new Error('Invalid file: only images are supported');
     }
@@ -31,85 +95,123 @@ class ImageUploadService {
     if (!this.isFileSizeValid(file)) {
       throw new Error(`Image is too large. Maximum allowed size is ${this.MAX_FILE_SIZE_MB}MB.`);
     }
-
+    
+    if (!username) {
+      throw new Error('Username is required to upload images');
+    }
+    
+    if (!this.isKeychainAvailable()) {
+      throw new Error('Steem Keychain is required but not installed in your browser');
+    }
+    
+    try {
+      // Comprimi l'immagine
+      const compressedFile = await this.compressImage(file);
+      console.log(`Image compressed from ${file.size} to ${compressedFile.size} bytes`);
+      
+      // Genera un nome file unico
+      const uniqueFilename = this.generateUniqueFilename(file);
+      
+      // Carica con Keychain
+      return await this.uploadWithKeychain(compressedFile, username, uniqueFilename);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Carica un'immagine con Keychain (unico metodo supportato)
+   */
+  async uploadWithKeychain(file, username, filename) {
+    console.log('Uploading image with Keychain...');
+    
     return new Promise((resolve, reject) => {
+      // Converti il file in base64
       const reader = new FileReader();
       reader.readAsDataURL(file);
-
-      reader.onloadend = async () => {
+      
+      reader.onloadend = () => {
         try {
-          const base64Image = reader.result.split(',')[1];
-          
-          // Determina la piattaforma (STEEM o HIVE)
-          const platform = 'STEEM'; // Puoi cambiarlo in base alla configurazione
-          
-          const baseUrlMap = {
-            'STEEM': 'https://develop-imridd.eu.pythonanywhere.com/api/steem/upload_base64_image',
-            'HIVE': 'https://develop-imridd.eu.pythonanywhere.com/api/hive/upload_base64_image'
-          };
-          
-          const baseUrl = baseUrlMap[platform];
-          if (!baseUrl) {
-            reject(new Error(`Invalid platform: ${platform}`));
-            return;
+          // Verifica che il risultato della lettura sia valido
+          if (!reader.result || typeof reader.result !== 'string') {
+            throw new Error('Invalid file data');
           }
           
-          // Prepara i dati per la richiesta
-          const payload = {
-            image_base64: base64Image,
+          const parts = reader.result.split(',');
+          if (parts.length < 2) {
+            throw new Error('Invalid image data format');
+          }
+          
+          const base64Data = parts[1];
+          
+          // Crea l'oggetto JSON per l'operazione custom_json
+          const jsonData = {
+            action: "upload_image",
             username: username,
-            id_telegram: 123456
+            filename: filename,
+            data: base64Data
           };
           
-          // Funzione per gestire il timeout
-          const fetchWithTimeout = (url, options, timeout) => {
-            return Promise.race([
-              fetch(url, options),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout: Image upload is taking too long.')), timeout)
-              )
-            ]);
-          };
+          console.log('Preparing Keychain request for user:', username);
           
-          // Log per debug
-          console.log(`Uploading image for user ${username} to ${platform}`);
-          
-          // Esegui la richiesta di upload
-          const response = await fetchWithTimeout(
-            baseUrl, 
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            }, 
-            this.UPLOAD_TIMEOUT_MS
+          // Invia la richiesta a Keychain
+          window.steem_keychain.requestCustomJson(
+            username,
+            "steemitwallet",  // ID per Steem
+            "Posting",
+            JSON.stringify(jsonData),
+            "Upload Image",
+            (response) => {
+              console.log('Keychain response received:', response);
+              
+              if (response.success) {
+                // Costruisci l'URL dell'immagine
+                const imageUrl = `https://steemitimages.com/0x0/${username}/${filename}`;
+                console.log('Image uploaded successfully with Keychain:', imageUrl);
+                
+                eventEmitter.emit('notification', {
+                  type: 'success',
+                  message: 'Image uploaded successfully!'
+                });
+                
+                resolve(imageUrl);
+              } else {
+                // Gestione errore
+                let errorMessage = 'Unknown error';
+                
+                if (response.error) {
+                  if (typeof response.error === 'string') {
+                    errorMessage = response.error;
+                  } else if (typeof response.error === 'object') {
+                    errorMessage = JSON.stringify(response.error);
+                    
+                    if (response.error.message) {
+                      errorMessage = response.error.message;
+                    } else if (response.error.error) {
+                      errorMessage = response.error.error;
+                    } else if (response.error.data && response.error.data.message) {
+                      errorMessage = response.error.data.message;
+                    }
+                  }
+                } else if (response.message) {
+                  errorMessage = response.message;
+                }
+                
+                console.error('Keychain upload error details:', errorMessage);
+                reject(new Error(`Keychain upload failed: ${errorMessage}`));
+              }
+            }
           );
-          
-          if (!response.ok) {
-            console.error('Server error response:', response.status, response.statusText);
-            throw new Error(`Server error: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          
-          // Assicurati che la risposta contenga l'URL dell'immagine
-          if (!data.image_url) {
-            console.error('Invalid server response:', data);
-            throw new Error('Server did not return a valid image URL');
-          }
-          
-          console.log('Image uploaded successfully:', data.image_url);
-          resolve(data.image_url);
         } catch (error) {
-          console.error('Error in image upload:', error);
+          console.error('Error preparing image data:', error);
           reject(error);
         }
       };
       
-      reader.onerror = () => {
-        reject(new Error('Error reading file'));
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
+        reject(new Error('Error reading file for upload'));
       };
     });
   }
