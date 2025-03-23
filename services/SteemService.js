@@ -1551,6 +1551,98 @@ class SteemService {
             }
         }
     }
+
+    /**
+     * Ottiene i post di una community specifica
+     * @param {Object} params - Parametri per la query
+     * @param {string} params.community - Nome della community (senza prefisso hive-)
+     * @param {string} params.sort - Tipo di ordinamento (trending, created, hot)
+     * @param {number} params.limit - Numero massimo di post da recuperare
+     * @param {string} [params.start_author] - Autore da cui iniziare (per paginazione)
+     * @param {string} [params.start_permlink] - Permlink da cui iniziare (per paginazione)
+     * @returns {Promise<Array>} - Array di post
+     */
+    async getDiscussionsByBlog(params) {
+        await this.ensureLibraryLoaded();
+        
+        // Prepara i parametri per la query Hive
+        const queryParams = {
+          tag: params.community.startsWith('hive-') ? params.community : `hive-${params.community}`,
+          limit: params.limit || 10
+        };
+        
+        // Aggiungi parametri per paginazione se forniti
+        if (params.start_author && params.start_permlink) {
+          queryParams.start_author = params.start_author;
+          queryParams.start_permlink = params.start_permlink;
+        }
+        
+        // Sceglie il metodo appropriato in base al tipo di ordinamento
+        let apiMethod;
+        switch (params.sort) {
+          case 'created':
+            apiMethod = 'getDiscussionsByCreated';
+            break;
+          case 'hot':
+            apiMethod = 'getDiscussionsByHot';
+            break;
+          case 'trending':
+          default:
+            apiMethod = 'getDiscussionsByTrending';
+            break;
+        }
+        
+        try {
+          return await new Promise((resolve, reject) => {
+            this.steem.api[apiMethod](queryParams, (err, result) => {
+              if (err) {
+                console.error('Error fetching community posts:', err);
+                reject(err);
+              } else {
+                // Filtra solo i post della community specificata
+                // a volte l'API restituisce risultati misti
+                const communityPosts = result.filter(post => {
+                  try {
+                    const metadata = JSON.parse(post.json_metadata || '{}');
+                    return metadata.community === params.community.replace('hive-', '') || 
+                           metadata.community === params.community;
+                  } catch (e) {
+                    return false;
+                  }
+                });
+                
+                resolve(communityPosts);
+              }
+            });
+          });
+        } catch (error) {
+          console.error('Error in getDiscussionsByBlog:', error);
+          
+          // Prova un altro endpoint in caso di errore
+          this.switchEndpoint();
+          
+          // Riprova una volta con il nuovo endpoint
+          return new Promise((resolve, reject) => {
+            this.steem.api[apiMethod](queryParams, (err, result) => {
+              if (err) {
+                reject(err);
+              } else {
+                const communityPosts = result.filter(post => {
+                  try {
+                    const metadata = JSON.parse(post.json_metadata || '{}');
+                    return metadata.community === params.community.replace('hive-', '') || 
+                           metadata.community === params.community;
+                  } catch (e) {
+                    return false;
+                  }
+                });
+                
+                resolve(communityPosts);
+              }
+            });
+          });
+        }
+    }
 }
 
 // Initialize singleton instance
