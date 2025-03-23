@@ -3,7 +3,10 @@ export default class InfiniteScroll {
     container,
     loadMore,
     threshold = '200px',
-    initialPage = 1
+    initialPage = 1,
+    loadingMessage = 'Loading more...',
+    endMessage = 'No more posts to load',
+    errorMessage = 'Error loading content. Please try again.'
   }) {
     this.container = container;
     this.loadMore = loadMore;
@@ -13,6 +16,9 @@ export default class InfiniteScroll {
     this.hasMore = true;
     this.observer = null;
     this.observerTarget = null;
+    this.loadingMessage = loadingMessage;
+    this.endMessage = endMessage;
+    this.errorMessage = errorMessage;
     
     console.log('InfiniteScroll initialized with container:', container);
     this.setupObserver();
@@ -67,7 +73,7 @@ export default class InfiniteScroll {
       // Create loading indicator
       const loadingIndicator = document.createElement('div');
       loadingIndicator.className = 'loading-indicator';
-      loadingIndicator.textContent = 'Loading more...';
+      loadingIndicator.textContent = this.loadingMessage;
       loadingIndicator.style.textAlign = 'center';
       loadingIndicator.style.padding = '10px';
       this.container.appendChild(loadingIndicator);
@@ -99,7 +105,7 @@ export default class InfiniteScroll {
           // Show end message
           const endMessage = document.createElement('div');
           endMessage.className = 'end-message';
-          endMessage.textContent = 'No more posts to load';
+          endMessage.textContent = this.endMessage;
           endMessage.style.textAlign = 'center';
           endMessage.style.padding = '20px';
           this.container.appendChild(endMessage);
@@ -112,6 +118,25 @@ export default class InfiniteScroll {
       }
     } catch (error) {
       console.error('Error loading more items:', error);
+      
+      // Show error message
+      const errorElement = document.createElement('div');
+      errorElement.className = 'infinite-scroll-error';
+      errorElement.textContent = this.errorMessage;
+      errorElement.style.textAlign = 'center';
+      errorElement.style.padding = '10px';
+      errorElement.style.color = 'red';
+      this.container.appendChild(errorElement);
+      
+      // Add retry button
+      const retryButton = document.createElement('button');
+      retryButton.textContent = 'Retry';
+      retryButton.style.marginLeft = '10px';
+      retryButton.addEventListener('click', () => {
+        errorElement.remove();
+        this.loadNextPage();
+      });
+      errorElement.appendChild(retryButton);
     } finally {
       this.isLoading = false;
     }
@@ -129,11 +154,27 @@ export default class InfiniteScroll {
     }
   }
 
-  reset() {
+  reset(initialPage = 1) {
     console.log('Resetting infinite scroll');
-    this.currentPage = 1;
+    this.currentPage = initialPage;
     this.hasMore = true;
     this.isLoading = false;
+    
+    // Remove any existing end messages
+    const endMessages = this.container.querySelectorAll('.end-message');
+    endMessages.forEach(msg => msg.remove());
+    
+    // Remove any error messages
+    const errorMessages = this.container.querySelectorAll('.infinite-scroll-error');
+    errorMessages.forEach(msg => msg.remove());
+    
     this.setupObserver();
+  }
+  
+  updateContainer(newContainer) {
+    if (this.container !== newContainer) {
+      this.container = newContainer;
+      this.setupObserver();
+    }
   }
 }

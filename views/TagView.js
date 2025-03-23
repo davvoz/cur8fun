@@ -18,6 +18,11 @@ class TagView extends BasePostView {
             this.posts = [];
             this.renderedPostIds.clear();
             this.renderPosts();
+            
+            // Reset infinite scroll if it exists
+            if (this.infiniteScroll) {
+                this.infiniteScroll.reset(1);
+            }
         }
         
         try {
@@ -86,6 +91,11 @@ class TagView extends BasePostView {
             `#${this.tag} Posts`
         );
         
+        // Destroy existing infinite scroll if it exists
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+        }
+        
         // Load posts
         this.loadPosts(1).then(hasMore => {
             // Initialize infinite scroll
@@ -94,13 +104,24 @@ class TagView extends BasePostView {
                 this.infiniteScroll = new InfiniteScroll({
                     container: postsContainer,
                     loadMore: (page) => this.loadPosts(page),
-                    threshold: '200px'
+                    threshold: '200px',
+                    loadingMessage: 'Loading more posts...',
+                    endMessage: `No more posts with tag #${this.tag}`,
+                    errorMessage: 'Failed to load posts. Please check your connection.'
                 });
             }
         }).catch(error => {
             console.error('Error loading initial posts:', error);
             this.handleLoadError();
         });
+    }
+    
+    onBeforeUnmount() {
+        // Clean up infinite scroll when switching views
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
+        }
     }
 }
 
