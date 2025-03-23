@@ -1562,87 +1562,154 @@ class SteemService {
      * @param {string} [params.start_permlink] - Permlink da cui iniziare (per paginazione)
      * @returns {Promise<Array>} - Array di post
      */
-    async getDiscussionsByBlog(params) {
-        await this.ensureLibraryLoaded();
-        
-        // Prepara i parametri per la query Hive
-        const queryParams = {
-          tag: params.community.startsWith('hive-') ? params.community : `hive-${params.community}`,
-          limit: params.limit || 10
-        };
-        
-        // Aggiungi parametri per paginazione se forniti
-        if (params.start_author && params.start_permlink) {
-          queryParams.start_author = params.start_author;
-          queryParams.start_permlink = params.start_permlink;
-        }
-        
-        // Sceglie il metodo appropriato in base al tipo di ordinamento
-        let apiMethod;
-        switch (params.sort) {
-          case 'created':
-            apiMethod = 'getDiscussionsByCreated';
-            break;
-          case 'hot':
-            apiMethod = 'getDiscussionsByHot';
-            break;
-          case 'trending':
-          default:
-            apiMethod = 'getDiscussionsByTrending';
-            break;
-        }
-        
-        try {
-          return await new Promise((resolve, reject) => {
-            this.steem.api[apiMethod](queryParams, (err, result) => {
-              if (err) {
-                console.error('Error fetching community posts:', err);
-                reject(err);
-              } else {
-                // Filtra solo i post della community specificata
-                // a volte l'API restituisce risultati misti
-                const communityPosts = result.filter(post => {
-                  try {
-                    const metadata = JSON.parse(post.json_metadata || '{}');
-                    return metadata.community === params.community.replace('hive-', '') || 
-                           metadata.community === params.community;
-                  } catch (e) {
-                    return false;
-                  }
-                });
-                
-                resolve(communityPosts);
-              }
-            });
-          });
-        } catch (error) {
-          console.error('Error in getDiscussionsByBlog:', error);
-          
-          // Prova un altro endpoint in caso di errore
-          this.switchEndpoint();
-          
-          // Riprova una volta con il nuovo endpoint
-          return new Promise((resolve, reject) => {
-            this.steem.api[apiMethod](queryParams, (err, result) => {
-              if (err) {
-                reject(err);
-              } else {
-                const communityPosts = result.filter(post => {
-                  try {
-                    const metadata = JSON.parse(post.json_metadata || '{}');
-                    return metadata.community === params.community.replace('hive-', '') || 
-                           metadata.community === params.community;
-                  } catch (e) {
-                    return false;
-                  }
-                });
-                
-                resolve(communityPosts);
-              }
-            });
-          });
-        }
+    
+async getDiscussionsByBlog(params) {
+    await this.ensureLibraryLoaded();
+    
+    // Il tag della community deve essere nel formato corretto
+    const cleanCommunityName = params.community.replace(/^hive-/, '');
+    const communityTag = `hive-${cleanCommunityName}`;
+    
+    // Prepara i parametri per la query
+    const queryParams = {
+      tag: communityTag,
+      limit: params.limit || 20
+    };
+    
+    // Aggiungi parametri per paginazione se forniti
+    if (params.start_author && params.start_permlink) {
+      queryParams.start_author = params.start_author;
+      queryParams.start_permlink = params.start_permlink;
     }
+    
+    // Seleziona il metodo corretto in base al tipo di ordinamento
+    let apiMethod;
+    switch (params.sort) {
+      case 'created':
+        apiMethod = 'getDiscussionsByCreated';
+        break;
+      case 'hot':
+        apiMethod = 'getDiscussionsByHot';
+        break;
+      case 'trending':
+      default:
+        apiMethod = 'getDiscussionsByTrending';
+        break;
+    }
+    
+    console.log(`Calling steem.api.${apiMethod} with params:`, queryParams);
+    
+    try {
+      const result = await new Promise((resolve, reject) => {
+        this.steem.api[apiMethod](queryParams, (err, result) => {
+          if (err) reject(err);
+          else resolve(result || []);
+        });
+      });
+      
+      console.log(`Received ${result.length} posts from API`);
+      
+      // Filtro migliorato che considera vari modi in cui un post può appartenere a una community
+      const communityPosts = result.filter(post => {
+        try {
+          // 1. Verifica il category/parent_permlink (sempre presente)
+          if (post.category === communityTag || post.parent_permlink === communityTag) {
+            return true;
+          }
+          
+          // 2. Verifica nel json_metadata
+          if (post.json_metadata) {
+            const metadata = JSON.parse(post.json_metadata);
+            
+            // 2.1 Verifica campo community esplicito
+            if (metadata.community === cleanCommunityName) {
+              return true;
+            }
+            
+            // 2.2 Verifica nei tags
+            if (metadata.tags && Array.isArray(metadata.tags) && 
+                (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
+              return true;
+            }
+          }
+          
+          // Nessuna delle condizioni soddisfatte
+          return false;
+        } catch (e) {
+          console.warn('Error filtering post:', e);
+          // In caso di errore, includiamo il post se la sua categoria corrisponde
+          return post.category === communityTag || post.parent_permlink === communityTag;
+        }
+      });
+      
+      console.log(`Filtered to ${communityPosts.length} posts for community ${cleanCommunityName}`);
+      
+      // Aggiungi debug dei primi 2 post filtrati
+      if (communityPosts.length > 0) {
+        console.log('First filtered post:', {
+          author: communityPosts[0].author,
+          permlink: communityPosts[0].permlink,
+          title: communityPosts[0].title,
+          category: communityPosts[0].category,
+          parent_permlink: communityPosts[0].parent_permlink
+        });
+        
+        if (communityPosts.length > 1) {
+          console.log('Second filtered post:', {
+            author: communityPosts[1].author,
+            permlink: communityPosts[1].permlink,
+            title: communityPosts[1].title,
+            category: communityPosts[1].category,
+            parent_permlink: communityPosts[1].parent_permlink
+          });
+        }
+      }
+      
+      return communityPosts;
+    } catch (error) {
+      console.error('Error in getDiscussionsByBlog:', error);
+      this.switchEndpoint();
+      
+      // Riprova una volta con il nuovo endpoint
+      console.log('Retrying with different endpoint');
+      try {
+        return await new Promise((resolve, reject) => {
+          this.steem.api[apiMethod](queryParams, (err, result) => {
+            if (err) reject(err);
+            else {
+              const communityPosts = (result || []).filter(post => {
+                try {
+                  // Stesso filtro migliorato della prima chiamata
+                  if (post.category === communityTag || post.parent_permlink === communityTag) {
+                    return true;
+                  }
+                  
+                  if (post.json_metadata) {
+                    const metadata = JSON.parse(post.json_metadata);
+                    if (metadata.community === cleanCommunityName) {
+                      return true;
+                    }
+                    if (metadata.tags && Array.isArray(metadata.tags) && 
+                        (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
+                      return true;
+                    }
+                  }
+                  
+                  return false;
+                } catch (e) {
+                  return post.category === communityTag || post.parent_permlink === communityTag;
+                }
+              });
+              resolve(communityPosts);
+            }
+          });
+        });
+      } catch (retryError) {
+        console.error('Retry also failed:', retryError);
+        return [];
+      }
+    }
+  }
 }
 
 // Initialize singleton instance
