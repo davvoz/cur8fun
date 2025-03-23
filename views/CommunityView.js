@@ -42,11 +42,36 @@ class CommunityView extends BasePostView {
       
       // Se l'utente è loggato, controlla se è iscritto
       if (this.currentUser) {
-        const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username);
-        this.isSubscribed = subscriptions.some(sub => 
-          sub.name === this.community.name || 
-          sub.name === this.community.name.replace(/^hive-/, '')
-        );
+        try {
+          console.log(`Checking if ${this.currentUser.username} is subscribed to ${this.community.name}`);
+          const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username);
+          
+          // Debug delle subscription
+          console.log('User subscriptions:', subscriptions);
+          
+          // Normalizza il nome della community per il confronto
+          const normalizedCommunityName = this.community.name.replace(/^hive-/, '');
+          
+          // La chiave 'name' potrebbe essere diversa nell'API Steemit, controlla entrambi
+          this.isSubscribed = subscriptions.some(sub => {
+            // Estrai il nome community da qualsiasi formato disponibile
+            const subName = sub.name || sub.community || sub;
+            
+            // Normalizza per il confronto
+            const subNameClean = typeof subName === 'string' 
+              ? subName.replace(/^hive-/, '') 
+              : '';
+            
+            console.log(`Comparing: '${subNameClean}' with '${normalizedCommunityName}'`);
+            
+            return subNameClean === normalizedCommunityName;
+          });
+          
+          console.log(`User ${this.currentUser.username} is ${this.isSubscribed ? '' : 'not '}subscribed to ${this.community.name}`);
+        } catch (subError) {
+          console.warn('Could not check subscription status:', subError);
+          this.isSubscribed = false;
+        }
       }
       
       return true;
