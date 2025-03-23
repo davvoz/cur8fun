@@ -454,7 +454,10 @@ class CommunityService {
   }
 
   /**
-   * Get subscribed communities for a user
+   * Get subscribed communities for a user using Steemit API
+   * @param {string} username - Username dell'account
+   * @param {boolean} useCache - Se utilizzare la cache
+   * @returns {Promise<Array>} Array di community sottoscritte
    */
   async getSubscribedCommunities(username, useCache = true) {
     if (!username) {
@@ -465,23 +468,41 @@ class CommunityService {
     if (useCache && this.cachedUserSubscriptions.has(username)) {
       const { timestamp, subscriptions } = this.cachedUserSubscriptions.get(username);
       if (Date.now() - timestamp < this.cacheExpiry) {
+        console.log(`Using cached subscriptions for ${username}`);
         return subscriptions;
       }
     }
     
     try {
-      // Fetch subscriptions from API
-      const subscriptions = await this.sendRequest(`/user/${username}/communities`, 'GET');
+      console.log(`Fetching subscriptions for ${username} from Steemit API`);
       
-      // Cache the results
-      this.cachedUserSubscriptions.set(username, {
-        timestamp: Date.now(),
-        subscriptions: subscriptions
+      // Utilizza l'API Steemit invece di imridd
+      const steemitApi = 'https://api.steemit.com';
+      
+      const params = new URLSearchParams({
+        account: username
       });
       
-      return subscriptions;
+      const response = await fetch(`${steemitApi}/bridge.list_all_subscriptions?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch subscribed communities: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const communities = data.result || [];
+      
+      // Cache the results per user
+      this.cachedUserSubscriptions.set(username, {
+        timestamp: Date.now(),
+        subscriptions: communities
+      });
+      
+      return communities;
     } catch (error) {
       console.error(`Error fetching subscribed communities for ${username}:`, error);
+      
+      // In caso di errore, restituisci un array vuoto
       return [];
     }
   }
