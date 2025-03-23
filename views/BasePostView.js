@@ -205,7 +205,8 @@ class BasePostView {
       const excerpt = document.createElement('div');
       excerpt.className = 'post-excerpt';
       const textExcerpt = this.createExcerpt(post.body);
-      excerpt.textContent = textExcerpt;
+      // Make sure all links are completely removed from the excerpt
+      excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
       contentMiddle.appendChild(excerpt);
     }
     
@@ -659,14 +660,20 @@ class BasePostView {
     const plainText = body
         .replace(/!\[.*?\]\(.*?\)/g, '') // remove markdown images
         .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // remove markdown links keeping the text
+        .replace(/<a.*?href=["'](.+?)["'].*?>(.+?)<\/a>/gi, '$2') // remove HTML links keeping text
+        .replace(/https?:\/\/\S+/g, '') // remove all URLs
         .replace(/<\/?[^>]+(>|$)/g, '') // remove html tags
         .replace(/#{1,6}\s/g, '') // remove headings (1-6 hashes)
         .replace(/(\*\*|__)(.*?)(\*\*|__)/g, '$2') // convert bold to normal text
         .replace(/(\*|_)(.*?)(\*|_)/g, '$2') // convert italic to normal text
         .replace(/~~(.*?)~~/g, '$1') // convert strikethrough to normal text
-        .replace(/```[\s\S]*?```/g, '') // remove code blocks
+        .replace(/>\s*(.*?)(\n|$)/g, '') // remove blockquotes
+        .replace(/```[\s\S]*?```/g, '') // remove code blocks with triple backticks
+        .replace(/`[^`]*`/g, '') // remove inline code with single backticks
+        .replace(/~~~[\s\S]*?~~~/g, '') // remove code blocks with triple tildes
         .replace(/\n\n/g, ' ') // replace double newlines with space
         .replace(/\n/g, ' ') // replace single newlines with space
+        .replace(/\s+/g, ' ') // replace multiple spaces with a single space
         .trim();
     
     // Truncate and add ellipsis if necessary
