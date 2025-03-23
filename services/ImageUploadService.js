@@ -41,7 +41,7 @@ class ImageUploadService {
           const base64Image = reader.result.split(',')[1];
           
           // Determina la piattaforma (STEEM o HIVE)
-          const platform = 'HIVE'; // Puoi cambiarlo in base alla configurazione
+          const platform = 'STEEM'; // Puoi cambiarlo in base alla configurazione
           
           const baseUrlMap = {
             'STEEM': 'https://develop-imridd.eu.pythonanywhere.com/api/steem/upload_base64_image',
@@ -58,7 +58,7 @@ class ImageUploadService {
           const payload = {
             image_base64: base64Image,
             username: username,
-            id_telegram: 'steemee_app' 
+            id_telegram: 123456
           };
           
           // Funzione per gestire il timeout
