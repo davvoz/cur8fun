@@ -1,42 +1,30 @@
-/* Base styles - fundamental styling */
 @import 'base/reset.css';
 @import 'base/variables.css';
 @import 'base/typography.css';
 @import 'base/layout.css';
-
-/* Layout components */
 @import 'layout/navigation.css';
 @import 'layout/sidebar.css';
 @import 'layout/grid-controller.css';
-
-/* Reusable components */
 @import 'components/components.css';
 @import 'components/cards.css';
 @import 'components/loaders.css';
 @import 'components/notifications.css';
-@import 'components/auth.css'; /* Aggiungi questa riga */
+@import 'components/auth.css';
 @import 'components/image-upload.css';
-
-/* Feature-specific styles */
 @import 'features/post.css';
 @import 'features/profile.css';
 @import 'features/search.css';
 @import 'features/markdown.css';
 @import 'features/markdown-editor.css';
 @import 'features/create-post.css';
-@import 'features/animations.css'; /* Aggiungi questa riga per importare il nuovo file CSS */
-
-/* Page-specific styles */
+@import 'features/animations.css';
 @import 'pages/tag.css';
 @import 'pages/wallet/wallet.css';
-
-/* Utilities - apply last to ensure they can override */
 @import 'utils/responsive.css';
 @import 'utils/content.css';
-
-@import 'components/tag-selection.css'; /* Aggiungi questa riga */
-
-@import 'styles.css'; /* Aggiungi questa riga */
+@import 'components/tag-selection.css';
+@import 'styles.css';
+@import 'pages/home.css';
 
 /* Fallback styles in case any imports fail */
 :root {

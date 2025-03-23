@@ -456,24 +456,210 @@ class SteemService {
         await this.ensureLibraryLoaded();
 
         try {
-            return await new Promise((resolve, reject) => {
-                // Use getDiscussionsByBlog which is more reliable for fetching a user's blog posts
-                this.steem.api.getDiscussionsByBlog(
-                    { tag: username, limit },
-                    (err, result) => {
-                        if (err) {
-                            console.error('API Error details:', err);
-                            reject(err);
-                        } else {
-                            resolve(result || []);
-                        }
+            console.log(`Fetching posts for user ${username} with limit ${limit}`);
+            
+            // We'll use multiple fetch methods to ensure we get ALL posts
+            const posts = [];
+            const seenPermalinks = new Set();
+            
+            // METHOD 1: Use getDiscussionsByBlog which includes posts and reblogs
+            try {
+                console.log("METHOD 1: Fetching via getDiscussionsByBlog");
+                const blogPosts = await this._fetchUserBlogPosts(username, limit);
+                console.log(`Retrieved ${blogPosts.length} blog posts`);
+                
+                // Add to our posts collection, tracking what we've seen
+                for (const post of blogPosts) {
+                    const key = `${post.author}-${post.permlink}`;
+                    if (!seenPermalinks.has(key)) {
+                        seenPermalinks.add(key);
+                        posts.push(post);
                     }
-                );
+                }
+            } catch (error) {
+                console.error('Error in METHOD 1:', error);
+                this.switchEndpoint();
+            }
+            
+            // METHOD 2: Use account history to find all posts directly created by the user
+            try {
+                console.log("METHOD 2: Fetching from account history");
+                const authoredPosts = await this._fetchPostsFromAccountHistory(username, limit);
+                console.log(`Retrieved ${authoredPosts.length} authored posts from history`);
+                
+                // Combine with previous results, avoiding duplicates
+                for (const post of authoredPosts) {
+                    const key = `${post.author}-${post.permlink}`;
+                    if (!seenPermalinks.has(key)) {
+                        seenPermalinks.add(key);
+                        posts.push(post);
+                    }
+                }
+            } catch (error) {
+                console.error('Error in METHOD 2:', error);
+            }
+            
+            // Sort all posts by date (newest first)
+            posts.sort((a, b) => {
+                const dateA = new Date(a.created);
+                const dateB = new Date(b.created);
+                return dateB - dateA;
             });
+            
+            console.log(`Final combined post count: ${posts.length}`);
+            
+            // Return the requested number of posts
+            return posts.slice(0, limit);
         } catch (error) {
             console.error('Error fetching user posts:', error);
             this.switchEndpoint();
             throw error;
+        }
+    }
+
+    /**
+     * Fetch blog posts including reblogs
+     * @private
+     */
+    async _fetchUserBlogPosts(username, limit) {
+        // Use the discussions query with multiple batches to get more results
+        const allPosts = [];
+        const batchSize = 100; // Maximum supported by the API
+        let startAuthor = '';
+        let startPermlink = '';
+        
+        // Keep fetching until we have enough posts or no more results
+        for (let i = 0; i < Math.ceil(limit / batchSize) + 1; i++) {
+            console.log(`Fetching blog batch ${i+1} (have ${allPosts.length} posts so far)`);
+            
+            try {
+                const query = {
+                    tag: username,
+                    limit: batchSize
+                };
+                
+                // Add pagination parameters if we have them
+                if (startAuthor && startPermlink) {
+                    query.start_author = startAuthor;
+                    query.start_permlink = startPermlink;
+                }
+                
+                const batch = await new Promise((resolve, reject) => {
+                    this.steem.api.getDiscussionsByBlog(query, (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    });
+                });
+                
+                if (!batch || batch.length === 0) {
+                    console.log('No more blog posts to fetch');
+                    break;
+                }
+                
+                // If this isn't the first batch, remove the first post (it's a duplicate)
+                const newPosts = (i > 0 && batch.length > 0) ? batch.slice(1) : batch;
+                
+                if (newPosts.length === 0) {
+                    console.log('No new posts in this batch');
+                    break;
+                }
+                
+                allPosts.push(...newPosts);
+                
+                // Check if we have enough posts
+                if (allPosts.length >= limit) {
+                    console.log(`Reached desired post count (${allPosts.length} >= ${limit})`);
+                    break;
+                }
+                
+                // Get last post for pagination
+                const lastPost = batch[batch.length - 1];
+                startAuthor = lastPost.author;
+                startPermlink = lastPost.permlink;
+                
+                // Add a delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } catch (error) {
+                console.error(`Error in blog batch ${i+1}:`, error);
+                this.switchEndpoint();
+                // Continue with next batch
+            }
+        }
+        
+        return allPosts;
+    }
+
+    /**
+     * Fetch posts from account history
+     * @private
+     */
+    async _fetchPostsFromAccountHistory(username, limit) {
+        try {
+            // First get account history to find post operations
+            const historyBatchSize = 3000; // Large batch to get more history
+            const history = await this.getAccountHistory(username, -1, historyBatchSize);
+            
+            if (!history || history.length === 0) {
+                return [];
+            }
+            
+            console.log(`Retrieved ${history.length} history items for ${username}`);
+            
+            // Filter for comment operations that don't have a parent_author (these are posts)
+            const postOps = history.filter(item => {
+                const [, operation] = item[1].op;
+                return operation.author === username && 
+                       operation.parent_author === '' && 
+                       operation.json_metadata; // Posts should have metadata
+            });
+            
+            console.log(`Found ${postOps.length} post operations in history`);
+            
+            // Extract unique permalinks from operations
+            const permalinks = new Set();
+            postOps.forEach(item => {
+                const [, operation] = item[1].op;
+                permalinks.add(operation.permlink);
+            });
+            
+            console.log(`Found ${permalinks.size} unique permalinks`);
+            
+            // Fetch full post data for each permlink
+            const posts = [];
+            const batchSize = 20; // Process in smaller batches
+            const permalinkArray = Array.from(permalinks);
+            
+            for (let i = 0; i < permalinkArray.length; i += batchSize) {
+                const batch = permalinkArray.slice(i, i + batchSize);
+                console.log(`Fetching content for batch ${Math.floor(i/batchSize) + 1} (${i}-${i+batch.length}/${permalinkArray.length})`);
+                
+                const batchPromises = batch.map(permlink => 
+                    this.getContent(username, permlink)
+                        .catch(err => {
+                            console.error(`Error fetching post ${username}/${permlink}:`, err);
+                            return null;
+                        })
+                );
+                
+                const batchResults = await Promise.all(batchPromises);
+                
+                // Filter out invalid results and posts with empty body
+                const validPosts = batchResults.filter(post => 
+                    post && post.id && post.body && post.parent_author === ""
+                );
+                
+                posts.push(...validPosts);
+                
+                // Delay between batches
+                if (i + batchSize < permalinkArray.length) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+            }
+            
+            return posts;
+        } catch (error) {
+            console.error('Error fetching posts from account history:', error);
+            return [];
         }
     }
 
@@ -724,25 +910,25 @@ class SteemService {
     //update user profile
     async updateUserProfile(username, profile) {
         await this.ensureLibraryLoaded();
-        
+
         console.log('SteemService: Updating profile for user:', username);
         console.log('Profile data to update:', profile);
-        
+
         // Prepare metadata in the correct format
         let metadata = {};
         let memo_key = '';
-        
+
         try {
             // Get existing metadata and memo_key if any
             const userData = await this.getUserData(username);
             if (!userData) {
                 throw new Error('User data not found');
             }
-            
+
             // Important: Get the existing memo_key which is required for account_update
             memo_key = userData.memo_key;
             console.log('Using existing memo_key:', memo_key);
-            
+
             if (userData.json_metadata) {
                 try {
                     const existingMetadata = JSON.parse(userData.json_metadata);
@@ -755,7 +941,7 @@ class SteemService {
             console.warn('Failed to get existing user data:', e);
             // Don't throw an error yet - we'll try to get the memo key another way
         }
-        
+
         // If we couldn't get memo_key from user data, try alternative sources
         if (!memo_key) {
             memo_key = await this.getMemoKeyFromAlternativeSources(username);
@@ -763,23 +949,23 @@ class SteemService {
                 throw new Error('Cannot update profile without a memo key. Please try again later.');
             }
         }
-        
+
         // Set or update the profile property
         metadata.profile = profile;
-        
+
         const jsonMetadata = JSON.stringify(metadata);
         console.log('Final json_metadata to broadcast:', jsonMetadata);
-        
+
         // Check for active key first (needed for account_update)
-        const activeKey = localStorage.getItem('activeKey') || 
-                          localStorage.getItem(`${username}_active_key`) ||
-                          localStorage.getItem(`${username.toLowerCase()}_active_key`);
-        
+        const activeKey = localStorage.getItem('activeKey') ||
+            localStorage.getItem(`${username}_active_key`) ||
+            localStorage.getItem(`${username.toLowerCase()}_active_key`);
+
         // Posting key won't work for account_update, but check anyway as fallback
-        const postingKey = localStorage.getItem('postingKey') || 
-                          localStorage.getItem(`${username}_posting_key`) ||
-                          localStorage.getItem(`${username.toLowerCase()}_posting_key`);
-        
+        const postingKey = localStorage.getItem('postingKey') ||
+            localStorage.getItem(`${username}_posting_key`) ||
+            localStorage.getItem(`${username.toLowerCase()}_posting_key`);
+
         // Log authentication method being used
         if (activeKey) {
             console.log('Using stored active key for update');
@@ -801,7 +987,7 @@ class SteemService {
                             json_metadata: jsonMetadata
                         }]
                     ];
-                    
+
                     this.steem.broadcast.send(
                         { operations: operations, extensions: [] },
                         { active: activeKey }, // Use active key for account_update
@@ -820,7 +1006,7 @@ class SteemService {
                     reject(error);
                 }
             });
-        } 
+        }
         // If Keychain is available, use it with explicit active authority
         else if (window.steem_keychain) {
             console.log('Using Keychain for profile update');
@@ -836,8 +1022,8 @@ class SteemService {
                 ];
 
                 window.steem_keychain.requestBroadcast(
-                    username, 
-                    operations, 
+                    username,
+                    operations,
                     'active', // Must use active authority for account_update
                     (response) => {
                         if (response.success) {
@@ -850,7 +1036,7 @@ class SteemService {
                     }
                 );
             });
-        } 
+        }
         // No active key or Keychain, show explanation to user
         else {
             // Create a modal dialog explaining the need for active key
@@ -873,7 +1059,7 @@ class SteemService {
                 console.warn('Failed to get memo key from Keychain:', error);
             }
         }
-        
+
         // If Keychain didn't work, ask the user
         return this.askUserForMemoKey(username);
     }
@@ -924,19 +1110,19 @@ class SteemService {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
-            
+
             // Add event listeners
             document.getElementById('memo-key-cancel').addEventListener('click', () => {
                 document.body.removeChild(modal);
                 resolve('');
             });
-            
+
             document.getElementById('memo-key-submit').addEventListener('click', () => {
                 const memoKey = document.getElementById('memo-key-input').value.trim();
                 document.body.removeChild(modal);
-                
+
                 if (memoKey && memoKey.startsWith('STM')) {
                     resolve(memoKey);
                 } else {
@@ -994,29 +1180,29 @@ class SteemService {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
-            
+
             // Add event listeners
             document.getElementById('close-modal').addEventListener('click', () => {
                 document.body.removeChild(modal);
                 resolve();
             });
-            
+
             document.getElementById('show-key-input').addEventListener('click', () => {
                 document.querySelector('.active-key-input').style.display = 'block';
                 document.querySelector('.modal-buttons').style.display = 'none';
             });
-            
+
             document.getElementById('submit-active-key').addEventListener('click', () => {
                 const activeKey = document.getElementById('active-key-input').value.trim();
                 const saveKey = document.getElementById('save-active-key').checked;
-                
+
                 if (activeKey) {
                     if (saveKey) {
                         localStorage.setItem(`${username}_active_key`, activeKey);
                     }
-                    
+
                     document.body.removeChild(modal);
                     resolve(activeKey);
                 } else {
@@ -1035,46 +1221,46 @@ class SteemService {
      */
     async getPostsByTag(tag, page = 1, limit = 20) {
         await this.ensureLibraryLoaded();
-        
+
         if (!tag || typeof tag !== 'string') {
             console.error('Invalid tag:', tag);
             return { posts: [], hasMore: false, currentPage: page };
         }
-        
+
         console.log(`Fetching posts for tag: "${tag}" (page ${page})`);
-        
+
         try {
             // Call the Steem API to get posts with the specified tag
             const query = {
                 tag: tag.toLowerCase().trim(),
                 limit: limit + 1 // Get one extra to check if there are more posts
             };
-            
+
             // Add pagination if we're not on the first page
             if (page > 1 && this.lastPost) {
                 query.start_author = this.lastPost.author;
                 query.start_permlink = this.lastPost.permlink;
             }
-            
+
             // Use the API with proper promise handling
             const posts = await this._getDiscussionsByMethod('getDiscussionsByCreated', query);
-            
+
             if (!posts || !Array.isArray(posts)) {
                 console.warn('Invalid response from API:', posts);
                 return { posts: [], hasMore: false, currentPage: page };
             }
-            
+
             // Store the last post for pagination
             if (posts.length > 0) {
                 this.lastPost = posts[posts.length - 1];
             }
-            
+
             // Check if there are more posts
             const hasMore = posts.length > limit;
-            
+
             // Remove the extra post if we fetched one
             const filteredPosts = hasMore ? posts.slice(0, limit) : posts;
-            
+
             return {
                 posts: filteredPosts,
                 hasMore,
@@ -1083,6 +1269,286 @@ class SteemService {
         } catch (error) {
             console.error('Error fetching posts by tag:', error);
             throw new Error('Failed to fetch posts by tag');
+        }
+    }
+
+    /**
+     * Get comments by author
+     * @param {string} author - Author username
+     * @param {number} limit - Max number of comments to fetch
+     * @returns {Promise<Array>} Array of comments
+     */
+    async getCommentsByAuthor(author, limit = 500) {
+        try {
+            console.log(`Getting comments for author ${author} with limit ${limit}`);
+            
+            // We'll use multiple approaches to get as many comments as possible
+            
+            // APPROACH 1: Use account history with multiple batches
+            console.log("APPROACH 1: Fetching comments from account history");
+            const commentsFromHistory = await this._getCommentsFromAccountHistory(author, limit);
+            console.log(`Found ${commentsFromHistory.length} comments via account history`);
+            
+            // APPROACH 2: Use discussions query as a backup method
+            console.log("APPROACH 2: Fetching comments via discussions query");
+            const commentsFromDiscussions = await this._getCommentsFromDiscussionsQuery(author, limit);
+            console.log(`Found ${commentsFromDiscussions.length} comments via discussions query`);
+            
+            // Combine results from both approaches
+            const allCommentData = this._combineAndDeduplicateComments(
+                commentsFromHistory, 
+                commentsFromDiscussions
+            );
+            
+            console.log(`Combined unique comments count: ${allCommentData.length}`);
+            
+            // Fetch full data for all comments
+            const comments = await this._fetchCommentsInBatches(author, allCommentData);
+            console.log(`Final processed comments count: ${comments.length}`);
+            
+            return comments;
+        } catch (error) {
+            console.error('Error getting comments by author:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get comments from account history
+     * @private
+     */
+    async _getCommentsFromAccountHistory(author, limit) {
+        try {
+            // Multiple batches with different starting points to get more comments
+            const batchSizes = [2000, 3000, 3000, 3000]; // Multiple large batches
+            const maxBatches = batchSizes.length;
+            let allHistory = [];
+            let lastId = -1; // Start from most recent
+
+            // Fetch account history in multiple large batches
+            for (let batch = 0; batch < maxBatches; batch++) {
+                const batchSize = batchSizes[batch];
+                console.log(`Fetching account history batch ${batch+1}/${maxBatches} with size ${batchSize} starting from ${lastId}`);
+                
+                try {
+                    const historyBatch = await this.getAccountHistory(author, lastId, batchSize);
+                    
+                    if (!historyBatch || historyBatch.length === 0) {
+                        console.log(`No more history available after batch ${batch+1}`);
+                        break;
+                    }
+                    
+                    console.log(`Retrieved ${historyBatch.length} history items in batch ${batch+1}`);
+                    
+                    // Find the oldest operation ID for next batch
+                    if (historyBatch.length > 0) {
+                        const oldestOp = historyBatch[0];
+                        lastId = oldestOp ? Math.max(0, oldestOp[0] - 1) : 0;
+                        
+                        // If we're at the beginning of the account history, stop
+                        if (lastId <= 1) {
+                            console.log('Reached the beginning of account history');
+                            allHistory = [...historyBatch, ...allHistory];
+                            break;
+                        }
+                    }
+                    
+                    // Add history items to our collection
+                    allHistory = [...historyBatch, ...allHistory];
+                    
+                    // Add a small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (error) {
+                    console.error(`Error fetching history batch ${batch+1}:`, error);
+                    // Continue with next batch despite errors
+                }
+            }
+            
+            console.log(`Total account history items: ${allHistory.length}`);
+            
+            // Extract and filter for comment operations
+            const commentOps = this._filterCommentOps(allHistory, author);
+            console.log(`Found ${commentOps.length} comment operations`);
+            
+            // Extract unique comments
+            return this._extractUniqueComments(commentOps, author);
+        } catch (error) {
+            console.error('Error getting comments from account history:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get comments from discussions query
+     * @private
+     */
+    async _getCommentsFromDiscussionsQuery(author, limit) {
+        await this.ensureLibraryLoaded();
+        
+        try {
+            const comments = [];
+            const batchSize = 100; // Maximum supported by the API
+            let startPermlink = '';
+            let lastBatchSize = batchSize;
+            
+            // Keep fetching until we have enough or run out of comments
+            while (comments.length < limit && lastBatchSize === batchSize) {
+                console.log(`Fetching comments batch via discussions query (have ${comments.length} so far)`);
+                
+                const query = {
+                    start_author: author,
+                    start_permlink: startPermlink,
+                    limit: batchSize,
+                    select_authors: [author],
+                    select_tags: [],
+                    truncate_body: 1 // We'll get full body later
+                };
+                
+                try {
+                    // Get comments via discussions by comments
+                    const batch = await new Promise((resolve, reject) => {
+                        this.steem.api.getDiscussionsByComments(query, (err, result) => {
+                            if (err) reject(err);
+                            else resolve(result || []);
+                        });
+                    });
+                    
+                    if (!batch || batch.length === 0) {
+                        console.log('No more comments returned from discussions query');
+                        break;
+                    }
+                    
+                    // Skip the first result if it's the same as our start_permlink (except on first request)
+                    const startIdx = startPermlink && batch.length > 0 ? 1 : 0;
+                    const newBatch = batch.slice(startIdx);
+                    lastBatchSize = newBatch.length;
+                    
+                    // Filter to only include comments (not posts)
+                    const newComments = newBatch.filter(c => c.parent_author !== '');
+                    console.log(`Got ${newComments.length} new comments from discussions query`);
+                    
+                    // Add to our collection
+                    comments.push(...newComments);
+                    
+                    // Update the start_permlink for the next batch
+                    if (batch.length > 0) {
+                        const lastItem = batch[batch.length - 1];
+                        startPermlink = lastItem.permlink;
+                    } else {
+                        break;
+                    }
+                    
+                    // Add a small delay
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (error) {
+                    console.error('Error in discussions query batch:', error);
+                    this.switchEndpoint();
+                    // Continue trying with next batch
+                }
+            }
+            
+            // Extract minimal data needed for later processing
+            return comments.map(c => ({
+                permlink: c.permlink,
+                parent_author: c.parent_author,
+                parent_permlink: c.parent_permlink,
+                timestamp: new Date(c.created).getTime()
+            }));
+        } catch (error) {
+            console.error('Error getting comments from discussions query:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Combine and deduplicate comments from multiple sources
+     * @private
+     */
+    _combineAndDeduplicateComments(commentsA, commentsB) {
+        // Use a Map with permlink as key to deduplicate
+        const uniqueComments = new Map();
+        
+        // Add comments from both sources
+        [...commentsA, ...commentsB].forEach(comment => {
+            if (comment && comment.permlink) {
+                uniqueComments.set(comment.permlink, comment);
+            }
+        });
+        
+        // Convert back to array and sort by timestamp (newest first)
+        return Array.from(uniqueComments.values())
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+
+    /**
+     * Fetch comment details in batches
+     * @private
+     */
+    async _fetchCommentsInBatches(author, commentData) {
+        const comments = [];
+        const batchSize = 20; // Process in batches to avoid overwhelming the API
+        
+        for (let i = 0; i < commentData.length; i += batchSize) {
+            const batch = commentData.slice(i, i + batchSize);
+            console.log(`Fetching batch ${Math.floor(i/batchSize) + 1} of comments (${i}-${i+batch.length}/${commentData.length})`);
+            
+            const batchPromises = batch.map(item => 
+                this.getContent(author, item.permlink)
+                    .catch(err => {
+                        console.error(`Error fetching comment ${author}/${item.permlink}:`, err);
+                        return null;
+                    })
+            );
+            
+            const batchResults = await Promise.all(batchPromises);
+            const validResults = batchResults.filter(comment => 
+                comment && comment.id && comment.parent_author !== ""
+            );
+            
+            comments.push(...validResults);
+            
+            console.log(`Batch ${Math.floor(i/batchSize) + 1}: Retrieved ${validResults.length}/${batch.length} valid comments`);
+            
+            // Short delay between batches to avoid rate limiting
+            if (i + batchSize < commentData.length) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+        
+        return comments;
+    }
+
+    /**
+     * Get account history with retry capability
+     */
+    async getAccountHistory(username, from = -1, limit = 10) {
+        await this.ensureLibraryLoaded();
+
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getAccountHistory(username, from, limit, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching account history:', error);
+            
+            // Try with a different API endpoint
+            this.switchEndpoint();
+            
+            // Retry once with the new endpoint
+            try {
+                return await new Promise((resolve, reject) => {
+                    this.steem.api.getAccountHistory(username, from, limit, (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result);
+                    });
+                });
+            } catch (retryError) {
+                console.error('Error fetching account history after retry:', retryError);
+                throw retryError;
+            }
         }
     }
 }
