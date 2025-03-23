@@ -562,50 +562,66 @@ class CommunityService {
         }
       }
       
-      // Se non in cache, prova a cercare usando il metodo di ricerca
-      // Questo sfrutterà anche le cache della ricerca
-      const searchResults = await this.searchCommunities(cleanName, 5, true);
-      
-      const exactMatch = searchResults.find(
-        community => 
-          community.name === cleanName || 
-          community.name === searchName
-      );
-      
-      if (exactMatch) {
-        console.log(`Found community ${communityName} via search`);
-        return exactMatch;
-      }
-      
-      // Se ancora non trovata, prova a caricare tutte le community se non l'abbiamo fatto
+      // Se non è in cache, carica la lista completa
+      // Questo evita la richiesta searchCommunities che causa CORS
       if (!this.cachedCommunities) {
-        await this.listCommunities();
+        console.log(`Loading all communities to find ${communityName}`);
+        try {
+          await this.listCommunities();
+        } catch (listError) {
+          console.error(`Error loading community list:`, listError);
+          // Se non è possibile caricare la lista, creiamo un oggetto community base
+          return this.createBasicCommunityObject(cleanName, searchName);
+        }
         
-        const foundCommunity = this.cachedCommunities.find(
-          community => 
-            community.name === cleanName || 
-            community.name === searchName
-        );
-        
-        if (foundCommunity) {
-          console.log(`Found community ${communityName} after loading all communities`);
-          return foundCommunity;
+        // Ora che abbiamo la lista completa, proviamo a trovare la community
+        if (this.cachedCommunities) {
+          const foundCommunity = this.cachedCommunities.find(
+            community => 
+              community.name === cleanName || 
+              community.name === searchName
+          );
+          
+          if (foundCommunity) {
+            console.log(`Found community ${communityName} after loading all communities`);
+            return foundCommunity;
+          }
         }
       }
       
       // Se siamo qui, non siamo riusciti a trovare la community
-      // Solo a questo punto facciamo una richiesta API specifica per sicurezza
-      try {
-        console.log(`Falling back to API request for community ${communityName}`);
-        return await this.getCommunityDetails(cleanName);
-      } catch (error) {
-        console.log(`API request for community ${communityName} also failed`, error);
-        return null;
-      }
+      // Creiamo un oggetto community di base invece di fare un'altra richiesta API
+      return this.createBasicCommunityObject(cleanName, searchName);
+      
     } catch (error) {
       console.error(`Error finding community ${communityName}:`, error);
-      return null;
+      // In caso di errore, restituisci comunque un oggetto base
+      return this.createBasicCommunityObject(cleanName, searchName);
     }
+  }
+
+  /**
+   * Crea un oggetto community base quando non abbiamo dati completi
+   * @param {string} cleanName - Nome pulito della community (senza hive-)
+   * @param {string} fullName - Nome completo della community (con hive-)
+   * @returns {Object} Oggetto community di base
+   */
+  createBasicCommunityObject(cleanName, fullName) {
+    // Formatta il nome in modo leggibile per il titolo
+    const formattedTitle = cleanName
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    return {
+      name: fullName,
+      title: formattedTitle || fullName,
+      about: '',
+      subscribers: 0,
+      created: '',
+      is_nsfw: false,
+      isBasic: true  // Flag per indicare che sono dati di base
+    };
   }
 }
 
