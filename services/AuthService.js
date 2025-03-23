@@ -273,29 +273,41 @@ class AuthService {
      * Ideally, keys should not be stored in localStorage
      */
     getPostingKey() {
+        console.log('getPostingKey: Attempting to retrieve posting key');
         const user = this.getCurrentUser();
-        if (!user) return null;
+        
+        if (!user) {
+            console.log('getPostingKey: No logged in user found');
+            return null;
+        }
+        
+        console.log(`getPostingKey: Processing for user ${user.username} with login method ${user.loginMethod}`);
         
         // Per utenti Keychain
         if (user.loginMethod === 'keychain') {
+            console.log('getPostingKey: User is using Keychain, no stored key needed');
             return null; // Keychain gestirà l'operazione 
         }
         
         // Per login con chiave diretta
         try {
             const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+            console.log(`getPostingKey: Key expiry timestamp: ${keyExpiry}`);
             
             // Verifica scadenza
             if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+                console.log('getPostingKey: Stored key is expired, removing it');
                 // Chiave scaduta, rimuovila
                 localStorage.removeItem(`${user.username}_posting_key`);
                 localStorage.removeItem(`${user.username}_posting_key_expiry`);
                 return null;
             }
             
-            return localStorage.getItem(`${user.username}_posting_key`);
+            const key = localStorage.getItem(`${user.username}_posting_key`);
+            console.log(`getPostingKey: Key ${key ? 'found' : 'not found'} for user ${user.username}`);
+            return key;
         } catch (error) {
-            console.error('Error retrieving posting key:', error);
+            console.error('getPostingKey: Error retrieving posting key:', error);
             return null;
         }
     }
