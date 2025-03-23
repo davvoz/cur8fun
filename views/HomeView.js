@@ -1,5 +1,6 @@
 import steemService from '../services/SteemService.js';
 import BasePostView from './BasePostView.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class HomeView extends BasePostView {
   constructor(params) {
@@ -13,6 +14,11 @@ class HomeView extends BasePostView {
       this.posts = [];
       this.renderedPostIds.clear();
       this.renderPosts();
+      
+      // Reset infinite scroll if it exists
+      if (this.infiniteScroll) {
+          this.infiniteScroll.reset(1);
+      }
     }
     
     try {
@@ -83,18 +89,34 @@ class HomeView extends BasePostView {
       `${this.formatTagName(this.tag)} Posts`
     );
     
+    // Destroy existing infinite scroll if it exists
+    if (this.infiniteScroll) {
+        this.infiniteScroll.destroy();
+    }
+    
     // Load first page of posts
-    this.loadPosts(1).then(() => {
+    this.loadPosts(1).then((hasMore) => {
       // Initialize infinite scroll after first page loads
       if (postsContainer) {
         console.log('Initializing infinite scroll');
         this.infiniteScroll = new InfiniteScroll({
           container: postsContainer,
           loadMore: (page) => this.loadPosts(page),
-          threshold: '200px'
+          threshold: '200px',
+          loadingMessage: 'Loading more posts...',
+          endMessage: `No more ${this.formatTagName(this.tag)} posts to load`,
+          errorMessage: 'Failed to load posts. Please check your connection.'
         });
       }
     });
+  }
+  
+  onBeforeUnmount() {
+    // Clean up infinite scroll when switching views
+    if (this.infiniteScroll) {
+        this.infiniteScroll.destroy();
+        this.infiniteScroll = null;
+    }
   }
 }
 

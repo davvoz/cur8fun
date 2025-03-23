@@ -1,7 +1,6 @@
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import GridController from '../components/GridController.js';
 import eventEmitter from '../utils/EventEmitter.js';
-import InfiniteScroll from '../utils/InfiniteScroll.js';
 import ContentRenderer from '../components/ContentRenderer.js';
 import router from '../utils/Router.js';
 

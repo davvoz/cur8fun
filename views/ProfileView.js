@@ -403,27 +403,13 @@ class ProfileView extends View {
       // If this is the first page, set up the container
       if (this.page === 1) {
         this.comments = [];
-        
-        // Add comments counter with better styling
-        const counterDiv = document.createElement('div');
-        counterDiv.className = 'comments-counter';
-        counterDiv.innerHTML = `<strong>Total Comments: ${allComments.length}</strong>`;
-        counterDiv.style.padding = '10px';
-        counterDiv.style.margin = '10px 0';
-        counterDiv.style.backgroundColor = '#f0f0f0';
-        counterDiv.style.borderRadius = '4px';
-        counterDiv.style.textAlign = 'center';
-        commentsContainer.appendChild(counterDiv);
+       
       } else {
         // Remove any loader that might be present
         const loader = commentsContainer.querySelector('.comment-page-loader');
         if (loader) loader.remove();
         
-        // Update counter
-        const counter = commentsContainer.querySelector('.comments-counter');
-        if (counter) {
-          counter.innerHTML = `<strong>Total Comments: ${allComments.length}</strong> (Showing ${Math.min(endIndex, allComments.length)} of ${allComments.length})`;
-        }
+        
       }
       
       // Check if we have more comments to load
@@ -576,12 +562,6 @@ class ProfileView extends View {
             
             // Remove the temporary loader
             tempLoader.remove();
-            
-            // Update counter to show progress
-            const counter = commentsContainer.querySelector('.comments-counter');
-            if (counter) {
-              counter.innerHTML = `<strong>Total Comments: ${allComments.length}</strong> (Showing ${Math.min(endIndex, allComments.length)} of ${allComments.length})`;
-            }
             
             // Append new comments to our existing array and container
             this.comments = [...this.comments, ...newComments];

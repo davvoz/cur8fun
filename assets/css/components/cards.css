@@ -190,6 +190,7 @@
 /* Improve loaded image display */
 .post-image-container.loaded img {
     filter: contrast(1.02) saturate(1.05);
+    max-height: 200px;
     /* Slightly enhance contrast and saturation */
 }
 
@@ -220,7 +221,6 @@
     color: var(--text-color);
     line-height: 1.4;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
