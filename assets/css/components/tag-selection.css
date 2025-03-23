@@ -1,170 +1,180 @@
 /* Tag Selection Bar Styles */
 .tag-selection-bar {
   display: flex;
-  flex-wrap: wrap;
-  padding: 16px 0;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--border-color, #eee);
-  gap: 10px;
-  max-width: 100%;
-  position: relative;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md) 0;
+  gap: var(--space-md);
 }
 
+/* Dropdown Container Styles */
+.tag-dropdown-container {
+  position: relative;
+  min-width: 200px;
+}
+
+.tag-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-md) var(--space-md);
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  box-shadow: var(--subtle-shadow);
+}
+
+.tag-dropdown-trigger:hover {
+  background-color: var(--background-lighter);
+  border-color: var(--border-light);
+}
+
+.tag-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 250px;
+  overflow-y: auto;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-box-shadow);
+  z-index: 10;
+  display: none;
+  margin-top: var(--space-xs);
+}
+
+.tag-dropdown-menu.show {
+  display: block;
+}
+
+.tag-option {
+  padding: var(--space-md) var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tag-option:hover {
+  background-color: var(--background-lighter);
+}
+
+.tag-option.active {
+  background-color: var(--background-lighter);
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* Tag Pill Styles (alternative for scrollable tags) */
 .tag-scroll-area {
   display: flex;
-  flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-width: thin;
-  gap: 8px;
-  flex-grow: 1;
-  padding-bottom: 5px;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  scroll-behavior: smooth; /* Smooth scrolling */
-  position: relative;
-  width: 100%;
-  mask-image: linear-gradient(90deg, transparent, #000 5px, #000 calc(100% - 5px), transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5px, #000 calc(100% - 5px), transparent);
+  white-space: nowrap;
+  padding: var(--space-xs) 0;
+  -ms-overflow-style: none;  /* Hide scrollbar for IE */
+  scrollbar-width: none;  /* Hide scrollbar for Firefox */
+  max-width: 60%;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .tag-scroll-area::-webkit-scrollbar {
-  height: 4px;
-}
-
-.tag-scroll-area::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.tag-scroll-area::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 4px;
+  display: none;  /* Hide scrollbar for Chrome/Safari/Opera */
 }
 
 .tag-pill {
-  background-color: #f2f2f2;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  padding: 6px 12px;
+  display: inline-block;
+  margin-right: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
   font-size: 14px;
-  white-space: nowrap;
+  color: var(--text-color);
   cursor: pointer;
-  transition: all 0.2s ease;
-  outline: none;
-  flex-shrink: 0; /* Prevent pills from shrinking */
-  touch-action: manipulation; /* Better touch handling */
+  transition: all var(--transition-fast);
 }
 
 .tag-pill:hover {
-  background-color: #e6e6e6;
+  background-color: var(--background-lighter);
+  border-color: var(--border-light);
 }
 
 .tag-pill.active {
-  background-color: var(--primary-color, #1a8917);
-  color: white;
-  border-color: var(--primary-color, #1a8917);
+  background-color: var(--primary-dark);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+  font-weight: 500;
 }
 
+/* Custom Tag Input Styles */
 .custom-tag-container {
   display: flex;
-  margin-left: auto;
-  min-width: 200px;
-  flex-shrink: 0;
+  flex: 1;
+  max-width: 400px;
 }
 
 .custom-tag-input {
-  flex-grow: 1;
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 20px 0 0 20px;
-  outline: none;
+  flex: 1;
+  padding: var(--space-md) var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   font-size: 14px;
-}
-
-.custom-tag-input:focus {
-  border-color: var(--primary-color, #1a8917);
+  background-color: var(--background-light);
+  color: var(--text-color);
 }
 
 .custom-tag-button {
-  background-color: var(--primary-color, #1a8917);
-  color: white;
-  border: none;
-  border-radius: 0 20px 20px 0;
-  padding: 0 12px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 var(--space-md);
+  background-color: var(--secondary-color);
+  color: var(--text-on-primary);
+  border: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
 }
 
 .custom-tag-button:hover {
-  background-color: var(--primary-color-dark, #147814);
+  background-color: var(--secondary-dark);
 }
 
-/* Responsive adjustments */
+/* No Posts Message */
+.no-posts-message {
+  text-align: center;
+  padding: var(--space-xxl) var(--space-lg);
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  margin: var(--space-lg) 0;
+}
+
+.no-posts-message h3 {
+  margin-bottom: var(--space-md);
+  color: var(--text-heading);
+}
+
+.no-posts-message p {
+  margin-bottom: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+/* Responsive Styles */
 @media (max-width: 768px) {
   .tag-selection-bar {
     flex-direction: column;
-    padding: 12px 0;
+    gap: var(--space-md);
   }
   
+  .tag-dropdown-container,
+  .custom-tag-container,
   .tag-scroll-area {
     width: 100%;
-    padding: 0 0 5px 0;
-    /* Add momentum-based scrolling for iOS */
-    -webkit-overflow-scrolling: touch;
-    /* Remove mask on mobile for better visibility */
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-  
-  .tag-pill {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-  
-  .custom-tag-container {
-    margin: 8px 0 0 0;
-    width: 100%;
-  }
-  
-  .custom-tag-input,
-  .custom-tag-button {
-    height: 36px; /* Larger touch targets on mobile */
-  }
-}
-
-/* Add scroll indicators for visual cue on mobile */
-@media (max-width: 480px) {
-  .tag-selection-bar {
-    position: relative;
-  }
-  
-  .tag-scroll-area {
-    /* Add some horizontal padding to make space for indicators */
-    padding: 0 5px;
-  }
-  
-  .tag-scroll-area::before,
-  .tag-scroll-area::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 5px; /* Match the padding-bottom of the scroll area */
-    width: 15px;
-    pointer-events: none;
-    z-index: 1;
-    display: block;
-  }
-  
-  .tag-scroll-area::before {
-    left: 0;
-    background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0));
-  }
-  
-  .tag-scroll-area::after {
-    right: 0;
-    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9));
+    max-width: 100%;
   }
 }
 

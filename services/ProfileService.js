@@ -128,49 +128,74 @@ class ProfileService {
      */
     async getUserPosts(username, limit = 10, page = 1) {
         try {
-            // If we have posts cached for this page and user, return them
-            if (this.cachedPosts && this.cachedPosts[username] && this.cachedPosts[username][page]) {
-                return this.cachedPosts[username][page];
+            // Check if we have a local cache of ALL posts for this user
+            const cacheKey = `${username}_posts_all`;
+            let allUserPosts = this.getCachedPosts(cacheKey);
+            
+            // If page 1 is requested with forceRefresh, clear the cache
+            if (page === 1 && this.params?.forceRefresh) {
+                console.log('Forced refresh requested, clearing cache');
+                allUserPosts = null;
+                this.postCache.delete(cacheKey);
             }
-
-            let posts = [];
-
-            // For pagination, we need to get all posts up to the page we want
-            // and then slice the right chunk.
-            // For efficiency, we cache results
-            if (page > 1 && this.cachedPosts && this.cachedPosts[username]) {
-                // Find the highest page we have cached
-                const cachedPages = Object.keys(this.cachedPosts[username])
-                    .map(Number)
-                    .sort((a, b) => b - a);
-
-                if (cachedPages.length > 0) {
-                    const highestPage = cachedPages[0];
-
-                    if (highestPage >= page) {
-                        // We already have this page cached
-                        return this.cachedPosts[username][page];
+            
+            // If we don't have cached posts, fetch all posts from the service
+            if (!allUserPosts) {
+                console.log(`No cached posts for ${username}, fetching from blockchain`);
+                
+                // Use a higher limit to fetch more posts at once
+                const fetchLimit = Math.max(100, page * limit * 2);
+                allUserPosts = await steemService.getUserPosts(username, fetchLimit);
+                
+                // Cache all posts for this user
+                if (allUserPosts && allUserPosts.length > 0) {
+                    console.log(`Caching ${allUserPosts.length} posts for ${username}`);
+                    this.cachePosts(cacheKey, allUserPosts);
+                    
+                    // Use a longer cache expiry for posts (15 minutes)
+                    const cacheEntry = this.postCache.get(cacheKey);
+                    if (cacheEntry) {
+                        this.postCache.set(cacheKey, {
+                            ...cacheEntry,
+                            expiry: Date.now() + (15 * 60 * 1000) // 15 minutes
+                        });
                     }
-
-                    // We have some cached pages, but not the one we want
-                    const startAuthor = '';
-                    const startPermlink = '';
-
-                    // Get posts from Steem
-                    posts = await steemService.getUserPosts(username, page * limit);
-
-                    // Process and cache
-                    this._processPosts(posts, username, page, limit);
-
-                    return this.cachedPosts[username][page];
+                }
+            } else {
+                console.log(`Using ${allUserPosts.length} cached posts for ${username}`);
+            }
+            
+            // Apply pagination to the cached posts
+            const startIdx = (page - 1) * limit;
+            const endIdx = startIdx + limit;
+            
+            // Check if we may need to fetch more posts
+            if (allUserPosts.length <= endIdx && allUserPosts.length < 100) {
+                console.log(`We might need more posts (have ${allUserPosts.length}, need index ${endIdx})`);
+                
+                // Try to fetch more posts with a higher limit
+                const morePosts = await steemService.getUserPosts(username, 100);
+                
+                if (morePosts && morePosts.length > allUserPosts.length) {
+                    console.log(`Found ${morePosts.length - allUserPosts.length} additional posts`);
+                    
+                    // Combine and deduplicate posts
+                    const seenIds = new Set(allUserPosts.map(p => p.id));
+                    const newPosts = morePosts.filter(p => !seenIds.has(p.id));
+                    
+                    if (newPosts.length > 0) {
+                        console.log(`Adding ${newPosts.length} new posts to cache`);
+                        allUserPosts = [...allUserPosts, ...newPosts];
+                        this.cachePosts(cacheKey, allUserPosts);
+                    }
                 }
             }
-
-            // No cached data, get everything from scratch
-            posts = await steemService.getUserPosts(username, page * limit);
-
-            // Process and cache
-            return this._processPosts(posts, username, page, limit);
+            
+            // Return the paginated subset
+            const paginatedPosts = allUserPosts.slice(startIdx, endIdx);
+            console.log(`Returning ${paginatedPosts.length} posts for page ${page} (indexes ${startIdx}-${endIdx})`);
+            
+            return paginatedPosts;
         } catch (error) {
             console.error(`Error fetching posts for user ${username}:`, error);
             return [];
@@ -415,6 +440,65 @@ class ProfileService {
     clearAllCache() {
         this.profileCache.clear();
         this.postCache.clear();
+    }
+
+    /**
+     * Get user comments with pagination
+     * @param {string} username - The username to fetch comments for
+     * @param {number} limit - The number of comments to fetch
+     * @param {number} page - The page number for pagination
+     * @param {boolean} forceRefresh - Whether to bypass the cache
+     * @returns {Promise<Array>} Array of comments
+     */
+    async getUserComments(username, limit = 20, page = 1, forceRefresh = false) {
+        try {
+            // Check cache unless forceRefresh is true
+            const cacheKey = `${username}_comments`;
+            const cachedComments = !forceRefresh ? this.getCachedPosts(cacheKey) : null;
+            
+            if (cachedComments) {
+                console.log(`Using cached comments for ${username}: ${cachedComments.length} comments available`);
+                // Apply pagination to cached comments
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                return cachedComments.slice(startIndex, endIndex);
+            }
+            
+            console.log(`Fetching all comments for ${username} (${forceRefresh ? 'forced refresh' : 'no cache available'})`);
+            
+            // Set a very high limit to try to get all comments
+            // The SteemService will handle multiple methods to get as many as possible
+            const comments = await steemService.getCommentsByAuthor(username, 2000);
+            
+            if (!comments || !Array.isArray(comments)) {
+                console.warn('Invalid response format for user comments:', comments);
+                return [];
+            }
+            
+            console.log(`Retrieved ${comments.length} total comments for ${username} from blockchain`);
+            
+            // Cache all comments for future use
+            this.cachePosts(cacheKey, comments);
+            
+            // Update cache expiry for comments to 30 minutes (longer than normal cache)
+            const cacheEntry = this.postCache.get(cacheKey);
+            if (cacheEntry) {
+                // Extend expiry for comments since they're expensive to fetch
+                this.postCache.set(cacheKey, {
+                    ...cacheEntry,
+                    // 30 minutes cache for comments
+                    expiry: Date.now() + (30 * 60 * 1000)
+                });
+            }
+            
+            // Apply pagination
+            const startIndex = (page - 1) * limit;
+            const endIndex = startIndex + limit;
+            return comments.slice(startIndex, endIndex);
+        } catch (error) {
+            console.error('Error fetching user comments:', error);
+            throw new Error(`Failed to load comments: ${error.message || 'Unknown error'}`);
+        }
     }
 }
 
