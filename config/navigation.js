@@ -44,15 +44,15 @@ export const mainNavItems = [
     path: '/wallet',
     showInBottom: true,
     showInSide: true
-  },
-  {
-    id: 'menu',
-    label: 'Menu',
-    icon: 'menu',
-    path: '/menu',
-    showInBottom: true,
-    mobileOnly: true
   }
+  // {
+  //   id: 'menu',
+  //   label: 'Menu',
+  //   icon: 'menu',
+  //   path: '/menu',
+  //   showInBottom: true,
+  //   mobileOnly: true
+  // }
 ];
 
 export const specialItems = [

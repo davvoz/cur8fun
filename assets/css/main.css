@@ -9,7 +9,8 @@
 @import 'components/cards.css';
 @import 'components/loaders.css';
 @import 'components/notifications.css';
-@import 'components/auth.css'; /* Aggiungi questa riga */
+@import 'components/auth.css';
+@import 'components/image-upload.css'; 
 
 /* Feature-specific styles */
 @import 'features/post.css';
@@ -26,6 +27,7 @@
 @import 'components/tag-selection.css';
 @import 'styles.css';
 @import 'pages/home.css';
+@import 'pages/community.css';
 
 /* Fallback styles in case any imports fail */
 :root {

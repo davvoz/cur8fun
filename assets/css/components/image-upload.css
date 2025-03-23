@@ -13,7 +13,22 @@
   z-index: 1000;
 }
 
-.dialog-content {
+/* Stile per dialog dell'upload immagini */
+.image-upload-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* IMPORTANTE: Aggiungiamo prefissi specifici a tutti i selettori per evitare conflitti */
+.image-upload-dialog .dialog-content {
   background-color: var(--background-color);
   border-radius: var(--radius-lg);
   width: 90%;
@@ -23,7 +38,15 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-.dialog-header {
+.image-upload-modal .modal-content {
+  background-color: var(--background-color);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.image-upload-dialog .dialog-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -31,29 +54,42 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.dialog-header h3 {
+.image-upload-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.image-upload-dialog .dialog-header h3,
+.image-upload-modal .modal-header h3 {
   margin: 0;
   font-size: 18px;
 }
 
-.close-button {
+.image-upload-dialog .close-button,
+.image-upload-modal .close-button {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
   color: var(--text-secondary);
 }
 
-.close-button:hover {
+.image-upload-dialog .close-button:hover,
+.image-upload-modal .close-button:hover {
   color: var(--text-color);
 }
 
-.dialog-tabs {
+/* Modifica importante: prefisso per i tab */
+.image-upload-dialog .dialog-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color);
 }
 
-.tab-button {
+/* Modifica cruciale: rinomina le classi dei tab per evitare conflitti */
+.image-upload-dialog .img-tab-button {
   flex: 1;
   padding: 10px 0;
   background: none;
@@ -64,34 +100,36 @@
   color: var(--text-secondary);
 }
 
-.tab-button.active {
+.image-upload-dialog .img-tab-button.img-active {
   border-bottom-color: var(--primary-color);
   color: var(--primary-color);
 }
 
-.dialog-body {
+.image-upload-dialog .dialog-body,
+.image-upload-modal .modal-body {
   padding: 20px;
 }
 
-.tab-content {
+/* Modifica cruciale: rinomina la classe dei contenuti tab */
+.image-upload-dialog .img-tab-content {
   display: none;
 }
 
-.tab-content.active {
+.image-upload-dialog .img-tab-content.img-active {
   display: block;
 }
 
-.form-group {
+.image-upload-dialog .form-group {
   margin-bottom: 15px;
 }
 
-.form-group label {
+.image-upload-dialog .form-group label {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
 }
 
-.form-group input {
+.image-upload-dialog .form-group input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border-color);
@@ -99,7 +137,7 @@
   background-color: var(--background-light);
 }
 
-.drop-zone {
+.image-upload-dialog .drop-zone {
   border: 2px dashed var(--border-color);
   border-radius: var(--radius-md);
   padding: 30px 20px;
@@ -108,31 +146,31 @@
   transition: all 0.3s ease;
 }
 
-.drop-zone:hover {
+.image-upload-dialog .drop-zone:hover {
   background-color: var(--background-light);
 }
 
-.drop-zone.drag-over {
+.image-upload-dialog .drop-zone.drag-over {
   border-color: var(--primary-color);
   background-color: rgba(255, 117, 24, 0.05);
 }
 
-.drop-icon {
+.image-upload-dialog .drop-icon {
   margin-bottom: 10px;
 }
 
-.drop-icon .material-icons {
+.image-upload-dialog .drop-icon .material-icons {
   font-size: 48px;
   color: var(--text-secondary);
 }
 
-.drop-zone-info {
+.image-upload-dialog .drop-zone-info {
   font-size: 13px;
   color: var(--text-secondary);
   margin-top: 10px;
 }
 
-.upload-status {
+.image-upload-dialog .upload-status {
   margin-top: 15px;
   padding: 10px;
   border-radius: var(--radius-sm);
@@ -158,18 +196,44 @@
   display: none;
 }
 
-.spinner-container {
+.upload-status-message {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  z-index: 1001;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+}
+
+.upload-status-message.info {
+  background-color: rgba(0, 123, 255, 0.2);
+  color: #0d6efd;
+}
+
+.upload-status-message.success {
+  background-color: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+
+.upload-status-message.error {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.image-upload-dialog .spinner-container {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 15px;
 }
 
-.spinner-container.hide {
+.image-upload-dialog .spinner-container.hide {
   display: none;
 }
 
-.spinner-container .spinner {
+.image-upload-dialog .spinner-container .spinner {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 117, 24, 0.2);
@@ -179,7 +243,38 @@
   margin-right: 10px;
 }
 
+.image-option {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background-color 0.2s;
+}
+
+.image-option:hover {
+  background-color: var(--background-light);
+}
+
+.image-option .material-icons {
+  margin-right: 12px;
+  font-size: 24px;
+  color: var(--primary-color);
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }

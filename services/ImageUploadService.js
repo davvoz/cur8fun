@@ -41,8 +41,7 @@ class ImageUploadService {
           const base64Image = reader.result.split(',')[1];
           
           // Determina la piattaforma (STEEM o HIVE)
-          // Possiamo usare una configurazione o determinarlo dall'URL corrente
-          const platform = 'HIVE'; // Valore predefinito, puoi cambiarlo in base alla tua configurazione
+          const platform = 'STEEM'; // Puoi cambiarlo in base alla configurazione
           
           const baseUrlMap = {
             'STEEM': 'https://develop-imridd.eu.pythonanywhere.com/api/steem/upload_base64_image',
@@ -59,7 +58,7 @@ class ImageUploadService {
           const payload = {
             image_base64: base64Image,
             username: username,
-            id_telegram: 'steemee_app' // ID generico per tracciare l'origine
+            id_telegram: 123456
           };
           
           // Funzione per gestire il timeout
@@ -71,6 +70,9 @@ class ImageUploadService {
               )
             ]);
           };
+          
+          // Log per debug
+          console.log(`Uploading image for user ${username} to ${platform}`);
           
           // Esegui la richiesta di upload
           const response = await fetchWithTimeout(
@@ -86,12 +88,22 @@ class ImageUploadService {
           );
           
           if (!response.ok) {
-            throw new Error('Server error while uploading image');
+            console.error('Server error response:', response.status, response.statusText);
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
           }
           
           const data = await response.json();
+          
+          // Assicurati che la risposta contenga l'URL dell'immagine
+          if (!data.image_url) {
+            console.error('Invalid server response:', data);
+            throw new Error('Server did not return a valid image URL');
+          }
+          
+          console.log('Image uploaded successfully:', data.image_url);
           resolve(data.image_url);
         } catch (error) {
+          console.error('Error in image upload:', error);
           reject(error);
         }
       };
