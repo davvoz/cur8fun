@@ -735,44 +735,8 @@ class BasePostView {
     tagDropdownContainer.appendChild(dropdownTrigger);
     tagDropdownContainer.appendChild(dropdownMenu);
     
-    // Add custom tag input
-    const customTagContainer = document.createElement('div');
-    customTagContainer.className = 'custom-tag-container';
-    
-    const customTagInput = document.createElement('input');
-    customTagInput.type = 'text';
-    customTagInput.placeholder = 'Enter custom tag...';
-    customTagInput.className = 'custom-tag-input';
-    customTagInput.value = this.getCurrentTag() !== 'trending' ? this.getCurrentTag() : '';
-    
-    const searchButton = document.createElement('button');
-    searchButton.className = 'custom-tag-button';
-    searchButton.innerHTML = '<span class="material-icons">search</span>';
-    
-    // Handle custom tag search
-    searchButton.addEventListener('click', () => {
-      const customTag = customTagInput.value.trim().toLowerCase();
-      if (customTag) {
-        this.navigateToTag(customTag);
-      }
-    });
-    
-    // Also handle Enter key
-    customTagInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const customTag = customTagInput.value.trim().toLowerCase();
-        if (customTag) {
-          this.navigateToTag(customTag);
-        }
-      }
-    });
-    
-    customTagContainer.appendChild(customTagInput);
-    customTagContainer.appendChild(searchButton);
-    
     // Add elements to container
     tagBarContainer.appendChild(tagDropdownContainer);
-    tagBarContainer.appendChild(customTagContainer);
     
     return tagBarContainer;
   }
