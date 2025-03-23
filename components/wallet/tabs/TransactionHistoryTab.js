@@ -323,7 +323,10 @@ export default class TransactionHistoryTab extends Component {
     this.transactionListElement.appendChild(emptyState);
   }
   
-  renderTransactions() {
+  /**
+   * Renderizza le transazioni con valori VESTS convertiti
+   */
+  async renderTransactions() {
     if (!this.transactionListElement) return;
     
     const filteredTransactions = this.filterTransactions(this.allTransactions);
@@ -332,6 +335,9 @@ export default class TransactionHistoryTab extends Component {
       this.showEmptyState();
       return;
     }
+    
+    // Mostra stato di caricamento durante la conversione
+    this.showLoadingState('Converting VESTS to STEEM Power...');
     
     // Rimuovi contenuti esistenti
     while (this.transactionListElement.firstChild) {
@@ -342,16 +348,22 @@ export default class TransactionHistoryTab extends Component {
     const transactionListElement = document.createElement('ul');
     transactionListElement.className = 'transaction-list';
     
-    // Aggiungi ogni transazione alla lista
-    filteredTransactions.forEach(([id, transaction]) => {
-      const transactionItem = this.createTransactionItem(transaction);
+    // Ordina le transazioni dalla più recente alla meno recente
+    const sortedTransactions = [...filteredTransactions].reverse();
+    
+    // Aggiungi ogni transazione alla lista (con await)
+    for (const [id, transaction] of sortedTransactions) {
+      const transactionItem = await this.createTransactionItem(transaction);
       transactionListElement.appendChild(transactionItem);
-    });
+    }
     
     this.transactionListElement.appendChild(transactionListElement);
   }
   
-  createTransactionItem(transaction) {
+  /**
+   * Crea un elemento transazione con valori VESTS convertiti in SP
+   */
+  async createTransactionItem(transaction) {
     const op = transaction.op;
     const type = op[0];
     const data = op[1];
@@ -399,41 +411,37 @@ export default class TransactionHistoryTab extends Component {
     
     const memoElement = document.createElement('span');
     memoElement.className = 'transaction-memo';
-    memoElement.textContent = this.formatTransactionDescription(type, data);
+    // Usiamo await per ottenere la descrizione con valori convertiti
+    memoElement.textContent = await this.formatTransactionDescription(type, data);
     metaElement.appendChild(memoElement);
     
-    // Direzione della transazione
-    if ((isActionByUser && this.filters.byUser) || (isActionOnUser && this.filters.onUser)) {
-      const directionElement = document.createElement('span');
-      directionElement.className = 'transaction-direction';
-      
-      if (isActionByUser && this.filters.byUser) {
-        directionElement.classList.add('outgoing');
-        directionElement.textContent = 'Outgoing';
-      } else if (isActionOnUser && this.filters.onUser) {
-        directionElement.classList.add('incoming');
-        directionElement.textContent = 'Incoming';
-      }
-      
-      metaElement.appendChild(directionElement);
-    }
-    
+    // Aggiungi metaElement a detailsElement
     detailsElement.appendChild(metaElement);
     
-    // Link all'explorer
+    // Aggiungi indicatore direzione (in/out)
+    const directionElement = document.createElement('div');
+    directionElement.className = `transaction-direction ${isActionByUser ? 'outgoing' : 'incoming'}`;
+    directionElement.textContent = isActionByUser ? 'Out' : 'In';
+    detailsElement.appendChild(directionElement);
+    
+    // Aggiungi link all'explorer
     const linkElement = document.createElement('a');
+    linkElement.className = 'transaction-link';
     linkElement.href = this.createExplorerLink(transaction, data);
     linkElement.target = '_blank';
-    linkElement.className = 'transaction-link';
+    linkElement.rel = 'noopener noreferrer';
     
-    const linkIconElement = document.createElement('span');
-    linkIconElement.className = 'material-icons';
-    linkIconElement.textContent = 'open_in_new';
+    const linkIcon = document.createElement('span');
+    linkIcon.className = 'material-icons';
+    linkIcon.textContent = 'open_in_new';
+    linkElement.appendChild(linkIcon);
     
-    linkElement.appendChild(linkIconElement);
-    linkElement.appendChild(document.createTextNode(' View on Explorer'));
+    const linkText = document.createTextNode('View on Explorer');
+    linkElement.appendChild(linkText);
     
     detailsElement.appendChild(linkElement);
+    
+    // Aggiungi detailsElement all'elemento principale
     listItem.appendChild(detailsElement);
     
     return listItem;
@@ -584,29 +592,70 @@ export default class TransactionHistoryTab extends Component {
     }
   }
   
-  formatTransactionDescription(type, data) {
+  /**
+   * Formatta la descrizione della transazione con conversione VESTS->SP
+   */
+  async formatTransactionDescription(type, data) {
+    // Funzione helper per convertire VESTS in SP
+    const convertVestsToSP = async (vestsAmount) => {
+      if (!vestsAmount) return '0 SP';
+      
+      // Estrai solo il valore numerico, rimuovendo 'VESTS'
+      const vestsValue = parseFloat(vestsAmount.split(' ')[0]);
+      
+      try {
+        // Converti VESTS in SP usando il WalletService
+        const spValue = await walletService.vestsToSteem(vestsValue);
+        return `${spValue.toFixed(3)} SP`;
+      } catch (error) {
+        console.error('Error converting VESTS to SP:', error);
+        return vestsAmount; // Fallback al valore originale in caso di errore
+      }
+    };
+  
     switch (type) {
       case 'transfer':
         return `${data.from === this.username ? 'Sent' : 'Received'} ${data.amount} ${data.memo ? `- Memo: ${data.memo}` : ''}`;
+        
       case 'vote':
         const weightPercent = (data.weight / 100).toFixed(0);
         return `${data.voter === this.username ? 'Voted' : 'Received vote'} ${weightPercent}% on @${data.author}/${data.permlink.substring(0, 20)}...`;
+        
       case 'comment':
         if (data.parent_author) {
           return `Replied to @${data.parent_author}/${data.parent_permlink.substring(0, 20)}...`;
         }
         return `Created post "${data.title || data.permlink}"`;
+        
       case 'claim_reward_balance':
-        return `Claimed ${data.reward_steem || '0 STEEM'}, ${data.reward_sbd || '0 SBD'}, ${data.reward_vests || '0 VESTS'}`;
+        // Converti reward_vests in SP
+        const rewardSP = await convertVestsToSP(data.reward_vests);
+        return `Claimed ${data.reward_steem || '0 STEEM'}, ${data.reward_sbd || '0 SBD'}, ${rewardSP}`;
+        
       case 'transfer_to_vesting':
         return `Powered up ${data.amount} to ${data.to}`;
+        
       case 'delegate_vesting_shares':
-        return `${data.delegator === this.username ? 'Delegated' : 'Received delegation of'} ${data.vesting_shares}`;
+        // Converti vesting_shares in SP
+        const delegatedSP = await convertVestsToSP(data.vesting_shares);
+        return `${data.delegator === this.username ? 'Delegated' : 'Received delegation of'} ${delegatedSP}`;
+        
       case 'curation_reward':
-        return `Received ${data.reward} for curating @${data.comment_author}/${data.comment_permlink.substring(0, 15)}...`;
+        // Converti reward in SP
+        const curationSP = await convertVestsToSP(data.reward);
+        return `Received ${curationSP} for curating @${data.comment_author}/${data.comment_permlink.substring(0, 15)}...`;
+        
       case 'author_reward':
       case 'comment_reward':
-        return `Received ${data.sbd_payout || '0 SBD'}, ${data.steem_payout || '0 STEEM'}, ${data.vesting_payout || '0 VESTS'} for @${data.author}/${data.permlink.substring(0, 15)}...`;
+        // Converti vesting_payout in SP
+        const authorSP = await convertVestsToSP(data.vesting_payout);
+        return `Received ${data.sbd_payout || '0 SBD'}, ${data.steem_payout || '0 STEEM'}, ${authorSP} for @${data.author}/${data.permlink.substring(0, 15)}...`;
+        
+      case 'withdraw_vesting':
+        // Converti vesting_shares in SP
+        const withdrawSP = await convertVestsToSP(data.vesting_shares);
+        return `Power down of ${withdrawSP}`;
+        
       default:
         return `Operation: ${type}`;
     }
