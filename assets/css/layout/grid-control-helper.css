@@ -1,0 +1,106 @@
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-md);
+}
+
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.list-layout .post-card {
+  display: flex;
+  flex-direction: row;
+  height: auto;
+  max-height: 180px;
+}
+
+.list-layout .post-thumbnail {
+  width: 180px;
+  min-width: 180px;
+  height: 180px;
+}
+
+.list-layout .post-content {
+  flex: 1;
+  padding: var(--space-md);
+  overflow: hidden;
+}
+
+.grid-layout .post-card {
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--subtle-shadow);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.grid-layout .post-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-box-shadow);
+}
+
+.grid-layout .post-thumbnail {
+  height: 160px;
+  width: 100%;
+}
+
+.post-thumbnail {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--background-lighter);
+}
+
+.grid-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--surface-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--subtle-shadow);
+}
+
+.grid-control-label {
+  margin-right: var(--space-md);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.grid-control-buttons {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.grid-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.grid-btn:hover {
+  background-color: var(--background-lighter);
+}
+
+.grid-btn.active {
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+}
+
+.post-card {
+  background-color: var(--background-light);
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+}

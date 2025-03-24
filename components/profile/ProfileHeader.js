@@ -1,0 +1,268 @@
+import router from '../../utils/Router.js';
+
+export default class ProfileHeader {
+  constructor(profile, currentUser, onFollowAction) {
+    this.profile = profile;
+    this.currentUser = currentUser;
+    this.onFollowAction = onFollowAction;
+    this.isFollowing = false;
+    this.container = null;
+  }
+  
+  render(container) {
+    this.container = container;
+    const header = this.createProfileHeader();
+    container.appendChild(header);
+    return header;
+  }
+  
+  createProfileHeader() {
+    const header = document.createElement('div');
+    header.className = 'profile-header';
+
+    // Add cover image with better styling and error handling
+    const coverDiv = document.createElement('div');
+    coverDiv.className = 'profile-cover';
+
+    // Check multiple possible locations for cover image
+    let coverImageUrl = null;
+
+    // Check direct coverImage property
+    if (this.profile.coverImage) {
+      coverImageUrl = this.profile.coverImage;
+    }
+    // Check in posting_json_metadata.cover_image as an alternative location
+    else if (this.profile.posting_json_metadata) {
+      try {
+        const metadata = typeof this.profile.posting_json_metadata === 'string'
+          ? JSON.parse(this.profile.posting_json_metadata)
+          : this.profile.posting_json_metadata;
+        if (metadata && metadata.cover_image) {
+          coverImageUrl = metadata.cover_image;
+        }
+      } catch (e) {
+        console.error('Error parsing posting_json_metadata:', e);
+      }
+    }
+
+    if (coverImageUrl) {
+      // Check if URL needs proxy for CORS issues
+      if (!coverImageUrl.startsWith('data:') && !coverImageUrl.includes('steemitimages.com/0x0/')) {
+        // Use Steemit proxy to avoid CORS issues and ensure image loading
+        coverImageUrl = `https://steemitimages.com/0x0/${coverImageUrl}`;
+      }
+
+      coverDiv.style.backgroundImage = `url(${coverImageUrl})`;
+
+      // Add error handling for cover image
+      const testImg = new Image();
+      testImg.onerror = () => {
+        console.error('Failed to load cover image, using fallback gradient');
+        coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
+      };
+      testImg.src = coverImageUrl;
+    }
+
+    // Avatar with enhanced styling
+    const infoSection = document.createElement('div');
+    infoSection.className = 'profile-info';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'profile-avatar';
+
+    const avatarImg = document.createElement('img');
+    avatarImg.src = `https://steemitimages.com/u/${this.profile.username}/avatar`;
+    avatarImg.alt = this.profile.username;
+    avatarImg.loading = 'eager'; // Prioritize avatar loading
+    avatarImg.onerror = () => {
+      avatarImg.src = '/assets/img/default-avatar.png';
+    };
+
+    avatar.appendChild(avatarImg);
+
+    // Profile stats with improved layout
+    const stats = document.createElement('div');
+    stats.className = 'profile-stats';
+
+    // User metadata with enhanced styling
+    const userMeta = document.createElement('div');
+    userMeta.className = 'user-metadata';
+
+    const name = document.createElement('h1');
+    name.className = 'profile-name';
+    name.textContent = this.profile.username;
+
+    const handle = document.createElement('div');
+    handle.className = 'profile-handle';
+    handle.textContent = `@${this.profile.username}`;
+
+    const reputation = document.createElement('span');
+    reputation.className = 'profile-reputation';
+    reputation.textContent = ` (${this.profile.reputation.toFixed(1)})`;
+    handle.appendChild(reputation);
+
+    userMeta.appendChild(name);
+    userMeta.appendChild(handle);
+
+    // Bio with modern styling
+    const bio = document.createElement('div');
+    bio.className = 'profile-bio';
+
+    // Add profile description with better formatting
+    if (this.profile.about) {
+      const bioText = document.createElement('p');
+      bioText.textContent = this.profile.about;
+      bio.appendChild(bioText);
+    } else {
+      const noBio = document.createElement('p');
+      noBio.className = 'no-bio';
+      noBio.textContent = 'No bio provided';
+      bio.appendChild(noBio);
+    }
+
+    // Add location if available
+    if (this.profile.location) {
+      const location = document.createElement('div');
+      location.className = 'profile-location';
+
+      const locationIcon = document.createElement('span');
+      locationIcon.className = 'material-icons';
+      locationIcon.textContent = 'location_on';
+
+      const locationText = document.createElement('span');
+      locationText.textContent = this.profile.location;
+
+      location.appendChild(locationIcon);
+      location.appendChild(locationText);
+      bio.appendChild(location);
+    }
+
+    // Add website if available
+    if (this.profile.website) {
+      const website = document.createElement('div');
+      website.className = 'profile-website';
+
+      const websiteIcon = document.createElement('span');
+      websiteIcon.className = 'material-icons';
+      websiteIcon.textContent = 'language';
+
+      const websiteLink = document.createElement('a');
+      websiteLink.href = this.profile.website;
+      websiteLink.target = '_blank';
+      websiteLink.rel = 'noopener noreferrer';
+      websiteLink.textContent = this.profile.website.replace(/^https?:\/\//, '');
+
+      website.appendChild(websiteIcon);
+      website.appendChild(websiteLink);
+      bio.appendChild(website);
+    }
+
+    // Stats metrics with modern card design
+    const metrics = document.createElement('div');
+    metrics.className = 'profile-metrics';
+
+    metrics.appendChild(this.createStatElement('Posts', this.profile.postCount));
+    metrics.appendChild(this.createStatElement('Followers', this.profile.followerCount));
+    metrics.appendChild(this.createStatElement('Following', this.profile.followingCount));
+
+    // Actions with enhanced button styling
+    const actions = document.createElement('div');
+    actions.className = 'profile-actions';
+
+    if (this.currentUser && this.currentUser.username !== this.profile.username) {
+      const followBtn = document.createElement('button');
+      followBtn.className = 'follow-btn';
+      followBtn.textContent = this.isFollowing ? 'Unfollow' : 'Follow';
+      followBtn.classList.toggle('following', this.isFollowing);
+
+      // Add icon to follow button
+      const followIcon = document.createElement('span');
+      followIcon.className = 'material-icons';
+      followIcon.textContent = 'person_add';
+      followBtn.prepend(followIcon);
+
+      followBtn.addEventListener('click', () => this.onFollowAction());
+      actions.appendChild(followBtn);
+
+      // Add message button
+      const messageBtn = document.createElement('button');
+      messageBtn.className = 'message-btn';
+
+      const msgIcon = document.createElement('span');
+      msgIcon.className = 'material-icons';
+      msgIcon.textContent = 'chat';
+
+      messageBtn.appendChild(msgIcon);
+      messageBtn.appendChild(document.createTextNode('Message'));
+
+      messageBtn.addEventListener('click', () => {
+        // Handle message functionality
+        console.log('Message button clicked');
+      });
+
+      actions.appendChild(messageBtn);
+    } else if (this.currentUser && this.currentUser.username === this.profile.username) {
+      // Add edit profile button for own profile
+      const editBtn = document.createElement('button');
+      editBtn.className = 'edit-profile-btn';
+
+      const editIcon = document.createElement('span');
+      editIcon.className = 'material-icons';
+      editIcon.textContent = 'edit';
+
+      editBtn.appendChild(editIcon);
+      editBtn.appendChild(document.createTextNode('Edit Profile'));
+
+      editBtn.addEventListener('click', () => {
+        router.navigate(`/edit-profile/${this.profile.username}`);
+      });
+
+      actions.appendChild(editBtn);
+    }
+
+    // Assemble all components with improved structure
+    stats.appendChild(userMeta);
+    stats.appendChild(bio);
+    stats.appendChild(metrics);
+    stats.appendChild(actions);
+
+    infoSection.append(avatar, stats);
+    header.append(coverDiv, infoSection);
+
+    return header;
+  }
+  
+  createStatElement(label, value) {
+    const stat = document.createElement('div');
+    stat.className = 'stat-container';
+
+    const statValue = document.createElement('div');
+    statValue.className = 'stat-value';
+    statValue.textContent = value.toLocaleString();
+
+    const statLabel = document.createElement('div');
+    statLabel.className = 'stat-label';
+    statLabel.textContent = label;
+
+    stat.append(statValue, statLabel);
+    return stat;
+  }
+  
+  updateFollowStatus(isFollowing) {
+    this.isFollowing = isFollowing;
+    this.updateFollowButton();
+  }
+  
+  updateFollowButton() {
+    const followBtn = this.container.querySelector('.follow-btn');
+    if (!followBtn) return;
+
+    if (this.isFollowing) {
+      followBtn.textContent = 'Unfollow';
+      followBtn.classList.add('following');
+    } else {
+      followBtn.textContent = 'Follow';
+      followBtn.classList.remove('following');
+    }
+  }
+}
