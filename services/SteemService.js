@@ -36,9 +36,6 @@ class SteemService {
         this.currentEndpoint = 0;
     }
 
-    /**
-     * Load the Steem JavaScript library dynamically
-     */
     async loadLibrary() {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -74,9 +71,6 @@ class SteemService {
         });
     }
 
-    /**
-     * Configure API connection
-     */
     configureApi() {
         if (!this.steem) {
             throw new Error('Steem library not loaded');
@@ -87,9 +81,6 @@ class SteemService {
         this.steem.config.set('chain_id', '0000000000000000000000000000000000000000000000000000000000000000');
     }
 
-    /**
-     * Switch to next API endpoint on error
-     */
     switchEndpoint() {
         this.currentEndpoint = (this.currentEndpoint + 1) % this.apiEndpoints.length;
         this.configureApi();
@@ -97,9 +88,6 @@ class SteemService {
         return this.apiEndpoints[this.currentEndpoint];
     }
 
-    /**
-     * Ensure Steem library is loaded before making API calls
-     */
     async ensureLibraryLoaded() {
         if (!this.steem) {
             try {
@@ -112,20 +100,12 @@ class SteemService {
         return this.steem;
     }
 
-    /**
-     * Keeps track of post IDs to prevent duplicates
-     * @private
-     */
     _initializePostTracking() {
         if (!this.seenPostIds) {
             this.seenPostIds = {};
         }
     }
 
-    /**
-     * Check if we've already seen this post
-     * @private
-     */
     _isNewPost(post, category) {
         this._initializePostTracking();
         if (!this.seenPostIds[category]) {
@@ -141,9 +121,6 @@ class SteemService {
         return true;
     }
 
-    /**
-     * Reset tracking for a specific category (used when changing routes)
-     */
     resetCategoryTracking(category) {
         if (this.seenPostIds && this.seenPostIds[category]) {
             this.seenPostIds[category].clear();
@@ -153,10 +130,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get discussion by method with retry capability
-     * @private
-     */
     async _getDiscussionsByMethod(method, options, retries = 2) {
         await this.ensureLibraryLoaded();
 
@@ -176,13 +149,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Generic method to get posts by category
-     * @param {string} category - The category of posts (trending, hot, created, promoted)
-     * @param {number} page - Page number
-     * @param {number} limit - Number of posts per page
-     * @returns {Promise<{posts: Array, hasMore: boolean}>}
-     */
     async getPostsByCategory(category, page = 1, limit = 20) {
         await this.ensureLibraryLoaded();
 
@@ -209,12 +175,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Maps category to appropriate API method
-     * @param {string} category - The category of posts
-     * @returns {string} The API method name
-     * @throws {Error} If an invalid category is provided
-     */
     getCategoryMethod(category) {
         const categoryToMethod = {
             'trending': 'getDiscussionsByTrending',
@@ -231,14 +191,6 @@ class SteemService {
         return method;
     }
 
-    /**
-     * Builds the query object for category requests
-     * @param {string} category - The post category
-     * @param {number} page - Page number
-     * @param {number} limit - Number of posts per page
-     * @param {number} maxLimit - Maximum request limit
-     * @returns {Object} The query object
-     */
     buildCategoryQuery(category, page, limit, maxLimit) {
         const query = {
             tag: '',
@@ -254,14 +206,6 @@ class SteemService {
         return query;
     }
 
-    /**
-     * Fetches posts and processes them for display
-     * @param {string} method - The API method to call
-     * @param {Object} query - The query parameters
-     * @param {string} category - The category being fetched
-     * @param {number} limit - Number of posts to return
-     * @returns {Array} Processed post array
-     */
     async fetchAndProcessPosts(method, query, category, limit) {
         let posts = await this._getDiscussionsByMethod(method, query);
 
@@ -278,11 +222,6 @@ class SteemService {
         return posts.length > limit ? posts.slice(0, limit) : posts;
     }
 
-    /**
-     * Updates the reference to the last post for pagination
-     * @param {Array} posts - The posts array
-     * @param {string} category - The category
-     */
     updateLastPostReference(posts, category) {
         if (posts.length === 0) {
             return;
@@ -296,37 +235,22 @@ class SteemService {
         this.lastPostByCategory[category] = posts[posts.length - 1];
     }
 
-    /**
-     * Get trending posts
-     */
     async getTrendingPosts(page = 1, limit = 20) {
         return this.getPostsByCategory('trending', page, limit);
     }
 
-    /**
-     * Get hot posts
-     */
     async getHotPosts(page = 1, limit = 20) {
         return this.getPostsByCategory('hot', page, limit);
     }
 
-    /**
-     * Get new/recent posts
-     */
     async getNewPosts(page = 1, limit = 20) {
         return this.getPostsByCategory('created', page, limit);
     }
 
-    /**
-     * Get promoted posts
-     */
     async getPromotedPosts(page = 1, limit = 20) {
         return this.getPostsByCategory('promoted', page, limit);
     }
 
-    /**
-     * Get post and comments by author and permlink
-     */
     async getContent(author, permlink) {
         await this.ensureLibraryLoaded();
 
@@ -344,9 +268,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get comments/replies for a post
-     */
     async getContentReplies(author, permlink) {
         await this.ensureLibraryLoaded();
 
@@ -364,34 +285,18 @@ class SteemService {
         }
     }
 
-    /**
-     * Get profile information for a user
-     */
     async getProfile(username) {
         return this.getUserData(username, { includeProfile: true });
     }
 
-    /**
-     * Get user info
-     */
     async getUserInfo(username) {
         return this.getUserData(username);
     }
 
-    /**
-     * Get user 
-     */
     async getUser(username) {
         return this.getUserData(username);
     }
 
-    /**
-     * Get user information with specific handling options
-     * @param {string} username - Username to fetch
-     * @param {Object} options - Options for handling the response
-     * @param {boolean} options.includeProfile - Include parsed profile data
-     * @returns {Promise<Object>} User data
-     */
     async getUserData(username, options = { includeProfile: false }) {
         await this.ensureLibraryLoaded();
 
@@ -429,9 +334,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get account history
-     */
     async getAccountHistory(username, from = -1, limit = 10) {
         await this.ensureLibraryLoaded();
 
@@ -449,25 +351,22 @@ class SteemService {
         }
     }
 
-    /**
-     * Get posts by a specific user
-     */
     async getUserPosts(username, limit = 10) {
         await this.ensureLibraryLoaded();
 
         try {
             console.log(`Fetching posts for user ${username} with limit ${limit}`);
-            
+
             // We'll use multiple fetch methods to ensure we get ALL posts
             const posts = [];
             const seenPermalinks = new Set();
-            
+
             // METHOD 1: Use getDiscussionsByBlog which includes posts and reblogs
             try {
                 console.log("METHOD 1: Fetching via getDiscussionsByBlog");
                 const blogPosts = await this._fetchUserBlogPosts(username, limit);
                 console.log(`Retrieved ${blogPosts.length} blog posts`);
-                
+
                 // Add to our posts collection, tracking what we've seen
                 for (const post of blogPosts) {
                     const key = `${post.author}-${post.permlink}`;
@@ -480,13 +379,13 @@ class SteemService {
                 console.error('Error in METHOD 1:', error);
                 this.switchEndpoint();
             }
-            
+
             // METHOD 2: Use account history to find all posts directly created by the user
             try {
                 console.log("METHOD 2: Fetching from account history");
                 const authoredPosts = await this._fetchPostsFromAccountHistory(username, limit);
                 console.log(`Retrieved ${authoredPosts.length} authored posts from history`);
-                
+
                 // Combine with previous results, avoiding duplicates
                 for (const post of authoredPosts) {
                     const key = `${post.author}-${post.permlink}`;
@@ -498,16 +397,16 @@ class SteemService {
             } catch (error) {
                 console.error('Error in METHOD 2:', error);
             }
-            
+
             // Sort all posts by date (newest first)
             posts.sort((a, b) => {
                 const dateA = new Date(a.created);
                 const dateB = new Date(b.created);
                 return dateB - dateA;
             });
-            
+
             console.log(`Final combined post count: ${posts.length}`);
-            
+
             // Return the requested number of posts
             return posts.slice(0, limit);
         } catch (error) {
@@ -517,145 +416,143 @@ class SteemService {
         }
     }
 
-    /**
-     * Fetch blog posts including reblogs
-     * @private
-     */
     async _fetchUserBlogPosts(username, limit) {
         // Use the discussions query with multiple batches to get more results
         const allPosts = [];
         const batchSize = 100; // Maximum supported by the API
         let startAuthor = '';
         let startPermlink = '';
-        
+
+        // Aumentiamo il numero di tentativi per ottenere più post
+        const maxBatches = Math.ceil(limit / batchSize) + 2; // +2 per assicurarci di avere abbastanza tentativi
+
         // Keep fetching until we have enough posts or no more results
-        for (let i = 0; i < Math.ceil(limit / batchSize) + 1; i++) {
+        for (let i = 0; i < maxBatches; i++) {
             console.log(`Fetching blog batch ${i+1} (have ${allPosts.length} posts so far)`);
-            
+
             try {
                 const query = {
                     tag: username,
                     limit: batchSize
                 };
-                
+
                 // Add pagination parameters if we have them
                 if (startAuthor && startPermlink) {
                     query.start_author = startAuthor;
                     query.start_permlink = startPermlink;
                 }
-                
+
                 const batch = await new Promise((resolve, reject) => {
                     this.steem.api.getDiscussionsByBlog(query, (err, result) => {
                         if (err) reject(err);
                         else resolve(result || []);
                     });
                 });
-                
+
                 if (!batch || batch.length === 0) {
                     console.log('No more blog posts to fetch');
                     break;
                 }
-                
+
                 // If this isn't the first batch, remove the first post (it's a duplicate)
                 const newPosts = (i > 0 && batch.length > 0) ? batch.slice(1) : batch;
-                
+
                 if (newPosts.length === 0) {
                     console.log('No new posts in this batch');
                     break;
                 }
-                
+
                 allPosts.push(...newPosts);
-                
-                // Check if we have enough posts
-                if (allPosts.length >= limit) {
-                    console.log(`Reached desired post count (${allPosts.length} >= ${limit})`);
+
+                // Check if we have enough posts - ma continuiamo a caricare finché non abbiamo tutti i post disponibili
+                if (allPosts.length >= limit && batch.length < batchSize) {
+                    console.log(`Reached desired post count (${allPosts.length} >= ${limit}) and batch is smaller than max size`);
                     break;
                 }
-                
+
                 // Get last post for pagination
                 const lastPost = batch[batch.length - 1];
                 startAuthor = lastPost.author;
                 startPermlink = lastPost.permlink;
-                
+
                 // Add a delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 200));
             } catch (error) {
                 console.error(`Error in blog batch ${i+1}:`, error);
                 this.switchEndpoint();
+                // Add a longer delay after an error
+                await new Promise(resolve => setTimeout(resolve, 500));
                 // Continue with next batch
             }
         }
-        
+
+        console.log(`Fetched a total of ${allPosts.length} blog posts for ${username}`);
         return allPosts;
     }
 
-    /**
-     * Fetch posts from account history
-     * @private
-     */
     async _fetchPostsFromAccountHistory(username, limit) {
         try {
             // First get account history to find post operations
             const historyBatchSize = 3000; // Large batch to get more history
             const history = await this.getAccountHistory(username, -1, historyBatchSize);
-            
+
             if (!history || history.length === 0) {
                 return [];
             }
-            
+
             console.log(`Retrieved ${history.length} history items for ${username}`);
-            
+
             // Filter for comment operations that don't have a parent_author (these are posts)
             const postOps = history.filter(item => {
                 const [, operation] = item[1].op;
-                return operation.author === username && 
-                       operation.parent_author === '' && 
-                       operation.json_metadata; // Posts should have metadata
+                return operation.author === username &&
+                    operation.parent_author === '' &&
+                    operation.json_metadata; // Posts should have metadata
             });
-            
+
             console.log(`Found ${postOps.length} post operations in history`);
-            
+
             // Extract unique permalinks from operations
             const permalinks = new Set();
             postOps.forEach(item => {
                 const [, operation] = item[1].op;
                 permalinks.add(operation.permlink);
             });
-            
+
             console.log(`Found ${permalinks.size} unique permalinks`);
-            
+
             // Fetch full post data for each permlink
             const posts = [];
             const batchSize = 20; // Process in smaller batches
             const permalinkArray = Array.from(permalinks);
-            
+
             for (let i = 0; i < permalinkArray.length; i += batchSize) {
                 const batch = permalinkArray.slice(i, i + batchSize);
-                console.log(`Fetching content for batch ${Math.floor(i/batchSize) + 1} (${i}-${i+batch.length}/${permalinkArray.length})`);
-                
-                const batchPromises = batch.map(permlink => 
+                console.log(`Fetching content for batch ${Math.floor(i / batchSize) + 1} (${i}-${i + batch.length}/${permalinkArray.length})`);
+
+                const batchPromises = batch.map(permlink =>
                     this.getContent(username, permlink)
                         .catch(err => {
                             console.error(`Error fetching post ${username}/${permlink}:`, err);
                             return null;
                         })
                 );
-                
+
                 const batchResults = await Promise.all(batchPromises);
-                
+
                 // Filter out invalid results and posts with empty body
-                const validPosts = batchResults.filter(post => 
+                const validPosts = batchResults.filter(post =>
                     post && post.id && post.body && post.parent_author === ""
                 );
-                
+
                 posts.push(...validPosts);
-                
+
                 // Delay between batches
                 if (i + batchSize < permalinkArray.length) {
                     await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
-            
+
             return posts;
         } catch (error) {
             console.error('Error fetching posts from account history:', error);
@@ -705,14 +602,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get posts by tag
-     * @param {Object} options - Options for the request
-     * @param {string} options.tag - Tag to fetch posts for
-     * @param {number} options.page - Page number (default: 1)
-     * @param {number} options.limit - Number of posts per page (default: 20)
-     * @returns {Promise<{posts: Array, hasMore: boolean}>}
-     */
     async getPostsByTag(options = {}) {
         const { tag, page = 1, limit = 20 } = options;
 
@@ -755,9 +644,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Creates a comment on a post or another comment
-     */
     async createComment(parentAuthor, parentPermlink, author, permlink, title, body, jsonMetadata) {
         console.log('createComment method called with:', { parentAuthor, parentPermlink, author, permlink, title });
 
@@ -828,11 +714,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Sanitizes a permlink to ensure it's valid for the Steem blockchain
-     * @param {string} permlink - The original permlink
-     * @returns {string} A sanitized permlink that's valid for Steem
-     */
     sanitizePermlink(permlink) {
         if (!permlink || typeof permlink !== 'string') {
             // Generate a fallback permlink based on timestamp
@@ -867,11 +748,6 @@ class SteemService {
         return sanitized;
     }
 
-    /**
-     * Get the followers of a user
-     * @param {string} username - The username to fetch followers for
-     * @returns {Promise<Array>} - Array of followers
-     */
     async getFollowers(username) {
         await this.ensureLibraryLoaded();
         try {
@@ -887,11 +763,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get the users followed by a user
-     * @param {string} username - The username to fetch following for
-     * @returns {Promise<Array>} - Array of following
-     */
     async getFollowing(username) {
         await this.ensureLibraryLoaded();
         try {
@@ -907,7 +778,6 @@ class SteemService {
         }
     }
 
-    //update user profile
     async updateUserProfile(username, profile) {
         await this.ensureLibraryLoaded();
 
@@ -1045,11 +915,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Get the memo key from alternative sources when not available from user data
-     * @param {string} username - The username to get the memo key for
-     * @returns {Promise<string>} The memo key or empty string if not found
-     */
     async getMemoKeyFromAlternativeSources(username) {
         // First try to get from Keychain if available
         if (window.steem_keychain) {
@@ -1064,11 +929,6 @@ class SteemService {
         return this.askUserForMemoKey(username);
     }
 
-    /**
-     * Try to get the memo key from Steem Keychain
-     * @param {string} username - The username to get the memo key for
-     * @returns {Promise<string>} The memo key or empty string if not available
-     */
     async getMemoKeyFromKeychain(username) {
         return new Promise((resolve, reject) => {
             // First check if we can get the public memo key
@@ -1084,11 +944,6 @@ class SteemService {
         });
     }
 
-    /**
-     * Ask the user to provide their memo key
-     * @param {string} username - The username to get the memo key for
-     * @returns {Promise<string>} The memo key or empty string if user cancels
-     */
     async askUserForMemoKey(username) {
         // Create a modal dialog to ask for the memo key
         return new Promise((resolve) => {
@@ -1133,11 +988,6 @@ class SteemService {
         });
     }
 
-    /**
-     * Display a modal explaining the need for active authority
-     * @param {string} username - The username
-     * @returns {Promise<void>}
-     */
     async showActiveKeyRequiredModal(username) {
         return new Promise((resolve) => {
             const modal = document.createElement('div');
@@ -1212,13 +1062,6 @@ class SteemService {
         });
     }
 
-    /**
-     * Get posts by a specific tag
-     * @param {string} tag - The tag to filter posts by
-     * @param {number} page - The page number to fetch
-     * @param {number} limit - Number of posts per page
-     * @returns {Promise<Object>} Posts and pagination info
-     */
     async getPostsByTag(tag, page = 1, limit = 20) {
         await this.ensureLibraryLoaded();
 
@@ -1272,444 +1115,438 @@ class SteemService {
         }
     }
 
-    /**
-     * Get comments by author
-     * @param {string} author - Author username
-     * @param {number} limit - Max number of comments to fetch
-     * @returns {Promise<Array>} Array of comments
-     */
     async getCommentsByAuthor(author, limit = 500) {
         try {
             console.log(`Getting comments for author ${author} with limit ${limit}`);
-            
-            // We'll use multiple approaches to get as many comments as possible
-            
-            // APPROACH 1: Use account history with multiple batches
-            console.log("APPROACH 1: Fetching comments from account history");
-            const commentsFromHistory = await this._getCommentsFromAccountHistory(author, limit);
-            console.log(`Found ${commentsFromHistory.length} comments via account history`);
-            
-            // APPROACH 2: Use discussions query as a backup method
-            console.log("APPROACH 2: Fetching comments via discussions query");
-            const commentsFromDiscussions = await this._getCommentsFromDiscussionsQuery(author, limit);
-            console.log(`Found ${commentsFromDiscussions.length} comments via discussions query`);
-            
-            // Combine results from both approaches
-            const allCommentData = this._combineAndDeduplicateComments(
-                commentsFromHistory, 
-                commentsFromDiscussions
-            );
-            
-            console.log(`Combined unique comments count: ${allCommentData.length}`);
-            
-            // Fetch full data for all comments
-            const comments = await this._fetchCommentsInBatches(author, allCommentData);
-            console.log(`Final processed comments count: ${comments.length}`);
-            
-            return comments;
-        } catch (error) {
-            console.error('Error getting comments by author:', error);
-            return [];
-        }
-    }
+            await this.ensureLibraryLoaded();
 
-    /**
-     * Get comments from account history
-     * @private
-     */
-    async _getCommentsFromAccountHistory(author, limit) {
-        try {
-            // Multiple batches with different starting points to get more comments
-            const batchSizes = [2000, 3000, 3000, 3000]; // Multiple large batches
-            const maxBatches = batchSizes.length;
-            let allHistory = [];
-            let lastId = -1; // Start from most recent
-
-            // Fetch account history in multiple large batches
-            for (let batch = 0; batch < maxBatches; batch++) {
-                const batchSize = batchSizes[batch];
-                console.log(`Fetching account history batch ${batch+1}/${maxBatches} with size ${batchSize} starting from ${lastId}`);
-                
-                try {
-                    const historyBatch = await this.getAccountHistory(author, lastId, batchSize);
-                    
-                    if (!historyBatch || historyBatch.length === 0) {
-                        console.log(`No more history available after batch ${batch+1}`);
-                        break;
-                    }
-                    
-                    console.log(`Retrieved ${historyBatch.length} history items in batch ${batch+1}`);
-                    
-                    // Find the oldest operation ID for next batch
-                    if (historyBatch.length > 0) {
-                        const oldestOp = historyBatch[0];
-                        lastId = oldestOp ? Math.max(0, oldestOp[0] - 1) : 0;
-                        
-                        // If we're at the beginning of the account history, stop
-                        if (lastId <= 1) {
-                            console.log('Reached the beginning of account history');
-                            allHistory = [...historyBatch, ...allHistory];
-                            break;
-                        }
-                    }
-                    
-                    // Add history items to our collection
-                    allHistory = [...historyBatch, ...allHistory];
-                    
-                    // Add a small delay to avoid rate limiting
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                } catch (error) {
-                    console.error(`Error fetching history batch ${batch+1}:`, error);
-                    // Continue with next batch despite errors
-                }
-            }
-            
-            console.log(`Total account history items: ${allHistory.length}`);
-            
-            // Extract and filter for comment operations
-            const commentOps = this._filterCommentOps(allHistory, author);
-            console.log(`Found ${commentOps.length} comment operations`);
-            
-            // Extract unique comments
-            return this._extractUniqueComments(commentOps, author);
-        } catch (error) {
-            console.error('Error getting comments from account history:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Get comments from discussions query
-     * @private
-     */
-    async _getCommentsFromDiscussionsQuery(author, limit) {
-        await this.ensureLibraryLoaded();
-        
-        try {
+            // Use a single, efficient approach with the getDiscussionsByComments API
             const comments = [];
-            const batchSize = 100; // Maximum supported by the API
+            const batchSize = 100; // Maximum allowed by API
             let startPermlink = '';
-            let lastBatchSize = batchSize;
-            
-            // Keep fetching until we have enough or run out of comments
-            while (comments.length < limit && lastBatchSize === batchSize) {
-                console.log(`Fetching comments batch via discussions query (have ${comments.length} so far)`);
-                
-                const query = {
-                    start_author: author,
-                    start_permlink: startPermlink,
-                    limit: batchSize,
-                    select_authors: [author],
-                    select_tags: [],
-                    truncate_body: 1 // We'll get full body later
-                };
-                
+            let attempts = 0;
+            const maxAttempts = Math.ceil(limit / batchSize) + 1; // Add one for possible pagination issues
+
+            // Loop until we have enough comments or hit the max attempts
+            while (comments.length < limit && attempts < maxAttempts) {
+                console.log(`Fetching comments batch ${attempts + 1} (have ${comments.length} so far)`);
+
                 try {
-                    // Get comments via discussions by comments
+                    const query = {
+                        start_author: author,
+                        start_permlink: startPermlink,
+                        limit: batchSize,
+                        select_authors: [author],
+                        // No truncate_body - we want the full content in one go
+                    };
+
                     const batch = await new Promise((resolve, reject) => {
                         this.steem.api.getDiscussionsByComments(query, (err, result) => {
                             if (err) reject(err);
                             else resolve(result || []);
                         });
                     });
-                    
+
                     if (!batch || batch.length === 0) {
-                        console.log('No more comments returned from discussions query');
+                        console.log('No more comments returned from API');
                         break;
                     }
-                    
-                    // Skip the first result if it's the same as our start_permlink (except on first request)
-                    const startIdx = startPermlink && batch.length > 0 ? 1 : 0;
-                    const newBatch = batch.slice(startIdx);
-                    lastBatchSize = newBatch.length;
-                    
-                    // Filter to only include comments (not posts)
-                    const newComments = newBatch.filter(c => c.parent_author !== '');
-                    console.log(`Got ${newComments.length} new comments from discussions query`);
-                    
-                    // Add to our collection
+
+                    // Skip the first result if it's a duplicate of our last result
+                    const startIdx = (startPermlink && batch.length > 0 &&
+                        batch[0].permlink === startPermlink) ? 1 : 0;
+
+                    // Filter to ensure we only have comments (with parent_author) and not root posts
+                    const newComments = batch.slice(startIdx).filter(c => c.parent_author !== '');
+                    console.log(`Got ${newComments.length} new comments`);
+
+                    if (newComments.length === 0) {
+                        console.log('No new valid comments in this batch');
+                        break;
+                    }
+
+                    // Update our collection
                     comments.push(...newComments);
-                    
-                    // Update the start_permlink for the next batch
-                    if (batch.length > 0) {
-                        const lastItem = batch[batch.length - 1];
-                        startPermlink = lastItem.permlink;
-                    } else {
-                        break;
-                    }
-                    
-                    // Add a small delay
-                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Set up for next batch
+                    const lastItem = batch[batch.length - 1];
+                    startPermlink = lastItem.permlink;
+
+                    // Short delay to avoid rate limits
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 } catch (error) {
-                    console.error('Error in discussions query batch:', error);
+                    console.error(`Error in batch ${attempts + 1}:`, error);
                     this.switchEndpoint();
-                    // Continue trying with next batch
                 }
+
+                attempts++;
             }
-            
-            // Extract minimal data needed for later processing
-            return comments.map(c => ({
-                permlink: c.permlink,
-                parent_author: c.parent_author,
-                parent_permlink: c.parent_permlink,
-                timestamp: new Date(c.created).getTime()
-            }));
+
+            console.log(`Total comments fetched: ${comments.length}`);
+
+            // Sort by date, newest first
+            return comments.sort((a, b) => new Date(b.created) - new Date(a.created));
         } catch (error) {
-            console.error('Error getting comments from discussions query:', error);
+            console.error('Error getting comments by author:', error);
             return [];
         }
     }
 
-    /**
-     * Combine and deduplicate comments from multiple sources
-     * @private
-     */
-    _combineAndDeduplicateComments(commentsA, commentsB) {
-        // Use a Map with permlink as key to deduplicate
-        const uniqueComments = new Map();
-        
-        // Add comments from both sources
-        [...commentsA, ...commentsB].forEach(comment => {
-            if (comment && comment.permlink) {
-                uniqueComments.set(comment.permlink, comment);
-            }
-        });
-        
-        // Convert back to array and sort by timestamp (newest first)
-        return Array.from(uniqueComments.values())
-            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    }
-
-    /**
-     * Fetch comment details in batches
-     * @private
-     */
-    async _fetchCommentsInBatches(author, commentData) {
-        const comments = [];
-        const batchSize = 20; // Process in batches to avoid overwhelming the API
-        
-        for (let i = 0; i < commentData.length; i += batchSize) {
-            const batch = commentData.slice(i, i + batchSize);
-            console.log(`Fetching batch ${Math.floor(i/batchSize) + 1} of comments (${i}-${i+batch.length}/${commentData.length})`);
-            
-            const batchPromises = batch.map(item => 
-                this.getContent(author, item.permlink)
-                    .catch(err => {
-                        console.error(`Error fetching comment ${author}/${item.permlink}:`, err);
-                        return null;
-                    })
-            );
-            
-            const batchResults = await Promise.all(batchPromises);
-            const validResults = batchResults.filter(comment => 
-                comment && comment.id && comment.parent_author !== ""
-            );
-            
-            comments.push(...validResults);
-            
-            console.log(`Batch ${Math.floor(i/batchSize) + 1}: Retrieved ${validResults.length}/${batch.length} valid comments`);
-            
-            // Short delay between batches to avoid rate limiting
-            if (i + batchSize < commentData.length) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-        }
-        
-        return comments;
-    }
-
-    /**
-     * Get account history with retry capability
-     */
-    async getAccountHistory(username, from = -1, limit = 10) {
+    async getDiscussionsByBlog(params) {
         await this.ensureLibraryLoaded();
 
+        // Il tag della community deve essere nel formato corretto
+        const cleanCommunityName = params.community.replace(/^hive-/, '');
+        const communityTag = `hive-${cleanCommunityName}`;
+
+        // Prepara i parametri per la query
+        const queryParams = {
+            tag: communityTag,
+            limit: params.limit || 20
+        };
+
+        // Aggiungi parametri per paginazione se forniti
+        if (params.start_author && params.start_permlink) {
+            queryParams.start_author = params.start_author;
+            queryParams.start_permlink = params.start_permlink;
+        }
+
+        // Seleziona il metodo corretto in base al tipo di ordinamento
+        let apiMethod;
+        switch (params.sort) {
+            case 'created':
+                apiMethod = 'getDiscussionsByCreated';
+                break;
+            case 'hot':
+                apiMethod = 'getDiscussionsByHot';
+                break;
+            case 'trending':
+            default:
+                apiMethod = 'getDiscussionsByTrending';
+                break;
+        }
+
+        console.log(`Calling steem.api.${apiMethod} with params:`, queryParams);
+
         try {
-            return await new Promise((resolve, reject) => {
-                this.steem.api.getAccountHistory(username, from, limit, (err, result) => {
+            const result = await new Promise((resolve, reject) => {
+                this.steem.api[apiMethod](queryParams, (err, result) => {
                     if (err) reject(err);
-                    else resolve(result);
+                    else resolve(result || []);
                 });
             });
+
+            console.log(`Received ${result.length} posts from API`);
+
+            // Filtro migliorato che considera vari modi in cui un post può appartenere a una community
+            const communityPosts = result.filter(post => {
+                try {
+                    // 1. Verifica il category/parent_permlink (sempre presente)
+                    if (post.category === communityTag || post.parent_permlink === communityTag) {
+                        return true;
+                    }
+
+                    // 2. Verifica nel json_metadata
+                    if (post.json_metadata) {
+                        const metadata = JSON.parse(post.json_metadata);
+
+                        // 2.1 Verifica campo community esplicito
+                        if (metadata.community === cleanCommunityName) {
+                            return true;
+                        }
+
+                        // 2.2 Verifica nei tags
+                        if (metadata.tags && Array.isArray(metadata.tags) &&
+                            (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
+                            return true;
+                        }
+                    }
+
+                    // Nessuna delle condizioni soddisfatte
+                    return false;
+                } catch (e) {
+                    console.warn('Error filtering post:', e);
+                    // In caso di errore, includiamo il post se la sua categoria corrisponde
+                    return post.category === communityTag || post.parent_permlink === communityTag;
+                }
+            });
+
+            console.log(`Filtered to ${communityPosts.length} posts for community ${cleanCommunityName}`);
+
+            // Aggiungi debug dei primi 2 post filtrati
+            if (communityPosts.length > 0) {
+                console.log('First filtered post:', {
+                    author: communityPosts[0].author,
+                    permlink: communityPosts[0].permlink,
+                    title: communityPosts[0].title,
+                    category: communityPosts[0].category,
+                    parent_permlink: communityPosts[0].parent_permlink
+                });
+
+                if (communityPosts.length > 1) {
+                    console.log('Second filtered post:', {
+                        author: communityPosts[1].author,
+                        permlink: communityPosts[1].permlink,
+                        title: communityPosts[1].title,
+                        category: communityPosts[1].category,
+                        parent_permlink: communityPosts[1].parent_permlink
+                    });
+                }
+            }
+
+            return communityPosts;
         } catch (error) {
-            console.error('Error fetching account history:', error);
-            
-            // Try with a different API endpoint
+            console.error('Error in getDiscussionsByBlog:', error);
             this.switchEndpoint();
-            
-            // Retry once with the new endpoint
+
+            // Riprova una volta con il nuovo endpoint
+            console.log('Retrying with different endpoint');
             try {
                 return await new Promise((resolve, reject) => {
-                    this.steem.api.getAccountHistory(username, from, limit, (err, result) => {
+                    this.steem.api[apiMethod](queryParams, (err, result) => {
                         if (err) reject(err);
-                        else resolve(result);
+                        else {
+                            const communityPosts = (result || []).filter(post => {
+                                try {
+                                    // Stesso filtro migliorato della prima chiamata
+                                    if (post.category === communityTag || post.parent_permlink === communityTag) {
+                                        return true;
+                                    }
+
+                                    if (post.json_metadata) {
+                                        const metadata = JSON.parse(post.json_metadata);
+                                        if (metadata.community === cleanCommunityName) {
+                                            return true;
+                                        }
+                                        if (metadata.tags && Array.isArray(metadata.tags) &&
+                                            (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
+                                            return true;
+                                        }
+                                    }
+
+                                    return false;
+                                } catch (e) {
+                                    return post.category === communityTag || post.parent_permlink === communityTag;
+                                }
+                            });
+                            resolve(communityPosts);
+                        }
                     });
                 });
             } catch (retryError) {
-                console.error('Error fetching account history after retry:', retryError);
-                throw retryError;
+                console.error('Retry also failed:', retryError);
+                return [];
             }
         }
     }
 
-    /**
-     * Ottiene i post di una community specifica
-     * @param {Object} params - Parametri per la query
-     * @param {string} params.community - Nome della community (senza prefisso hive-)
-     * @param {string} params.sort - Tipo di ordinamento (trending, created, hot)
-     * @param {number} params.limit - Numero massimo di post da recuperare
-     * @param {string} [params.start_author] - Autore da cui iniziare (per paginazione)
-     * @param {string} [params.start_permlink] - Permlink da cui iniziare (per paginazione)
-     * @returns {Promise<Array>} - Array di post
-     */
-    
-async getDiscussionsByBlog(params) {
-    await this.ensureLibraryLoaded();
-    
-    // Il tag della community deve essere nel formato corretto
-    const cleanCommunityName = params.community.replace(/^hive-/, '');
-    const communityTag = `hive-${cleanCommunityName}`;
-    
-    // Prepara i parametri per la query
-    const queryParams = {
-      tag: communityTag,
-      limit: params.limit || 20
-    };
-    
-    // Aggiungi parametri per paginazione se forniti
-    if (params.start_author && params.start_permlink) {
-      queryParams.start_author = params.start_author;
-      queryParams.start_permlink = params.start_permlink;
+    async getAuthorComments(username, startPermlink, limit) {
+        // Utilizziamo getDiscussionsByCommentsAsync invece di getDiscussionsByAuthorBeforeDateAsync
+        const query = {
+            start_author: username,
+            start_permlink: startPermlink || '',
+            limit: limit || 20
+        };
+        return steem.api.getDiscussionsByCommentsAsync(query);
     }
-    
-    // Seleziona il metodo corretto in base al tipo di ordinamento
-    let apiMethod;
-    switch (params.sort) {
-      case 'created':
-        apiMethod = 'getDiscussionsByCreated';
-        break;
-      case 'hot':
-        apiMethod = 'getDiscussionsByHot';
-        break;
-      case 'trending':
-      default:
-        apiMethod = 'getDiscussionsByTrending';
-        break;
-    }
-    
-    console.log(`Calling steem.api.${apiMethod} with params:`, queryParams);
-    
-    try {
-      const result = await new Promise((resolve, reject) => {
-        this.steem.api[apiMethod](queryParams, (err, result) => {
-          if (err) reject(err);
-          else resolve(result || []);
-        });
-      });
-      
-      console.log(`Received ${result.length} posts from API`);
-      
-      // Filtro migliorato che considera vari modi in cui un post può appartenere a una community
-      const communityPosts = result.filter(post => {
+
+    async getCommentsByAuthor(author, limit = 100) {
         try {
-          // 1. Verifica il category/parent_permlink (sempre presente)
-          if (post.category === communityTag || post.parent_permlink === communityTag) {
-            return true;
-          }
-          
-          // 2. Verifica nel json_metadata
-          if (post.json_metadata) {
-            const metadata = JSON.parse(post.json_metadata);
-            
-            // 2.1 Verifica campo community esplicito
-            if (metadata.community === cleanCommunityName) {
-              return true;
-            }
-            
-            // 2.2 Verifica nei tags
-            if (metadata.tags && Array.isArray(metadata.tags) && 
-                (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
-              return true;
-            }
-          }
-          
-          // Nessuna delle condizioni soddisfatte
-          return false;
-        } catch (e) {
-          console.warn('Error filtering post:', e);
-          // In caso di errore, includiamo il post se la sua categoria corrisponde
-          return post.category === communityTag || post.parent_permlink === communityTag;
-        }
-      });
-      
-      console.log(`Filtered to ${communityPosts.length} posts for community ${cleanCommunityName}`);
-      
-      // Aggiungi debug dei primi 2 post filtrati
-      if (communityPosts.length > 0) {
-        console.log('First filtered post:', {
-          author: communityPosts[0].author,
-          permlink: communityPosts[0].permlink,
-          title: communityPosts[0].title,
-          category: communityPosts[0].category,
-          parent_permlink: communityPosts[0].parent_permlink
-        });
-        
-        if (communityPosts.length > 1) {
-          console.log('Second filtered post:', {
-            author: communityPosts[1].author,
-            permlink: communityPosts[1].permlink,
-            title: communityPosts[1].title,
-            category: communityPosts[1].category,
-            parent_permlink: communityPosts[1].parent_permlink
-          });
-        }
-      }
-      
-      return communityPosts;
-    } catch (error) {
-      console.error('Error in getDiscussionsByBlog:', error);
-      this.switchEndpoint();
-      
-      // Riprova una volta con il nuovo endpoint
-      console.log('Retrying with different endpoint');
-      try {
-        return await new Promise((resolve, reject) => {
-          this.steem.api[apiMethod](queryParams, (err, result) => {
-            if (err) reject(err);
-            else {
-              const communityPosts = (result || []).filter(post => {
-                try {
-                  // Stesso filtro migliorato della prima chiamata
-                  if (post.category === communityTag || post.parent_permlink === communityTag) {
-                    return true;
-                  }
-                  
-                  if (post.json_metadata) {
-                    const metadata = JSON.parse(post.json_metadata);
-                    if (metadata.community === cleanCommunityName) {
-                      return true;
-                    }
-                    if (metadata.tags && Array.isArray(metadata.tags) && 
-                        (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
-                      return true;
-                    }
-                  }
-                  
-                  return false;
-                } catch (e) {
-                  return post.category === communityTag || post.parent_permlink === communityTag;
+            console.log(`Getting comments for author ${author} with limit ${limit}`);
+
+            // We'll use the direct approach with getDiscussionsByComments
+            const allComments = [];
+            let startPermlink = '';
+            let hasMoreComments = true;
+            const batchSize = Math.min(100, limit); // API usually limits to 100 per call
+
+            // Fetch comments in batches until we have enough or there are no more
+            while (allComments.length < limit && hasMoreComments) {
+                console.log(`Fetching comments batch with startPermlink: ${startPermlink || 'none'}`);
+
+                const comments = await this.getAuthorComments(author, startPermlink, batchSize);
+
+                if (!comments || comments.length === 0) {
+                    console.log('No more comments returned');
+                    hasMoreComments = false;
+                    break;
                 }
-              });
-              resolve(communityPosts);
+
+                // Filter valid comments (with parent_author) that haven't been processed yet
+                const newComments = startPermlink
+                    ? comments.filter(c => c.permlink !== startPermlink && c.parent_author !== '')
+                    : comments.filter(c => c.parent_author !== '');
+
+                if (newComments.length === 0) {
+                    console.log('No new valid comments in this batch');
+                    hasMoreComments = false;
+                    break;
+                }
+
+                allComments.push(...newComments);
+                console.log(`Total comments so far: ${allComments.length}`);
+
+                // Update startPermlink for the next batch
+                if (comments.length > 0) {
+                    startPermlink = comments[comments.length - 1].permlink;
+                }
+
+                // Add a small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
-          });
-        });
-      } catch (retryError) {
-        console.error('Retry also failed:', retryError);
-        return [];
-      }
+
+            console.log(`Completed fetching comments for ${author}, found ${allComments.length}`);
+
+            // Sort by date, newest first
+            return allComments.sort((a, b) => new Date(b.created) - new Date(a.created));
+        } catch (error) {
+            console.error('Error getting comments by author:', error);
+            return [];
+        }
     }
-  }
+
+    async getDiscussionsByBlog(query) {
+        await this.ensureLibraryLoaded();
+
+        console.log('Calling getDiscussionsByBlog with params:', query);
+
+        try {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getDiscussionsByBlog(query, (err, result) => {
+                    if (err) {
+                        console.error('API error in getDiscussionsByBlog:', err);
+                        reject(err);
+                    } else {
+                        console.log(`Received ${result ? result.length : 0} blog posts`);
+                        resolve(result || []);
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error in getDiscussionsByBlog:', error);
+            this.switchEndpoint();
+
+            // Retry with new endpoint
+            try {
+                return await new Promise((resolve, reject) => {
+                    this.steem.api.getDiscussionsByBlog(query, (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    });
+                });
+            } catch (retryError) {
+                console.error('Retry also failed:', retryError);
+                return [];
+            }
+        }
+    }
+
+    async getUserPosts(username, limit = 50, pagination = {}) {
+        if (!username) {
+            console.error('No username provided to getUserPosts');
+            return { posts: [], hasMore: false, lastPost: null };
+        }
+
+        await this.ensureLibraryLoaded();
+        console.log(`Fetching posts for ${username} with limit=${limit}, pagination:`, pagination);
+
+        try {
+            // Preparazione query
+            const query = {
+                tag: username,
+                limit: Math.min(limit * 1.2, 100) // Aumentiamo leggermente per compensare duplicati, max 100
+            };
+
+            // Aggiungi parametri di paginazione se disponibili
+            if (pagination.start_author && pagination.start_permlink) {
+                query.start_author = pagination.start_author;
+                query.start_permlink = pagination.start_permlink;
+                console.log(`Using pagination params: ${pagination.start_author}/${pagination.start_permlink}`);
+            }
+
+            // Chiamata API diretta
+            const posts = await this.getDiscussionsByBlog(query);
+
+            // Se non ci sono post, ritorna vuoto
+            if (!posts || !posts.length) {
+                console.log('No posts returned from API');
+                return { posts: [], hasMore: false, lastPost: null };
+            }
+
+            // Rimuovi il primo post se è un duplicato (e se stiamo paginando)
+            let resultPosts = posts;
+            if (pagination.start_author && pagination.start_permlink && posts.length > 0 &&
+                posts[0].author === pagination.start_author && posts[0].permlink === pagination.start_permlink) {
+                console.log('Removing first post as it is a duplicate from pagination');
+                resultPosts = posts.slice(1);
+            }
+
+            console.log(`Received ${resultPosts.length} posts after removing duplicates`);
+
+            // Memorizza l'ultimo post per la prossima paginazione
+            const lastPost = resultPosts.length > 0 ? resultPosts[resultPosts.length - 1] : null;
+
+            // Salva internamente l'ultimo post per tracking
+            if (lastPost) {
+                this._setLastPostForUser(username, lastPost);
+            }
+
+            // Ritorna con informazioni di paginazione
+            return {
+                posts: resultPosts,
+                hasMore: resultPosts.length >= Math.min(limit, 100) && posts.length >= query.limit,
+                lastPost: lastPost
+            };
+        } catch (error) {
+            console.error(`Error in getUserPosts for ${username}:`, error);
+
+            // In caso di errore, proviamo un approccio alternativo più lento ma più affidabile
+            try {
+                console.log("Fallback: Trying alternative approach to fetch posts");
+                const blogPosts = await this._fetchUserBlogPosts(username, limit * 2);
+
+                if (blogPosts.length > 0) {
+                    // Applica la paginazione manualmente
+                    const startIndex = 0;
+                    const endIndex = Math.min(blogPosts.length, limit);
+                    const resultPosts = blogPosts.slice(startIndex, endIndex);
+
+                    // Memorizza l'ultimo post per la prossima paginazione
+                    const lastPost = resultPosts.length > 0 ? resultPosts[resultPosts.length - 1] : null;
+                    if (lastPost) {
+                        this._setLastPostForUser(username, lastPost);
+                    }
+
+                    return {
+                        posts: resultPosts,
+                        hasMore: blogPosts.length > limit,
+                        lastPost: lastPost
+                    };
+                }
+            } catch (fallbackError) {
+                console.error(`Fallback approach also failed:`, fallbackError);
+            }
+
+            return { posts: [], hasMore: false, lastPost: null };
+        }
+    }
+
+    _setLastPostForUser(username, post) {
+        if (!this._lastPostByUser) {
+            this._lastPostByUser = {};
+        }
+
+        if (post) {
+            this._lastPostByUser[username] = post;
+            console.log(`Saved last post for ${username}: ${post.permlink}`);
+        }
+    }
+
+    getLastPostForUser(username) {
+        return this._lastPostByUser && this._lastPostByUser[username]
+            ? this._lastPostByUser[username]
+            : null;
+    }
 }
 
 // Initialize singleton instance

@@ -12,12 +12,6 @@ class ProfileService {
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes cache
     }
 
-    /**
-     * Get a user profile
-     * @param {string} username - Steem username
-     * @param {boolean} forceRefresh - Force a refresh from the blockchain
-     * @returns {Promise<Profile>} Profile object
-     */
     async getProfile(username, forceRefresh = false) {
         if (!username) {
             throw new Error('Username is required');
@@ -56,12 +50,6 @@ class ProfileService {
         }
     }
 
-    /**
-     * Update a user profile
-     * @param {string} username - Steem username
-     * @param {Object} updatedFields - Updated profile data
-     * @returns {Promise<boolean>} Success of the update operation
-     */
     async updateProfile(username, updatedFields) {
         try {
             console.log('ProfileService: Updating profile for', username);
@@ -120,126 +108,144 @@ class ProfileService {
     }
 
     /**
-     * Get posts by a user with pagination
+     * Get posts by a user with pagination - versione migliorata per caricare più post
      * @param {string} username - The username to fetch posts for
      * @param {number} limit - Number of posts per page
      * @param {number} page - Page number to fetch (starts at 1)
+     * @param {Object} params - Additional parameters
      * @returns {Promise<Array>} - Array of posts
      */
-    async getUserPosts(username, limit = 10, page = 1) {
+    async getUserPosts(username, limit = 30, page = 1, params = {}) {
         try {
-            // Check if we have a local cache of ALL posts for this user
-            const cacheKey = `${username}_posts_all`;
-            let allUserPosts = this.getCachedPosts(cacheKey);
+            console.log(`ProfileService: Getting posts for ${username}, page=${page}, limit=${limit}`);
             
-            // If page 1 is requested with forceRefresh, clear the cache
-            if (page === 1 && this.params?.forceRefresh) {
-                console.log('Forced refresh requested, clearing cache');
-                allUserPosts = null;
-                this.postCache.delete(cacheKey);
+            // Force refresh handling
+            if (params?.forceRefresh) {
+                console.log('Force refresh requested, clearing cache');
+                this.clearUserPostsCache(username);
+                // Reset anche i dati di paginazione nel SteemService
+                if (steemService._lastPostByUser) {
+                    delete steemService._lastPostByUser[username];
+                }
             }
             
-            // If we don't have cached posts, fetch all posts from the service
-            if (!allUserPosts) {
-                console.log(`No cached posts for ${username}, fetching from blockchain`);
+            // Cache key per questa pagina
+            const cacheKey = `${username}_posts_page_${page}`;
+            
+            // Check cache first (unless forcing refresh)
+            if (!params?.forceRefresh) {
+                const cachedPosts = this.getCachedPosts(cacheKey);
+                if (cachedPosts) {
+                    console.log(`Using ${cachedPosts.length} cached posts for page ${page}`);
+                    return cachedPosts;
+                }
+            }
+            
+            // Recupero parametri di paginazione
+            let paginationParams = {};
+            
+            // Per la prima pagina non serve paginazione
+            if (page > 1) {
+                // Ottieni l'ultimo post della pagina precedente
+                const prevPageKey = `${username}_posts_page_${page-1}`;
+                const prevPagePosts = this.getCachedPosts(prevPageKey);
                 
-                // Use a higher limit to fetch more posts at once
-                const fetchLimit = Math.max(100, page * limit * 2);
-                allUserPosts = await steemService.getUserPosts(username, fetchLimit);
-                
-                // Cache all posts for this user
-                if (allUserPosts && allUserPosts.length > 0) {
-                    console.log(`Caching ${allUserPosts.length} posts for ${username}`);
-                    this.cachePosts(cacheKey, allUserPosts);
-                    
-                    // Use a longer cache expiry for posts (15 minutes)
-                    const cacheEntry = this.postCache.get(cacheKey);
-                    if (cacheEntry) {
-                        this.postCache.set(cacheKey, {
-                            ...cacheEntry,
-                            expiry: Date.now() + (15 * 60 * 1000) // 15 minutes
-                        });
+                if (prevPagePosts && prevPagePosts.length > 0) {
+                    // Usa l'ultimo post della pagina precedente come riferimento
+                    const lastPost = prevPagePosts[prevPagePosts.length - 1];
+                    paginationParams = {
+                        start_author: lastPost.author,
+                        start_permlink: lastPost.permlink
+                    };
+                    console.log(`Using pagination from page ${page-1}: ${lastPost.author}/${lastPost.permlink}`);
+                } else {
+                    // Se non abbiamo la pagina precedente in cache, chiedi al service
+                    const lastPostRef = steemService.getLastPostForUser(username);
+                    if (lastPostRef) {
+                        paginationParams = {
+                            start_author: lastPostRef.author,
+                            start_permlink: lastPostRef.permlink
+                        };
+                        console.log(`Using pagination from service: ${lastPostRef.author}/${lastPostRef.permlink}`);
+                    } else {
+                        console.warn(`No pagination reference for page ${page}, results may be incorrect`);
+                        
+                        // Se siamo a pagina > 1 ma non abbiamo un punto di riferimento,
+                        // potremmo dover caricare tutte le pagine precedenti
+                        if (page > 2) { // Solo se siamo oltre pagina 2, per evitare loop
+                            console.log(`Attempting to load previous page ${page-1} first`);
+                            const prevPagePosts = await this.getUserPosts(username, limit, page-1);
+                            
+                            if (prevPagePosts && prevPagePosts.length > 0) {
+                                const lastPost = prevPagePosts[prevPagePosts.length - 1];
+                                paginationParams = {
+                                    start_author: lastPost.author,
+                                    start_permlink: lastPost.permlink
+                                };
+                                console.log(`Generated pagination from loaded previous page: ${lastPost.author}/${lastPost.permlink}`);
+                            }
+                        }
                     }
                 }
+            }
+            
+            // Aumenta la probabilità di ottenere risultati completi richiedendo più post di quelli necessari
+            const fetchLimit = Math.min(limit + 5, 100); // Massimo 100 per non stressare l'API
+            
+            // Richiesta al service - versione aggiornata che ritorna info di paginazione
+            const result = await steemService.getUserPosts(username, fetchLimit, paginationParams);
+            
+            // Salva i post in cache se ne abbiamo
+            if (result.posts && result.posts.length > 0) {
+                // Limita il numero di post alla quantità richiesta per la cache
+                const postsToCache = result.posts.slice(0, limit);
+                console.log(`Caching ${postsToCache.length} posts for page ${page}`);
+                this.cachePosts(cacheKey, postsToCache);
+                
+                // Memorizza l'ultimo post per future richieste
+                if (result.lastPost) {
+                    this.lastPosts = this.lastPosts || {};
+                    this.lastPosts[username] = result.lastPost;
+                }
+                
+                // Ritorna solo il numero di post richiesti
+                return result.posts.slice(0, limit);
             } else {
-                console.log(`Using ${allUserPosts.length} cached posts for ${username}`);
+                console.log(`No posts found for ${username}, page ${page}`);
+                return [];
             }
-            
-            // Apply pagination to the cached posts
-            const startIdx = (page - 1) * limit;
-            const endIdx = startIdx + limit;
-            
-            // Check if we may need to fetch more posts
-            if (allUserPosts.length <= endIdx && allUserPosts.length < 100) {
-                console.log(`We might need more posts (have ${allUserPosts.length}, need index ${endIdx})`);
-                
-                // Try to fetch more posts with a higher limit
-                const morePosts = await steemService.getUserPosts(username, 100);
-                
-                if (morePosts && morePosts.length > allUserPosts.length) {
-                    console.log(`Found ${morePosts.length - allUserPosts.length} additional posts`);
-                    
-                    // Combine and deduplicate posts
-                    const seenIds = new Set(allUserPosts.map(p => p.id));
-                    const newPosts = morePosts.filter(p => !seenIds.has(p.id));
-                    
-                    if (newPosts.length > 0) {
-                        console.log(`Adding ${newPosts.length} new posts to cache`);
-                        allUserPosts = [...allUserPosts, ...newPosts];
-                        this.cachePosts(cacheKey, allUserPosts);
-                    }
-                }
-            }
-            
-            // Return the paginated subset
-            const paginatedPosts = allUserPosts.slice(startIdx, endIdx);
-            console.log(`Returning ${paginatedPosts.length} posts for page ${page} (indexes ${startIdx}-${endIdx})`);
-            
-            return paginatedPosts;
         } catch (error) {
-            console.error(`Error fetching posts for user ${username}:`, error);
+            console.error(`Error fetching posts for ${username}:`, error);
             return [];
         }
     }
-
+    
     /**
-     * Process posts for pagination and caching
-     * @private
+     * Pulisce la cache dei post per uno specifico utente
+     * @param {string} username - Username
      */
-    _processPosts(posts, username, page, limit) {
-        if (!posts || posts.length === 0) {
-            return [];
+    clearUserPostsCache(username) {
+        // Cancella tutte le chiavi della cache che contengono questo username
+        const keysToDelete = [];
+        
+        this.postCache.forEach((value, key) => {
+            if (key.includes(username)) {
+                keysToDelete.push(key);
+            }
+        });
+        
+        keysToDelete.forEach(key => {
+            this.postCache.delete(key);
+        });
+        
+        // Cancella anche i dati di paginazione
+        if (this.lastPosts) {
+            delete this.lastPosts[username];
         }
-
-        // Initialize cache if needed
-        if (!this.cachedPosts) {
-            this.cachedPosts = {};
-        }
-
-        if (!this.cachedPosts[username]) {
-            this.cachedPosts[username] = {};
-        }
-
-        // Split posts into pages and cache them
-        const totalPosts = posts.length;
-        const totalPages = Math.ceil(totalPosts / limit);
-
-        for (let p = 1; p <= totalPages; p++) {
-            const start = (p - 1) * limit;
-            const end = Math.min(start + limit, totalPosts);
-            this.cachedPosts[username][p] = posts.slice(start, end);
-        }
-
-        // Return requested page
-        return this.cachedPosts[username][page] || [];
+        
+        console.log(`Cleared post cache for ${username}`);
     }
 
-    /**
-     * Follow a user
-     * @param {string} username - Username to follow
-     * @param {Object} currentUser - Currently logged in user
-     * @returns {Promise<boolean>} Success of follow operation
-     */
     async followUser(username, currentUser) {
         if (!currentUser || !currentUser.username) {
             throw new Error('You must be logged in to follow a user');
@@ -270,12 +276,6 @@ class ProfileService {
         }
     }
 
-    /**
-     * Unfollow a user
-     * @param {string} username - Username to unfollow
-     * @param {Object} currentUser - Currently logged in user
-     * @returns {Promise<boolean>} Success of unfollow operation
-     */
     async unfollowUser(username, currentUser) {
         if (!currentUser || !currentUser.username) {
             throw new Error('You must be logged in to unfollow a user');
@@ -302,20 +302,13 @@ class ProfileService {
         }
     }
 
-    /**
-     * Check if current user is following another user
-     * @param {string} username - Username to check
-     * @param {Object} currentUser - Currently logged in user
-     * @returns {Promise<boolean>} Whether current user follows the specified user
-     */
     async isFollowing(username, currentUser) {
         if (!currentUser || !currentUser.username) {
             return false;
         }
 
         try {
-            // This would check follow relationships via Steem API
-            // For now we'll just simulate a random response
+            //TODO: Implement proper check using Steem blockchain data
             return Math.random() > 0.5;
         } catch (error) {
             console.error(`Error checking follow status for ${username}:`, error);
@@ -323,11 +316,6 @@ class ProfileService {
         }
     }
 
-    /**
-     * Get the follower count for a user
-     * @param {string} username - The username to fetch follower count for
-     * @returns {Promise<number>} - The follower count
-     */
     async getFollowerCount(username) {
         try {
             const followers = await steemService.getFollowers(username);
@@ -338,11 +326,6 @@ class ProfileService {
         }
     }
 
-    /**
-     * Get the following count for a user
-     * @param {string} username - The username to fetch following count for
-     * @returns {Promise<number>} - The following count
-     */
     async getFollowingCount(username) {
         try {
             const following = await steemService.getFollowing(username);
@@ -353,12 +336,6 @@ class ProfileService {
         }
     }
 
-    /**
-     * Get profile from cache
-     * @param {string} username - Username to look up
-     * @returns {Profile|null} Cached profile or null
-     * @private
-     */
     getCachedProfile(username) {
         const cacheEntry = this.profileCache.get(username);
 
@@ -376,12 +353,6 @@ class ProfileService {
         return cacheEntry.profile;
     }
 
-    /**
-     * Store profile in cache
-     * @param {string} username - Username
-     * @param {Profile} profile - Profile to cache
-     * @private
-     */
     cacheProfile(username, profile) {
         this.profileCache.set(username, {
             profile,
@@ -389,12 +360,6 @@ class ProfileService {
         });
     }
 
-    /**
-     * Get posts from cache
-     * @param {string} cacheKey - Cache key
-     * @returns {Array|null} Cached posts or null
-     * @private
-     */
     getCachedPosts(cacheKey) {
         const cacheEntry = this.postCache.get(cacheKey);
 
@@ -412,12 +377,6 @@ class ProfileService {
         return cacheEntry.posts;
     }
 
-    /**
-     * Store posts in cache
-     * @param {string} cacheKey - Cache key
-     * @param {Array} posts - Posts to cache
-     * @private
-     */
     cachePosts(cacheKey, posts) {
         this.postCache.set(cacheKey, {
             posts,
@@ -425,31 +384,16 @@ class ProfileService {
         });
     }
 
-    /**
-     * Clear cache for a specific user
-     * @param {string} username - Username to clear cache for
-     */
     clearUserCache(username) {
         this.profileCache.delete(username);
         this.postCache.delete(`${username}_posts`);
     }
 
-    /**
-     * Clear all cached data
-     */
     clearAllCache() {
         this.profileCache.clear();
         this.postCache.clear();
     }
 
-    /**
-     * Get user comments with pagination
-     * @param {string} username - The username to fetch comments for
-     * @param {number} limit - The number of comments to fetch
-     * @param {number} page - The page number for pagination
-     * @param {boolean} forceRefresh - Whether to bypass the cache
-     * @returns {Promise<Array>} Array of comments
-     */
     async getUserComments(username, limit = 20, page = 1, forceRefresh = false) {
         try {
             // Check cache unless forceRefresh is true
@@ -464,11 +408,10 @@ class ProfileService {
                 return cachedComments.slice(startIndex, endIndex);
             }
             
-            console.log(`Fetching all comments for ${username} (${forceRefresh ? 'forced refresh' : 'no cache available'})`);
+            console.log(`Fetching comments for ${username} (${forceRefresh ? 'forced refresh' : 'no cache available'})`);
             
-            // Set a very high limit to try to get all comments
-            // The SteemService will handle multiple methods to get as many as possible
-            const comments = await steemService.getCommentsByAuthor(username, 2000);
+            // Use the direct getCommentsByAuthor method that internally uses getAuthorComments
+            const comments = await steemService.getCommentsByAuthor(username, 100);
             
             if (!comments || !Array.isArray(comments)) {
                 console.warn('Invalid response format for user comments:', comments);

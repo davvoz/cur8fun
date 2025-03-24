@@ -89,148 +89,142 @@ class ProfileView extends View {
     
     this.postsLoading = true;
     
-    // Only show loading indicator on first load
+    // Mostra loader solo alla prima pagina
     if (this.page === 1) {
         postsContainer.innerHTML = `
             <div class="loading-indicator">
                 <div class="spinner"></div>
-                <div class="loading-text">Loading posts...</div>
-                <div class="loading-subtext">This may take a moment as we retrieve all posts.</div>
+                <div class="loading-text">Caricamento post...</div>
+                <div class="loading-subtext">Recupero post per @${this.username}</div>
             </div>
         `;
     } else {
-        // For subsequent pages, just add a loader at the bottom
+        // Per le pagine successive, aggiungi un loader in fondo
         const loader = document.createElement('div');
         loader.className = 'post-page-loader';
-        loader.innerHTML = '<div class="loading-indicator">Loading more posts...</div>';
+        loader.innerHTML = '<div class="loading-indicator">Caricamento altri post...</div>';
         postsContainer.appendChild(loader);
     }
     
     try {
-        // For the first page, request a forced refresh to ensure we get latest data
-        const params = this.page === 1 ? { forceRefresh: true } : {};
+        // Per la prima pagina, chiedi un refresh forzato
+        const params = {
+            forceRefresh: this.page === 1
+        };
         
-        // Fetch posts with pagination
-        const newPosts = await profileService.getUserPosts(this.username, 10, this.page, params);
+        // Aumentiamo il limite a 30 post per pagina per caricarne di più alla volta
+        const POSTS_PER_PAGE = 30;
         
-        // If this is the first page, clear the container
+        // Recupera i post con paginazione
+        const newPosts = await profileService.getUserPosts(this.username, POSTS_PER_PAGE, this.page, params);
+        
+        // Rimuovi il loader
         if (this.page === 1) {
             postsContainer.innerHTML = '';
-            this.posts = [];
-            
-            // If no posts were found, show a message
-            if (!newPosts || newPosts.length === 0) {
-                postsContainer.innerHTML = `
-                    <div class="empty-posts-message">
-                        @${this.username} hasn't published any posts yet.
-                    </div>
-                `;
-                this.postsLoading = false;
-                return;
-            }
-            
         } else {
-            // Remove loader if it exists
             const loader = postsContainer.querySelector('.post-page-loader');
             if (loader) loader.remove();
         }
         
-        // Check if we have more posts
-        this.hasMorePosts = newPosts && newPosts.length === 10;
-        
-        if (newPosts && newPosts.length > 0) {
-            // Append new posts to our existing array
-            this.posts = [...this.posts, ...newPosts];
-            
-            // Render the new posts
-            newPosts.forEach(post => {
-                const postItem = this.createPostItem(post);
-                postsContainer.appendChild(postItem);
-            });
-            
-            // Initialize infinite scroll on first load
+        // Se non ci sono post
+        if (!newPosts || newPosts.length === 0) {
             if (this.page === 1) {
-                this.setupInfiniteScroll();
-            }
-            
-            this.page++;
-            
-            // Check if we have more posts but none were returned
-            if (this.hasMorePosts && newPosts.length < 10) {
-                console.log("We expected more posts but received fewer than requested");
+                // Messaggio vuoto alla prima pagina
+                postsContainer.innerHTML = `
+                    <div class="empty-posts-message">
+                        @${this.username} non ha ancora pubblicato nessun post.
+                    </div>
+                `;
+            } else {
+                // Non ci sono più post in pagine successive
                 this.hasMorePosts = false;
                 
-                // Add a message indicating all posts have been loaded
-                const noMorePostsMsg = document.createElement('div');
-                noMorePostsMsg.className = 'no-more-posts';
-                noMorePostsMsg.textContent = 'All posts loaded';
-                noMorePostsMsg.style.textAlign = 'center';
-                noMorePostsMsg.style.margin = '20px 0';
-                noMorePostsMsg.style.color = '#666';
-                postsContainer.appendChild(noMorePostsMsg);
+                // Aggiungi un messaggio di fine
+                const noMoreMsg = document.createElement('div');
+                noMoreMsg.className = 'no-more-posts';
+                noMoreMsg.textContent = `Caricati tutti i ${this.posts.length} post disponibili`;
+                noMoreMsg.style.textAlign = 'center';
+                noMoreMsg.style.margin = '20px 0';
+                noMoreMsg.style.color = '#666';
+                postsContainer.appendChild(noMoreMsg);
             }
-        } else if (this.page === 1) {
-            // No posts at all
-            postsContainer.innerHTML = `
-                <div class="empty-posts-message">
-                    @${this.username} hasn't published any posts yet.
-                </div>
-            `;
-        } else if (this.hasMorePosts) {
-            // We expected more posts but got none
-            console.log("We expected more posts but none were returned");
-            this.hasMorePosts = false;
             
-            // Add a message indicating all posts have been loaded
-            const noMorePostsMsg = document.createElement('div');
-            noMorePostsMsg.className = 'no-more-posts';
-            noMorePostsMsg.textContent = 'All posts loaded';
-            noMorePostsMsg.style.textAlign = 'center';
-            noMorePostsMsg.style.margin = '20px 0';
-            noMorePostsMsg.style.color = '#666';
-            postsContainer.appendChild(noMorePostsMsg);
+            this.postsLoading = false;
+            return;
         }
+        
+        // Aggiungi i nuovi post alla collezione
+        if (this.page === 1) {
+            this.posts = [];
+        }
+        
+        // Verifica che non ci siano duplicati
+        const currentPostIds = new Set(this.posts.map(p => `${p.author}_${p.permlink}`));
+        const uniqueNewPosts = newPosts.filter(post => {
+            const postId = `${post.author}_${post.permlink}`;
+            return !currentPostIds.has(postId);
+        });
+        
+        // Aggiungi il contatore di post all'inizio se è la prima pagina
+        if (this.page === 1 && uniqueNewPosts.length > 0) {
+            const postCounter = document.createElement('div');
+            postCounter.className = 'post-counter';
+            postCounter.innerHTML = `<span>Caricati <strong>${uniqueNewPosts.length}</strong> post di ${this.username}</span>`;
+            postCounter.style.textAlign = 'center';
+            postCounter.style.padding = '10px';
+            postCounter.style.margin = '0 0 20px 0';
+            postCounter.style.backgroundColor = '#f5f8fa';
+            postCounter.style.borderRadius = '5px';
+            postsContainer.appendChild(postCounter);
+        }
+        
+        this.posts = [...this.posts, ...uniqueNewPosts];
+        
+        // Aggiorna il contatore di post se esiste
+        const postCounter = postsContainer.querySelector('.post-counter');
+        if (postCounter) {
+            postCounter.innerHTML = `<span>Caricati <strong>${this.posts.length}</strong> post di ${this.username}</span>`;
+        }
+        
+        // Renderizza i nuovi post
+        uniqueNewPosts.forEach(post => {
+            const postItem = this.createPostItem(post);
+            postsContainer.appendChild(postItem);
+        });
+        
+        // Controlla se ci sono altri post - considera un numero di post inferiore al limite come segno che non ci sono altri post
+        this.hasMorePosts = newPosts.length >= POSTS_PER_PAGE;
+        
+        // Inizializza infinite scroll alla prima pagina
+        if (this.page === 1) {
+            this.setupInfiniteScroll(POSTS_PER_PAGE);
+        }
+        
+        // Incrementa il numero di pagina
+        this.page++;
     } catch (error) {
         console.error('Error loading posts:', error);
-        if (this.page === 1) {
-            postsContainer.innerHTML = `
-                <div class="error-message">
-                    <h3>Failed to load posts</h3>
-                    <p>There was an error loading posts for @${this.username}</p>
-                    <p class="error-details">${error.message || 'Unknown error'}</p>
-                    <button class="retry-btn">Retry</button>
-                </div>
-            `;
-            
-            // Add retry handler
-            postsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
-                this.page = 1;
-                this.loadPosts();
-            });
-        } else {
-            // Add an error message at the bottom
-            const errorMsg = document.createElement('div');
-            errorMsg.className = 'error-message';
-            errorMsg.innerHTML = `
-                <p>Error loading more posts</p>
-                <button class="retry-btn">Retry</button>
-            `;
-            postsContainer.appendChild(errorMsg);
-            
-            // Add retry handler
-            errorMsg.querySelector('.retry-btn')?.addEventListener('click', () => {
-                // Remove the error message
-                errorMsg.remove();
-                // Try loading again
-                this.loadPosts();
-            });
-        }
+        
+        // Mostra un errore all'utente
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `
+            <p>Si è verificato un errore durante il caricamento dei post.</p>
+            <button class="retry-btn">Riprova</button>
+        `;
+        postsContainer.appendChild(errorDiv);
+        
+        // Aggiungi handler per il pulsante di riprovare
+        errorDiv.querySelector('.retry-btn').addEventListener('click', () => {
+            errorDiv.remove();
+            this.loadPosts();
+        });
     } finally {
         this.postsLoading = false;
     }
 }
   
-  setupInfiniteScroll() {
+setupInfiniteScroll(postsPerPage = 30) {
     // Cleanup any existing infinite scroll
     if (this.infiniteScroll) {
       console.log('Destroying existing infinite scroll');
@@ -246,7 +240,7 @@ class ProfileView extends View {
     
     console.log('Setting up infinite scroll for posts');
     
-    // Initialize new infinite scroll
+    // Initialize new infinite scroll with correct page tracking
     this.infiniteScroll = new InfiniteScroll({
       container: postsContainer,
       loadMore: async (page) => {
@@ -265,38 +259,117 @@ class ProfileView extends View {
         this.postsLoading = true;
         try {
           console.log(`Loading posts page ${page}`);
-          const newPosts = await profileService.getUserPosts(this.username, 10, page);
+          
+          // Aggiungi un indicatore di caricamento temporaneo
+          const tempLoader = document.createElement('div');
+          tempLoader.className = 'temp-loader';
+          tempLoader.innerHTML = `<div class="loading-indicator">Caricamento pagina ${page}...</div>`;
+          postsContainer.appendChild(tempLoader);
+          
+          // Utilizza i parametri corretti per il caricamento
+          const newPosts = await profileService.getUserPosts(this.username, postsPerPage, page);
+          
+          // Rimuovi il loader temporaneo
+          const loader = postsContainer.querySelector('.temp-loader');
+          if (loader) loader.remove();
           
           if (newPosts && newPosts.length > 0) {
-            console.log(`Loaded ${newPosts.length} new posts`);
-            // Append new posts to container
-            newPosts.forEach(post => {
-              const postItem = this.createPostItem(post);
-              postsContainer.appendChild(postItem);
+            console.log(`Loaded ${newPosts.length} new posts for page ${page}`);
+            
+            // Verifica che non ci siano duplicati prima di aggiungerli
+            const currentPostIds = new Set(this.posts.map(p => `${p.author}_${p.permlink}`));
+            const uniqueNewPosts = newPosts.filter(post => {
+              const postId = `${post.author}_${post.permlink}`;
+              return !currentPostIds.has(postId);
             });
             
-            // Update state
-            this.posts = [...this.posts, ...newPosts];
-            this.hasMorePosts = newPosts.length === 10;
-            console.log(`After loading more: hasMorePosts = ${this.hasMorePosts}`);
-            return this.hasMorePosts;
+            console.log(`After filtering: ${uniqueNewPosts.length} unique new posts`);
+            
+            // Aggiungi i post unici alla vista
+            if (uniqueNewPosts.length > 0) {
+              uniqueNewPosts.forEach(post => {
+                const postItem = this.createPostItem(post);
+                postsContainer.appendChild(postItem);
+              });
+              
+              // Aggiorna la collezione completa
+              this.posts = [...this.posts, ...uniqueNewPosts];
+              
+              // Aggiorna il contatore di post
+              const postCounter = postsContainer.querySelector('.post-counter');
+              if (postCounter) {
+                postCounter.innerHTML = `<span>Caricati <strong>${this.posts.length}</strong> post di ${this.username}</span>`;
+              }
+              
+              // Determina se ci sono altri post da caricare
+              this.hasMorePosts = newPosts.length >= postsPerPage;
+              return this.hasMorePosts;
+            } else {
+              console.log('No unique posts found, stopping infinite scroll');
+              this.hasMorePosts = false;
+              
+              // Aggiungi messaggio di fine
+              const noMoreMsg = document.createElement('div');
+              noMoreMsg.className = 'no-more-posts';
+              noMoreMsg.textContent = `Caricati tutti i ${this.posts.length} post disponibili`;
+              noMoreMsg.style.textAlign = 'center';
+              noMoreMsg.style.margin = '20px 0';
+              noMoreMsg.style.color = '#666';
+              postsContainer.appendChild(noMoreMsg);
+              
+              return false;
+            }
+          } else {
+            console.log('No posts returned for page ' + page);
+            this.hasMorePosts = false;
+            
+            // Aggiungi messaggio di fine
+            const noMoreMsg = document.createElement('div');
+            noMoreMsg.className = 'no-more-posts';
+            noMoreMsg.textContent = `Caricati tutti i ${this.posts.length} post disponibili`;
+            noMoreMsg.style.textAlign = 'center';
+            noMoreMsg.style.margin = '20px 0';
+            noMoreMsg.style.color = '#666';
+            postsContainer.appendChild(noMoreMsg);
+            
+            return false;
           }
-          
-          this.hasMorePosts = false;
-          return false;
         } catch (error) {
-          console.error('Error loading more posts:', error);
+          console.error(`Error loading page ${page}:`, error);
+          
+          // Aggiungi opzione per riprovare
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error-message';
+          errorDiv.innerHTML = `
+              <p>Si è verificato un errore durante il caricamento della pagina ${page}.</p>
+              <button class="retry-btn">Riprova</button>
+          `;
+          postsContainer.appendChild(errorDiv);
+          
+          // Aggiungi handler per il pulsante di riprovare
+          errorDiv.querySelector('.retry-btn').addEventListener('click', () => {
+              errorDiv.remove();
+              this.loadMorePosts(page);
+          });
+          
           return false;
         } finally {
           this.postsLoading = false;
         }
       },
-      threshold: '200px',
+      threshold: '300px', // Aumenta il threshold per iniziare a caricare prima
       initialPage: this.page
     });
     
     console.log('Posts infinite scroll setup complete');
-  }
+}
+
+// Metodo helper per caricare più post manualmente
+loadMorePosts(page) {
+    if (this.infiniteScroll) {
+        this.infiniteScroll.loadMore(page);
+    }
+}
 
   async loadComments() {
     if (this.commentsLoading) return;
@@ -304,307 +377,135 @@ class ProfileView extends View {
     const commentsContainer = this.container.querySelector('.profile-posts'); 
     if (!commentsContainer) return;
     
+    // Set flag to indicate we're loading comments
     this.commentsLoading = true;
     
-    // Debug log to track comment loading
-    console.log(`Loading comments for ${this.username}, page ${this.page}`);
+    // Clear the container and show loading indicator
+    commentsContainer.innerHTML = `
+      <div class="comments-loading">
+        <div class="loading-indicator"></div>
+        <h3>Loading comments...</h3>
+      </div>
+    `;
     
-    // Only show loading indicator on first load
-    if (this.page === 1) {
-      // Create enhanced loading indicator
-      commentsContainer.innerHTML = `
-        <div class="comments-loading">
-          <div class="loading-indicator"></div>
-          <div class="loading-status">
-            <h3>Searching for all comments...</h3>
-            <p>This may take a minute as we scan through the blockchain history to find all your comments.</p>
-            <div id="comments-loading-progress">Initializing...</div>
+    try {
+      // Fetch comments using the optimized method
+      console.log(`Fetching comments for ${this.username}`);
+      
+      // Use cache if available, otherwise fetch
+      const cacheKey = `${this.username}_comments`;
+      let comments = sessionStorage.getItem(cacheKey);
+      
+      if (comments) {
+        console.log('Using cached comments');
+        comments = JSON.parse(comments);
+      } else {
+        // Fetch with a reasonable limit - most users don't have thousands of comments
+        comments = await profileService.getUserComments(this.username, 100, 1, true);
+        
+        // Cache for the session to make tab switching instant
+        if (comments && comments.length > 0) {
+          sessionStorage.setItem(cacheKey, JSON.stringify(comments));
+        }
+      }
+      
+      // Clear the container after loading
+      commentsContainer.innerHTML = '';
+      
+      // Handle the case where no comments were found
+      if (!comments || comments.length === 0) {
+        commentsContainer.innerHTML = `
+          <div class="empty-comments-message">
+            @${this.username} hasn't made any comments yet.
           </div>
+        `;
+        this.commentsLoading = false;
+        return;
+      }
+      
+      // Store all comments and render the first batch
+      this.allComments = comments;
+      console.log(`Retrieved ${comments.length} total comments for ${this.username}`);
+      
+      // Process first batch (up to 20 comments)
+      const firstBatch = comments.slice(0, 20);
+      this.comments = firstBatch;
+      
+      // Render the first batch
+      firstBatch.forEach(comment => {
+        const commentItem = this.createCommentItem(comment);
+        commentsContainer.appendChild(commentItem);
+      });
+      
+      // Setup infinite scroll for remaining comments
+      this.hasMoreComments = comments.length > 20;
+      this.page = 2; // Start from page 2 next time
+      this.setupSimpleCommentsInfiniteScroll();
+      
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      commentsContainer.innerHTML = `
+        <div class="error-message">
+          <h3>Failed to load comments</h3>
+          <p>There was an error loading comments for @${this.username}</p>
+          <p class="error-details">${error.message || 'Unknown error'}</p>
+          <button class="retry-btn">Retry</button>
         </div>
       `;
       
-      // Set up a progress updater
-      this.progressInterval = setInterval(() => {
-        const progressElement = document.getElementById('comments-loading-progress');
-        if (progressElement) {
-          const messages = [
-            "Scanning account history...",
-            "Retrieving comment operations...",
-            "Fetching comments via alternative methods...",
-            "Processing comment data...",
-            "Still working on it, blockchain history can be large...",
-            "Retrieving additional comments...",
-            "Almost there...",
-            "Finalizing comments collection..."
-          ];
-          const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-          progressElement.textContent = randomMessage;
-        }
-      }, 3000);
-    } else {
-      // For subsequent pages, just add a loader at the bottom
-      const loader = document.createElement('div');
-      loader.className = 'comment-page-loader';
-      loader.innerHTML = '<div class="loading-indicator">Loading more comments...</div>';
-      commentsContainer.appendChild(loader);
-    }
-  
-    try {
-      // Fetch comments with forced refresh on first page to ensure we get all of them
-      let allComments = [];
-      if (this.page === 1 || !this.allComments) {
-        console.log(`Initial fetch of comments for ${this.username}`);
-        
-        // Force refresh on first load to ensure we get all comments
-        allComments = await profileService.getUserComments(this.username, 1000, 1, true);
-        
-        // Clear the progress interval
-        if (this.progressInterval) {
-          clearInterval(this.progressInterval);
-          this.progressInterval = null;
-        }
-        
-        if (allComments.length === 0) {
-          console.log(`No comments found for ${this.username}`);
-          commentsContainer.innerHTML = `
-            <div class="empty-comments-message">
-              @${this.username} hasn't made any comments yet.
-            </div>
-          `;
-          this.commentsLoading = false;
-          return;
-        }
-        
-        // Store all comments for client-side pagination
-        this.allComments = allComments;
-        console.log(`Retrieved ${allComments.length} total comments for ${this.username}`);
-        
-        // Clear the container after loading
-        commentsContainer.innerHTML = '';
-      } else if (this.allComments) {
-        // Use the existing comments for pagination
-        allComments = this.allComments;
-        console.log(`Using ${allComments.length} cached comments for pagination`);
-      } else {
-        // This shouldn't happen normally, but if it does, we need to fetch from scratch
-        console.warn("Pagination requested but no comments cached, fetching from scratch");
-        allComments = await profileService.getUserComments(this.username, 1000, 1, true);
-        this.allComments = allComments;
-      }
-      
-      // Client-side pagination with a reasonable per-page limit
-      const limit = 15; // Show a smaller batch each time to ensure smoother loading
-      const startIndex = (this.page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const newComments = allComments.slice(startIndex, endIndex);
-      
-      console.log(`Displaying comments ${startIndex} to ${endIndex} (${newComments.length} comments)`);
-      
-      // If this is the first page, set up the container
-      if (this.page === 1) {
-        this.comments = [];
-       
-      } else {
-        // Remove any loader that might be present
-        const loader = commentsContainer.querySelector('.comment-page-loader');
-        if (loader) loader.remove();
-        
-        
-      }
-      
-      // Check if we have more comments to load
-      this.hasMoreComments = endIndex < allComments.length;
-      console.log(`Has more comments: ${this.hasMoreComments} (${endIndex} of ${allComments.length})`);
-      
-      if (newComments && newComments.length > 0) {
-        // Append new comments to our existing array
-        this.comments = [...this.comments, ...newComments];
-        
-        // Render the new comments
-        newComments.forEach(comment => {
-          const commentItem = this.createCommentItem(comment);
-          commentsContainer.appendChild(commentItem);
-        });
-        
-        // Initialize infinite scroll on first load
-        if (this.page === 1) {
-          this.setupCommentsInfiniteScroll();
-        }
-        
-        this.page++;
-      } else if (allComments.length > 0 && newComments.length === 0) {
-        // This situation shouldn't normally happen unless there's a pagination error
-        console.error("No comments returned for this page despite having comments available");
-        
-        // Show a message indicating all comments have been loaded
-        const noMoreCommentsMsg = document.createElement('div');
-        noMoreCommentsMsg.className = 'no-more-comments';
-        noMoreCommentsMsg.textContent = `All ${allComments.length} comments loaded`;
-        noMoreCommentsMsg.style.textAlign = 'center';
-        noMoreCommentsMsg.style.margin = '20px 0';
-        noMoreCommentsMsg.style.color = '#666';
-        commentsContainer.appendChild(noMoreCommentsMsg);
-      }
-    } catch (error) {
-      // Clear the progress interval if there was an error
-      if (this.progressInterval) {
-        clearInterval(this.progressInterval);
-        this.progressInterval = null;
-      }
-      
-      console.error('Error loading comments:', error);
-      if (this.page === 1) {
-        commentsContainer.innerHTML = `
-          <div class="error-message">
-            <h3>Failed to load comments</h3>
-            <p>There was an error loading comments for @${this.username}</p>
-            <p class="error-details">${error.message || 'Unknown error'}</p>
-            <button class="retry-btn">Retry</button>
-          </div>
-        `;
-        
-        // Add retry handler
-        commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
-          this.page = 1;
-          this.allComments = null; // Important: clear cached comments on retry
-          this.loadComments();
-        });
-      } else {
-        // Add an error message at the bottom
-        const errorMsg = document.createElement('div');
-        errorMsg.className = 'error-message';
-        errorMsg.innerHTML = `
-          <p>Error loading more comments</p>
-          <button class="retry-btn">Retry</button>
-        `;
-        commentsContainer.appendChild(errorMsg);
-        
-        // Add retry handler
-        errorMsg.querySelector('.retry-btn')?.addEventListener('click', () => {
-          // Remove the error message
-          errorMsg.remove();
-          // Try loading again
-          this.loadComments();
-        });
-      }
+      // Add retry handler
+      commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
+        // Clear cache on retry
+        sessionStorage.removeItem(`${this.username}_comments`);
+        this.loadComments();
+      });
     } finally {
       this.commentsLoading = false;
     }
   }
-
+  
   /**
-   * Set up infinite scroll for loading more comments
+   * Set up a simpler infinite scroll for comments that doesn't require additional network requests
    */
-  setupCommentsInfiniteScroll() {
+  setupSimpleCommentsInfiniteScroll() {
     // Cleanup any existing infinite scroll
     if (this.infiniteScroll) {
-      console.log('Destroying existing infinite scroll');
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
     
     const commentsContainer = this.container.querySelector('.profile-posts');
-    if (!commentsContainer) {
-      console.error('Cannot find comments container for infinite scroll');
-      return;
-    }
+    if (!commentsContainer || !this.allComments) return;
     
-    console.log('Setting up infinite scroll for comments');
+    console.log('Setting up simple infinite scroll for comments');
     
-    // Initialize new infinite scroll for comments
     this.infiniteScroll = new InfiniteScroll({
       container: commentsContainer,
-      loadMore: async (page) => {
-        console.log(`InfiniteScroll triggered for comments page ${page}`);
+      loadMore: (page) => {
+        if (!this.hasMoreComments || !this.allComments) return false;
         
-        if (!this.hasMoreComments) {
-          console.log('No more comments to load');
+        console.log(`Loading more comments from cache, page ${page}`);
+        
+        const BATCH_SIZE = 20;
+        const startIndex = (page - 1) * BATCH_SIZE;
+        const endIndex = Math.min(startIndex + BATCH_SIZE, this.allComments.length);
+        
+        if (startIndex >= this.allComments.length) {
           return false;
         }
         
-        if (this.commentsLoading) {
-          console.log('Already loading comments, skipping this request');
-          return false;
-        }
+        const batch = this.allComments.slice(startIndex, endIndex);
+        batch.forEach(comment => {
+          const commentItem = this.createCommentItem(comment);
+          commentsContainer.appendChild(commentItem);
+        });
         
-        this.commentsLoading = true;
-        try {
-          console.log(`Loading comments page ${page}`);
-          
-          // Use client-side pagination since we already have all comments loaded
-          const limit = 15; // Show fewer comments at a time for smoother loading
-          const startIndex = (page - 1) * limit;
-          const endIndex = startIndex + limit;
-          const allComments = this.allComments || [];
-          
-          if (startIndex >= allComments.length) {
-            console.log('No more comments to load (index out of bounds)');
-            this.hasMoreComments = false;
-            return false;
-          }
-          
-          const newComments = allComments.slice(startIndex, endIndex);
-          console.log(`Paginating comments: ${startIndex}-${endIndex} of ${allComments.length}`);
-          
-          if (newComments && newComments.length > 0) {
-            // Remove any existing loader first
-            const loader = commentsContainer.querySelector('.comment-page-loader');
-            if (loader) loader.remove();
-            
-            // Add a temporary loader
-            const tempLoader = document.createElement('div');
-            tempLoader.className = 'comment-page-loader';
-            tempLoader.innerHTML = '<div class="loading-indicator">Loading more comments...</div>';
-            commentsContainer.appendChild(tempLoader);
-            
-            // Short delay to show the loader (makes loading feel more responsive)
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Remove the temporary loader
-            tempLoader.remove();
-            
-            // Append new comments to our existing array and container
-            this.comments = [...this.comments, ...newComments];
-            
-            newComments.forEach(comment => {
-              const commentItem = this.createCommentItem(comment);
-              commentsContainer.appendChild(commentItem);
-            });
-            
-            // Check if we have more to load
-            this.hasMoreComments = endIndex < allComments.length;
-            
-            console.log(`After loading more: hasMoreComments = ${this.hasMoreComments}`);
-            
-            if (!this.hasMoreComments) {
-              // Add "All comments loaded" message at the bottom
-              const noMoreCommentsMsg = document.createElement('div');
-              noMoreCommentsMsg.className = 'no-more-comments';
-              noMoreCommentsMsg.textContent = `All ${allComments.length} comments loaded`;
-              noMoreCommentsMsg.style.textAlign = 'center';
-              noMoreCommentsMsg.style.margin = '20px 0';
-              noMoreCommentsMsg.style.color = '#666';
-              commentsContainer.appendChild(noMoreCommentsMsg);
-            }
-            
-            return this.hasMoreComments;
-          }
-          
-          // If we get here, we have no more comments to load
-          this.hasMoreComments = false;
-          return false;
-        } catch (error) {
-          console.error('Error in infinite scroll loading more comments:', error);
-          return false;
-        } finally {
-          this.commentsLoading = false;
-        }
+        this.hasMoreComments = endIndex < this.allComments.length;
+        return this.hasMoreComments;
       },
-      threshold: '300px', // Start loading when user is 300px from bottom
+      threshold: '200px',
       initialPage: this.page
     });
-    
-    console.log('Infinite scroll for comments setup complete');
   }
 
   async checkFollowStatus() {
@@ -901,37 +802,11 @@ class ProfileView extends View {
     if (this.currentTab === tabName) return;
     
     console.log(`Switching tab from ${this.currentTab} to ${tabName}`);
-    this.currentTab = tabName;
     
-    // Reset pagination and cleanup infinite scroll for both tabs
-    this.page = 1;
-    if (this.infiniteScroll) {
-      console.log('Destroying existing infinite scroll');
-      this.infiniteScroll.destroy();
-      this.infiniteScroll = null;
-    }
+    // Cancel any in-progress loading
+    this.cancelCurrentLoading();
     
-    // Reset data for the tab we're switching to
-    if (tabName === 'posts') {
-      this.posts = [];
-      this.hasMorePosts = true;
-    } else if (tabName === 'comments') {
-      this.comments = [];
-      this.allComments = null; // Important: reset the cached comments
-      this.hasMoreComments = true;
-    }
-    
-    // Reset grid controller for the new tab content
-    if (this.gridController) {
-      const postsContainer = this.container.querySelector('.profile-posts');
-      if (postsContainer) {
-        const layout = localStorage.getItem('grid-layout') || 'grid';
-        postsContainer.className = 'profile-posts posts-container'; // Reset classes
-        postsContainer.classList.add(`grid-layout-${layout}`); // Apply saved layout
-      }
-    }
-    
-    // Update tab styling
+    // Update tab styling first
     const tabs = this.container.querySelectorAll('.tab-btn');
     tabs.forEach(tab => {
       tab.classList.remove('active');
@@ -940,12 +815,51 @@ class ProfileView extends View {
       }
     });
     
-    // Load content based on tab
+    // Get the content container and clear it
+    const contentContainer = this.container.querySelector('.profile-posts');
+    if (contentContainer) {
+      contentContainer.innerHTML = '';
+    }
+    
+    // Reset pagination and state for the new tab
+    this.page = 1;
+    this.currentTab = tabName;
+    
+    // Cleanup any existing infinite scroll
+    if (this.infiniteScroll) {
+      console.log('Destroying existing infinite scroll');
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Load the appropriate content
     if (tabName === 'posts') {
+      // Reset posts data
+      this.posts = [];
+      this.hasMorePosts = true;
       this.loadPosts();
     } else if (tabName === 'comments') {
+      // Reset comments data
+      this.comments = [];
+      this.allComments = null;
+      this.hasMoreComments = true;
       this.loadComments();
     }
+  }
+  
+  /**
+   * Cancel any in-progress loading operations
+   */
+  cancelCurrentLoading() {
+    // Clear any loading intervals
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    
+    // Set loading flags to false to prevent continuations
+    this.postsLoading = false;
+    this.commentsLoading = false;
   }
 
   renderPosts(container) {
@@ -1323,6 +1237,9 @@ class ProfileView extends View {
   }
 
   unmount() {
+    // Cancel any in-progress loading
+    this.cancelCurrentLoading();
+    
     // Clean up infinite scroll
     if (this.infiniteScroll) {
       this.infiniteScroll.destroy();
