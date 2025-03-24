@@ -4,23 +4,17 @@ export const mainNavItems = [
     label: 'Home',
     icon: 'home',
     path: '/',
-    showInBottom: true
+    showInBottom: true,
+    showInSide: true
   },
-  // {
-  //   id: 'trending',
-  //   label: 'Trending',
-  //   icon: 'trending_up',
-  //   path: '/trending',
-  //   showInBottom: true
-  // },
-  // {
-  //   id: 'hot',
-  //   label: 'Hot',
-  //   icon: 'whatshot',
-  //   path: '/hot',
-  //   showInSide: true,
-  //   showInBottom: false
-  // },
+  {
+    id: 'search',
+    label: 'Search',
+    icon: 'search',
+    path: '/search',
+    showInBottom: true,
+    showInSide: true
+  },
   {
     id: 'new',
     label: 'New',
@@ -29,14 +23,6 @@ export const mainNavItems = [
     showInSide: true,
     showInBottom: false
   },
-  // {
-  //   id: 'promoted',
-  //   label: 'Promoted',
-  //   icon: 'rocket_launch',
-  //   path: '/promoted',
-  //   showInSide: true,
-  //   showInBottom: false
-  // },
   {
     id: 'wallet',
     label: 'Wallet',
@@ -44,15 +30,15 @@ export const mainNavItems = [
     path: '/wallet',
     showInBottom: true,
     showInSide: true
+  },
+  {
+    id: 'menu',
+    label: 'Menu',
+    icon: 'menu',
+    path: '/menu',
+    showInBottom: true,
+    mobileOnly: true
   }
-  // {
-  //   id: 'menu',
-  //   label: 'Menu',
-  //   icon: 'menu',
-  //   path: '/menu',
-  //   showInBottom: true,
-  //   mobileOnly: true
-  // }
 ];
 
 export const specialItems = [
