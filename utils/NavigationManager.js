@@ -215,12 +215,18 @@ class NavigationManager {
     const sideMenuItems = document.querySelectorAll('.side-nav .menu-item');
     sideMenuItems.forEach(item => {
       const href = item.getAttribute('href');
+      let compareHref = href;
+      
+      // If href starts with a hash, extract the path part for comparison
+      if (compareHref && compareHref.startsWith('#')) {
+        compareHref = compareHref.substring(1);
+      }
       
       // Make all menu items non-active first
       item.classList.remove('active');
       
       // Special case for home button (href="/")
-      if (href === '/') {
+      if (compareHref === '/') {
         // Home button should only be active when path is exactly "/" or empty
         const isActive = currentPath === '/' || currentPath === '';
         if (isActive) {
@@ -228,18 +234,25 @@ class NavigationManager {
         }
       } else {
         // For other items, check if the current path matches or starts with href
-        const isActive = currentPath === href || 
-                        (href !== '/' && currentPath.startsWith(href));
+        const isActive = currentPath === compareHref || 
+                        (compareHref !== '/' && currentPath.startsWith(compareHref));
         if (isActive) {
           item.classList.add('active');
         }
       }
     });
     
-    // Update bottom nav active state
+    // Update bottom nav active state - similar logic as above
     const bottomMenuItems = document.querySelectorAll('.bottom-nav-item');
     bottomMenuItems.forEach(item => {
       const href = item.getAttribute('href');
+      let compareHref = href;
+      
+      // If compareHref starts with a hash, extract the path part for comparison
+      if (compareHref && compareHref.startsWith('#')) {
+        compareHref = compareHref.substring(1);
+      }
+      
       const isAction = item.classList.contains('center-button') || item.dataset.id === 'menu'; // Don't highlight create button or menu
       
       // Make all items non-active first
@@ -247,7 +260,7 @@ class NavigationManager {
       
       if (!isAction) {
         // Special case for home button
-        if (href === '/') {
+        if (compareHref === '/') {
           // Home button should only be active when path is exactly "/" or empty
           const isActive = currentPath === '/' || currentPath === '';
           if (isActive) {
@@ -255,8 +268,8 @@ class NavigationManager {
           }
         } else {
           // For other items
-          const isActive = currentPath === href || 
-                          (href !== '/' && currentPath.startsWith(href));
+          const isActive = currentPath === compareHref || 
+                          (compareHref !== '/' && currentPath.startsWith(compareHref));
           if (isActive) {
             item.classList.add('active');
           }

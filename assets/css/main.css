@@ -29,6 +29,7 @@
 @import 'pages/home.css';
 @import 'pages/community.css';
 @import 'components/post-excerpt.css';
+@import 'comments.css';
 
 /* Fallback styles in case any imports fail */
 :root {
