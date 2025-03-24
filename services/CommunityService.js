@@ -454,7 +454,7 @@ class CommunityService {
   }
 
   /**
-   * Get subscribed communities for a user using Steemit API
+   * Get subscribed communities for a user using direct JSON-RPC call
    * @param {string} username - Username dell'account
    * @param {boolean} useCache - Se utilizzare la cache
    * @returns {Promise<Array>} Array di community sottoscritte
@@ -474,25 +474,74 @@ class CommunityService {
     }
     
     try {
-      console.log(`Fetching subscriptions for ${username} from Steemit API`);
+      console.log(`Fetching subscriptions for ${username} using JSON-RPC`);
       
-      // Utilizza l'API Steemit invece di imridd
-      const steemitApi = 'https://api.steemit.com';
+      // Prepara la richiesta JSON-RPC
+      const requestBody = {
+        jsonrpc: "2.0", 
+        method: "bridge.list_all_subscriptions", 
+        params: { account: username }, 
+        id: 1
+      };
       
-      const params = new URLSearchParams({
-        account: username
+      // Esegui chiamata diretta all'API di Steemit
+      const response = await fetch('https://api.steemit.com', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
-      const response = await fetch(`${steemitApi}/bridge.list_all_subscriptions?${params.toString()}`);
-      
       if (!response.ok) {
-        throw new Error(`Failed to fetch subscribed communities: ${response.statusText}`);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      const communities = data.result || [];
       
-      // Cache the results per user
+      // Verifica se la risposta contiene errori
+      if (data.error) {
+        throw new Error(`API error: ${data.error.message || JSON.stringify(data.error)}`);
+      }
+      
+      // Estrai le community sottoscritte dalla risposta
+      const rawCommunities = data.result || [];
+      console.log(`Retrieved ${rawCommunities.length} subscribed communities for ${username}`);
+      
+      // Trasforma gli array in oggetti con proprietà significative
+      const communities = rawCommunities.map(communityData => {
+        // Ogni community è un array in questo formato:
+        // [id, title, role, description]
+        if (Array.isArray(communityData) && communityData.length >= 3) {
+          const [id, title, role, description = ''] = communityData;
+          const communityId = id.replace(/^hive-/, '');
+          
+          return {
+            id: id,                         // ID completo (hive-XXXXX)
+            name: communityId,              // ID senza prefisso
+            title: title || this.formatCommunityTitle(communityId),
+            role: role,                     // Ruolo dell'utente
+            about: description || '',       // Descrizione (se presente)
+            subscribers: 0                  // Default
+          };
+        }
+        
+        // Fallback per formati non previsti
+        if (typeof communityData === 'string') {
+          const cleanName = communityData.replace(/^hive-/, '');
+          return {
+            id: communityData,
+            name: cleanName,
+            title: this.formatCommunityTitle(cleanName),
+            role: 'guest',
+            about: ''
+          };
+        }
+        
+        return communityData; // Caso in cui sia già un oggetto
+      });
+      
+      // Cache the results
       this.cachedUserSubscriptions.set(username, {
         timestamp: Date.now(),
         subscriptions: communities
@@ -502,9 +551,74 @@ class CommunityService {
     } catch (error) {
       console.error(`Error fetching subscribed communities for ${username}:`, error);
       
-      // In caso di errore, restituisci un array vuoto
+      // Fallback in caso di errore
       return [];
     }
+  }
+
+  /**
+   * Formatta il titolo di una community
+   * @param {string} communityId - ID numerico della community
+   * @returns {string} Titolo formattato
+   */
+  formatCommunityTitle(communityId) {
+    if (!communityId) return 'Unknown Community';
+    
+    return communityId
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  /**
+   * Metodo alternativo per ottenere le community sottoscritte
+   * @param {string} username - Username dell'utente
+   * @returns {Promise<Array>} - Array di community sottoscritte
+   */
+  async fetchSubscribedCommunitiesAlternative(username) {
+    try {
+      // Assicuriamoci che la libreria steem.js sia caricata
+      await steemService.ensureLibraryLoaded();
+      
+      // Utilizza l'API follow per vedere tutte le "comunità" (in realtà account) che l'utente segue
+      // e filtra quelli che sono effettivamente community
+      const following = await new Promise((resolve, reject) => {
+        steemService.steem.api.getFollowing(username, '', 'blog', 1000, (err, result) => {
+          if (err) reject(err);
+          else resolve(result || []);
+        });
+      });
+      
+      // Filtra i risultati per trovare community (iniziano con 'hive-')
+      const communitiesFromFollowing = following
+        .filter(follow => follow.following.startsWith('hive-'))
+        .map(follow => {
+          // Estrai l'ID numerico dalla community
+          const communityId = follow.following.replace('hive-', '');
+          return {
+            name: communityId,
+            title: this.formatCommunityTitle(communityId)
+          };
+        });
+      
+      console.log(`Found ${communitiesFromFollowing.length} communities from following data`);
+      return communitiesFromFollowing;
+    } catch (error) {
+      console.error('Error in alternative subscription method:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Formatta il titolo di una community a partire dall'ID
+   * @param {string} communityId - ID della community
+   * @returns {string} - Titolo formattato
+   */
+  formatCommunityTitle(communityId) {
+    return communityId
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   /**
@@ -643,6 +757,64 @@ class CommunityService {
       is_nsfw: false,
       isBasic: true  // Flag per indicare che sono dati di base
     };
+  }
+
+  /**
+   * Arricchisce i dati base delle community con dettagli aggiuntivi
+   * @param {Array} communities - Array di community base
+   * @returns {Promise<Array>} Community arricchite
+   */
+  async enrichCommunityData(communities) {
+    if (!communities || communities.length === 0) return [];
+    
+    try {
+      // Se abbiamo la cache di tutte le community, usala per arricchire i dati
+      if (this.cachedCommunities) {
+        return communities.map(community => {
+          // Verifica se la community è già un oggetto completo
+          if (community.title && community.about) {
+            return community;
+          }
+          
+          // Estrai il nome pulito (senza prefisso hive-)
+          const cleanName = (community.name || '').replace(/^hive-/, '');
+          
+          // Cerca corrispondenza nella cache
+          const cachedData = this.cachedCommunities.find(
+            c => c.name === cleanName || c.name === `hive-${cleanName}`
+          );
+          
+          if (cachedData) {
+            // Merge dei dati mantenendo eventuali proprietà esistenti
+            return {
+              ...community,
+              title: cachedData.title || this.formatCommunityTitle(cleanName),
+              about: cachedData.about || '',
+              subscribers: cachedData.subscribers || 0,
+              is_nsfw: cachedData.is_nsfw || false
+            };
+          }
+          
+          // Se non trovata in cache, formatta almeno il titolo
+          return {
+            ...community,
+            title: community.title || this.formatCommunityTitle(cleanName)
+          };
+        });
+      }
+      
+      // Se non abbiamo la cache, formatta almeno i titoli
+      return communities.map(community => {
+        if (!community.title) {
+          const cleanName = (community.name || '').replace(/^hive-/, '');
+          community.title = this.formatCommunityTitle(cleanName);
+        }
+        return community;
+      });
+    } catch (error) {
+      console.error('Error enriching community data:', error);
+      return communities; // Restituisci i dati originali in caso di errore
+    }
   }
 }
 

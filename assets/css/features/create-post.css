@@ -735,3 +735,87 @@
 @keyframes spinner-border {
   to { transform: rotate(360deg); }
 }
+
+/* Stile semplificato per le community */
+.community-item.simple-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--border-light);
+  display: block;
+}
+
+.community-title-underlined {
+  color: var(--primary-color);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--text-secondary);
+  padding-bottom: 2px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-block;
+  position: relative;
+}
+
+.community-title-underlined:hover {
+  border-bottom-color: var(--primary-color);
+  color: var(--primary-dark);
+}
+
+.community-name-small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  font-weight: normal;
+  opacity: 0.8;
+}
+
+/* Modifica anche la visualizzazione della community selezionata */
+.selected-community {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--background-lighter);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.selected-community-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.selected-community-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.selected-community-title {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+/* Stili per i tag di ruolo */
+.role-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.role-admin {
+  background-color: #ff7e00;
+  color: white;
+}
+
+.role-mod {
+  background-color: #00a4bd;
+  color: white;
+}
+
+.role-member {
+  background-color: #6bc251;
+  color: white;
+}

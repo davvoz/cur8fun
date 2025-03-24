@@ -220,6 +220,48 @@ class CreatePostView extends View {
       
       // Visualizza le community sottoscritte
       this.renderCommunityOptions(subscriptions, 'Your Communities');
+      
+      // STAMPA IN CONSOLE PER VALUTAZIONE DEL DESIGN
+      console.group('🎨 Elenco Community per Valutazione Design');
+      console.log(`Trovate ${subscriptions.length} community sottoscritte per ${this.user.username}`);
+      
+      // Tabella con le informazioni principali
+      console.table(subscriptions.map(community => ({
+        name: community.name,
+        title: community.title || '[Senza Titolo]',
+        subscribers: community.subscribers || 'N/A',
+        hasAvatar: !!community.avatar_url,
+        isNSFW: community.is_nsfw ? '⚠️ Sì' : 'No',
+        initialLetter: (community.title || community.name || '?').charAt(0).toUpperCase(),
+        colorHue: this.getConsistentHue((community.title || community.name || ''))
+      })));
+      
+      // Anteprima del design per le prime 5 community
+      console.log('Anteprima Design (prime 5 community):');
+      subscriptions.slice(0, 5).forEach((community, index) => {
+        const title = community.title || community.name || 'Senza Nome';
+        const letter = title.charAt(0).toUpperCase();
+        const hue = this.getConsistentHue(title);
+        const colorCode = `hsl(${hue}, 70%, 50%)`;
+        
+        console.log(
+          `%c ${letter} %c ${title} %c ${community.subscribers || 0} iscritti`,
+          `background-color: ${colorCode}; color: white; border-radius: 50%; padding: 3px 8px; font-weight: bold;`,
+          'font-weight: bold; font-size: 14px;',
+          'color: gray; font-size: 12px;'
+        );
+      });
+      
+      // Esempi di formattazione del container
+      console.log('\nEsempi di Container:');
+      console.log('%cGrid Layout%c (3 colonne, spazio tra le community: 10px)', 
+        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
+      console.log('%cLista Scorrimento Orizzontale%c (larghezza fissa: 120px per item)', 
+        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
+      console.log('%cLista Verticale%c (altezza: 50px per item, bordo sottile separatore)', 
+        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
+      
+      console.groupEnd();
     } catch (error) {
       console.error('Failed to load subscribed communities:', error);
     }
@@ -278,43 +320,33 @@ class CreatePostView extends View {
     
     communities.forEach(community => {
       const item = document.createElement('li');
-      item.className = 'community-item';
+      item.className = 'community-item simple-item';
       
-      // Community avatar
-      const avatar = document.createElement('div');
-      avatar.className = 'community-avatar';
+      // Usa un formato semplice con testo sottolineato
+      const title = document.createElement('div');
+      title.className = 'community-title-underlined';
       
-      // Se c'è un avatar, usalo, altrimenti usa un placeholder
-      if (community.avatar_url) {
-        const img = document.createElement('img');
-        img.src = community.avatar_url;
-        img.alt = community.title || community.name;
-        img.onerror = () => {
-          img.style.display = 'none';
-          this.createTextAvatar(avatar, community.name);
-        };
-        avatar.appendChild(img);
-      } else {
-        this.createTextAvatar(avatar, community.name);
+      // Usa il titolo dalla community
+      const displayTitle = community.title || (community.name ? community.name : 'Unnamed Community');
+      title.textContent = displayTitle;
+      
+      // Aggiungi il ruolo della community se disponibile
+      if (community.role && community.role !== 'guest') {
+        const roleTag = document.createElement('span');
+        roleTag.className = `role-tag role-${community.role}`;
+        roleTag.textContent = community.role;
+        title.appendChild(roleTag);
       }
       
-      item.appendChild(avatar);
+      // Aggiungi il nome come tag secondario
+      if (community.name) {
+        const nameTag = document.createElement('small');
+        nameTag.className = 'community-name-small';
+        nameTag.textContent = `@${community.id || ('hive-' + community.name)}`;
+        title.appendChild(nameTag);
+      }
       
-      // Info community
-      const info = document.createElement('div');
-      info.className = 'community-info';
-      
-      const title = document.createElement('div');
-      title.className = 'community-title';
-      title.textContent = community.title || community.name;
-      info.appendChild(title);
-      
-      const name = document.createElement('div');
-      name.className = 'community-name';
-      name.textContent = `@${community.name}`;
-      info.appendChild(name);
-      
-      item.appendChild(info);
+      item.appendChild(title);
       
       // Click handler
       item.addEventListener('click', () => {
@@ -328,20 +360,86 @@ class CreatePostView extends View {
   }
   
   /**
+   * Crea un avatar testuale per una community che non ha avatar
+   * @param {Object} community - Oggetto community
+   * @returns {string} - HTML per l'avatar testuale
+   */
+  createTextAvatar(community) {
+    // Verifica se community è definito
+    if (!community) {
+      return '<div class="text-avatar">?</div>';
+    }
+    
+    // Estrai il nome o il titolo dalla community con gestione dei valori undefined
+    const title = community.title || '';
+    const name = community.name || '';
+    
+    // Usa il titolo se disponibile, altrimenti usa il nome
+    const displayText = title || name;
+    
+    // Gestisci il caso in cui entrambi siano undefined o stringhe vuote
+    if (!displayText) {
+      return '<div class="text-avatar">?</div>';
+    }
+    
+    // Ottieni la prima lettera (gestendo correttamente stringhe vuote)
+    const firstLetter = displayText.charAt(0).toUpperCase();
+    
+    // Genera un colore consistente basato sul nome della community
+    const hue = this.getConsistentHue(displayText);
+    
+    return `<div class="text-avatar" style="background-color: hsl(${hue}, 70%, 50%)">${firstLetter}</div>`;
+  }
+  
+  /**
+   * Genera un valore hue consistente per una stringa
+   * @param {string} str - Stringa da utilizzare per generare il colore
+   * @returns {number} - Valore hue (0-360)
+   */
+  getConsistentHue(str) {
+    if (!str) return 0;
+    
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return hash % 360;
+  }
+  
+  /**
    * Crea un avatar testuale quando l'immagine non è disponibile
    * @param {HTMLElement} container - Container dell'avatar
    * @param {string} name - Nome della community
    */
   createTextAvatar(container, name) {
+    if (!container || !name) {
+      console.warn('Invalid parameters for createTextAvatar', { container, name });
+      
+      // Crea comunque un avatar di fallback se container è valido
+      if (container) {
+        const fallbackAvatar = document.createElement('div');
+        fallbackAvatar.className = 'text-avatar';
+        fallbackAvatar.textContent = '?';
+        fallbackAvatar.style.backgroundColor = 'hsl(0, 0%, 50%)';
+        container.appendChild(fallbackAvatar);
+      }
+      return;
+    }
+    
     const textAvatar = document.createElement('div');
     textAvatar.className = 'text-avatar';
     
-    // Usa la prima lettera del nome community
-    const initial = name.charAt(0).toUpperCase();
+    // Usa la prima lettera del nome community, con fallback su '?'
+    const initial = typeof name === 'string' && name.length > 0 
+      ? name.charAt(0).toUpperCase() 
+      : '?';
+      
     textAvatar.textContent = initial;
     
     // Crea un colore consistente basato sul nome
-    const hue = Math.abs(name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360);
+    const stringToHash = typeof name === 'string' ? name : 'default';
+    const hue = Math.abs(stringToHash.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 360);
     textAvatar.style.backgroundColor = `hsl(${hue}, 65%, 50%)`;
     
     container.appendChild(textAvatar);
@@ -362,8 +460,8 @@ class CreatePostView extends View {
     // Mostra la community selezionata
     display.innerHTML = `
       <div class="selected-community-info">
+        <span class="selected-community-title">${community.title || community.name}</span>
         <span class="selected-community-name">@${community.name}</span>
-        <span class="selected-community-title">${community.title || ''}</span>
       </div>
       <button type="button" class="clear-community-btn">
         <span class="material-icons">close</span>
