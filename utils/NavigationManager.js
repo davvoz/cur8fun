@@ -87,31 +87,61 @@ class NavigationManager {
       const regularItems = mainNavItems
         .filter(item => item.showInBottom && (!item.mobileOnly || this.isMobile));
       
-      // Split items for left and right sides evenly
-      const halfIndex = Math.ceil(regularItems.length / 2);
-      const leftItems = regularItems.slice(0, halfIndex);
-      const rightItems = regularItems.slice(halfIndex);
-      
-      // Add left items
-      leftItems.forEach(item => {
-        const navItem = this.createNavItem(item, 'bottom');
-        leftContainer.appendChild(navItem);
-      });
-      
-      // Add right items
-      rightItems.forEach(item => {
-        const navItem = this.createNavItem(item, 'bottom');
+      // For mobile with 5 buttons: 2 on left, center button, 2 on right
+      if (this.isMobile && regularItems.length === 4) {
+        // Extract first 2 items for left container (home, search)
+        const leftItems = regularItems.slice(0, 2);
         
-        // Add click handler for menu button
-        if (item.id === 'menu') {
-          navItem.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.toggleMobileMenu();
-          });
-        }
+        // Extract last 2 items for right container (wallet, menu)
+        const rightItems = regularItems.slice(2, 4);
         
-        rightContainer.appendChild(navItem);
-      });
+        // Add left items
+        leftItems.forEach(item => {
+          const navItem = this.createNavItem(item, 'bottom');
+          leftContainer.appendChild(navItem);
+        });
+        
+        // Add right items
+        rightItems.forEach(item => {
+          const navItem = this.createNavItem(item, 'bottom');
+          
+          // Add click handler for menu button
+          if (item.id === 'menu') {
+            navItem.addEventListener('click', (e) => {
+              e.preventDefault();
+              this.toggleMobileMenu();
+            });
+          }
+          
+          rightContainer.appendChild(navItem);
+        });
+      } else {
+        // Original distribution logic for non-5-button layouts
+        const halfIndex = Math.ceil(regularItems.length / 2);
+        const leftItems = regularItems.slice(0, halfIndex);
+        const rightItems = regularItems.slice(halfIndex);
+        
+        // Add left items
+        leftItems.forEach(item => {
+          const navItem = this.createNavItem(item, 'bottom');
+          leftContainer.appendChild(navItem);
+        });
+        
+        // Add right items
+        rightItems.forEach(item => {
+          const navItem = this.createNavItem(item, 'bottom');
+          
+          // Add click handler for menu button
+          if (item.id === 'menu') {
+            navItem.addEventListener('click', (e) => {
+              e.preventDefault();
+              this.toggleMobileMenu();
+            });
+          }
+          
+          rightContainer.appendChild(navItem);
+        });
+      }
       
       // Append containers to bottom navigation
       this.bottomNav.appendChild(leftContainer);

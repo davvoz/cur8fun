@@ -313,6 +313,28 @@ body.menu-open {
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 2px;
   }
+  
+  .bottom-nav-left, .bottom-nav-right {
+    justify-content: space-around;
+    gap: 0;
+  }
+  
+  .bottom-nav-item {
+    padding: 0 8px;
+  }
+  
+  .bottom-nav-item .material-icons {
+    font-size: 24px;
+  }
+  
+  .bottom-nav-item .bottom-nav-label {
+    font-size: 10px;
+  }
+  
+  /* Riduce leggermente le dimensioni dell'icona centrale per l'equilibrio */
+  .bottom-nav-item.center-button .material-icons {
+    font-size: 30px;
+  }
 }
 
 /* Additional style for wallet placeholder */
