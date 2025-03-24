@@ -71,4 +71,10 @@ class EventEmitter {
 
 // Create a singleton instance for the application
 const eventEmitter = new EventEmitter();
+
+// Rendi l'eventEmitter disponibile globalmente per gli aggiornamenti di progresso
+if (typeof window !== 'undefined') {
+    window.eventEmitter = eventEmitter;
+}
+
 export default eventEmitter;

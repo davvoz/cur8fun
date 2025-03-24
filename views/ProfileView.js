@@ -165,27 +165,11 @@ class ProfileView extends View {
             return !currentPostIds.has(postId);
         });
         
-        // Aggiungi il contatore di post all'inizio se è la prima pagina
-        if (this.page === 1 && uniqueNewPosts.length > 0) {
-            const postCounter = document.createElement('div');
-            postCounter.className = 'post-counter';
-            postCounter.innerHTML = `<span>Caricati <strong>${uniqueNewPosts.length}</strong> post di ${this.username}</span>`;
-            postCounter.style.textAlign = 'center';
-            postCounter.style.padding = '10px';
-            postCounter.style.margin = '0 0 20px 0';
-            postCounter.style.backgroundColor = '#f5f8fa';
-            postCounter.style.borderRadius = '5px';
-            postsContainer.appendChild(postCounter);
-        }
+
         
         this.posts = [...this.posts, ...uniqueNewPosts];
         
-        // Aggiorna il contatore di post se esiste
-        const postCounter = postsContainer.querySelector('.post-counter');
-        if (postCounter) {
-            postCounter.innerHTML = `<span>Caricati <strong>${this.posts.length}</strong> post di ${this.username}</span>`;
-        }
-        
+
         // Renderizza i nuovi post
         uniqueNewPosts.forEach(post => {
             const postItem = this.createPostItem(post);
@@ -295,11 +279,6 @@ setupInfiniteScroll(postsPerPage = 30) {
               // Aggiorna la collezione completa
               this.posts = [...this.posts, ...uniqueNewPosts];
               
-              // Aggiorna il contatore di post
-              const postCounter = postsContainer.querySelector('.post-counter');
-              if (postCounter) {
-                postCounter.innerHTML = `<span>Caricati <strong>${this.posts.length}</strong> post di ${this.username}</span>`;
-              }
               
               // Determina se ci sono altri post da caricare
               this.hasMorePosts = newPosts.length >= postsPerPage;
@@ -371,99 +350,417 @@ loadMorePosts(page) {
     }
 }
 
-  async loadComments() {
+async loadComments() {
     if (this.commentsLoading) return;
     
     const commentsContainer = this.container.querySelector('.profile-posts'); 
     if (!commentsContainer) return;
     
-    // Set flag to indicate we're loading comments
+    // Imposta il flag per indicare che stiamo caricando i commenti
     this.commentsLoading = true;
     
-    // Clear the container and show loading indicator
-    commentsContainer.innerHTML = `
-      <div class="comments-loading">
-        <div class="loading-indicator"></div>
-        <h3>Loading comments...</h3>
-      </div>
-    `;
+    // Crea un contenitore per il contatore di progresso
+    const createProgressIndicator = () => {
+        const div = document.createElement('div');
+        div.className = 'comments-progress';
+        div.innerHTML = `
+            <div class="loading-indicator">
+                <div class="spinner"></div>
+                <div class="loading-text">Caricamento commenti...</div>
+                <div class="loading-batch">Recupero batch #1</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="loading-counter">0 commenti caricati</div>
+            </div>
+        `;
+        return div;
+    };
+    
+    // Pulisci il container e mostra l'indicatore di caricamento
+    commentsContainer.innerHTML = '';
+    const progressIndicator = createProgressIndicator();
+    commentsContainer.appendChild(progressIndicator);
+    
+    // Registra l'ascoltatore per gli aggiornamenti di progresso
+    const onProgress = (data) => {
+        if (data.author !== this.username) return;
+        
+        const batchIndicator = progressIndicator.querySelector('.loading-batch');
+        if (batchIndicator) batchIndicator.textContent = `Recupero batch #${data.batchNumber}`;
+        
+        const counter = progressIndicator.querySelector('.loading-counter');
+        if (counter) counter.textContent = `${data.total} commenti caricati`;
+        
+        const progressBar = progressIndicator.querySelector('.progress-bar');
+        if (progressBar) {
+            // Non possiamo sapere il progresso totale, quindi mostriamo un'animazione pulsante
+            progressBar.style.width = '100%';
+            progressBar.style.animation = 'pulse 1.5s infinite';
+        }
+    };
+    
+    // Registra l'ascoltatore per il completamento
+    const onLoaded = (data) => {
+        if (data.username !== this.username) return;
+        
+        const counter = progressIndicator.querySelector('.loading-counter');
+        if (counter) counter.textContent = `${data.total} commenti caricati`;
+        
+        const loadingText = progressIndicator.querySelector('.loading-text');
+        if (loadingText) loadingText.textContent = 'Caricamento completato!';
+        
+        const batchIndicator = progressIndicator.querySelector('.loading-batch');
+        if (batchIndicator) batchIndicator.textContent = `Fonte: ${data.source === 'cache' ? 'cache' : 'blockchain'}`;
+        
+        // Rimuovi l'animazione pulsante e imposta al 100%
+        const progressBar = progressIndicator.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.style.animation = 'none';
+            progressBar.style.width = '100%';
+            progressBar.style.backgroundColor = '#4caf50';
+        }
+        
+        // Rimuovi gli ascoltatori
+        if (window.eventEmitter) {
+            window.eventEmitter.off('comments:progress', onProgress);
+            window.eventEmitter.off('comments:loaded', onLoaded);
+        }
+        
+        // Renderizza i commenti dopo un breve ritardo
+        setTimeout(() => {
+            this.renderLoadedComments(data.total);
+        }, 500);
+    };
+    
+    // Aggiungi gli ascoltatori di eventi
+    if (window.eventEmitter) {
+        window.eventEmitter.on('comments:progress', onProgress);
+        window.eventEmitter.on('comments:loaded', onLoaded);
+    }
     
     try {
-      // Fetch comments using the optimized method
-      console.log(`Fetching comments for ${this.username}`);
-      
-      // Use cache if available, otherwise fetch
-      const cacheKey = `${this.username}_comments`;
-      let comments = sessionStorage.getItem(cacheKey);
-      
-      if (comments) {
-        console.log('Using cached comments');
-        comments = JSON.parse(comments);
-      } else {
-        // Fetch with a reasonable limit - most users don't have thousands of comments
-        comments = await profileService.getUserComments(this.username, 100, 1, true);
-        
-        // Cache for the session to make tab switching instant
-        if (comments && comments.length > 0) {
-          sessionStorage.setItem(cacheKey, JSON.stringify(comments));
+        // Pulisci la cache della sessione se richiesto (quando si passa da un profilo all'altro)
+        const cacheKey = `${this.username}_comments`;
+        if (this.lastUsername && this.lastUsername !== this.username) {
+            sessionStorage.removeItem(cacheKey);
         }
-      }
-      
-      // Clear the container after loading
-      commentsContainer.innerHTML = '';
-      
-      // Handle the case where no comments were found
-      if (!comments || comments.length === 0) {
-        commentsContainer.innerHTML = `
-          <div class="empty-comments-message">
-            @${this.username} hasn't made any comments yet.
-          </div>
-        `;
-        this.commentsLoading = false;
-        return;
-      }
-      
-      // Store all comments and render the first batch
-      this.allComments = comments;
-      console.log(`Retrieved ${comments.length} total comments for ${this.username}`);
-      
-      // Process first batch (up to 20 comments)
-      const firstBatch = comments.slice(0, 20);
-      this.comments = firstBatch;
-      
-      // Render the first batch
-      firstBatch.forEach(comment => {
-        const commentItem = this.createCommentItem(comment);
-        commentsContainer.appendChild(commentItem);
-      });
-      
-      // Setup infinite scroll for remaining comments
-      this.hasMoreComments = comments.length > 20;
-      this.page = 2; // Start from page 2 next time
-      this.setupSimpleCommentsInfiniteScroll();
-      
+        this.lastUsername = this.username;
+        
+        // Carica la prima pagina di commenti
+        // Il servizio caricherà tutti i commenti automaticamente se necessario
+        const COMMENTS_PER_PAGE = 30;
+        await profileService.getUserComments(this.username, COMMENTS_PER_PAGE, 1, true);
+        
+        // Il rendering verrà gestito dall'evento onLoaded
     } catch (error) {
-      console.error('Error loading comments:', error);
-      commentsContainer.innerHTML = `
-        <div class="error-message">
-          <h3>Failed to load comments</h3>
-          <p>There was an error loading comments for @${this.username}</p>
-          <p class="error-details">${error.message || 'Unknown error'}</p>
-          <button class="retry-btn">Retry</button>
-        </div>
-      `;
-      
-      // Add retry handler
-      commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
-        // Clear cache on retry
-        sessionStorage.removeItem(`${this.username}_comments`);
-        this.loadComments();
-      });
-    } finally {
-      this.commentsLoading = false;
+        console.error('Errore caricamento commenti:', error);
+        
+        // Rimuovi gli ascoltatori in caso di errore
+        if (window.eventEmitter) {
+            window.eventEmitter.off('comments:progress', onProgress);
+            window.eventEmitter.off('comments:loaded', onLoaded);
+        }
+        
+        // Mostra messaggio di errore
+        commentsContainer.innerHTML = `
+            <div class="error-message">
+                <h3>Errore caricamento commenti</h3>
+                <p>Si è verificato un errore durante il caricamento dei commenti per @${this.username}</p>
+                <p class="error-details">${error.message || 'Errore sconosciuto'}</p>
+                <button class="retry-btn">Riprova</button>
+            </div>
+        `;
+        
+        // Aggiungi gestore per ritentare
+        commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
+            sessionStorage.removeItem(cacheKey);
+            this.loadComments();
+        });
+        
+        this.commentsLoading = false;
     }
+}
+
+/**
+ * Renderizza i commenti dopo che sono stati caricati completamente
+ * @param {number} totalCount Il numero totale di commenti
+ */
+async renderLoadedComments(totalCount) {
+    const commentsContainer = this.container.querySelector('.profile-posts'); 
+    if (!commentsContainer) return;
+    
+    // Pulisci il container
+    commentsContainer.innerHTML = '';
+    
+    try {
+        // Mostra il contatore di commenti
+        const countDiv = document.createElement('div');
+        countDiv.className = 'comments-count';
+        countDiv.innerHTML = `
+            <div class="count-badge">${totalCount}</div>
+            <div class="count-text">Commenti totali di @${this.username}</div>
+        `;
+        
+        countDiv.style.margin = '20px 0';
+        countDiv.style.textAlign = 'center';
+        countDiv.style.fontWeight = 'bold';
+        countDiv.style.background = '#f0f5ff';
+        countDiv.style.padding = '10px 15px';
+        countDiv.style.borderRadius = '8px';
+        countDiv.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        commentsContainer.appendChild(countDiv);
+        
+        // Carica sempre dalla prima pagina dopo il caricamento completo
+        const BATCH_SIZE = 20; // Dimensione dei batch per la visualizzazione
+        const comments = await profileService.getUserComments(this.username, BATCH_SIZE, 1);
+        
+        // Gestisci il caso in cui non ci siano commenti
+        if (!comments || comments.length === 0) {
+            commentsContainer.innerHTML = `
+                <div class="empty-comments-message">
+                    @${this.username} non ha ancora pubblicato commenti.
+                </div>
+            `;
+            this.commentsLoading = false;
+            return;
+        }
+        
+        // Ottieni il riferimento a TUTTI i commenti (non solo la prima pagina)
+        // Importante per l'infinite scroll
+        const allCacheKey = `${this.username}_comments`;
+        let allComments = [];
+        
+        // Prova a ottenere tutti i commenti dalla cache di sessione
+        try {
+            if (window.sessionStorage) {
+                const savedComments = sessionStorage.getItem(allCacheKey);
+                if (savedComments) {
+                    allComments = JSON.parse(savedComments);
+                    console.log(`Recuperati ${allComments.length} commenti totali da sessionStorage`);
+                }
+            }
+        } catch (e) {
+            console.warn('Errore nel recupero dei commenti da sessionStorage:', e);
+        }
+        
+        // Se non abbiamo tutti i commenti in session storage, ottienili dal servizio
+        if (!allComments || allComments.length === 0) {
+            // Nella maggior parte dei casi dovremmo già averli nella cache del servizio
+            // perché li abbiamo appena caricati
+            const cachedComments = await profileService.getUserComments(this.username, totalCount, 1, false);
+            allComments = cachedComments;
+            console.log(`Recuperati ${allComments.length} commenti totali dal servizio`);
+        }
+        
+        // Memorizza tutti i commenti
+        this.allComments = allComments;
+        
+        // Renderizza il primo batch
+        comments.forEach(comment => {
+            const commentItem = this.createCommentItem(comment);
+            commentsContainer.appendChild(commentItem);
+        });
+        
+        // Aggiungi un indicatore per far sapere all'utente che ci sono più commenti
+        if (totalCount > BATCH_SIZE) {
+            const loadingMore = document.createElement('div');
+            loadingMore.className = 'comments-load-more';
+            loadingMore.innerHTML = `
+                <div class="load-more-indicator">
+                    <span class="material-icons">arrow_downward</span>
+                    Scorri per caricare altri commenti 
+                    <span class="load-more-count">(${BATCH_SIZE} di ${totalCount})</span>
+                </div>
+            `;
+            loadingMore.style.textAlign = 'center';
+            loadingMore.style.margin = '15px 0';
+            loadingMore.style.padding = '10px';
+            loadingMore.style.background = '#f9f9f9';
+            loadingMore.style.borderRadius = '8px';
+            loadingMore.style.fontWeight = 'bold';
+            commentsContainer.appendChild(loadingMore);
+        }
+        
+        // Imposta infinite scroll per i commenti rimanenti
+        this.hasMoreComments = totalCount > BATCH_SIZE;
+        this.page = 2; // Inizia dalla pagina 2 la prossima volta
+        this.setupSimpleCommentsInfiniteScroll(BATCH_SIZE, totalCount);
+    } catch (error) {
+        console.error('Errore nel rendering dei commenti:', error);
+        commentsContainer.innerHTML = `
+            <div class="error-message">
+                <h3>Errore visualizzazione commenti</h3>
+                <p>Si è verificato un errore durante la visualizzazione dei commenti.</p>
+                <button class="retry-btn">Riprova</button>
+            </div>
+        `;
+        
+        commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
+            this.renderLoadedComments(totalCount);
+        });
+    } finally {
+        this.commentsLoading = false;
+    }
+}
+
+/**
+ * Set up a simpler infinite scroll for comments that doesn't require additional network requests
+ * @param {number} batchSize - Dimensione del batch di commenti da mostrare
+ * @param {number} totalCount - Numero totale di commenti
+ */
+setupSimpleCommentsInfiniteScroll(batchSize = 20, totalCount = 0) {
+    // Cleanup any existing infinite scroll
+    if (this.infiniteScroll) {
+        this.infiniteScroll.destroy();
+        this.infiniteScroll = null;
+    }
+    
+    const commentsContainer = this.container.querySelector('.profile-posts');
+    if (!commentsContainer || !this.allComments) {
+        console.warn('Container o commenti non disponibili per infinite scroll');
+        return;
+    }
+    
+    console.log(`Impostazione infinite scroll per ${this.allComments.length} commenti totali`);
+    
+    // Verifica che ci siano effettivamente più commenti da caricare
+    if (this.allComments.length <= batchSize) {
+        console.log('Nessun altro commento da caricare, infinite scroll non necessario');
+        return;
+    }
+    
+    // Crea un infiniteScroll che carica i commenti direttamente dalla memoria
+    this.infiniteScroll = new InfiniteScroll({
+        container: commentsContainer,
+        loadMore: (page) => {
+            // L'indice di pagina è 1-based, ma gli array sono 0-based
+            const startIndex = (page - 1) * batchSize;
+            
+            // Verifica se abbiamo raggiunto la fine
+            if (startIndex >= this.allComments.length) {
+                console.log('Infinite scroll: fine dei commenti raggiunta');
+                return false;
+            }
+            
+            console.log(`Caricamento commenti per pagina ${page} (indice ${startIndex})`);
+            
+            // Calcola l'indice finale (non incluso)
+            const endIndex = Math.min(startIndex + batchSize, this.allComments.length);
+            
+            // Estrai il batch di commenti
+            const batch = this.allComments.slice(startIndex, endIndex);
+            
+            // Se non ci sono commenti in questo batch, fine
+            if (batch.length === 0) return false;
+            
+            console.log(`Mostrando ${batch.length} commenti (${startIndex+1}-${endIndex} di ${this.allComments.length})`);
+            
+            // Aggiorna l'indicatore di caricamento se presente
+            const loadMoreIndicator = commentsContainer.querySelector('.comments-load-more');
+            if (loadMoreIndicator) {
+                const counter = loadMoreIndicator.querySelector('.load-more-count');
+                if (counter) {
+                    counter.textContent = `(${Math.min(endIndex, this.allComments.length)} di ${this.allComments.length})`;
+                }
+            } else {
+                // Se non c'è l'indicatore, lo creiamo dopo aver aggiunto i commenti
+                // (verrà fatto più avanti)
+            }
+            
+            // Renderizza i commenti
+            batch.forEach(comment => {
+                const commentItem = this.createCommentItem(comment);
+                
+                // Trova l'indicatore di caricamento per inserire i commenti prima di esso
+                const loadMoreEl = commentsContainer.querySelector('.comments-load-more');
+                if (loadMoreEl) {
+                    commentsContainer.insertBefore(commentItem, loadMoreEl);
+                } else {
+                    commentsContainer.appendChild(commentItem);
+                }
+            });
+            
+            // Crea o aggiorna un indicatore di caricamento alla fine
+            if (!commentsContainer.querySelector('.comments-load-more') && endIndex < this.allComments.length) {
+                const loadingMore = document.createElement('div');
+                loadingMore.className = 'comments-load-more';
+                loadingMore.innerHTML = `
+                    <div class="load-more-indicator">
+                        <span class="material-icons">arrow_downward</span>
+                        Scorri per caricare altri commenti 
+                        <span class="load-more-count">(${endIndex} di ${this.allComments.length})</span>
+                    </div>
+                `;
+                loadingMore.style.textAlign = 'center';
+                loadingMore.style.margin = '15px 0';
+                loadingMore.style.padding = '10px';
+                loadingMore.style.background = '#f9f9f9';
+                loadingMore.style.borderRadius = '8px';
+                loadingMore.style.fontWeight = 'bold';
+                commentsContainer.appendChild(loadingMore);
+            }
+            
+            // Se abbiamo raggiunto l'ultimo batch
+            if (endIndex >= this.allComments.length) {
+                // Rimuovi l'indicatore di caricamento
+                const loadMoreEl = commentsContainer.querySelector('.comments-load-more');
+                if (loadMoreEl) loadMoreEl.remove();
+                
+                // Aggiungi un messaggio "fine dei commenti"
+                const endMessage = document.createElement('div');
+                endMessage.className = 'comments-end-message';
+                endMessage.innerHTML = `
+                    <div class="end-message">
+                        <span class="material-icons">check_circle</span>
+                        Hai visualizzato tutti i ${this.allComments.length} commenti
+                    </div>
+                `;
+                endMessage.style.textAlign = 'center';
+                endMessage.style.margin = '20px 0';
+                endMessage.style.padding = '15px';
+                endMessage.style.color = '#4CAF50';
+                endMessage.style.fontWeight = 'bold';
+                commentsContainer.appendChild(endMessage);
+                
+                return false; // Fine del caricamento
+            }
+            
+            return true; // Continuiamo a caricare
+        },
+        threshold: '200px', // Inizia a caricare quando siamo a 200px dalla fine
+        initialPage: this.page // Inizia dalla pagina corrente
+    });
+    
+    console.log('Infinite scroll per commenti configurato con successo');
+}
+
+  /**
+   * Get the total number of comments for a user
+   * @param {string} username The username to get comments for
+   * @returns {Promise<number>} The total number of comments
+   */
+async getTotalCommentsCount(username) {
+  try {
+    // Try to get all comments from session storage first
+    if (window.sessionStorage) {
+      const cacheKey = `${username}_comments`;
+      const savedComments = sessionStorage.getItem(cacheKey);
+      if (savedComments) {
+        const comments = JSON.parse(savedComments);
+        return comments.length;
+      }
+    }
+    
+    // Otherwise ask the service for the total count (without loading comments)
+    const allComments = await profileService.getUserComments(username, 5000, 1);
+    return allComments.length;
+  } catch (error) {
+    console.error('Error getting total comments count:', error);
+    return this.allComments?.length || 0;
   }
-  
+}
+
   /**
    * Set up a simpler infinite scroll for comments that doesn't require additional network requests
    */

@@ -142,6 +142,36 @@ export default class InfiniteScroll {
     }
   }
 
+  /**
+   * Forza un caricamento manuale per la pagina specificata
+   * @param {number} page - Pagina da caricare
+   * @returns {Promise<boolean>} - Restituisce true se ci sono più pagine da caricare
+   */
+  async loadMore(page) {
+    if (!this.options.loadMore) return false;
+    
+    try {
+        console.log(`Triggering load more for page ${page}`);
+        
+        // Store currentPage before calling loadMore to avoid duplicate calls
+        this.currentPage = page;
+        
+        // Call loadMore and get the result
+        const hasMore = await this.options.loadMore(page);
+        
+        // Update current page only if we have more to load, otherwise keep as is
+        if (!hasMore) {
+            this.noMorePages = true;
+            console.log('No more pages to load, disabling infinite scroll');
+        }
+        
+        return hasMore;
+    } catch (error) {
+        console.error(`Error in loadMore (page ${page}):`, error);
+        return false;
+    }
+  }
+
   destroy() {
     console.log('Destroying infinite scroll');
     if (this.observer) {

@@ -1141,7 +1141,7 @@ class SteemService {
                     };
 
                     const batch = await new Promise((resolve, reject) => {
-                        this.steem.api.getDiscussionsByComments(query, (err, result) => {
+                        this.steem.api.getDiscussionsByCommentsAsync(query, (err, result) => {
                             if (err) reject(err);
                             else resolve(result || []);
                         });
@@ -1341,66 +1341,161 @@ class SteemService {
     }
 
     async getAuthorComments(username, startPermlink, limit) {
-        // Utilizziamo getDiscussionsByCommentsAsync invece di getDiscussionsByAuthorBeforeDateAsync
+        // Assicurati che la libreria sia caricata
+        await this.ensureLibraryLoaded();
+        
+        console.log(`Fetching comments for ${username} starting from ${startPermlink || 'beginning'}, limit: ${limit || 20}`);
+        
         const query = {
             start_author: username,
             start_permlink: startPermlink || '',
             limit: limit || 20
         };
-        return steem.api.getDiscussionsByCommentsAsync(query);
+        
+        try {
+            // Utilizziamo la versione sincrona con Promise
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getDiscussionsByComments(query, (err, result) => {
+                    if (err) {
+                        console.error('Error in getDiscussionsByComments:', err);
+                        reject(err);
+                    } else {
+                        console.log(`Retrieved ${result ? result.length : 0} comments`);
+                        resolve(result || []);
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching author comments:', error);
+            // Prova con un altro endpoint in caso di errore
+            this.switchEndpoint();
+            
+            // Ritenta una volta con il nuovo endpoint
+            try {
+                return await new Promise((resolve, reject) => {
+                    this.steem.api.getDiscussionsByComments(query, (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    });
+                });
+            } catch (retryError) {
+                console.error('Retry for comments also failed:', retryError);
+                return [];
+            }
+        }
     }
 
-    async getCommentsByAuthor(author, limit = 100) {
+    /**
+     * Get comments by author with incremental loading - carica gradualmente tutti i commenti
+     * @param {string} author - Author username
+     * @param {number} limit - Max number of comments to fetch (use -1 for "all available")
+     * @returns {Promise<Array>} Array of comments, sorted by date
+     */
+    async getCommentsByAuthor(author, limit = -1) {
         try {
-            console.log(`Getting comments for author ${author} with limit ${limit}`);
-
-            // We'll use the direct approach with getDiscussionsByComments
+            console.log(`Getting comments for author ${author} (limit: ${limit === -1 ? 'ALL' : limit})`);
+            await this.ensureLibraryLoaded();
+            
+            // Raccogliamo tutti i commenti con approccio a finestra scorrevole
             const allComments = [];
             let startPermlink = '';
             let hasMoreComments = true;
-            const batchSize = Math.min(100, limit); // API usually limits to 100 per call
-
-            // Fetch comments in batches until we have enough or there are no more
-            while (allComments.length < limit && hasMoreComments) {
-                console.log(`Fetching comments batch with startPermlink: ${startPermlink || 'none'}`);
-
-                const comments = await this.getAuthorComments(author, startPermlink, batchSize);
-
-                if (!comments || comments.length === 0) {
-                    console.log('No more comments returned');
-                    hasMoreComments = false;
-                    break;
+            let attempts = 0;
+            
+            // Batch size ottimale per l'API
+            const BATCH_SIZE = 100;
+            
+            // -1 significa "carica tutti quelli disponibili"
+            const loadAll = limit === -1;
+            const targetLimit = loadAll ? Number.MAX_SAFE_INTEGER : limit;
+            
+            // Finestra scorrevole: continua a caricare finché ci sono più commenti
+            // o finché non raggiungiamo il limite richiesto
+            while (hasMoreComments && allComments.length < targetLimit && attempts < 50) {
+                console.log(`[Batch ${attempts+1}] Caricate ${allComments.length} commenti finora`);
+                
+                try {
+                    // Carica il prossimo batch di commenti
+                    const comments = await this.getAuthorComments(author, startPermlink, BATCH_SIZE);
+                    
+                    // Se non ci sono risultati, interrompi
+                    if (!comments || comments.length === 0) {
+                        console.log('Nessun altro commento da caricare');
+                        hasMoreComments = false;
+                        break;
+                    }
+                    
+                    // Determina quali commenti sono nuovi
+                    // Se questo non è il primo batch, salta il primo risultato (duplicato)
+                    const newComments = (startPermlink && comments.length > 0) 
+                        ? comments.slice(1).filter(c => c.parent_author !== '') 
+                        : comments.filter(c => c.parent_author !== '');
+                    
+                    // Se non ci sono nuovi commenti validi in questo batch
+                    if (newComments.length === 0) {
+                        // Tenta di avanzare oltre il punto di stallo
+                        if (comments.length >= 2) {
+                            console.log('Nessun nuovo commento in questo batch, provo a saltare al commento successivo');
+                            startPermlink = comments[1].permlink;
+                            attempts++;
+                            continue;
+                        } else {
+                            console.log('Non è possibile avanzare oltre, fine del caricamento');
+                            hasMoreComments = false;
+                            break;
+                        }
+                    }
+                    
+                    // Aggiungi i nuovi commenti alla collezione
+                    allComments.push(...newComments);
+                    console.log(`Aggiunti ${newComments.length} nuovi commenti (totale: ${allComments.length})`);
+                    
+                    // Aggiorna il permlink di partenza per il prossimo batch
+                    const lastComment = comments[comments.length - 1];
+                    startPermlink = lastComment.permlink;
+                    
+                    // Emetti progresso per l'UI
+                    if (typeof window !== 'undefined' && window.eventEmitter) {
+                        window.eventEmitter.emit('comments:progress', {
+                            author,
+                            total: allComments.length,
+                            batch: newComments.length,
+                            batchNumber: attempts + 1
+                        });
+                    }
+                    
+                    // Pausa breve per evitare limiti di richieste
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    console.error(`Errore nel batch ${attempts+1}:`, error);
+                    // Prova un altro endpoint in caso di errore
+                    this.switchEndpoint();
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
-
-                // Filter valid comments (with parent_author) that haven't been processed yet
-                const newComments = startPermlink
-                    ? comments.filter(c => c.permlink !== startPermlink && c.parent_author !== '')
-                    : comments.filter(c => c.parent_author !== '');
-
-                if (newComments.length === 0) {
-                    console.log('No new valid comments in this batch');
-                    hasMoreComments = false;
-                    break;
-                }
-
-                allComments.push(...newComments);
-                console.log(`Total comments so far: ${allComments.length}`);
-
-                // Update startPermlink for the next batch
-                if (comments.length > 0) {
-                    startPermlink = comments[comments.length - 1].permlink;
-                }
-
-                // Add a small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                attempts++;
             }
-
-            console.log(`Completed fetching comments for ${author}, found ${allComments.length}`);
-
-            // Sort by date, newest first
-            return allComments.sort((a, b) => new Date(b.created) - new Date(a.created));
+            
+            // Riporta il numero finale di commenti caricati
+            console.log(`Caricamento commenti completato: ${allComments.length} commenti totali per ${author}`);
+            
+            // Rimuovi eventuali duplicati (possono verificarsi in caso di errori)
+            const seen = new Set();
+            const uniqueComments = allComments.filter(comment => {
+                const id = `${comment.author}_${comment.permlink}`;
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            });
+            
+            if (uniqueComments.length < allComments.length) {
+                console.log(`Rimossi ${allComments.length - uniqueComments.length} commenti duplicati`);
+            }
+            
+            // Ordina per data, dal più recente al più vecchio
+            return uniqueComments.sort((a, b) => new Date(b.created) - new Date(a.created));
         } catch (error) {
-            console.error('Error getting comments by author:', error);
+            console.error('Errore in getCommentsByAuthor:', error);
             return [];
         }
     }

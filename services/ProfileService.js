@@ -394,53 +394,148 @@ class ProfileService {
         this.postCache.clear();
     }
 
-    async getUserComments(username, limit = 20, page = 1, forceRefresh = false) {
+    /**
+     * Get ALL comments by author with progressive loading
+     * @param {string} username - Username to get comments for
+     * @param {number} limit - Number of comments per page
+     * @param {number} page - Page number
+     * @param {boolean} forceRefresh - Whether to force refresh from network
+     * @returns {Promise<Array>} - Array of comments for the requested page
+     */
+    async getUserComments(username, limit = 30, page = 1, forceRefresh = false) {
         try {
-            // Check cache unless forceRefresh is true
-            const cacheKey = `${username}_comments`;
-            const cachedComments = !forceRefresh ? this.getCachedPosts(cacheKey) : null;
+            console.log(`ProfileService: Getting comments for ${username}, page=${page}, limit=${limit}, forceRefresh=${forceRefresh}`);
             
-            if (cachedComments) {
-                console.log(`Using cached comments for ${username}: ${cachedComments.length} comments available`);
-                // Apply pagination to cached comments
-                const startIndex = (page - 1) * limit;
-                const endIndex = startIndex + limit;
-                return cachedComments.slice(startIndex, endIndex);
+            // Generare una chiave di cache
+            const cacheKey = `${username}_comments`;
+            
+            // Controlla la cache a meno che forceRefresh sia true
+            if (!forceRefresh) {
+                const cachedComments = this.getCachedPosts(cacheKey);
+                if (cachedComments) {
+                    console.log(`Usando ${cachedComments.length} commenti in cache`);
+                    
+                    // Applica la paginazione ai commenti in cache
+                    const startIndex = (page - 1) * limit;
+                    const endIndex = Math.min(startIndex + limit, cachedComments.length);
+                    const pageComments = cachedComments.slice(startIndex, endIndex);
+                    
+                    console.log(`Ritorno ${pageComments.length} commenti per pagina ${page} dalla cache (${startIndex}-${endIndex})`);
+                    
+                    // Se questo è il primo accesso in questa sessione, emetti l'evento di completamento
+                    // anche se i dati provengono dalla cache
+                    if (page === 1) {
+                        if (typeof window !== 'undefined' && window.eventEmitter) {
+                            window.eventEmitter.emit('comments:loaded', {
+                                username, 
+                                total: cachedComments.length,
+                                source: 'cache'
+                            });
+                        }
+                    }
+                    
+                    return pageComments;
+                }
             }
             
-            console.log(`Fetching comments for ${username} (${forceRefresh ? 'forced refresh' : 'no cache available'})`);
+            // Carica i commenti dalla blockchain - approccio incrementale
+            console.log(`Caricamento di TUTTI i commenti dalla blockchain per ${username}`);
             
-            // Use the direct getCommentsByAuthor method that internally uses getAuthorComments
-            const comments = await steemService.getCommentsByAuthor(username, 100);
+            // Per usare l'approccio a finestra scorrevole, passa -1 come limite
+            // Questo dirà al servizio di caricare tutti i commenti disponibili
+            const comments = await steemService.getCommentsByAuthor(username, -1);
             
             if (!comments || !Array.isArray(comments)) {
-                console.warn('Invalid response format for user comments:', comments);
+                console.warn('Risposta commenti non valida:', comments);
                 return [];
             }
             
-            console.log(`Retrieved ${comments.length} total comments for ${username} from blockchain`);
+            console.log(`✓ Caricati con successo ${comments.length} commenti TOTALI per ${username}`);
             
-            // Cache all comments for future use
-            this.cachePosts(cacheKey, comments);
-            
-            // Update cache expiry for comments to 30 minutes (longer than normal cache)
-            const cacheEntry = this.postCache.get(cacheKey);
-            if (cacheEntry) {
-                // Extend expiry for comments since they're expensive to fetch
-                this.postCache.set(cacheKey, {
-                    ...cacheEntry,
-                    // 30 minutes cache for comments
-                    expiry: Date.now() + (30 * 60 * 1000)
-                });
+            // Memorizza nella cache per future richieste
+            if (comments.length > 0) {
+                this.cachePosts(cacheKey, comments);
+                
+                // Estendi la durata della cache per i commenti a 2 ore
+                const cacheEntry = this.postCache.get(cacheKey);
+                if (cacheEntry) {
+                    this.postCache.set(cacheKey, {
+                        ...cacheEntry,
+                        timestamp: Date.now(),
+                        // 120 minuti per la cache dei commenti
+                        expiry: Date.now() + (120 * 60 * 1000)
+                    });
+                }
+                
+                // Salva anche in sessionStorage per accesso rapido - dividi in blocchi se necessario
+                try {
+                    if (typeof window !== 'undefined' && window.sessionStorage) {
+                        try {
+                            // Prima prova a salvare l'intera collezione
+                            sessionStorage.setItem(cacheKey, JSON.stringify(comments));
+                            console.log('Commenti salvati in sessionStorage per accesso più rapido');
+                        } catch (storageError) {
+                            // Se fallisce (probabilmente per dimensioni eccessive), stampa un avviso
+                            console.warn('Impossibile salvare tutti i commenti in sessionStorage:', storageError);
+                            
+                            // Volendo si potrebbe implementare un salvataggio parziale, ma 
+                            // useremo la cache interna del servizio come soluzione principale
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Errore di accesso a sessionStorage:', e);
+                }
+                
+                // Emetti evento di completamento
+                if (page === 1) {
+                    if (typeof window !== 'undefined' && window.eventEmitter) {
+                        window.eventEmitter.emit('comments:loaded', {
+                            username, 
+                            total: comments.length,
+                            source: 'network'
+                        });
+                    }
+                }
             }
             
-            // Apply pagination
+            // Applica la paginazione
             const startIndex = (page - 1) * limit;
-            const endIndex = startIndex + limit;
-            return comments.slice(startIndex, endIndex);
+            const endIndex = Math.min(startIndex + limit, comments.length);
+            const pageComments = comments.slice(startIndex, endIndex);
+            
+            console.log(`Ritorno ${pageComments.length} commenti per pagina ${page} (${startIndex}-${endIndex}) da ${comments.length} totali`);
+            return pageComments;
         } catch (error) {
-            console.error('Error fetching user comments:', error);
-            throw new Error(`Failed to load comments: ${error.message || 'Unknown error'}`);
+            console.error(`Errore nel recupero dei commenti per ${username}:`, error);
+            
+            // In caso di errore, prova a usare i dati in cache
+            const cacheKey = `${username}_comments`;
+            const cachedComments = this.getCachedPosts(cacheKey);
+            if (cachedComments && cachedComments.length > 0) {
+                console.log(`Usando commenti in cache dopo errore (${cachedComments.length} commenti)`);
+                const startIndex = (page - 1) * limit;
+                const endIndex = Math.min(startIndex + limit, cachedComments.length);
+                return cachedComments.slice(startIndex, endIndex);
+            }
+            
+            // Se la cache fallisce, prova con sessionStorage
+            try {
+                if (typeof window !== 'undefined' && window.sessionStorage) {
+                    const savedComments = sessionStorage.getItem(cacheKey);
+                    if (savedComments) {
+                        const parsedComments = JSON.parse(savedComments);
+                        console.log(`Recuperati ${parsedComments.length} commenti da sessionStorage`);
+                        
+                        const startIndex = (page - 1) * limit;
+                        const endIndex = Math.min(startIndex + limit, parsedComments.length);
+                        return parsedComments.slice(startIndex, endIndex);
+                    }
+                }
+            } catch (e) {
+                console.warn('Impossibile recuperare da sessionStorage:', e);
+            }
+            
+            return [];
         }
     }
 }
