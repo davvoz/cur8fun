@@ -9,7 +9,7 @@ class ImageUploadService {
   constructor() {
     this.MAX_FILE_SIZE_MB = 15;
     this.UPLOAD_TIMEOUT_MS = 60000; // 60 secondi di timeout
-    this.API_ENDPOINT = 'https://develop-imridd.eu.pythonanywhere.com/api/steem/upload_base64_image';
+    this.API_ENDPOINT = 'https://develop-imridd.eu.pythonanywhere.com/api/steem/free_upload_image';
   }
 
   /**
@@ -115,9 +115,9 @@ class ImageUploadService {
       
       // Prepara il payload per la richiesta
       const payload = {
-        username: username || 'anonymous',
-        filename: uniqueFilename,
-        image_data: base64Data
+        // username: username || 'anonymous',
+        // filename: uniqueFilename,
+        image_base64: base64Data
       };
       
       console.log('Uploading image to imridd API...');
