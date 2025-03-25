@@ -44,32 +44,44 @@ class CommunityView extends BasePostView {
       if (this.currentUser) {
         try {
           console.log(`Checking if ${this.currentUser.username} is subscribed to ${this.community.name}`);
-          const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username);
+          // Force fresh data with false parameter
+          const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username, false);
           
-          // Debug delle subscription
           console.log('User subscriptions:', subscriptions);
           
-          // Normalizza il nome della community per il confronto
+          // Normalizzazione più robusta per gestire tutti i formati
           const normalizedCommunityName = this.community.name.replace(/^hive-/, '');
+          const communityFullName = this.community.name.startsWith('hive-') 
+            ? this.community.name 
+            : `hive-${this.community.name}`;
           
-          // La chiave 'name' potrebbe essere diversa nell'API Steemit, controlla entrambi
+          // Prova diversi tipi di confronto per essere sicuri
           this.isSubscribed = subscriptions.some(sub => {
-            // Estrai il nome community da qualsiasi formato disponibile
-            const subName = sub.name || sub.community || sub;
+            // Estrai tutti i possibili identificativi
+            const subName = sub.name || '';
+            const subId = sub.id || '';
+            const subCommunity = typeof sub === 'string' ? sub : '';
             
-            // Normalizza per il confronto
-            const subNameClean = typeof subName === 'string' 
-              ? subName.replace(/^hive-/, '') 
-              : '';
+            // Normalizza tutti i formati possibili
+            const formats = [
+              subName.replace(/^hive-/, ''),
+              subId.replace(/^hive-/, ''),
+              subCommunity.replace(/^hive-/, ''),
+              subName,
+              subId,
+              subCommunity
+            ];
             
-            console.log(`Comparing: '${subNameClean}' with '${normalizedCommunityName}'`);
+            // Log completo per debug
+            console.log(`Comparing community: '${normalizedCommunityName}' or '${communityFullName}' with:`, formats);
             
-            return subNameClean === normalizedCommunityName;
+            // Confronta con tutti i formati possibili
+            return formats.includes(normalizedCommunityName) || formats.includes(communityFullName);
           });
           
-          console.log(`User ${this.currentUser.username} is ${this.isSubscribed ? '' : 'not '}subscribed to ${this.community.name}`);
+          console.log(`User ${this.currentUser.username} is ${this.isSubscribed ? 'SUBSCRIBED ✓' : 'NOT SUBSCRIBED ✗'} to ${this.community.name}`);
         } catch (subError) {
-          console.warn('Could not check subscription status:', subError);
+          console.error('Could not check subscription status:', subError);
           this.isSubscribed = false;
         }
       }
@@ -397,37 +409,47 @@ class CommunityView extends BasePostView {
 
   async handleSubscription() {
     if (!this.currentUser) {
-      // Redirect to login
       window.location.hash = '#/login';
       return;
     }
     
+    const button = this.element.querySelector('#subscribe-button');
+    if (button) {
+      // Disabilita il pulsante e mostra loading
+      button.disabled = true;
+      button.classList.add('button-loading');
+      button.innerHTML = '<span class="loading-spinner-sm"></span> Processing...';
+    }
+    
     try {
-      this.toggleSubscribeButton(true);
-      
       if (this.isSubscribed) {
         // Annulla iscrizione
+        console.log(`Unsubscribing from community: ${this.community.name}`);
         await communityService.unsubscribeFromCommunity(
           this.currentUser.username,
           this.community.name
         );
         this.isSubscribed = false;
+        this.showNotification('Successfully unsubscribed from community', 'success');
       } else {
         // Iscriviti
+        console.log(`Subscribing to community: ${this.community.name}`);
         await communityService.subscribeToCommunity(
           this.currentUser.username,
           this.community.name
         );
         this.isSubscribed = true;
+        this.showNotification('Successfully subscribed to community', 'success');
       }
-      
-      // Aggiorna il pulsante
-      this.updateSubscribeButton();
     } catch (error) {
       console.error('Error handling subscription:', error);
-      this.showNotification('Failed to update subscription', 'error');
+      this.showNotification(`Failed to ${this.isSubscribed ? 'unsubscribe from' : 'subscribe to'} community: ${error.message}`, 'error');
     } finally {
-      this.toggleSubscribeButton(false);
+      // Riabilita il pulsante e aggiorna lo stato
+      if (button) {
+        button.disabled = false;
+      }
+      this.updateSubscribeButton();
     }
   }
 
@@ -447,15 +469,25 @@ class CommunityView extends BasePostView {
   updateSubscribeButton() {
     const button = this.element.querySelector('#subscribe-button');
     if (button) {
+      button.classList.remove('primary-btn', 'outline-btn', 'button-loading');
+      
       if (this.isSubscribed) {
         button.textContent = 'Unsubscribe';
-        button.classList.remove('primary-btn');
         button.classList.add('outline-btn');
       } else {
         button.textContent = 'Subscribe';
         button.classList.add('primary-btn');
-        button.classList.remove('outline-btn');
       }
+      
+      // Effetto visivo per indicare l'aggiornamento
+      button.classList.add('button-updated');
+      setTimeout(() => {
+        button.classList.remove('button-updated');
+      }, 800);
+      
+      console.log(`Button updated to: ${this.isSubscribed ? 'Unsubscribe' : 'Subscribe'}`);
+    } else {
+      console.warn('Subscribe button not found in the DOM');
     }
   }
 
