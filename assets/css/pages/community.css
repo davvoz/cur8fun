@@ -427,3 +427,84 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Uniformare i post della community con quelli della home */
+/* SOSTITUISCI le regole attuali con queste */
+/* Impostazioni di base unificate per layout post */
+.community-view .posts-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: var(--content-max-width, 800px);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.community-view .post-item {
+  /* Reset completo degli stili precedenti */
+  width: 100%;
+  margin-bottom: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-box-shadow, 0 1px 3px rgba(0,0,0,0.1));
+  background-color: var(--surface-color);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  transform: none;
+  opacity: 1;
+}
+
+.community-view .post-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Ridimensionamento deciso degli elementi interni */
+.community-view .post-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.community-view .author-avatar {
+  width: 28px;
+  height: 28px;
+}
+
+.community-view .post-content {
+  padding: 12px;
+}
+
+.community-view .post-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.community-view .post-summary {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.community-view .post-image {
+  max-height: 180px;
+}
+
+.community-view .post-footer {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+/* Ripristina l'animazione fade-in ma più veloce e sottile */
+.community-view .post-item {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+.community-view .post-item.fade-in {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}

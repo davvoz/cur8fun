@@ -1500,39 +1500,96 @@ class SteemService {
         }
     }
 
-    async getDiscussionsByBlog(query) {
+    /**
+ * Fetches posts for a given community
+ * @param {Object} params - Parameters for the request
+ * @returns {Promise<Array>} Array of posts
+ */
+    async getDiscussionsByBlog(params) {
         await this.ensureLibraryLoaded();
-
-        console.log('Calling getDiscussionsByBlog with params:', query);
-
+        
+        // Validazione parametri
+        if (!params || !params.community) {
+            console.error('Community parameter is required');
+            return [];
+        }
+    
         try {
-            return await new Promise((resolve, reject) => {
-                this.steem.api.getDiscussionsByBlog(query, (err, result) => {
+            // Format the community tag correctly
+            const cleanCommunityName = params.community.replace(/^hive-/, '');
+            const communityTag = `hive-${cleanCommunityName}`;
+            
+            console.log(`Fetching posts for community: ${communityTag}, sort: ${params.sort || 'trending'}`);
+    
+            // Select the appropriate method based on sort order
+            const methodName = this.getSortMethodName(params.sort || 'trending');
+            
+            // Prepare the query parameters in the correct format Steem API expects
+            const query = {
+                tag: communityTag, // Use the tag parameter, not community
+                limit: params.limit || 20,
+                truncate_body: 0  // Get full post body
+            };
+            
+            // Add pagination parameters if available
+            if (params.start_author && params.start_permlink) {
+                query.start_author = params.start_author;
+                query.start_permlink = params.start_permlink;
+            }
+            
+            console.log(`Calling API method: ${methodName} with:`, query);
+    
+            // Call the API with the correct method
+            const posts = await new Promise((resolve, reject) => {
+                this.steem.api[methodName](query, (err, result) => {
                     if (err) {
-                        console.error('API error in getDiscussionsByBlog:', err);
+                        console.error(`API error in ${methodName}:`, err);
                         reject(err);
                     } else {
-                        console.log(`Received ${result ? result.length : 0} blog posts`);
                         resolve(result || []);
                     }
                 });
             });
+            
+            console.log(`Retrieved ${posts.length} posts for community ${communityTag}`);
+            
+            // Filter posts to ensure they belong to the specified community
+            const filteredPosts = posts.filter(post => {
+                try {
+                    // Check JSON metadata for community info
+                    const metadata = typeof post.json_metadata === 'string' 
+                    ? JSON.parse(post.json_metadata) 
+                    : post.json_metadata || {};
+                    
+                    // Add community info directly to the post object for convenience
+                    if (metadata && metadata.community) {
+                        post.community = metadata.community;
+                        
+                        // Check if this post belongs to our target community
+                        return metadata.community.toLowerCase() === cleanCommunityName.toLowerCase();
+                    }
+                    
+                    // Fallback to category check (older posts)
+                    return post.category === communityTag;
+                } catch (e) {
+                    console.warn('Error parsing post metadata:', e);
+                    return false;
+                }
+            });
+            
+            console.log(`Filtered to ${filteredPosts.length} posts actually in community ${cleanCommunityName}`);
+            
+            // Instead of calling local methods, directly format the posts with community information
+            return filteredPosts.map(post => ({
+                ...post,
+                community_title: this.formatSimpleCommunityTitle(cleanCommunityName)
+            }));
         } catch (error) {
             console.error('Error in getDiscussionsByBlog:', error);
+            
+            // Switch endpoint in case of API issues
             this.switchEndpoint();
-
-            // Retry with new endpoint
-            try {
-                return await new Promise((resolve, reject) => {
-                    this.steem.api.getDiscussionsByBlog(query, (err, result) => {
-                        if (err) reject(err);
-                        else resolve(result || []);
-                    });
-                });
-            } catch (retryError) {
-                console.error('Retry also failed:', retryError);
-                return [];
-            }
+            throw error;
         }
     }
 
@@ -1642,6 +1699,39 @@ class SteemService {
             ? this._lastPostByUser[username]
             : null;
     }
+
+    /**
+ * Helper to get the correct API method name for the requested sort order
+ * @param {string} sort - The sort order ('trending', 'hot', 'created', etc.)
+ * @returns {string} The method name to call on the Steem API
+ */
+getSortMethodName(sort) {
+  const sortToMethod = {
+    'trending': 'getDiscussionsByTrending',
+    'hot': 'getDiscussionsByHot',
+    'created': 'getDiscussionsByCreated',
+    'promoted': 'getDiscussionsByPromoted',
+    'payout': 'getDiscussionsByPayout'
+  };
+  
+  return sortToMethod[sort] || 'getDiscussionsByTrending';
+}
+
+/**
+ * Format a community name into a readable title (local version)
+ * This avoids the dependency on CommunityService
+ * @param {string} communityName - Community name to format
+ * @returns {string} Formatted community title
+ */
+formatSimpleCommunityTitle(communityName) {
+  if (!communityName) return 'Community';
+  
+  return communityName
+    .replace(/^hive-/, '')
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 }
 
 // Initialize singleton instance
