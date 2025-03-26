@@ -131,15 +131,6 @@
 }
 
 
-
-
-/* List layout */
-.profile-container .layout-list .post-main-content,
-.profile-container .grid-layout-list .post-main-content {
-  display: grid !important;
-  grid-template-columns: 220px 1fr !important;
-}
-
 .profile-container .layout-list .post-image-container,
 .profile-container .grid-layout-list .post-image-container {
   width: 220px !important;
