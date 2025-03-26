@@ -2,9 +2,6 @@ import View from './View.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; 
 import ContentRenderer from '../components/ContentRenderer.js';
-import voteService from '../services/VoteService.js';
-import authService from '../services/AuthService.js'; 
-import commentService from '../services/CommentService.js';
 import steemService from '../services/SteemService.js'; 
 import communityService from '../services/CommunityService.js';
 
@@ -308,6 +305,41 @@ class PostView extends View {
   async renderCommunityBadge(community) {
     if (!community) return null;
     
+    const baseDisplayName = this.getCommunityBaseDisplayName(community);
+    const communitySlug = community.replace(/^hive-/, '');
+    const container = this.createCommunityContainerStructure(baseDisplayName);
+    
+    const { communityContainer, communityIcon, communityInfo, loadingSpinner } = container;
+    
+    try {
+      // Show loading state
+      communityIcon.style.display = 'none';
+      communityContainer.insertBefore(loadingSpinner, communityInfo);
+      
+      const communityData = await communityService.findCommunityByName(community);
+      
+      // Remove loading spinner and show icon
+      this.removeElementIfExists(loadingSpinner);
+      communityIcon.style.display = 'inline-flex';
+      
+      this.updateCommunityDisplay(communityInfo, communityIcon, communityData, baseDisplayName, communitySlug, communityContainer);
+    } catch (error) {
+      // Handle error state
+      this.removeElementIfExists(loadingSpinner);
+      communityIcon.style.display = 'inline-flex';
+      console.log('Error fetching community details:', error);
+      
+      this.renderSimpleCommunityLink(communityInfo, baseDisplayName, communitySlug);
+    }
+    
+    return communityContainer;
+  }
+  
+  getCommunityBaseDisplayName(community) {
+    return community.startsWith('hive-') ? community : `hive-${community}`;
+  }
+  
+  createCommunityContainerStructure(baseDisplayName) {
     const communityContainer = document.createElement('div');
     communityContainer.className = 'community-container';
     
@@ -321,105 +353,104 @@ class PostView extends View {
     const communityInfo = document.createElement('div');
     communityInfo.className = 'community-info-container';
     
-    const baseDisplayName = community.startsWith('hive-') 
-      ? community 
-      : `hive-${community}`;
-    
-    communityContainer.appendChild(communityIcon);
-    communityContainer.appendChild(communityInfo);
-    
     const communityId = document.createElement('div');
     communityId.className = 'community-id';
     communityId.textContent = baseDisplayName;
-    communityInfo.appendChild(communityId);
     
-    try {
-      communityIcon.style.display = 'none';
-      communityContainer.insertBefore(loadingSpinner, communityInfo);
-      
-      const communityData = await communityService.findCommunityByName(community);
-      
-      if (loadingSpinner.parentNode) {
-        communityContainer.removeChild(loadingSpinner);
-      }
-      communityIcon.style.display = 'inline-flex';
-      
-      if (communityData) {
-        const communityTitle = document.createElement('a');
-        communityTitle.href = "javascript:void(0)";
-        communityTitle.className = 'community-title';
-        communityTitle.textContent = communityData.title || baseDisplayName;
-        
-        communityInfo.innerHTML = '';
-        communityInfo.appendChild(communityTitle);
-        
-        const communityIdLink = document.createElement('a');
-        communityIdLink.href = "javascript:void(0)";
-        communityIdLink.className = 'community-id';
-        communityIdLink.textContent = baseDisplayName;
-        communityInfo.appendChild(communityIdLink);
-        
-        const navigateToHandler = (e) => {
-          e.preventDefault();
-          const communitySlug = community.replace(/^hive-/, '');
-          router.navigate(`/community/${communitySlug}`);
-        };
-        
-        communityTitle.addEventListener('click', navigateToHandler);
-        communityIdLink.addEventListener('click', navigateToHandler);
-        
-        if (communityData.about) {
-          communityContainer.title = communityData.about;
-        }
-        
-        if (communityData.avatar_url) {
-          communityIcon.textContent = '';
-          
-          const avatarImg = document.createElement('img');
-          avatarImg.src = communityData.avatar_url;
-          avatarImg.alt = communityData.title || baseDisplayName;
-          avatarImg.className = 'community-avatar-img';
-          
-          communityIcon.appendChild(avatarImg);
-        }
-      } else {
-        const communityIdLink = document.createElement('a');
-        communityIdLink.href = "javascript:void(0)";
-        communityIdLink.className = 'community-id';
-        communityIdLink.textContent = baseDisplayName;
-        
-        communityInfo.innerHTML = '';
-        communityInfo.appendChild(communityIdLink);
-        
-        communityIdLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          const communitySlug = community.replace(/^hive-/, '');
-          router.navigate(`/community/${communitySlug}`);
-        });
-      }
-    } catch (error) {
-      if (loadingSpinner.parentNode) {
-        communityContainer.removeChild(loadingSpinner);
-      }
-      communityIcon.style.display = 'inline-flex';
-      console.log('Error fetching community details:', error);
-      
-      const communityIdLink = document.createElement('a');
-      communityIdLink.href = "javascript:void(0)";
-      communityIdLink.className = 'community-id';
-      communityIdLink.textContent = baseDisplayName;
-      
-      communityInfo.innerHTML = '';
-      communityInfo.appendChild(communityIdLink);
-      
-      communityIdLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        const communitySlug = community.replace(/^hive-/, '');
-        router.navigate(`/community/${communitySlug}`);
-      });
+    communityInfo.appendChild(communityId);
+    communityContainer.appendChild(communityIcon);
+    communityContainer.appendChild(communityInfo);
+    
+    return { communityContainer, communityIcon, communityInfo, loadingSpinner };
+  }
+  
+  removeElementIfExists(element) {
+    if (element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+  }
+  
+  updateCommunityDisplay(infoContainer, iconElement, communityData, baseDisplayName, communitySlug, container) {
+    this.clearElement(infoContainer);
+    
+    if (communityData) {
+      this.renderDetailedCommunityInfo(
+        infoContainer, 
+        iconElement, 
+        communityData, 
+        baseDisplayName, 
+        communitySlug, 
+        container
+      );
+    } else {
+      this.renderSimpleCommunityLink(infoContainer, baseDisplayName, communitySlug);
+    }
+  }
+  
+  renderDetailedCommunityInfo(infoContainer, iconElement, communityData, baseDisplayName, communitySlug, container) {
+    const communityTitle = this.createLinkElement(
+      communityData.title || baseDisplayName,
+      'community-title'
+    );
+    
+    const communityIdLink = this.createLinkElement(baseDisplayName, 'community-id');
+    
+    infoContainer.appendChild(communityTitle);
+    infoContainer.appendChild(communityIdLink);
+    
+    const navigateHandler = this.createCommunityNavigationHandler(communitySlug);
+    communityTitle.addEventListener('click', navigateHandler);
+    communityIdLink.addEventListener('click', navigateHandler);
+    
+    if (communityData.about) {
+      container.title = communityData.about;
     }
     
-    return communityContainer;
+    if (communityData.avatar_url) {
+      this.renderCommunityAvatar(iconElement, communityData);
+    }
+  }
+  
+  renderCommunityAvatar(iconElement, communityData) {
+    iconElement.textContent = '';
+    
+    const avatarImg = document.createElement('img');
+    avatarImg.src = communityData.avatar_url;
+    avatarImg.alt = communityData.title || '';
+    avatarImg.className = 'community-avatar-img';
+    
+    iconElement.appendChild(avatarImg);
+  }
+  
+  renderSimpleCommunityLink(infoContainer, baseDisplayName, communitySlug) {
+    this.clearElement(infoContainer);
+    
+    const communityIdLink = this.createLinkElement(baseDisplayName, 'community-id');
+    infoContainer.appendChild(communityIdLink);
+    
+    const navigateHandler = this.createCommunityNavigationHandler(communitySlug);
+    communityIdLink.addEventListener('click', navigateHandler);
+  }
+  
+  createLinkElement(text, className) {
+    const link = document.createElement('a');
+    link.href = "javascript:void(0)";
+    link.className = className;
+    link.textContent = text;
+    return link;
+  }
+  
+  createCommunityNavigationHandler(communitySlug) {
+    return (e) => {
+      e.preventDefault();
+      router.navigate(`/community/${communitySlug}`);
+    };
+  }
+  
+  clearElement(element) {
+    while (element.firstChild) {
+      element.removeChild(element.firstChild);
+    }
   }
 
   parseMetadata(jsonMetadata) {
