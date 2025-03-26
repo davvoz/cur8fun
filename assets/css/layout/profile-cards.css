@@ -104,7 +104,6 @@
 .posts-container.grid-layout-list .post-card .post-main-content,
 .comments-container.grid-layout-list .comment-card .post-main-content {
   display: grid;
-  grid-template-columns: 220px 1fr;
 }
 
 .posts-container.grid-layout-list .post-image-container,
