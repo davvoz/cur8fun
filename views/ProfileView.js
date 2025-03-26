@@ -123,13 +123,26 @@ class ProfileView extends View {
     const postsArea = document.createElement('div');
     postsArea.className = 'profile-posts-area';
     contentContainer.appendChild(postsArea);
+    
+    // Configure the container for grid layouts
+    postsArea.style.width = '100%';
+    postsArea.style.maxWidth = '100%';
+    postsArea.style.overflow = 'hidden';
   }
   
   loadContentForCurrentTab() {
     const postsArea = this.container.querySelector('.profile-posts-area');
     if (!postsArea) return;
     
+    // Clear the previous content to prevent gridController conflicts
     postsArea.innerHTML = '';
+    
+    // Ensure any previous component is properly unmounted
+    if (this.currentTab === 'posts' && this.commentsComponent) {
+      this.commentsComponent.unmount();
+    } else if (this.currentTab === 'comments' && this.postsComponent) {
+      this.postsComponent.unmount();
+    }
     
     if (this.currentTab === 'posts') {
       this.postsComponent.render(postsArea);

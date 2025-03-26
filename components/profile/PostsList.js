@@ -32,10 +32,7 @@ export default class PostsList extends BasePostView {
     gridControlsContainer.className = 'grid-controller-container';
     outerContainer.appendChild(gridControlsContainer);
     
-    // Render grid controller
-    this.gridController.render(gridControlsContainer);
-    
-    // Create the posts container
+    // Create the posts container with the correct class for GridController to target
     const postsContainer = document.createElement('div');
     postsContainer.id = `posts-container-${Date.now()}`;
     postsContainer.className = 'posts-container';
@@ -43,6 +40,13 @@ export default class PostsList extends BasePostView {
     
     // Store reference to posts container
     this.postsContainer = postsContainer;
+    
+    // Configure GridController to target this specific container
+    this.gridController.targetSelector = `#${postsContainer.id}`;
+    this.gridController.target = postsContainer;
+    
+    // Render grid controller
+    this.gridController.render(gridControlsContainer);
     
     await this.loadAllPosts();
     
@@ -199,9 +203,11 @@ export default class PostsList extends BasePostView {
   async renderLoadedPosts(totalCount) {
     if (!this.postsContainer) return;
 
-    // Clear the container but maintain any layout classes from GridController
-    const currentLayout = this.gridController.settings.layout || 'grid';
+    // Clear container content but preserve the element
     this.postsContainer.innerHTML = '';
+    
+    // Make sure we apply the current grid layout
+    const currentLayout = this.gridController.settings.layout || 'grid';
     this.postsContainer.className = `posts-container grid-layout-${currentLayout}`;
 
     try {
@@ -258,6 +264,11 @@ export default class PostsList extends BasePostView {
       // Reapply grid settings after posts are rendered
       this.gridController.target = this.postsContainer;
       this.gridController.applySettings();
+      
+      // Force re-apply settings to ensure layout is applied
+      setTimeout(() => {
+        this.gridController.applySettings();
+      }, 100);
     } catch (error) {
       console.error('Errore nel rendering dei post:', error);
       this.postsContainer.innerHTML = `
@@ -507,8 +518,9 @@ export default class PostsList extends BasePostView {
       this.progressInterval = null;
     }
     
-    // Make sure to unmount the grid controller too
+    // Properly disconnect the grid controller
     if (this.gridController) {
+      this.gridController.target = null;
       this.gridController.unmount();
     }
   }
