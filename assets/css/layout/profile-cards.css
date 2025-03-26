@@ -182,24 +182,8 @@
   }
 }
 
-@media (max-width: 768px) {
-  .posts-container.grid-layout-grid .posts-cards-wrapper,
-  .comments-container.grid-layout-grid .comments-cards-wrapper,
-  .posts-container.grid-layout-compact .posts-cards-wrapper,
-  .comments-container.grid-layout-compact .comments-cards-wrapper {
-    grid-template-columns: repeat(2, 1fr) !important; /* 2 colonne su mobile */
-    gap: var(--space-xs);
-  }
-}
 
-@media (max-width: 480px) {
-  .posts-container.grid-layout-grid .posts-cards-wrapper,
-  .comments-container.grid-layout-grid .comments-cards-wrapper,
-  .posts-container.grid-layout-compact .posts-cards-wrapper,
-  .comments-container.grid-layout-compact .comments-cards-wrapper {
-    grid-template-columns: 1fr !important; /* 1 colonna su schermi molto piccoli */
-  }
-}
+
 
 /* Stili per il counter dei post/commenti */
 .posts-count,
