@@ -1,3 +1,5 @@
+import VotesPopup from './VotesPopup.js';
+
 class PostActions {
   constructor(post, upvoteCallback, commentCallback, shareCallback) {
     this.post = post;
@@ -13,6 +15,8 @@ class PostActions {
     const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.net_votes || 0);
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
+    // Add new vote details button
+    const votesDetailsBtn = this.createActionButton('votes-details-btn', 'how_to_vote', 'Votes');
 
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
@@ -21,6 +25,7 @@ class PostActions {
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
     postActions.appendChild(shareBtn);
+    postActions.appendChild(votesDetailsBtn); // Add the new button
     postActions.appendChild(payoutInfo);
 
     // Add event listeners
@@ -35,6 +40,12 @@ class PostActions {
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
     }
+    
+    // Add event listener for votes details button
+    votesDetailsBtn.addEventListener('click', () => {
+      const votesPopup = new VotesPopup(this.post);
+      votesPopup.show();
+    });
 
     return postActions;
   }
