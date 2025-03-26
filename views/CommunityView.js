@@ -107,11 +107,11 @@ class CommunityView extends BasePostView {
 
       console.log(`Fetching ${this.sortOrder} posts for community ${this.communityId}, page ${page}`);
       
-      // Fetch raw posts
-      const rawPosts = await steemService.getDiscussionsByBlog(params);
+      // Use the new specialized method for community posts
+      const rawPosts = await steemService.fetchCommunityPosts(params);
       
       if (!Array.isArray(rawPosts)) {
-        console.error('Invalid response from getDiscussionsByBlog:', rawPosts);
+        console.error('Invalid response from fetchCommunityPosts:', rawPosts);
         return { posts: [], hasMore: false };
       }
       
