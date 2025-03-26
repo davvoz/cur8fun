@@ -8,6 +8,12 @@ import PostsList from '../components/profile/PostsList.js';
 import CommentsList from '../components/profile/CommentsList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
 
+// Static cache for components
+const componentCache = {
+  posts: {},
+  comments: {}
+};
+
 class ProfileView extends View {
   constructor(params) {
     super();
@@ -18,14 +24,43 @@ class ProfileView extends View {
     this.container = null;
     this.profile = null;
     
-    // Components
-    this.profileHeader = null;
-    this.tabsManager = null;
-    this.postsComponent = null;
-    this.commentsComponent = null;
+    // Get components from cache or create new ones
+    this.initializeComponentsFromCache();
     
-    // State
-    this.currentTab = 'posts';
+    // Get cached tab if available
+    this.currentTab = ProfileTabs.activeTabCache[this.username] || 'posts';
+    
+    // Caching state
+    this.postsLoaded = !!componentCache.posts[this.username];
+    this.commentsLoaded = !!componentCache.comments[this.username];
+    this.postsContainer = null;
+    this.commentsContainer = null;
+  }
+
+  initializeComponentsFromCache() {
+    // Create profile header component (no caching needed)
+    this.profileHeader = null; // Will be initialized after profile data is loaded
+    
+    // Create tabs manager - always create fresh to ensure proper initialization
+    this.tabsManager = new ProfileTabs((tabName) => this.switchTab(tabName));
+    
+    // Get or create posts component
+    if (!componentCache.posts[this.username]) {
+      componentCache.posts[this.username] = new PostsList(this.username, true);
+    } else {
+      // Reset the component if it exists to ensure it's ready for reuse
+      componentCache.posts[this.username].reset();
+    }
+    this.postsComponent = componentCache.posts[this.username];
+    
+    // Get or create comments component
+    if (!componentCache.comments[this.username]) {
+      componentCache.comments[this.username] = new CommentsList(this.username, true);
+    } else {
+      // Reset the component if it exists to ensure it's ready for reuse
+      componentCache.comments[this.username].reset();
+    }
+    this.commentsComponent = componentCache.comments[this.username];
   }
 
   async render(container) {
@@ -89,21 +124,14 @@ class ProfileView extends View {
   }
   
   initComponents() {
-    // Create profile header component
+    // Create profile header component with the now-loaded profile data
     this.profileHeader = new ProfileHeader(
       this.profile, 
       this.currentUser, 
       () => this.handleFollowAction()
     );
     
-    // Create tabs manager
-    this.tabsManager = new ProfileTabs((tabName) => this.switchTab(tabName));
-    
-    // Create posts component
-    this.postsComponent = new PostsList(this.username);
-    
-    // Create comments component
-    this.commentsComponent = new CommentsList(this.username);
+    // Don't reinitialize other components - we're using cached ones
   }
   
   renderComponents(container) {
@@ -134,20 +162,59 @@ class ProfileView extends View {
     const postsArea = this.container.querySelector('.profile-posts-area');
     if (!postsArea) return;
     
-    // Clear the previous content to prevent gridController conflicts
-    postsArea.innerHTML = '';
-    
-    // Ensure any previous component is properly unmounted
-    if (this.currentTab === 'posts' && this.commentsComponent) {
-      this.commentsComponent.unmount();
-    } else if (this.currentTab === 'comments' && this.postsComponent) {
-      this.postsComponent.unmount();
+    // First time initialization - create containers for both if they don't exist
+    if (!this.postsContainer && !this.commentsContainer) {
+      // Create containers
+      this.postsContainer = document.createElement('div');
+      this.postsContainer.className = 'posts-list-container';
+      this.postsContainer.style.width = '100%';
+      
+      this.commentsContainer = document.createElement('div');
+      this.commentsContainer.className = 'comments-list-container';
+      this.commentsContainer.style.width = '100%';
+      
+      // Add both containers to DOM
+      postsArea.appendChild(this.postsContainer);
+      postsArea.appendChild(this.commentsContainer);
+      
+      // Initialize posts first (it's the default tab)
+      this.postsComponent.render(this.postsContainer);
+      this.postsLoaded = true;
+      
+      // Initially hide comments container
+      this.commentsContainer.style.display = 'none';
     }
     
+    // Ensure both components know their containers
+    this.postsComponent.setContainer(this.postsContainer);
+    this.commentsComponent.setContainer(this.commentsContainer);
+    
+    // Toggle visibility based on current tab from cache
     if (this.currentTab === 'posts') {
-      this.postsComponent.render(postsArea);
+      this.postsContainer.style.display = 'block';
+      this.commentsContainer.style.display = 'none';
+      
+      // Only load posts if not already loaded
+      if (!this.postsLoaded) {
+        this.postsComponent.render(this.postsContainer);
+        this.postsLoaded = true;
+      } else {
+        // Force refresh existing posts
+        this.postsComponent.refreshGridLayout();
+      }
     } else if (this.currentTab === 'comments') {
-      this.commentsComponent.render(postsArea);
+      this.postsContainer.style.display = 'none';
+      this.commentsContainer.style.display = 'block';
+      
+      // Only load comments if not already loaded
+      if (!this.commentsLoaded) {
+        this.commentsComponent.render(this.commentsContainer);
+        this.commentsLoaded = true;
+      } else {
+        // Force refresh existing comments
+        console.log("Refreshing comments layout");
+        this.commentsComponent.refreshGridLayout();
+      }
     }
   }
   
@@ -216,11 +283,15 @@ class ProfileView extends View {
     // Clean up posts component
     if (this.postsComponent) {
       this.postsComponent.unmount();
+      this.postsLoaded = false;
+      this.postsContainer = null;
     }
     
     // Clean up comments component
     if (this.commentsComponent) {
       this.commentsComponent.unmount();
+      this.commentsLoaded = false;
+      this.commentsContainer = null;
     }
   }
 }

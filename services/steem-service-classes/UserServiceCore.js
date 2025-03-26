@@ -102,15 +102,46 @@ export default class UserServiceCore {
         }
     }
 
+    /**
+     * Updates a user's profile by modifying their account metadata
+     * @param {string} username - The username whose profile to update
+     * @param {Object} profile - The profile data to update
+     * @returns {Promise<Object>} - The result of the update operation
+     * @throws {Error} If the update fails or required authentication is missing
+     */
     async updateUserProfile(username, profile) {
         await this.core.ensureLibraryLoaded();
 
-        console.log('SteemService: Updating profile for user:', username);
-        console.log('Profile data to update:', profile);
+        // Get existing user data and prepare metadata
+        const { metadata, memoKey } = await this.prepareProfileUpdate(username);
+        
+        // Set or update the profile property and stringify
+        metadata.profile = profile;
+        const jsonMetadata = JSON.stringify(metadata);
+        
+        // Try updating with stored keys or Keychain
+        const activeKey = this.getStoredActiveKey(username);
+        
+        if (activeKey) {
+            return this.broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey);
+        } else if (window.steem_keychain) {
+            return this.broadcastProfileUpdateWithKeychain(username, memoKey, jsonMetadata);
+        } else {
+            // No active key or Keychain, show explanation to user
+            await this.showActiveKeyRequiredModal(username);
+            throw new Error('Active authority required to update profile. Please use Keychain or provide your active key.');
+        }
+    }
 
-        // Prepare metadata in the correct format
+    /**
+     * Prepares metadata and retrieves memo key for profile update
+     * @private
+     * @param {string} username - The username whose profile to update
+     * @returns {Promise<Object>} - Object containing metadata and memoKey
+     */
+    async prepareProfileUpdate(username) {
         let metadata = {};
-        let memo_key = '';
+        let memoKey = '';
 
         try {
             // Get existing metadata and memo_key if any
@@ -119,124 +150,112 @@ export default class UserServiceCore {
                 throw new Error('User data not found');
             }
 
-            // Important: Get the existing memo_key which is required for account_update
-            memo_key = userData.memo_key;
-            console.log('Using existing memo_key:', memo_key);
-
+            memoKey = userData.memo_key;
+            
             if (userData.json_metadata) {
                 try {
-                    const existingMetadata = JSON.parse(userData.json_metadata);
-                    metadata = { ...existingMetadata };
+                    metadata = JSON.parse(userData.json_metadata);
                 } catch (e) {
-                    console.warn('Failed to parse existing metadata, starting fresh');
+                    // Start fresh if existing metadata can't be parsed
+                    metadata = {};
                 }
             }
         } catch (e) {
-            console.warn('Failed to get existing user data:', e);
-            // Don't throw an error yet - we'll try to get the memo key another way
+            // If we couldn't get user data, try to get just the memo key
         }
 
         // If we couldn't get memo_key from user data, try alternative sources
-        if (!memo_key) {
-            memo_key = await this.getMemoKeyFromAlternativeSources(username);
-            if (!memo_key) {
+        if (!memoKey) {
+            memoKey = await this.getMemoKeyFromAlternativeSources(username);
+            if (!memoKey) {
                 throw new Error('Cannot update profile without a memo key. Please try again later.');
             }
         }
 
-        // Set or update the profile property
-        metadata.profile = profile;
+        return { metadata, memoKey };
+    }
 
-        const jsonMetadata = JSON.stringify(metadata);
-        console.log('Final json_metadata to broadcast:', jsonMetadata);
+    /**
+     * Retrieves stored active key for a user
+     * @private
+     * @param {string} username - The username to get the key for
+     * @returns {string|null} - The active key if found, null otherwise
+     */
+    getStoredActiveKey(username) {
+        return localStorage.getItem('activeKey') ||
+               localStorage.getItem(`${username}_active_key`) ||
+               localStorage.getItem(`${username.toLowerCase()}_active_key`) ||
+               null;
+    }
 
-        // Check for active key first (needed for account_update)
-        const activeKey = localStorage.getItem('activeKey') ||
-            localStorage.getItem(`${username}_active_key`) ||
-            localStorage.getItem(`${username.toLowerCase()}_active_key`);
-
-        // Posting key won't work for account_update, but check anyway as fallback
-        const postingKey = localStorage.getItem('postingKey') ||
-            localStorage.getItem(`${username}_posting_key`) ||
-            localStorage.getItem(`${username.toLowerCase()}_posting_key`);
-
-        // Log authentication method being used
-        if (activeKey) {
-            console.log('Using stored active key for update');
-        } else if (window.steem_keychain) {
-            console.log('Using Steem Keychain for update');
-        } else {
-            console.log('No active key or Keychain available');
-        }
-
-        // If we have active key, use it
-        if (activeKey) {
-            return new Promise((resolve, reject) => {
-                try {
-                    // Use standard operation with all required fields
-                    const operations = [
-                        ['account_update', {
-                            account: username,
-                            memo_key: memo_key, // Required field
-                            json_metadata: jsonMetadata
-                        }]
-                    ];
-
-                    this.core.steem.broadcast.send(
-                        { operations: operations, extensions: [] },
-                        { active: activeKey }, // Use active key for account_update
-                        (err, result) => {
-                            if (err) {
-                                console.error('Error updating profile with direct broadcast:', err);
-                                reject(err);
-                            } else {
-                                console.log('Profile updated successfully:', result);
-                                resolve(result);
-                            }
-                        }
-                    );
-                } catch (error) {
-                    console.error('Exception during profile update:', error);
-                    reject(error);
-                }
-            });
-        }
-        // If Keychain is available, use it with explicit active authority
-        else if (window.steem_keychain) {
-            console.log('Using Keychain for profile update');
-
-            return new Promise((resolve, reject) => {
-                // Include memo_key in operation
+    /**
+     * Broadcasts a profile update using direct key authentication
+     * @private
+     * @param {string} username - Username to update
+     * @param {string} memoKey - Memo key for the account
+     * @param {string} jsonMetadata - Stringified metadata JSON
+     * @param {string} activeKey - Active private key for authentication
+     * @returns {Promise<Object>} - Result of the broadcast operation
+     */
+    broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey) {
+        return new Promise((resolve, reject) => {
+            try {
                 const operations = [
                     ['account_update', {
                         account: username,
-                        memo_key: memo_key, // Required field
+                        memo_key: memoKey,
                         json_metadata: jsonMetadata
                     }]
                 ];
 
-                window.steem_keychain.requestBroadcast(
-                    username,
-                    operations,
-                    'active', // Must use active authority for account_update
-                    (response) => {
-                        if (response.success) {
-                            console.log('Profile updated successfully with Keychain:', response);
-                            resolve(response);
+                this.core.steem.broadcast.send(
+                    { operations, extensions: [] },
+                    { active: activeKey },
+                    (err, result) => {
+                        if (err) {
+                            reject(err);
                         } else {
-                            console.error('Keychain broadcast error:', response.error);
-                            reject(new Error(response.error));
+                            resolve(result);
                         }
                     }
                 );
-            });
-        }
-        // No active key or Keychain, show explanation to user
-        else {
-            // Create a modal dialog explaining the need for active key
-            await this.showActiveKeyRequiredModal(username);
-            throw new Error('Active authority required to update profile. Please use Keychain or provide your active key.');
-        }
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Broadcasts a profile update using Keychain
+     * @private
+     * @param {string} username - Username to update
+     * @param {string} memoKey - Memo key for the account
+     * @param {string} jsonMetadata - Stringified metadata JSON
+     * @returns {Promise<Object>} - Result of the broadcast operation
+     */
+    broadcastProfileUpdateWithKeychain(username, memoKey, jsonMetadata) {
+        return new Promise((resolve, reject) => {
+            const operations = [
+                ['account_update', {
+                    account: username,
+                    memo_key: memoKey,
+                    json_metadata: jsonMetadata
+                }]
+            ];
+
+            window.steem_keychain.requestBroadcast(
+                username,
+                operations,
+                'active',
+                (response) => {
+                    if (response.success) {
+                        resolve(response);
+                    } else {
+                        reject(new Error(response.error));
+                    }
+                }
+            );
+        });
     }
 
     async getMemoKeyFromAlternativeSources(username) {

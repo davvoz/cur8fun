@@ -5,11 +5,12 @@ import profileService from '../../services/ProfileService.js';
 import BasePostView from '../../views/BasePostView.js';
 
 export default class PostsList extends BasePostView {
-  constructor(username) {
+  constructor(username, useCache = false) {
     super(); // This initializes gridController from BasePostView
     this.username = username;
-    this.posts = [];
-    this.allPosts = []; // Aggiunto per memorizzare tutti i post
+    this.useCache = useCache;
+    this.postsData = null; // Flag to indicate if data is cached
+    this.allPosts = []; // Store fetched data
     this.page = 1;
     this.loading = false;
     this.hasMore = true;
@@ -20,37 +21,54 @@ export default class PostsList extends BasePostView {
   }
   
   async render(container) {
-    this.container = container;
+    if (container) {
+      this.container = container;
+      this.postsContainer = container;
+    }
     
-    // Create outer container
-    const outerContainer = document.createElement('div');
-    outerContainer.className = 'posts-outer-container';
-    container.appendChild(outerContainer);
+    console.log("PostsList render called, useCache:", this.useCache, "postsData:", this.postsData);
     
-    // Create grid controls container
-    const gridControlsContainer = document.createElement('div');
-    gridControlsContainer.className = 'grid-controller-container';
-    outerContainer.appendChild(gridControlsContainer);
-    
-    // Create the posts container with the correct class for GridController to target
-    const postsContainer = document.createElement('div');
-    postsContainer.id = `posts-container-${Date.now()}`;
-    postsContainer.className = 'posts-container';
-    outerContainer.appendChild(postsContainer);
-    
-    // Store reference to posts container
-    this.postsContainer = postsContainer;
-    
-    // Configure GridController to target this specific container
-    this.gridController.targetSelector = `#${postsContainer.id}`;
-    this.gridController.target = postsContainer;
-    
-    // Render grid controller
-    this.gridController.render(gridControlsContainer);
-    
-    await this.loadAllPosts();
-    
-    return this.postsContainer;
+    // Only fetch data if not already cached
+    if (!this.postsData) {
+      console.log("Fetching posts (not cached)");
+      // Show loading state
+      const loadingElement = document.createElement('div');
+      loadingElement.className = 'posts-loading';
+      loadingElement.innerHTML = '<div class="loading-spinner"></div><p>Loading posts...</p>';
+      container.appendChild(loadingElement);
+      
+      try {
+        // Fetch posts data
+        await this.loadAllPosts();
+        // Mark as cached
+        this.postsData = true;
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+        container.innerHTML = `
+          <div class="error-message">
+            <h3>Error loading posts</h3>
+            <p>${error.message || 'Unknown error'}</p>
+            <button class="retry-btn">Retry</button>
+          </div>
+        `;
+        
+        container.querySelector('.retry-btn')?.addEventListener('click', () => {
+          this.render(container);
+        });
+      } finally {
+        // Remove loading indicator
+        const existingLoader = container.querySelector('.posts-loading');
+        if (existingLoader) {
+          existingLoader.remove();
+        }
+      }
+    } else {
+      console.log("Using cached posts data");
+      // If we already have cached data, just render it
+      if (this.allPosts && this.allPosts.length > 0) {
+        this.renderLoadedPosts(this.allPosts.length);
+      }
+    }
   }
   
   async loadAllPosts() {
@@ -528,5 +546,57 @@ export default class PostsList extends BasePostView {
   getGridType() {
     // Use the gridController's current layout setting
     return this.gridController ? this.gridController.settings.layout : 'grid';
+  }
+  
+  // Add this method to refresh the grid layout
+  refreshLayout() {
+    if (this.gridLayout) {
+      // If using Masonry, isotope or similar library
+      this.gridLayout.layout();
+    }
+  }
+
+  // Add this method to set container after initialization
+  setContainer(container) {
+    if (container) {
+      this.container = container;
+      this.postsContainer = container;
+    }
+    return this;
+  }
+
+  // Add reset method to ensure component can be reused
+  reset() {
+    // Keep cached data but reset UI-related properties
+    this.loading = false;
+    this.infiniteScroll = null;
+    return this;
+  }
+
+  // Enhance refreshGridLayout for better reliability
+  refreshGridLayout() {
+    console.log("Refreshing posts grid layout");
+    
+    if (!this.postsContainer) {
+      console.warn("No posts container available for refresh");
+      return;
+    }
+    
+    // If we have posts data but it's not displayed yet, render it
+    if (this.allPosts && this.allPosts.length > 0 && 
+        (!this.postsContainer.children.length || 
+         !this.postsContainer.querySelector('.post-card'))) {
+      console.log("Posts data exists but not rendered, rendering now");
+      this.renderLoadedPosts(this.allPosts.length);
+      return;
+    }
+    
+    // Otherwise just refresh the layout
+    if (this.gridController) {
+      this.gridController.target = this.postsContainer;
+      setTimeout(() => {
+        this.gridController.applySettings();
+      }, 50);
+    }
   }
 }

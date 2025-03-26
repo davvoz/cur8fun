@@ -5,9 +5,11 @@ import UIComponents from '../../utils/UIComponents.js';
 import BasePostView from '../../views/BasePostView.js';
 
 export default class CommentsList extends BasePostView {
-  constructor(username) {
+  constructor(username, useCache = false) {
     super(); // Initialize gridController from BasePostView
     this.username = username;
+    this.useCache = useCache;
+    this.commentsData = null; // Store fetched data flag - THIS WAS NEVER GETTING SET TO TRUE
     this.comments = [];
     this.allComments = [];
     this.page = 1;
@@ -15,41 +17,94 @@ export default class CommentsList extends BasePostView {
     this.hasMore = true;
     this.infiniteScroll = null;
     this.container = null;
+    this.commentsContainer = null; // Ensure this is initialized
     this.progressInterval = null;
   }
   
   async render(container) {
-    this.container = container;
+    console.log("CommentsList render called, useCache:", this.useCache, "commentsData:", this.commentsData);
     
-    // Create outer container
-    const outerContainer = document.createElement('div');
-    outerContainer.className = 'comments-outer-container';
-    container.appendChild(outerContainer);
+    if (container) {
+      this.container = container;
+      this.commentsContainer = container;
+    }
     
-    // Create grid controls container
-    const gridControlsContainer = document.createElement('div');
-    gridControlsContainer.className = 'grid-controller-container';
-    outerContainer.appendChild(gridControlsContainer);
+    if (!this.commentsContainer) {
+      console.error("No container available for comments!");
+      return;
+    }
     
-    // Create the comments container with the correct class for GridController to target
-    const commentsContainer = document.createElement('div');
-    commentsContainer.id = `comments-container-${Date.now()}`;
-    commentsContainer.className = 'comments-container';
-    outerContainer.appendChild(commentsContainer);
-    
-    // Store reference to comments container
-    this.commentsContainer = commentsContainer;
-    
-    // Configure GridController to target this specific container
-    this.gridController.targetSelector = `#${commentsContainer.id}`;
-    this.gridController.target = commentsContainer;
-    
-    // Render grid controller
-    this.gridController.render(gridControlsContainer);
-    
-    await this.loadAllComments();
-    
-    return this.commentsContainer;
+    // Only fetch data if not already cached or cache not requested
+    if (!this.commentsData || !this.useCache) {
+      console.log("Fetching comments (not cached)");
+      // Show loading state - add simple loading indicator
+      const loadingElement = document.createElement('div');
+      loadingElement.className = 'comments-loading';
+      loadingElement.innerHTML = '<div class="loading-spinner"></div><p>Loading comments...</p>';
+      this.commentsContainer.appendChild(loadingElement);
+      
+      try {
+        // Fetch comments data
+        await this.loadAllComments();
+        // Mark data as cached - THIS WAS MISSING!
+        this.commentsData = true;
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        this.commentsContainer.innerHTML = `
+          <div class="error-message">
+            <h3>Error loading comments</h3>
+            <p>${error.message || 'Unknown error'}</p>
+            <button class="retry-btn">Retry</button>
+          </div>
+        `;
+        
+        this.commentsContainer.querySelector('.retry-btn')?.addEventListener('click', () => {
+          this.render(this.commentsContainer);
+        });
+      } finally {
+        // Remove loading indicator
+        const existingLoader = this.commentsContainer.querySelector('.comments-loading');
+        if (existingLoader) {
+          existingLoader.remove();
+        }
+      }
+    } else {
+      // Use cached data
+      console.log("Using cached comments data, comments count:", this.allComments?.length || 0);
+      
+      // If data exists but UI needs to be rendered again
+      if (this.allComments && this.allComments.length > 0) {
+        this.renderLoadedComments(this.allComments.length);
+      } else {
+        console.warn("Cache flag set but no comments data available!");
+      }
+    }
+  }
+  
+  // Add this method to set container after initialization
+  setContainer(container) {
+    if (container) {
+      this.container = container;
+      this.commentsContainer = container;
+    }
+    return this;
+  }
+
+  // Add reset method to ensure component can be reused
+  reset() {
+    // Keep cached data but reset UI-related properties
+    this.loading = false;
+    this.infiniteScroll = null;
+    // Do NOT reset commentsData here - it would break caching
+    return this;
+  }
+
+  // Add this method to refresh the grid layout
+  refreshLayout() {
+    if (this.gridLayout) {
+      // If using Masonry, isotope or similar library
+      this.gridLayout.layout();
+    }
   }
   
   async loadAllComments() {
@@ -142,6 +197,9 @@ export default class CommentsList extends BasePostView {
       
       // Store all retrieved comments
       this.allComments = allCommentsArray;
+      
+      // Mark data as loaded - THIS WAS MISSING!
+      this.commentsData = true;
       
       // Update UI with completion
       const loadingText = progressIndicator.querySelector('.loading-text');
@@ -542,5 +600,42 @@ export default class CommentsList extends BasePostView {
   getGridType() {
     // Use the gridController's current layout setting
     return this.gridController ? this.gridController.settings.layout : 'grid';
+  }
+
+  refreshGridLayout() {
+    console.log("Refreshing comments grid layout");
+    
+    if (!this.commentsContainer) {
+      console.warn("No comments container available for refresh");
+      return;
+    }
+    
+    console.log("Comments container:", this.commentsContainer.className);
+    console.log("Comments data available:", !!this.allComments, "count:", this.allComments?.length || 0);
+    console.log("Children in container:", this.commentsContainer.children.length);
+    console.log("Comments cards:", this.commentsContainer.querySelectorAll('.comment-card').length);
+    
+    // Force render if we have data but not displayed
+    if (this.allComments && this.allComments.length > 0) {
+      // Check if comments are not rendered yet
+      if (this.commentsContainer.querySelectorAll('.comment-card').length === 0) {
+        console.log("Comments data exists but not rendered, rendering now");
+        this.renderLoadedComments(this.allComments.length);
+        return;
+      }
+    } else if (!this.commentsData && this.useCache) {
+      // If we should use cache but don't have data yet, load it
+      console.log("Need to load comments first");
+      this.render(this.commentsContainer);
+      return;
+    }
+    
+    // Otherwise just refresh the layout
+    if (this.gridController) {
+      this.gridController.target = this.commentsContainer;
+      setTimeout(() => {
+        this.gridController.applySettings();
+      }, 50);
+    }
   }
 }

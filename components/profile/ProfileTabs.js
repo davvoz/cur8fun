@@ -1,8 +1,22 @@
 export default class ProfileTabs {
+  // Static cache to remember last tab across navigation
+  static activeTabCache = {};
+  
   constructor(onTabChange) {
-    this.currentTab = 'posts';
+    // Check cache for this user if available in constructor params
+    const username = this.extractUsername();
+    this.currentTab = username && ProfileTabs.activeTabCache[username] 
+                     ? ProfileTabs.activeTabCache[username] 
+                     : 'posts';
     this.onTabChange = onTabChange;
     this.container = null;
+    this.username = username;
+  }
+  
+  // Helper to extract username from URL
+  extractUsername() {
+    const match = window.location.pathname.match(/\/@([^/]+)/);
+    return match ? match[1] : null;
   }
   
   render(container) {
@@ -18,13 +32,13 @@ export default class ProfileTabs {
 
     // Posts tab
     const postsTab = document.createElement('button');
-    postsTab.className = 'tab-btn active';
+    postsTab.className = `tab-btn ${this.currentTab === 'posts' ? 'active' : ''}`;
     postsTab.textContent = 'Posts';
     postsTab.addEventListener('click', () => this.switchTab('posts'));
 
     // Comments tab
     const commentsTab = document.createElement('button');
-    commentsTab.className = 'tab-btn';
+    commentsTab.className = `tab-btn ${this.currentTab === 'comments' ? 'active' : ''}`;
     commentsTab.textContent = 'Comments';
     commentsTab.addEventListener('click', () => this.switchTab('comments'));
 
@@ -48,6 +62,11 @@ export default class ProfileTabs {
 
     // Update current tab
     this.currentTab = tabName;
+    
+    // Cache the tab selection for this username
+    if (this.username) {
+      ProfileTabs.activeTabCache[this.username] = tabName;
+    }
     
     // Notify parent component
     if (this.onTabChange) {
