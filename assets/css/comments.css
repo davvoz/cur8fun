@@ -1,0 +1,211 @@
+/* Comments Grid Layout Styles */
+
+/* Base comment card style */
+.comment-card {
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  cursor: pointer;
+}
+
+.comment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-box-shadow);
+}
+
+/* Comment parent info */
+.comment-parent-info {
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--background-subtle);
+  border-bottom: 1px solid var(--border-color-light);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  gap: var(--space-xs);
+}
+
+.comment-parent-info.clickable {
+  cursor: pointer;
+}
+
+.comment-parent-info.clickable:hover {
+  background-color: var(--background-hover);
+}
+
+/* Comment content styling */
+.comment-content {
+  padding: var(--space-sm);
+}
+
+.comment-title {
+  font-size: 1rem;
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+.comment-body {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-sm);
+  line-height: 1.5;
+}
+
+.comment-meta {
+  display: flex;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Grid layout styles */
+.grid-layout-grid .comment-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.grid-layout-grid .comment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-layout-grid .comment-body {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* List layout styles */
+.grid-layout-list .comment-card {
+  margin-bottom: var(--space-md);
+}
+
+.grid-layout-list .comment-title {
+  font-size: 1.1rem;
+}
+
+.grid-layout-list .comment-body {
+  -webkit-line-clamp: 4;
+}
+
+/* Compact layout styles */
+.grid-layout-compact .comment-card {
+  padding: var(--space-xs);
+}
+
+.grid-layout-compact .comment-title {
+  font-size: 0.9rem;
+  margin-bottom: var(--space-xs);
+}
+
+.grid-layout-compact .comment-body {
+  font-size: 0.8rem;
+  margin-bottom: var(--space-xs);
+  -webkit-line-clamp: 2;
+}
+
+.grid-layout-compact .comment-parent-info {
+  padding: var(--space-xxs) var(--space-xs);
+  font-size: 0.8rem;
+}
+
+.grid-layout-compact .comment-meta {
+  font-size: 0.75rem;
+  gap: var(--space-sm);
+}
+
+/* Progress and counter styles */
+.comments-progress,
+.posts-progress {
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--background-subtle);
+  border-top: 4px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--background-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: var(--space-sm) 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* Count display */
+.comments-count,
+.posts-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+}
+
+.count-badge {
+  font-size: 1.2rem;
+  font-weight: 700;
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* End message styles */
+.comments-end-message,
+.posts-end-message {
+  text-align: center;
+  padding: var(--space-lg) 0;
+  color: var(--text-secondary);
+}
+
+.end-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+}

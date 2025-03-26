@@ -257,22 +257,32 @@ export default class PostsList extends BasePostView {
         return;
       }
 
+      // Create a wrapper for cards that will manage the grid layout
+      const postsWrapper = document.createElement('div');
+      postsWrapper.className = 'posts-cards-wrapper';
+      
+      // Apply matching layout class to wrapper
+      postsWrapper.classList.add(`layout-${currentLayout}`);
+      
+      // Append wrapper to container
+      this.postsContainer.appendChild(postsWrapper);
+
       // Renderizza il primo batch di post
       const BATCH_SIZE = 20;
       const firstBatch = this.allPosts.slice(0, BATCH_SIZE);
       
       firstBatch.forEach(post => {
         const postItem = this.createPostItem(post);
-        this.postsContainer.appendChild(postItem);
+        postsWrapper.appendChild(postItem);
       });
 
       // Log for debugging
-      console.log(`Rendered ${firstBatch.length} posts. Grid controller should find them at:`, this.postsContainer.className);
+      console.log(`Rendered ${firstBatch.length} posts with layout: ${currentLayout}`);
 
       // Imposta infinite scroll per i post rimanenti
       this.hasMore = totalCount > BATCH_SIZE;
       this.page = 2; // Inizia dalla pagina 2 la prossima volta
-      this.setupBatchedInfiniteScroll(BATCH_SIZE, totalCount);
+      this.setupBatchedInfiniteScroll(BATCH_SIZE, totalCount, postsWrapper);
       
       // Emit a custom event that posts are ready
       window.dispatchEvent(new CustomEvent('posts-rendered', {
@@ -303,15 +313,15 @@ export default class PostsList extends BasePostView {
     }
   }
   
-  setupBatchedInfiniteScroll(batchSize = 20, totalCount = 0) {
+  setupBatchedInfiniteScroll(batchSize = 20, totalCount = 0, postsWrapper) {
     // Cleanup any existing infinite scroll
     if (this.infiniteScroll) {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
 
-    if (!this.postsContainer || !this.allPosts) {
-      console.warn('Container o post non disponibili per infinite scroll');
+    if (!this.postsContainer || !this.allPosts || !postsWrapper) {
+      console.warn('Container, wrapper o post non disponibili per infinite scroll');
       return;
     }
 
@@ -351,8 +361,8 @@ export default class PostsList extends BasePostView {
 
         // Renderizza i post
         batch.forEach(post => {
-          const postItem = this.createPostItem(post);
-          this.postsContainer.appendChild(postItem);
+          const postItem = this.createPostItem(post); // Corretto l'errore qui (era this.re...)
+          postsWrapper.appendChild(postItem);
         });
 
         // Se abbiamo raggiunto l'ultimo batch
@@ -387,97 +397,434 @@ export default class PostsList extends BasePostView {
       return document.createElement('div');
     }
 
-    // Create post container
+    // Create post container - use the same class as in BasePostView
     const postItem = document.createElement('div');
     postItem.className = 'post-card';
     postItem.dataset.postId = `${post.author}_${post.permlink}`;
 
-    // Add thumbnail with error handling
-    this.addPostThumbnail(postItem, post);
-
-    // Create content container
-    const postContent = document.createElement('div');
-    postContent.className = 'post-content';
-
-    // Add title
-    this.addPostTitle(postContent, post);
-
-    // Add metadata
-    const postMeta = this.createPostMetadata(post);
-    postContent.appendChild(postMeta);
-
-    // Add excerpt
-    this.addPostExcerpt(postContent, post);
-
-    postItem.appendChild(postContent);
-
-    // Add click handler
+    // Parse metadata to extract better images and tags
+    const metadata = this.parseMetadata(post.json_metadata);
+    
+    // Get the best available image
+    const imageUrl = this.getBestImage(post, metadata);
+    
+    // 1. Add header (author info) - Always at the top
+    postItem.appendChild(this.createPostHeader(post));
+    
+    // 2. Main content - can be vertical or horizontal depending on layout
+    const mainContent = document.createElement('div');
+    mainContent.className = 'post-main-content';
+    
+    // 2a. Add image preview
+    mainContent.appendChild(this.createPostImage(imageUrl, post.title));
+    
+    // 2b. Wrapper for text content
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'post-content-wrapper';
+    
+    // Middle section with title, excerpt, tags
+    const contentMiddle = document.createElement('div');
+    contentMiddle.className = 'post-content-middle';
+    
+    // Title
+    contentMiddle.appendChild(this.createPostTitle(post.title));
+    
+    // Excerpt for list layout
+    if (post.body) {
+      const excerpt = document.createElement('div');
+      excerpt.className = 'post-excerpt';
+      const textExcerpt = this.createExcerpt(post.body);
+      // Make sure all links are completely removed from the excerpt
+      excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+      contentMiddle.appendChild(excerpt);
+    }
+    
+    // Tags
+    if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
+      contentMiddle.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
+    }
+    
+    contentWrapper.appendChild(contentMiddle);
+    
+    // Actions (votes, comments, payout)
+    contentWrapper.appendChild(this.createPostActions(post));
+    
+    // Add text content to main content
+    mainContent.appendChild(contentWrapper);
+    
+    // Add main content to card
+    postItem.appendChild(mainContent);
+    
+    // Click event - Navigate to post
     this.addPostNavigationHandler(postItem, post);
-
+    
     return postItem;
   }
-  
-  addPostThumbnail(element, post) {
-    const placeholderImage = 'assets/img/placeholder.png';
-    const imageUrl = this.getPreviewImage(post) || placeholderImage;
 
-    const thumbnail = document.createElement('div');
-    thumbnail.className = 'post-thumbnail'; // Remove fixed grid class to allow dynamic switching
-    thumbnail.style.backgroundImage = `url(${imageUrl})`;
-
-    // Add image error handling
-    const testImg = new Image();
-    testImg.onerror = () => {
-      thumbnail.style.backgroundImage = `url(${placeholderImage})`;
+  createPostHeader(post) {
+    const header = document.createElement('div');
+    header.className = 'post-header';
+    
+    const avatarContainer = document.createElement('div');
+    avatarContainer.className = 'avatar-container';
+    
+    const avatar = document.createElement('img');
+    avatar.alt = post.author;
+    avatar.className = 'avatar';
+    avatar.loading = 'lazy';
+    
+    // Add retry mechanism for avatars
+    let retryCount = 0;
+    
+    const loadAvatar = () => {
+      // Try multiple sources in sequence
+      const avatarSources = [
+        `https://steemitimages.com/u/${post.author}/avatar`,
+        `https://images.hive.blog/u/${post.author}/avatar`
+      ];
+      
+      let currentSourceIndex = 0;
+      
+      const tryNextSource = () => {
+        if (currentSourceIndex >= avatarSources.length) {
+          // We've tried all sources, use default
+          avatar.src = './assets/img/default-avatar.png';
+          return;
+        }
+        
+        const currentSource = avatarSources[currentSourceIndex];
+        currentSourceIndex++;
+        
+        avatar.onerror = () => {
+          // Try next source after a short delay
+          setTimeout(tryNextSource, 300);
+        };
+        
+        // Add cache busting only for retries on same source
+        if (retryCount > 0 && !currentSource.includes('default-avatar')) {
+          avatar.src = `${currentSource}?retry=${Date.now()}`;
+        } else {
+          avatar.src = currentSource;
+        }
+      };
+      
+      // Start the loading process
+      tryNextSource();
     };
-    testImg.src = imageUrl;
-
-    element.appendChild(thumbnail);
+    
+    loadAvatar();
+    
+    avatarContainer.appendChild(avatar);
+    
+    const info = document.createElement('div');
+    info.className = 'post-info';
+    
+    const author = document.createElement('div');
+    author.className = 'post-author';
+    author.textContent = `@${post.author}`;
+    
+    const date = document.createElement('div');
+    date.className = 'post-date';
+    const postDate = new Date(post.created);
+    date.textContent = postDate.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    
+    info.append(author, date);
+    header.append(avatarContainer, info);
+    
+    return header;
   }
 
-  addPostTitle(container, post) {
-    const title = document.createElement('h3');
-    title.className = 'post-title';
-    title.textContent = post.title || '(Untitled)';
-    container.appendChild(title);
+  createPostImage(imageUrl, title) {
+    const content = document.createElement('div');
+    content.className = 'post-image-container';
+    content.classList.add('loading');
+    
+    const image = document.createElement('img');
+    image.alt = title || 'Post image';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    
+    // Check if we have a valid image URL before attempting to load
+    if (!imageUrl || imageUrl === './assets/img/placeholder.png') {
+      // Skip the loading process entirely and use placeholder immediately
+      content.classList.remove('loading');
+      content.classList.add('error');
+      image.src = './assets/img/placeholder.png';
+      content.appendChild(image);
+      return content;
+    }
+    
+    // Enforce a clean URL before we start
+    imageUrl = this.sanitizeImageUrl(imageUrl);
+    
+    // Determine current card size AND layout from container classes
+    const { size: cardSize, layout } = this.getCardConfig();
+    
+    // Use different image sizes based on card size setting AND layout
+    const sizesToTry = this.getImageSizesToTry(cardSize, layout);
+    
+    let currentSizeIndex = 0;
+    let isLoadingPlaceholder = false;
+    
+    const loadNextSize = () => {
+      if (currentSizeIndex >= sizesToTry.length || isLoadingPlaceholder) {
+        loadPlaceholder();
+        return;
+      }
+      
+      const sizeOption = sizesToTry[currentSizeIndex++];
+      let url;
+      
+      if (sizeOption.direct) {
+        url = imageUrl;
+      } else {
+        url = `https://${sizeOption.cdn}/${sizeOption.size}x0/${imageUrl}`;
+      }
+      
+      loadImage(url);
+    };
+    
+    const loadImage = (url) => {
+      if (isLoadingPlaceholder) return;
+      
+      const timeoutId = setTimeout(() => {
+        if (!image.complete) {
+          console.log(`Image load timeout: ${url.substring(0, 50)}...`);
+          tryNextOption("Timeout");
+        }
+      }, 5000);
+      
+      image.onload = () => {
+        clearTimeout(timeoutId);
+        content.classList.remove('loading', 'error');
+        content.classList.add('loaded');
+      };
+      
+      image.onerror = () => {
+        clearTimeout(timeoutId);
+        console.log(`Image load error: ${url.substring(0, 50)}...`);
+        tryNextOption("Failed to load");
+      };
+      
+      image.src = url;
+    };
+    
+    const tryNextOption = (errorReason) => {
+      if (isLoadingPlaceholder) return;
+      loadNextSize();
+    };
+    
+    const loadPlaceholder = () => {
+      if (isLoadingPlaceholder) return;
+      
+      isLoadingPlaceholder = true;
+      content.classList.remove('loading');
+      content.classList.add('error');
+      
+      // Use placeholder image
+      image.src = './assets/img/placeholder.png';
+    };
+    
+    // Start loading with first size option
+    loadNextSize();
+    
+    content.appendChild(image);
+    return content;
   }
 
-  addPostExcerpt(container, post) {
-    const excerpt = document.createElement('p');
-    excerpt.className = 'post-excerpt';
-    excerpt.textContent = UIComponents.createExcerpt(post.body || '');
-    container.appendChild(excerpt);
+  createPostTitle(title) {
+    const element = document.createElement('div');
+    element.className = 'post-title';
+    element.textContent = title || '(Untitled)';
+    return element;
   }
 
-  addPostNavigationHandler(element, post) {
-    if (post.author && post.permlink) {
-      element.addEventListener('click', () => {
-        router.navigate(`/@${post.author}/${post.permlink}`);
-      });
+  createPostTags(tags) {
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'post-tags';
+    
+    // Show max 2 tags to avoid crowding the UI
+    const displayTags = tags.slice(0, 2);
+    
+    displayTags.forEach(tag => {
+      const tagElement = document.createElement('span');
+      tagElement.className = 'post-tag';
+      tagElement.textContent = tag;
+      tagsContainer.appendChild(tagElement);
+    });
+    
+    return tagsContainer;
+  }
+
+  createPostActions(post) {
+    const actions = document.createElement('div');
+    actions.className = 'post-actions';
+    
+    const voteCount = this.getVoteCount(post);
+    const voteAction = this.createActionItem('thumb_up', voteCount);
+    voteAction.classList.add('vote-action');
+    
+    const commentAction = this.createActionItem('chat', post.children || 0);
+    commentAction.classList.add('comment-action');
+    
+    const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value || 0).toFixed(2));
+    payoutAction.classList.add('payout-action');
+    
+    actions.append(voteAction, commentAction, payoutAction);
+    
+    return actions;
+  }
+
+  createActionItem(iconName, text) {
+    const actionItem = document.createElement('div');
+    actionItem.className = 'action-item';
+    
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = iconName;
+    
+    actionItem.appendChild(icon);
+    actionItem.append(document.createTextNode(` ${text}`));
+    
+    return actionItem;
+  }
+
+  getBestImage(post, metadata) {
+    // If we have SteemContentRenderer available, use it for rendering a snippet and extracting image
+    if (this.contentRenderer) {
+      try {
+        // Render a small portion of the content to extract images
+        const renderedContent = this.contentRenderer.render({
+          body: post.body.substring(0, 1500) // Only render the first part for performance
+        });
+        
+        // Check if any images were extracted
+        if (renderedContent.images && renderedContent.images.length > 0) {
+          // Return the first image URL
+          return renderedContent.images[0].src;
+        }
+      } catch (error) {
+        console.error('Error using SteemContentRenderer for image extraction:', error);
+        // Fall back to old methods if SteemContentRenderer fails
+      }
+    }
+    
+    // Fallback method 1: Check if metadata contains an image
+    if (metadata && metadata.image && metadata.image.length > 0) {
+      return metadata.image[0];
+    }
+    
+    // Fallback method 2: Try the get preview image method
+    const previewImageUrl = this.getPreviewImage(post);
+    if (previewImageUrl) {
+      return previewImageUrl;
+    }
+    
+    // Fallback method 3: Simple regex extraction of first image
+    const imgRegex = /https?:\/\/[^\s'"<>]+?\.(jpg|jpeg|png|gif|webp)(\?[^\s'"<>]+)?/i;
+    const match = post.body.match(imgRegex);
+    if (match) {
+      return match[0];
+    }
+    
+    // Return placeholder if no image is found
+    return './assets/img/placeholder.png';
+  }
+
+  sanitizeImageUrl(url) {
+    if (!url) return '';
+    
+    // Remove query parameters and fragments
+    let cleanUrl = url.split('?')[0].split('#')[0];
+    
+    // Ensure URL is properly encoded
+    try {
+      cleanUrl = new URL(cleanUrl).href;
+    } catch (e) {
+      // If URL is invalid, return original
+      return url;
+    }
+    
+    return cleanUrl;
+  }
+
+  getCardConfig() {
+    if (!this.container) return { size: 'medium', layout: 'grid' };
+    
+    const postsContainer = this.postsContainer || this.container.querySelector('.posts-container');
+    if (!postsContainer) return { size: 'medium', layout: 'grid' };
+    
+    // We only care about layout now, but keep size for backward compatibility
+    let size = 'medium';
+    
+    // Determine layout type
+    let layout = 'grid';
+    if (postsContainer.classList.contains('grid-layout-list')) layout = 'list';
+    if (postsContainer.classList.contains('grid-layout-compact')) layout = 'compact';
+    
+    return { size, layout };
+  }
+
+  getImageSizesToTry(cardSize, layout) {
+    // Simplify image sizes based only on layout type
+    switch(layout) {
+      case 'list':
+        return [
+          {size: 800, cdn: 'steemitimages.com'}, // Higher quality for list layout
+          {size: 640, cdn: 'steemitimages.com'}, // Medium-high quality
+          {size: 400, cdn: 'steemitimages.com'}, // Medium quality fallback
+          {direct: true} // Direct URL as last resort
+        ];
+      case 'compact':
+        return [
+          {size: 320, cdn: 'steemitimages.com'}, // Smaller size for compact layout
+          {size: 200, cdn: 'steemitimages.com'}, // Even smaller fallback
+          {direct: true} // Direct URL as last resort
+        ];
+      case 'grid':
+      default:
+        return [
+          {size: 640, cdn: 'steemitimages.com'}, // Standard quality for grid
+          {size: 400, cdn: 'steemitimages.com'}, // Medium quality
+          {size: 200, cdn: 'steemitimages.com'}, // Lower quality as fallback
+          {direct: true} // Direct URL as last resort
+        ];
     }
   }
 
-  createPostMetadata(post) {
-    const postMeta = document.createElement('div');
-    postMeta.className = 'post-meta';
+  // We can keep this method for backward compatibility with existing code
+  addPostThumbnail(element, post) {
+    const imageUrl = this.getBestImage(post, this.parseMetadata(post.json_metadata));
+    element.appendChild(this.createPostImage(imageUrl, post.title));
+  }
 
-    // Date info
-    const createdDate = post.created ? new Date(post.created).toLocaleDateString() : 'Unknown date';
-    const dateInfo = UIComponents.createMetadataItem('schedule', createdDate, 'post-date');
+  // Keep the method signature but update the implementation
+  addPostTitle(container, post) {
+    container.appendChild(this.createPostTitle(post.title));
+  }
 
-    // Votes info
-    const totalVotes = this.getVoteCount(post);
-    const votesInfo = UIComponents.createMetadataItem('thumb_up', totalVotes.toLocaleString(), 'post-votes');
+  // Keep the method signature but update the implementation
+  addPostExcerpt(container, post) {
+    const excerpt = document.createElement('div');
+    excerpt.className = 'post-excerpt';
+    const textExcerpt = this.createExcerpt(post.body);
+    // Make sure all links are completely removed from the excerpt
+    excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+    container.appendChild(excerpt);
+  }
 
-    // Comments info
-    const commentsCount = post.children !== undefined ? post.children : 0;
-    const commentsInfo = UIComponents.createMetadataItem('chat_bubble', commentsCount.toString(), 'post-comments');
-
-    postMeta.appendChild(dateInfo);
-    postMeta.appendChild(votesInfo);
-    postMeta.appendChild(commentsInfo);
-
-    return postMeta;
+  // Keep the method signature but update the implementation
+  addPostNavigationHandler(element, post) {
+    if (post.author && post.permlink) {
+      element.addEventListener('click', (e) => {
+        e.preventDefault();
+        router.navigate(`/@${post.author}/${post.permlink}`);
+      });
+    }
   }
   
   getVoteCount(post) {

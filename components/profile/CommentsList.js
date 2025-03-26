@@ -296,22 +296,32 @@ export default class CommentsList extends BasePostView {
         return;
       }
 
+      // Create a wrapper that will handle the grid layout
+      const commentsWrapper = document.createElement('div');
+      commentsWrapper.className = 'comments-cards-wrapper';
+      
+      // Apply matching layout class to wrapper
+      commentsWrapper.classList.add(`layout-${currentLayout}`);
+      
+      // Append wrapper to container
+      this.commentsContainer.appendChild(commentsWrapper);
+
       // Render the first batch of comments
       const BATCH_SIZE = 20;
       const firstBatch = this.allComments.slice(0, BATCH_SIZE);
       
       firstBatch.forEach(comment => {
         const commentItem = this.createCommentItem(comment);
-        this.commentsContainer.appendChild(commentItem);
+        commentsWrapper.appendChild(commentItem);
       });
 
       // Log for debugging
-      console.log(`Rendered ${firstBatch.length} comments. Grid controller should find them at:`, this.commentsContainer.className);
+      console.log(`Rendered ${firstBatch.length} comments with layout: ${currentLayout}`);
 
       // Set up infinite scroll for remaining comments
       this.hasMore = totalCount > BATCH_SIZE;
       this.page = 2; // Start from page 2 next time
-      this.setupBatchedInfiniteScroll(BATCH_SIZE, totalCount);
+      this.setupBatchedInfiniteScroll(BATCH_SIZE, totalCount, commentsWrapper);
       
       // Emit a custom event that comments are ready
       window.dispatchEvent(new CustomEvent('comments-rendered', {
@@ -342,15 +352,15 @@ export default class CommentsList extends BasePostView {
     }
   }
   
-  setupBatchedInfiniteScroll(batchSize = 20, totalCount = 0) {
+  setupBatchedInfiniteScroll(batchSize = 20, totalCount = 0, commentsWrapper) {
     // Cleanup any existing infinite scroll
     if (this.infiniteScroll) {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
 
-    if (!this.commentsContainer || !this.allComments) {
-      console.warn('Container o commenti non disponibili per infinite scroll');
+    if (!this.commentsContainer || !this.allComments || !commentsWrapper) {
+      console.warn('Container, wrapper o commenti non disponibili per infinite scroll');
       return;
     }
 
@@ -391,7 +401,7 @@ export default class CommentsList extends BasePostView {
         // Render the comments
         batch.forEach(comment => {
           const commentItem = this.createCommentItem(comment);
-          this.commentsContainer.appendChild(commentItem);
+          commentsWrapper.appendChild(commentItem);
         });
 
         // If we've reached the last batch
@@ -424,33 +434,145 @@ export default class CommentsList extends BasePostView {
       return document.createElement('div');
     }
 
-    // Create comment container
+    // Create comment container - maintain the comment-card class for styling
     const commentItem = document.createElement('div');
-    commentItem.className = 'comment-card';
+    commentItem.className = 'post-card comment-card'; // Use both classes for compatibility
     commentItem.dataset.commentId = `${comment.author}_${comment.permlink}`;
 
-    // Create content container
-    const commentContent = document.createElement('div');
-    commentContent.className = 'comment-content';
-
-    // Add parent post info
-    this.addParentInfo(commentContent, comment);
-
-    // Add comment body
-    this.addCommentBody(commentContent, comment);
-
-    // Add metadata
-    const commentMeta = this.createCommentMetadata(comment);
-    commentContent.appendChild(commentMeta);
-
-    commentItem.appendChild(commentContent);
-
-    // Add click handler
+    // Parse metadata
+    const metadata = this.parseMetadata(comment.json_metadata);
+    
+    // 1. Add header (author info) - Always at the top
+    commentItem.appendChild(this.createPostHeader(comment));
+    
+    // 2. Main content
+    const mainContent = document.createElement('div');
+    mainContent.className = 'post-main-content';
+    
+    // 2b. Wrapper for text content
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'post-content-wrapper';
+    
+    // Middle section with parent info, body, tags
+    const contentMiddle = document.createElement('div');
+    contentMiddle.className = 'post-content-middle';
+    
+    // Add parent post info as a special element
+    this.addParentInfo(contentMiddle, comment);
+    
+    // Add comment body as title
+    const title = document.createElement('div');
+    title.className = 'post-title';
+    // Comments don't have titles, so use a truncated body excerpt
+    const excerpt = this.createExcerpt(comment.body || '', 60);
+    title.textContent = excerpt || 'Comment';
+    contentMiddle.appendChild(title);
+    
+    // Add full comment body
+    const body = document.createElement('div');
+    body.className = 'post-excerpt';
+    body.textContent = this.createExcerpt(comment.body || '', 150);
+    contentMiddle.appendChild(body);
+    
+    // Add tags if available
+    if (metadata && metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
+      contentMiddle.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
+    }
+    
+    contentWrapper.appendChild(contentMiddle);
+    
+    // Actions (votes)
+    contentWrapper.appendChild(this.createCommentActions(comment));
+    
+    // Add text content to main content
+    mainContent.appendChild(contentWrapper);
+    
+    // Add main content to card
+    commentItem.appendChild(mainContent);
+    
+    // Click event - Navigate to comment
     this.addCommentNavigationHandler(commentItem, comment);
-
+    
     return commentItem;
   }
-  
+
+  createPostHeader(comment) {
+    const header = document.createElement('div');
+    header.className = 'post-header';
+    
+    const avatarContainer = document.createElement('div');
+    avatarContainer.className = 'avatar-container';
+    
+    const avatar = document.createElement('img');
+    avatar.alt = comment.author;
+    avatar.className = 'avatar';
+    avatar.loading = 'lazy';
+    
+    // Add retry mechanism for avatars
+    let retryCount = 0;
+    
+    const loadAvatar = () => {
+      // Try multiple sources in sequence
+      const avatarSources = [
+        `https://steemitimages.com/u/${comment.author}/avatar`,
+        `https://images.hive.blog/u/${comment.author}/avatar`
+      ];
+      
+      let currentSourceIndex = 0;
+      
+      const tryNextSource = () => {
+        if (currentSourceIndex >= avatarSources.length) {
+          // We've tried all sources, use default
+          avatar.src = './assets/img/default-avatar.png';
+          return;
+        }
+        
+        const currentSource = avatarSources[currentSourceIndex];
+        currentSourceIndex++;
+        
+        avatar.onerror = () => {
+          // Try next source after a short delay
+          setTimeout(tryNextSource, 300);
+        };
+        
+        // Add cache busting only for retries on same source
+        if (retryCount > 0 && !currentSource.includes('default-avatar')) {
+          avatar.src = `${currentSource}?retry=${Date.now()}`;
+        } else {
+          avatar.src = currentSource;
+        }
+      };
+      
+      // Start the loading process
+      tryNextSource();
+    };
+    
+    loadAvatar();
+    
+    avatarContainer.appendChild(avatar);
+    
+    const info = document.createElement('div');
+    info.className = 'post-info';
+    
+    const author = document.createElement('div');
+    author.className = 'post-author';
+    author.textContent = `@${comment.author}`;
+    
+    const date = document.createElement('div');
+    date.className = 'post-date';
+    const commentDate = new Date(comment.created);
+    date.textContent = commentDate.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    
+    info.append(author, date);
+    header.append(avatarContainer, info);
+    
+    return header;
+  }
+
   addParentInfo(container, comment) {
     // Create parent post info container
     const parentInfo = document.createElement('div');
@@ -486,25 +608,55 @@ export default class CommentsList extends BasePostView {
     container.appendChild(parentInfo);
   }
 
-  addCommentBody(container, comment) {
-    const title = document.createElement('h3');
-    title.className = 'comment-title';
+  createCommentActions(comment) {
+    const actions = document.createElement('div');
+    actions.className = 'post-actions';
     
-    // Comments don't typically have titles, so create one from the body
-    const excerpt = this.createExcerpt(comment.body || '', 60);
-    title.textContent = excerpt || 'Commento';
-    container.appendChild(title);
+    const voteCount = this.getVoteCount(comment);
+    const voteAction = this.createActionItem('thumb_up', voteCount);
+    voteAction.classList.add('vote-action');
     
-    // Add full comment body
-    const body = document.createElement('p');
-    body.className = 'comment-body';
-    body.textContent = this.createExcerpt(comment.body || '', 150);
-    container.appendChild(body);
+    actions.appendChild(voteAction);
+    
+    return actions;
+  }
+  
+  createActionItem(iconName, text) {
+    const actionItem = document.createElement('div');
+    actionItem.className = 'action-item';
+    
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = iconName;
+    
+    actionItem.appendChild(icon);
+    actionItem.append(document.createTextNode(` ${text}`));
+    
+    return actionItem;
   }
 
+  createPostTags(tags) {
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'post-tags';
+    
+    // Show max 2 tags to avoid crowding the UI
+    const displayTags = tags.slice(0, 2);
+    
+    displayTags.forEach(tag => {
+      const tagElement = document.createElement('span');
+      tagElement.className = 'post-tag';
+      tagElement.textContent = tag;
+      tagsContainer.appendChild(tagElement);
+    });
+    
+    return tagsContainer;
+  }
+
+  // Keep navigation handler but updated to match BasePostView style
   addCommentNavigationHandler(element, comment) {
     if (comment.author && comment.permlink) {
-      element.addEventListener('click', () => {
+      element.addEventListener('click', (e) => {
+        e.preventDefault();
         // For comments, navigate to the parent post with the comment anchor
         const url = comment.parent_author && comment.parent_permlink
           ? `/@${comment.parent_author}/${comment.parent_permlink}#@${comment.author}/${comment.permlink}`
@@ -515,22 +667,16 @@ export default class CommentsList extends BasePostView {
     }
   }
 
-  createCommentMetadata(comment) {
-    const commentMeta = document.createElement('div');
-    commentMeta.className = 'comment-meta';
-
-    // Date info
-    const createdDate = comment.created ? new Date(comment.created).toLocaleDateString() : 'Unknown date';
-    const dateInfo = UIComponents.createMetadataItem('schedule', createdDate, 'comment-date');
-
-    // Votes info
-    const totalVotes = this.getVoteCount(comment);
-    const votesInfo = UIComponents.createMetadataItem('thumb_up', totalVotes.toLocaleString(), 'comment-votes');
-
-    commentMeta.appendChild(dateInfo);
-    commentMeta.appendChild(votesInfo);
-
-    return commentMeta;
+  // We'll keep the existing parseMetadata method
+  parseMetadata(jsonMetadata) {
+    try {
+      if (typeof jsonMetadata === 'string') {
+        return JSON.parse(jsonMetadata);
+      }
+      return jsonMetadata || {};
+    } catch (e) {
+      return {};
+    }
   }
   
   createExcerpt(body, maxLength = 150) {

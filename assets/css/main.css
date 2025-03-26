@@ -30,7 +30,7 @@
 @import 'pages/community.css';
 @import 'components/post-excerpt.css';
 @import 'comments.css';
-
+@import 'layout/profile-cards';
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

@@ -65,14 +65,12 @@
 .post-image-container {
     position: relative;
     width: 100%;
-    padding-bottom: 56.25%;
     /* 16:9 aspect ratio */
     overflow: hidden;
     background-color: var(--background-subtle);
     border-bottom: 1px solid var(--border-color-light);
     /*aggiungiamo un po' di ombra per dare profondità*/
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: var(--space-xs);
 }
 
 .post-image-container img {
@@ -308,10 +306,7 @@
         margin-bottom: 0;
     }
 
-    .post-image-container {
-        padding-bottom: 60%;
-        /* Slightly taller aspect ratio for smaller cards */
-    }
+
 }
 
 /* Miglioriamo il design dell'autore per il layout lista */

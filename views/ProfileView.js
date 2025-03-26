@@ -147,6 +147,17 @@ class ProfileView extends View {
     // Render tabs
     this.tabsManager.render(contentContainer);
     
+    // Create grid controller containers
+    const postsGridContainer = document.createElement('div');
+    postsGridContainer.className = 'posts-grid-controller-container';
+    
+    const commentsGridContainer = document.createElement('div');
+    commentsGridContainer.className = 'comments-grid-controller-container';
+    commentsGridContainer.style.display = 'none';
+    
+    contentContainer.appendChild(postsGridContainer);
+    contentContainer.appendChild(commentsGridContainer);
+    
     // Create a container for the posts/comments
     const postsArea = document.createElement('div');
     postsArea.className = 'profile-posts-area';
@@ -162,67 +173,104 @@ class ProfileView extends View {
     const postsArea = this.container.querySelector('.profile-posts-area');
     if (!postsArea) return;
     
-    // First time initialization - create containers for both if they don't exist
-    if (!this.postsContainer && !this.commentsContainer) {
-      // Create containers
-      this.postsContainer = document.createElement('div');
-      this.postsContainer.className = 'posts-list-container';
-      this.postsContainer.style.width = '100%';
-      
-      this.commentsContainer = document.createElement('div');
-      this.commentsContainer.className = 'comments-list-container';
-      this.commentsContainer.style.width = '100%';
-      
-      // Add both containers to DOM
-      postsArea.appendChild(this.postsContainer);
-      postsArea.appendChild(this.commentsContainer);
-      
-      // Initialize posts first (it's the default tab)
-      this.postsComponent.render(this.postsContainer);
-      this.postsLoaded = true;
-      
-      // Initially hide comments container
-      this.commentsContainer.style.display = 'none';
-    }
+    this.initializeContainersIfNeeded(postsArea);
     
-    // Ensure both components know their containers
+    // Update container references for components
     this.postsComponent.setContainer(this.postsContainer);
     this.commentsComponent.setContainer(this.commentsContainer);
     
-    // Toggle visibility based on current tab from cache
-    if (this.currentTab === 'posts') {
-      this.postsContainer.style.display = 'block';
-      this.commentsContainer.style.display = 'none';
-      
-      // Only load posts if not already loaded
-      if (!this.postsLoaded) {
-        this.postsComponent.render(this.postsContainer);
+    const gridContainers = this.getGridContainers();
+    const isPostsTab = this.currentTab === 'posts';
+    const activeComponent = isPostsTab ? this.postsComponent : this.commentsComponent;
+    const activeContainer = isPostsTab ? this.postsContainer : this.commentsContainer;
+    const inactiveContainer = isPostsTab ? this.commentsContainer : this.postsContainer;
+    const activeGridContainer = isPostsTab ? gridContainers.posts : gridContainers.comments;
+    const inactiveGridContainer = isPostsTab ? gridContainers.comments : gridContainers.posts;
+    
+    // Update visibility
+    this.updateContainerVisibility(activeContainer, inactiveContainer, activeGridContainer, inactiveGridContainer);
+    
+    // Render grid controller if needed
+    this.renderGridControllerIfNeeded(activeGridContainer, activeComponent);
+    
+    // Handle component loading and rendering
+    this.loadComponentContent(activeComponent, activeContainer, isPostsTab);
+  }
+  
+  initializeContainersIfNeeded(postsArea) {
+    if (this.postsContainer && this.commentsContainer) return;
+    
+    // Create containers
+    this.postsContainer = document.createElement('div');
+    this.postsContainer.className = 'posts-list-container';
+    this.postsContainer.style.width = '100%';
+    
+    this.commentsContainer = document.createElement('div');
+    this.commentsContainer.className = 'comments-list-container';
+    this.commentsContainer.style.width = '100%';
+    
+    // Add both containers to DOM
+    postsArea.appendChild(this.postsContainer);
+    postsArea.appendChild(this.commentsContainer);
+    
+    // Initialize posts first (it's the default tab)
+    this.postsComponent.render(this.postsContainer);
+    this.postsLoaded = true;
+    
+    // Initially hide comments container
+    this.commentsContainer.style.display = 'none';
+  }
+  
+  getGridContainers() {
+    return {
+      posts: this.container.querySelector('.posts-grid-controller-container'),
+      comments: this.container.querySelector('.comments-grid-controller-container')
+    };
+  }
+  
+  updateContainerVisibility(activeContainer, inactiveContainer, activeGridContainer, inactiveGridContainer) {
+    activeContainer.style.display = 'block';
+    inactiveContainer.style.display = 'none';
+    
+    if (activeGridContainer) activeGridContainer.style.display = 'block';
+    if (inactiveGridContainer) inactiveGridContainer.style.display = 'none';
+  }
+  
+  renderGridControllerIfNeeded(gridContainer, component) {
+    if (gridContainer && !gridContainer.hasChildNodes()) {
+      component.gridController.render(gridContainer);
+    }
+  }
+  
+  loadComponentContent(component, container, isPostsTab) {
+    const isLoaded = isPostsTab ? this.postsLoaded : this.commentsLoaded;
+    
+    if (!isLoaded) {
+      component.render(container);
+      if (isPostsTab) {
         this.postsLoaded = true;
       } else {
-        // Force refresh existing posts
-        this.postsComponent.refreshGridLayout();
-      }
-    } else if (this.currentTab === 'comments') {
-      this.postsContainer.style.display = 'none';
-      this.commentsContainer.style.display = 'block';
-      
-      // Only load comments if not already loaded
-      if (!this.commentsLoaded) {
-        this.commentsComponent.render(this.commentsContainer);
         this.commentsLoaded = true;
-      } else {
-        // Force refresh existing comments
-        console.log("Refreshing comments layout");
-        this.commentsComponent.refreshGridLayout();
       }
+    } else {
+      // Force refresh grid layout with a small delay to ensure DOM is ready
+      const LAYOUT_REFRESH_DELAY = 50;
+      setTimeout(() => {
+        component.refreshGridLayout();
+      }, LAYOUT_REFRESH_DELAY);
     }
   }
   
   switchTab(tabName) {
     if (this.currentTab === tabName) return;
     
+    console.log(`Switching tab from ${this.currentTab} to ${tabName}`);
     this.currentTab = tabName;
-    this.loadContentForCurrentTab();
+    
+    // Use a short timeout to ensure DOM updates before applying grid layouts
+    setTimeout(() => {
+      this.loadContentForCurrentTab();
+    }, 10);
   }
   
   async checkFollowStatus() {

@@ -1,0 +1,254 @@
+/* Stili specifici per i layout delle card nella vista profilo */
+
+/* ----- WRAPPER BASE STYLES ----- */
+.posts-cards-wrapper,
+.comments-cards-wrapper {
+  width: 100%;
+}
+
+/* ----- FIX: TARGET BOTH CLASS PATTERNS FOR LAYOUTS ----- */
+/* Esattamente 3 colonne per il grid layout - Matching BOTH class patterns */
+/* Pattern 1: Container has grid-layout-X class */
+.posts-container.grid-layout-grid .posts-cards-wrapper,
+.comments-container.grid-layout-grid .comments-cards-wrapper,
+/* Pattern 2: Wrapper has layout-X class directly */
+.posts-cards-wrapper.layout-grid,
+.comments-cards-wrapper.layout-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important; /* Forza 3 colonne */
+  gap: var(--space-md) !important;
+}
+
+/* Layout lista con una sola colonna - Matching BOTH class patterns */
+.posts-container.grid-layout-list .posts-cards-wrapper,
+.comments-container.grid-layout-list .comments-cards-wrapper,
+.posts-cards-wrapper.layout-list,
+.comments-cards-wrapper.layout-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--space-md) !important;
+  width: 100% !important;
+}
+
+/* Layout compatto con molte colonne - Matching BOTH class patterns */
+.posts-container.grid-layout-compact .posts-cards-wrapper,
+.comments-container.grid-layout-compact .comments-cards-wrapper,
+.posts-cards-wrapper.layout-compact,
+.comments-cards-wrapper.layout-compact {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important; /* Forza 5 colonne */
+  gap: var(--space-xs) !important;
+}
+
+/* ----- STILI SPECIFICI PER OGNI LAYOUT ----- */
+
+/* Stile per le card nel layout grid */
+.profile-container .post-card {
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--subtle-shadow);
+  border: 1px solid var(--border-color-light);
+  height: 100%;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.profile-container .post-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--card-box-shadow);
+}
+
+/* Make post cards display consistently */
+.profile-container .post-main-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* OVERRIDE: Nascondi l'header nelle card del profilo (sia post che commenti) */
+.profile-container .posts-cards-wrapper .post-card .post-header,
+.profile-container .comments-cards-wrapper .post-card .post-header {
+  display: none;
+}
+
+/* CORREZIONE: Immagini per layout grid */
+.posts-container.grid-layout-grid .post-card .post-main-content,
+.comments-container.grid-layout-grid .comment-card .post-main-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.posts-container.grid-layout-grid .post-image-container,
+.comments-container.grid-layout-grid .post-image-container {
+  width: 100%;
+  height: 100%;
+  min-height: auto;
+}
+
+/* CORREZIONE: Immagini per layout compact */
+.posts-container.grid-layout-compact .post-card .post-main-content,
+.comments-container.grid-layout-compact .comment-card .post-main-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.posts-container.grid-layout-compact .post-image-container,
+.comments-container.grid-layout-compact .post-image-container {
+  width: 100%;
+  height: 100%;
+  min-height: auto;
+}
+
+/* Stili per layout list */
+.posts-container.grid-layout-list .post-card .post-main-content,
+.comments-container.grid-layout-list .comment-card .post-main-content {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+}
+
+.posts-container.grid-layout-list .post-image-container,
+.comments-container.grid-layout-list .post-image-container {
+  height: 100%;
+  min-height: 180px;
+}
+
+/* Stili per contenitori interni */
+.profile-container .post-image-container {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-container .post-image-container img {
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.profile-container .post-card:hover .post-image-container img:not(.error) {
+  transform: scale(1.05);
+}
+
+
+
+
+/* List layout */
+.profile-container .layout-list .post-main-content,
+.profile-container .grid-layout-list .post-main-content {
+  display: grid !important;
+  grid-template-columns: 220px 1fr !important;
+}
+
+.profile-container .layout-list .post-image-container,
+.profile-container .grid-layout-list .post-image-container {
+  width: 220px !important;
+  height: 100% !important;
+  min-height: 180px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ensure images scale correctly */
+.profile-container .post-image-container img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform 0.3s ease;
+}
+
+/* ----- MEDIA QUERIES ----- */
+@media (max-width: 1200px) {
+  .posts-container.grid-layout-grid .posts-cards-wrapper,
+  .comments-container.grid-layout-grid .comments-cards-wrapper {
+    grid-template-columns: repeat(3, 1fr) !important; /* Mantieni 3 colonne */
+  }
+  
+  .posts-container.grid-layout-compact .posts-cards-wrapper,
+  .comments-container.grid-layout-compact .comments-cards-wrapper {
+    grid-template-columns: repeat(4, 1fr) !important; /* Riduci a 4 colonne */
+  }
+}
+
+@media (max-width: 992px) {
+  .posts-container.grid-layout-grid .posts-cards-wrapper,
+  .comments-container.grid-layout-grid .comments-cards-wrapper {
+    grid-template-columns: repeat(2, 1fr) !important; /* Riduci a 2 colonne */
+  }
+  
+  .posts-container.grid-layout-compact .posts-cards-wrapper,
+  .comments-container.grid-layout-compact .comments-cards-wrapper {
+    grid-template-columns: repeat(3, 1fr) !important; /* Riduci a 3 colonne */
+  }
+}
+
+@media (max-width: 768px) {
+  .posts-container.grid-layout-grid .posts-cards-wrapper,
+  .comments-container.grid-layout-grid .comments-cards-wrapper,
+  .posts-container.grid-layout-compact .posts-cards-wrapper,
+  .comments-container.grid-layout-compact .comments-cards-wrapper {
+    grid-template-columns: repeat(2, 1fr) !important; /* 2 colonne su mobile */
+    gap: var(--space-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .posts-container.grid-layout-grid .posts-cards-wrapper,
+  .comments-container.grid-layout-grid .comments-cards-wrapper,
+  .posts-container.grid-layout-compact .posts-cards-wrapper,
+  .comments-container.grid-layout-compact .comments-cards-wrapper {
+    grid-template-columns: 1fr !important; /* 1 colonna su schermi molto piccoli */
+  }
+}
+
+/* Stili per il counter dei post/commenti */
+.posts-count,
+.comments-count {
+  margin: 20px 0;
+  text-align: center;
+  font-weight: bold;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: var(--text-on-primary);
+  padding: 12px 15px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  display: inline-block;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 250px;
+}
+
+.count-badge {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.count-text {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Stili per i messaggi di fine lista */
+.posts-end-message,
+.comments-end-message {
+  text-align: center;
+  margin: var(--space-xl) 0;
+  color: var(--text-color-secondary);
+  grid-column: 1 / -1; /* Occupa tutte le colonne */
+  width: 100%;
+}
+
+.end-message {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background-color: var(--background-subtle);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-full);
+  box-shadow: var(--subtle-shadow);
+}
+
+.end-message .material-icons {
+  color: var(--color-success);
+}

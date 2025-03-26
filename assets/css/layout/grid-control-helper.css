@@ -104,3 +104,46 @@
   cursor: pointer;
   border: 1px solid var(--border-color);
 }
+
+/* Profile view grid controllers */
+.posts-grid-controller-container,
+.comments-grid-controller-container {
+  margin: 0 0 var(--space-sm);
+}
+
+.profile-content-container .grid-controller {
+  justify-content: flex-end;
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md);
+  box-shadow: var(--subtle-shadow);
+}
+
+/* Style header to have better spacing with grid controllers */
+.profile-tabs {
+  margin-bottom: var(--space-md);
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.profile-tabs .tab-btn {
+  background: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.profile-tabs .tab-btn:hover {
+  background: var(--background-hover);
+}
+
+.profile-tabs .tab-btn.active {
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+}
