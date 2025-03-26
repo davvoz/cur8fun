@@ -413,6 +413,33 @@ class CommunityView extends BasePostView {
   }
 
   /**
+   * Handle load errors without showing any message
+   */
+  handleLoadError() {
+    const postsContainer = this.container.querySelector('.posts-container');
+    if (postsContainer) {
+      postsContainer.innerHTML = '';
+      // No error message will be shown
+    }
+  }
+
+  /**
+   * Show custom error without any UI
+   */
+  showError(message) {
+    if (!this.container) return;
+    
+    const contentWrapper = this.container.querySelector('.content-wrapper');
+    if (!contentWrapper) return;
+    
+    const postsContainer = contentWrapper.querySelector('.posts-container');
+    if (postsContainer) {
+      postsContainer.innerHTML = '';
+      // No error message will be shown
+    }
+  }
+
+  /**
    * Clean up resources when leaving the view
    */
   onBeforeUnmount() {
@@ -421,6 +448,28 @@ class CommunityView extends BasePostView {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
+    
+    // Clean up GridController instance
+    if (this.gridController) {
+      this.gridController.unmount();
+      this.gridController = null;
+    }
+    
+    // Clear any remaining post data to prevent leakage to other views
+    this.posts = [];
+    this.renderedPostIds.clear();
+    
+    // Clear community data
+    this.community = null;
+    
+    // Remove any event listeners
+    const subscribeButton = this.container?.querySelector('#subscribe-button');
+    if (subscribeButton) {
+      subscribeButton.replaceWith(subscribeButton.cloneNode(true));
+    }
+    
+    // Clear container references
+    this.container = null;
   }
 
   /**

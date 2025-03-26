@@ -198,8 +198,22 @@ class GridController {
       this.mutationObserver = null;
     }
     
-    // Remove resize event listener
-    window.removeEventListener('resize', this.handleResize.bind(this));
+    // Remove resize event listener properly with the same function reference
+    const resizeHandler = this.handleResize.bind(this);
+    window.removeEventListener('resize', resizeHandler);
+    
+    // If target exists, remove applied layout classes
+    if (this.target) {
+      const classesToRemove = Array.from(this.target.classList)
+        .filter(cls => cls.startsWith('grid-layout-'));
+      
+      classesToRemove.forEach(cls => this.target.classList.remove(cls));
+    }
+    
+    // Remove the controller from DOM if container exists
+    if (this.container && this.container.parentNode) {
+      this.container.innerHTML = '';
+    }
     
     // Clear references
     this.target = null;

@@ -119,6 +119,17 @@ class HomeView extends BasePostView {
         this.infiniteScroll = null;
     }
   }
+
+  /**
+   * Override the base handleLoadError to not show any message
+   */
+  handleLoadError() {
+    const postsContainer = this.container?.querySelector('.posts-container');
+    if (postsContainer) {
+      this.clearContainer(postsContainer);
+      // No error message will be shown
+    }
+  }
 }
 
 export default HomeView;

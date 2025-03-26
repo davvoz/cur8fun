@@ -150,6 +150,7 @@
   padding: 40px 20px;
   text-align: center;
   color: var(--text-color);
+  margin: 20px 0;
 }
 
 .error-message .material-icons {
@@ -158,243 +159,63 @@
   margin-bottom: 15px;
 }
 
-/* Aggiungi le seguenti regole per uniformare i post alla home */
-
-.posts-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.post-item {
-  display: block;
-  background-color: var(--background-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.post-item.fade-in {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.post-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.post-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 15px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.post-author {
-  display: flex;
-  align-items: center;
-}
-
-.author-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 10px;
-  object-fit: cover;
-}
-
-.author-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.author-name {
-  font-weight: 500;
-  color: var(--text-color);
-  text-decoration: none;
-}
-
-.post-time {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.post-community {
-  font-size: 13px;
-}
-
-.community-link {
-  display: flex;
-  align-items: center;
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.community-link .material-icons {
-  font-size: 16px;
-  margin-right: 4px;
-}
-
-.post-content-link {
-  display: block;
-  text-decoration: none;
-  color: var(--text-color);
-}
-
-.post-content {
-  padding: 15px;
-}
-
-.post-title {
+.error-message h3 {
   margin: 0 0 10px 0;
   font-size: 20px;
-  font-weight: 600;
   color: var(--text-color);
 }
 
-.post-summary {
+.error-message p {
+  margin: 0 0 20px 0;
   color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 15px;
 }
 
-.post-image {
-  width: 100%;
-  max-height: 300px;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  margin-top: 10px;
-}
-
-.post-image img {
-  width: 100%;
-  height: auto;
-  object-fit: cover;
-}
-
-.post-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 15px;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--background-light);
-}
-
-.post-stats {
-  display: flex;
-  gap: 15px;
-}
-
-.post-stat {
+.retry-button {
   display: flex;
   align-items: center;
-  color: var(--text-secondary);
-  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 15px;
 }
 
-.post-stat .material-icons {
+.retry-button .material-icons {
+  font-size: 18px;
+  margin-right: 5px;
+  color: white;
+}
+
+/* Simplified no content message - migliorato visivamente */
+.no-content-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  margin: 30px 0;
+  color: var(--text-color);
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.no-content-message .material-icons {
+  font-size: 24px;
+  margin-right: 15px;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.no-content-message p {
+  margin: 0;
   font-size: 16px;
-  margin-right: 4px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
-/* Animazioni e fade-in */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .community-info {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  
-  .community-avatar {
-    margin-right: 0;
-    margin-bottom: 15px;
-  }
-  
-  .community-stats {
-    justify-content: center;
-  }
-  
-  #subscribe-button {
-    margin-left: 0;
-    margin-top: 15px;
-  }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .post-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .post-community {
-    margin-top: 8px;
-  }
-  
-  .post-title {
-    font-size: 18px;
-  }
-}
-
-/* Aggiungi queste regole per migliorare la visualizzazione mobile */
-
-@media (max-width: 768px) {
-  .community-banner {
-    height: 150px;
-  }
-  
-  .community-avatar {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .community-title {
-    font-size: 20px;
-  }
-  
-  .sort-buttons {
-    justify-content: center;
-  }
-  
-  .post-item {
-    margin-bottom: 15px;
-  }
-  
-  .post-title {
-    font-size: 18px;
-  }
-  
-  .post-content {
-    padding: 12px;
-  }
-  
-  .post-image {
-    max-height: 200px;
-  }
-}
-
-/* Add to your community.css file */
-
+/* Button styles */
 .button-updated {
   animation: button-pulse 0.8s ease-in-out;
 }
@@ -428,83 +249,39 @@
   to { transform: rotate(360deg); }
 }
 
-/* Uniformare i post della community con quelli della home */
-/* SOSTITUISCI le regole attuali con queste */
-/* Impostazioni di base unificate per layout post */
-.community-view .posts-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  max-width: var(--content-max-width, 800px);
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
-.community-view .post-item {
-  /* Reset completo degli stili precedenti */
-  width: 100%;
-  margin-bottom: 0;
-  border-radius: var(--radius-md);
-  box-shadow: var(--card-box-shadow, 0 1px 3px rgba(0,0,0,0.1));
-  background-color: var(--surface-color);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  height: auto;
-  transform: none;
-  opacity: 1;
-}
-
-.community-view .post-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-/* Ridimensionamento deciso degli elementi interni */
-.community-view .post-header {
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.community-view .author-avatar {
-  width: 28px;
-  height: 28px;
-}
-
-.community-view .post-content {
-  padding: 12px;
-}
-
-.community-view .post-title {
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.community-view .post-summary {
-  font-size: 0.85rem;
-  line-height: 1.4;
-  margin-bottom: 10px;
-}
-
-.community-view .post-image {
-  max-height: 180px;
-}
-
-.community-view .post-footer {
-  padding: 8px 12px;
-  font-size: 0.85rem;
-}
-
-/* Ripristina l'animazione fade-in ma più veloce e sottile */
-.community-view .post-item {
-  opacity: 0;
-  transform: translateY(5px);
-}
-
-.community-view .post-item.fade-in {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .community-info {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .community-avatar {
+    margin-right: 0;
+    margin-bottom: 15px;
+    width: 60px;
+    height: 60px;
+  }
+  
+  .community-stats {
+    justify-content: center;
+  }
+  
+  .community-banner {
+    height: 150px;
+  }
+  
+  .community-title {
+    font-size: 20px;
+  }
+  
+  #subscribe-button {
+    margin-left: 0;
+    margin-top: 15px;
+  }
+  
+  .sort-buttons {
+    justify-content: center;
+  }
 }

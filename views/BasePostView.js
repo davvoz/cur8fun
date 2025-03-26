@@ -147,14 +147,8 @@ class BasePostView {
    * Show a message when no posts are found
    */
   renderNoPostsMessage(container) {
-    const noPostsMessage = document.createElement('div');
-    noPostsMessage.className = 'no-posts-message';
-    noPostsMessage.innerHTML = `
-      <h3>No posts found</h3>
-      <p>No posts found with the current criteria.</p>
-      <a href="/" class="btn-primary">Back to Home</a>
-    `;
-    container.appendChild(noPostsMessage);
+    // Do nothing - we don't want to show any message
+    // The container will simply remain empty
   }
 
   /**
