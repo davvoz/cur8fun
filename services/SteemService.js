@@ -1192,153 +1192,7 @@ class SteemService {
         }
     }
 
-    async getDiscussionsByBlog(params) {
-        await this.ensureLibraryLoaded();
-
-        // Il tag della community deve essere nel formato corretto
-        const cleanCommunityName = params.community.replace(/^hive-/, '');
-        const communityTag = `hive-${cleanCommunityName}`;
-
-        // Prepara i parametri per la query
-        const queryParams = {
-            tag: communityTag,
-            limit: params.limit || 20
-        };
-
-        // Aggiungi parametri per paginazione se forniti
-        if (params.start_author && params.start_permlink) {
-            queryParams.start_author = params.start_author;
-            queryParams.start_permlink = params.start_permlink;
-        }
-
-        // Seleziona il metodo corretto in base al tipo di ordinamento
-        let apiMethod;
-        switch (params.sort) {
-            case 'created':
-                apiMethod = 'getDiscussionsByCreated';
-                break;
-            case 'hot':
-                apiMethod = 'getDiscussionsByHot';
-                break;
-            case 'trending':
-            default:
-                apiMethod = 'getDiscussionsByTrending';
-                break;
-        }
-
-        console.log(`Calling steem.api.${apiMethod} with params:`, queryParams);
-
-        try {
-            const result = await new Promise((resolve, reject) => {
-                this.steem.api[apiMethod](queryParams, (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result || []);
-                });
-            });
-
-            console.log(`Received ${result.length} posts from API`);
-
-            // Filtro migliorato che considera vari modi in cui un post può appartenere a una community
-            const communityPosts = result.filter(post => {
-                try {
-                    // 1. Verifica il category/parent_permlink (sempre presente)
-                    if (post.category === communityTag || post.parent_permlink === communityTag) {
-                        return true;
-                    }
-
-                    // 2. Verifica nel json_metadata
-                    if (post.json_metadata) {
-                        const metadata = JSON.parse(post.json_metadata);
-
-                        // 2.1 Verifica campo community esplicito
-                        if (metadata.community === cleanCommunityName) {
-                            return true;
-                        }
-
-                        // 2.2 Verifica nei tags
-                        if (metadata.tags && Array.isArray(metadata.tags) &&
-                            (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
-                            return true;
-                        }
-                    }
-
-                    // Nessuna delle condizioni soddisfatte
-                    return false;
-                } catch (e) {
-                    console.warn('Error filtering post:', e);
-                    // In caso di errore, includiamo il post se la sua categoria corrisponde
-                    return post.category === communityTag || post.parent_permlink === communityTag;
-                }
-            });
-
-            console.log(`Filtered to ${communityPosts.length} posts for community ${cleanCommunityName}`);
-
-            // Aggiungi debug dei primi 2 post filtrati
-            if (communityPosts.length > 0) {
-                console.log('First filtered post:', {
-                    author: communityPosts[0].author,
-                    permlink: communityPosts[0].permlink,
-                    title: communityPosts[0].title,
-                    category: communityPosts[0].category,
-                    parent_permlink: communityPosts[0].parent_permlink
-                });
-
-                if (communityPosts.length > 1) {
-                    console.log('Second filtered post:', {
-                        author: communityPosts[1].author,
-                        permlink: communityPosts[1].permlink,
-                        title: communityPosts[1].title,
-                        category: communityPosts[1].category,
-                        parent_permlink: communityPosts[1].parent_permlink
-                    });
-                }
-            }
-
-            return communityPosts;
-        } catch (error) {
-            console.error('Error in getDiscussionsByBlog:', error);
-            this.switchEndpoint();
-
-            // Riprova una volta con il nuovo endpoint
-            console.log('Retrying with different endpoint');
-            try {
-                return await new Promise((resolve, reject) => {
-                    this.steem.api[apiMethod](queryParams, (err, result) => {
-                        if (err) reject(err);
-                        else {
-                            const communityPosts = (result || []).filter(post => {
-                                try {
-                                    // Stesso filtro migliorato della prima chiamata
-                                    if (post.category === communityTag || post.parent_permlink === communityTag) {
-                                        return true;
-                                    }
-
-                                    if (post.json_metadata) {
-                                        const metadata = JSON.parse(post.json_metadata);
-                                        if (metadata.community === cleanCommunityName) {
-                                            return true;
-                                        }
-                                        if (metadata.tags && Array.isArray(metadata.tags) &&
-                                            (metadata.tags.includes(communityTag) || metadata.tags.includes(cleanCommunityName))) {
-                                            return true;
-                                        }
-                                    }
-
-                                    return false;
-                                } catch (e) {
-                                    return post.category === communityTag || post.parent_permlink === communityTag;
-                                }
-                            });
-                            resolve(communityPosts);
-                        }
-                    });
-                });
-            } catch (retryError) {
-                console.error('Retry also failed:', retryError);
-                return [];
-            }
-        }
-    }
+   
 
     async getAuthorComments(username, startPermlink, limit) {
         // Assicurati che la libreria sia caricata
@@ -1385,12 +1239,7 @@ class SteemService {
         }
     }
 
-    /**
-     * Get comments by author with incremental loading - carica gradualmente tutti i commenti
-     * @param {string} author - Author username
-     * @param {number} limit - Max number of comments to fetch (use -1 for "all available")
-     * @returns {Promise<Array>} Array of comments, sorted by date
-     */
+
     async getCommentsByAuthor(author, limit = -1) {
         try {
             console.log(`Getting comments for author ${author} (limit: ${limit === -1 ? 'ALL' : limit})`);
@@ -1500,96 +1349,40 @@ class SteemService {
         }
     }
 
-    /**
- * Fetches posts for a given community
- * @param {Object} params - Parameters for the request
- * @returns {Promise<Array>} Array of posts
- */
-    async getDiscussionsByBlog(params) {
+
+    async getDiscussionsByBlog(query) {
         await this.ensureLibraryLoaded();
-        
-        // Validazione parametri
-        if (!params || !params.community) {
-            console.error('Community parameter is required');
-            return [];
-        }
-    
+
+        console.log('Calling getDiscussionsByBlog with params:', query);
+
         try {
-            // Format the community tag correctly
-            const cleanCommunityName = params.community.replace(/^hive-/, '');
-            const communityTag = `hive-${cleanCommunityName}`;
-            
-            console.log(`Fetching posts for community: ${communityTag}, sort: ${params.sort || 'trending'}`);
-    
-            // Select the appropriate method based on sort order
-            const methodName = this.getSortMethodName(params.sort || 'trending');
-            
-            // Prepare the query parameters in the correct format Steem API expects
-            const query = {
-                tag: communityTag, // Use the tag parameter, not community
-                limit: params.limit || 20,
-                truncate_body: 0  // Get full post body
-            };
-            
-            // Add pagination parameters if available
-            if (params.start_author && params.start_permlink) {
-                query.start_author = params.start_author;
-                query.start_permlink = params.start_permlink;
-            }
-            
-            console.log(`Calling API method: ${methodName} with:`, query);
-    
-            // Call the API with the correct method
-            const posts = await new Promise((resolve, reject) => {
-                this.steem.api[methodName](query, (err, result) => {
+            return await new Promise((resolve, reject) => {
+                this.steem.api.getDiscussionsByBlog(query, (err, result) => {
                     if (err) {
-                        console.error(`API error in ${methodName}:`, err);
+                        console.error('API error in getDiscussionsByBlog:', err);
                         reject(err);
                     } else {
+                        console.log(`Received ${result ? result.length : 0} blog posts`);
                         resolve(result || []);
                     }
                 });
             });
-            
-            console.log(`Retrieved ${posts.length} posts for community ${communityTag}`);
-            
-            // Filter posts to ensure they belong to the specified community
-            const filteredPosts = posts.filter(post => {
-                try {
-                    // Check JSON metadata for community info
-                    const metadata = typeof post.json_metadata === 'string' 
-                    ? JSON.parse(post.json_metadata) 
-                    : post.json_metadata || {};
-                    
-                    // Add community info directly to the post object for convenience
-                    if (metadata && metadata.community) {
-                        post.community = metadata.community;
-                        
-                        // Check if this post belongs to our target community
-                        return metadata.community.toLowerCase() === cleanCommunityName.toLowerCase();
-                    }
-                    
-                    // Fallback to category check (older posts)
-                    return post.category === communityTag;
-                } catch (e) {
-                    console.warn('Error parsing post metadata:', e);
-                    return false;
-                }
-            });
-            
-            console.log(`Filtered to ${filteredPosts.length} posts actually in community ${cleanCommunityName}`);
-            
-            // Instead of calling local methods, directly format the posts with community information
-            return filteredPosts.map(post => ({
-                ...post,
-                community_title: this.formatSimpleCommunityTitle(cleanCommunityName)
-            }));
         } catch (error) {
             console.error('Error in getDiscussionsByBlog:', error);
-            
-            // Switch endpoint in case of API issues
             this.switchEndpoint();
-            throw error;
+
+            // Retry with new endpoint
+            try {
+                return await new Promise((resolve, reject) => {
+                    this.steem.api.getDiscussionsByBlog(query, (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    });
+                });
+            } catch (retryError) {
+                console.error('Retry also failed:', retryError);
+                return [];
+            }
         }
     }
 
@@ -1700,11 +1493,6 @@ class SteemService {
             : null;
     }
 
-    /**
- * Helper to get the correct API method name for the requested sort order
- * @param {string} sort - The sort order ('trending', 'hot', 'created', etc.)
- * @returns {string} The method name to call on the Steem API
- */
 getSortMethodName(sort) {
   const sortToMethod = {
     'trending': 'getDiscussionsByTrending',
@@ -1717,12 +1505,7 @@ getSortMethodName(sort) {
   return sortToMethod[sort] || 'getDiscussionsByTrending';
 }
 
-/**
- * Format a community name into a readable title (local version)
- * This avoids the dependency on CommunityService
- * @param {string} communityName - Community name to format
- * @returns {string} Formatted community title
- */
+
 formatSimpleCommunityTitle(communityName) {
   if (!communityName) return 'Community';
   
