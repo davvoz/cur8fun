@@ -142,16 +142,6 @@ class SteemService {
         return this.userService.updateUserProfile(username, profile);
     }
 
-    /**
-     * Fetch posts from a specific community with pagination and sorting
-     * @param {Object} params - Parameters for fetching community posts
-     * @param {string} params.community - Community name or ID (without 'hive-' prefix)
-     * @param {string} params.sort - Sort method ('trending', 'hot', 'created', etc.)
-     * @param {number} params.limit - Maximum number of posts to fetch
-     * @param {string} [params.start_author] - Author of the post to start from (for pagination)
-     * @param {string} [params.start_permlink] - Permlink of the post to start from (for pagination)
-     * @returns {Promise<Array>} Array of community posts
-     */
     async fetchCommunityPosts(params) {
         // Ensure the library is loaded
         await this.ensureLibraryLoaded();
@@ -191,8 +181,8 @@ class SteemService {
                         apiMethod = 'getDiscussionsByTrending';
                 }
                 
-                // Fix: Use this.core.steem instead of this.steem
-                this.core.steem.api[apiMethod](query, (err, result) => {
+                // Fix: Use this.core.steem instead of this.steem AND wrap query in array
+                this.core.steem.api[apiMethod]([query], (err, result) => {
                     if (err) {
                         console.error(`API error in ${apiMethod}:`, err);
                         reject(err);
@@ -218,6 +208,7 @@ class SteemService {
                 // Fallback to bridge API which might be more reliable for communities
                 return await new Promise((resolve, reject) => {
                     // Fix: Use this.core.steem instead of this.steem
+                    // Bridge API uses different parameter format (not an array)
                     this.core.steem.api.call(
                         'bridge.get_ranked_posts',
                         {
@@ -245,11 +236,6 @@ class SteemService {
         }
     }
 
-    /**
-     * Parse post metadata
-     * @param {string|Object} jsonMetadata - JSON metadata string or object
-     * @returns {Object} Parsed metadata object
-     */
     parseMetadata(jsonMetadata) {
         try {
             if (typeof jsonMetadata === 'string') {

@@ -12,29 +12,81 @@ class VotesPopup {
   }
 
   show() {
-    // Create popup container
-    const popup = document.createElement('div');
-    popup.className = 'votes-popup';
+    const { overlay, popup } = this.createPopupStructure();
+    const content = this.createPopupContent();
     
-    // Create header for popup
-    const header = document.createElement('div');
-    header.className = 'votes-popup-header';
+    popup.appendChild(this.createPopupHeader(overlay, popup));
+    popup.appendChild(content);
     
-    const title = document.createElement('h3');
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+  }
+  
+  createPopupStructure() {
+    const popup = this.createElement('div', 'votes-popup', {
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      backgroundColor: 'var(--background-light)',
+      color: 'var(--text-color)',
+      padding: this.isMobile ? 'var(--space-sm)' : 'var(--space-lg)',
+      borderRadius: 'var(--radius-md)',
+      boxShadow: 'var(--popup-box-shadow)',
+      zIndex: 'var(--z-modal)',
+      maxHeight: '80vh',
+      overflow: 'auto',
+      width: this.isMobile ? '90%' : null,
+      maxWidth: this.isMobile ? '100%' : '90%',
+      minWidth: this.isMobile ? 'auto' : '500px'
+    });
+    
+    const overlay = this.createElement('div', 'popup-overlay', {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      zIndex: 'calc(var(--z-modal) - 1)'
+    });
+    
+    const closePopup = () => {
+      document.body.removeChild(overlay);
+      document.body.removeChild(popup);
+    };
+    
+    overlay.addEventListener('click', closePopup);
+    
+    return { overlay, popup, closePopup };
+  }
+  
+  createPopupHeader(overlay, popup) {
+    const header = this.createElement('div', 'votes-popup-header', {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid var(--border-color)',
+      paddingBottom: 'var(--space-sm)',
+      marginBottom: 'var(--space-md)'
+    });
+    
+    const title = this.createElement('h3', '', {
+      color: 'var(--text-heading)',
+      margin: 'var(--space-sm) 0'
+    });
     title.textContent = 'Vote Details';
-    title.style.color = 'var(--text-heading)';
-    title.style.margin = 'var(--space-sm) 0';
     
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'close-popup-btn';
+    const closeBtn = this.createElement('button', 'close-popup-btn', {
+      backgroundColor: 'var(--background-lighter)',
+      color: 'var(--text-color)',
+      border: 'none',
+      borderRadius: 'var(--radius-sm)',
+      cursor: 'pointer',
+      padding: 'var(--space-xs) var(--space-sm)',
+      fontSize: '1.5rem'
+    });
     closeBtn.innerHTML = '&times;';
-    closeBtn.style.backgroundColor = 'var(--background-lighter)';
-    closeBtn.style.color = 'var(--text-color)';
-    closeBtn.style.border = 'none';
-    closeBtn.style.borderRadius = 'var(--radius-sm)';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.padding = 'var(--space-xs) var(--space-sm)';
-    closeBtn.style.fontSize = '1.5rem';
     closeBtn.addEventListener('click', () => {
       document.body.removeChild(overlay);
       document.body.removeChild(popup);
@@ -42,281 +94,280 @@ class VotesPopup {
     
     header.appendChild(title);
     header.appendChild(closeBtn);
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-    header.style.borderBottom = `1px solid var(--border-color)`;
-    header.style.paddingBottom = 'var(--space-sm)';
-    header.style.marginBottom = 'var(--space-md)';
     
-    // Create content container
-    const content = document.createElement('div');
-    content.className = 'votes-popup-content';
+    return header;
+  }
+  
+  createPopupContent() {
+    const content = this.createElement('div', 'votes-popup-content');
     
-    // Check if we have active votes
-    if (this.post.active_votes && this.post.active_votes.length > 0) {
-      // Get the total payout value
-      const totalPayoutValue = this.getPendingPayout(this.post);
-      
-      // Calculate the sum of all vote percentages (absolute values)
-      const totalVotingPower = this.post.active_votes.reduce((sum, vote) => {
-        return sum + Math.abs(vote.percent);
-      }, 0);
-      
-      const votesList = document.createElement('ul');
-      votesList.className = 'votes-list';
-      votesList.style.listStyle = 'none';
-      votesList.style.padding = '0';
-      votesList.style.margin = '0';
-      
-      // Sort votes by percentage (highest first)
-      const sortedVotes = [...this.post.active_votes].sort((a, b) => 
-        Math.abs(b.percent) - Math.abs(a.percent)
-      );
-      
-      sortedVotes.forEach(vote => {
-        const voteItem = document.createElement('li');
-        voteItem.className = 'vote-item';
-        voteItem.style.display = 'flex';
-        voteItem.style.flexWrap = this.isMobile ? 'wrap' : 'nowrap';
-        voteItem.style.justifyContent = 'space-between';
-        voteItem.style.alignItems = this.isMobile ? 'flex-start' : 'center';
-        voteItem.style.padding = this.isMobile ? 'var(--space-xs)' : 'var(--space-sm)';
-        voteItem.style.borderBottom = `1px solid var(--border-color)`;
-        voteItem.style.transition = 'var(--transition-fast)';
-        
-        // Calculate vote percentage (from -10000 to 10000 in Steem)
-        const percentage = (vote.percent / 100).toFixed(2);
-        
-        // Calculate the vote value based on its proportion of the total
-        let voteValue = 0;
-        if (totalVotingPower > 0) {
-          voteValue = (Math.abs(vote.percent) / totalVotingPower) * totalPayoutValue;
-        }
-        
-        // Format to 3 decimal places for USD
-        const formattedValue = voteValue.toFixed(3);
-        
-        // Create wrapper for voter avatar and name
-        const voterWrapper = document.createElement('div');
-        voterWrapper.style.display = 'flex';
-        voterWrapper.style.alignItems = 'center';
-        voterWrapper.style.flex = '1';
-        voterWrapper.style.minWidth = this.isMobile ? '100%' : 'auto';
-        if (this.isMobile) {
-          voterWrapper.style.marginBottom = 'var(--space-xs)';
-        }
-        
-        // Add avatar image
-        const avatarWrapper = document.createElement('div');
-        avatarWrapper.style.marginRight = 'var(--space-sm)';
-        
-        const avatar = document.createElement('img');
-        avatar.className = 'voter-avatar';
-        // Use the Steem avatar service (you can change this URL to match your specific avatar service)
-        avatar.src = `https://steemitimages.com/u/${vote.voter}/avatar`;
-
-        avatar.alt = `${vote.voter}'s avatar`;
-        avatar.style.width = this.isMobile ? '24px' : '32px';
-        avatar.style.height = this.isMobile ? '24px' : '32px';
-        avatar.style.borderRadius = 'var(--radius-pill)';
-        avatar.style.border = '2px solid var(--primary-color)';
-        avatar.style.objectFit = 'cover';
-        avatar.style.backgroundColor = 'var(--background-lighter)';
-        
-        // Fallback for when avatar fails to load
-        avatar.onerror = function() {
-          this.src = 'https://steemitimages.com/u/default/avatar';
-          this.onerror = null;
-        };
-        
-        avatarWrapper.appendChild(avatar);
-        voterWrapper.appendChild(avatarWrapper);
-        
-        const voterName = document.createElement('span');
-        voterName.className = 'voter-name';
-        voterName.textContent = vote.voter;
-        voterName.style.color = 'var(--primary-color)';
-        voterName.style.fontWeight = 'bold';
-        voterName.style.textDecoration = 'none';
-        voterName.style.cursor = 'pointer';
-        
-        // Make username clickable to view profile (optional)
-        voterName.addEventListener('click', () => {
-          window.open(`https://steemit.com/@${vote.voter}`, '_blank');
-        });
-        
-        voterName.addEventListener('mouseover', () => {
-          voterName.style.textDecoration = 'underline';
-        });
-        
-        voterName.addEventListener('mouseout', () => {
-          voterName.style.textDecoration = 'none';
-        });
-        
-        voterWrapper.appendChild(voterName);
-        
-        // Create wrapper for vote info (percentage and value)
-        const voteInfoWrapper = document.createElement('div');
-        voteInfoWrapper.style.display = 'flex';
-        voteInfoWrapper.style.flexDirection = this.isMobile ? 'row' : 'column';
-        voteInfoWrapper.style.alignItems = this.isMobile ? 'center' : 'flex-end';
-        voteInfoWrapper.style.justifyContent = this.isMobile ? 'flex-start' : 'center';
-        voteInfoWrapper.style.minWidth = this.isMobile ? 'auto' : '100px';
-        voteInfoWrapper.style.marginRight = this.isMobile ? 'var(--space-md)' : '0';
-        
-        const votePercentage = document.createElement('span');
-        votePercentage.className = 'vote-percentage';
-        votePercentage.textContent = `${percentage}%`;
-        votePercentage.style.color = vote.percent >= 0 ? 'var(--secondary-color)' : 'var(--text-muted)';
-        voteInfoWrapper.appendChild(votePercentage);
-        
-        const voteValueElem = document.createElement('span');
-        voteValueElem.className = 'vote-value';
-        voteValueElem.textContent = `${formattedValue} USD`;
-        voteValueElem.style.color = 'var(--primary-light)';
-        voteValueElem.style.fontSize = '0.85em';
-        if (this.isMobile) {
-          voteValueElem.style.marginLeft = 'var(--space-sm)';
-        }
-        voteInfoWrapper.appendChild(voteValueElem);
-        
-        // Create wrapper for timestamp
-        const timeWrapper = document.createElement('div');
-        timeWrapper.style.minWidth = this.isMobile ? 'auto' : '140px';
-        timeWrapper.style.textAlign = this.isMobile ? 'left' : 'right';
-        timeWrapper.style.paddingLeft = this.isMobile ? '0' : 'var(--space-md)';
-        if (this.isMobile) {
-          timeWrapper.style.fontSize = '0.8em';
-          timeWrapper.style.color = 'var(--text-muted)';
-        }
-        
-        const voteTime = document.createElement('span');
-        voteTime.className = 'vote-time';
-        
-        // Format date differently for mobile
-        const voteDate = new Date(vote.time);
-        const formattedDate = this.isMobile ? 
-          this.formatDateForMobile(voteDate) : 
-          voteDate.toLocaleString();
-        
-        voteTime.textContent = formattedDate;
-        voteTime.style.color = 'var(--text-secondary)';
-        voteTime.style.fontSize = this.isMobile ? '0.9em' : '0.9em';
-        timeWrapper.appendChild(voteTime);
-        
-        // Add all elements to vote item
-        voteItem.appendChild(voterWrapper);
-        
-        // For mobile, create a container for the info and time
-        if (this.isMobile) {
-          const infoTimeRow = document.createElement('div');
-          infoTimeRow.style.display = 'flex';
-          infoTimeRow.style.width = '100%';
-          infoTimeRow.style.justifyContent = 'space-between';
-          infoTimeRow.style.alignItems = 'center';
-          
-          infoTimeRow.appendChild(voteInfoWrapper);
-          infoTimeRow.appendChild(timeWrapper);
-          
-          voteItem.appendChild(infoTimeRow);
-        } else {
-          voteItem.appendChild(voteInfoWrapper);
-          voteItem.appendChild(timeWrapper);
-        }
-        
-        voteItem.addEventListener('mouseover', () => {
-          voteItem.style.backgroundColor = 'var(--background-lighter)';
-        });
-        
-        voteItem.addEventListener('mouseout', () => {
-          voteItem.style.backgroundColor = 'transparent';
-        });
-        
-        votesList.appendChild(voteItem);
-      });
-      
-      // Add summary of total votes
-      const summaryItem = document.createElement('li');
-      summaryItem.className = 'vote-summary';
-      summaryItem.style.padding = this.isMobile ? 'var(--space-sm)' : 'var(--space-md)';
-      summaryItem.style.display = 'flex';
-      summaryItem.style.justifyContent = 'space-between';
-      summaryItem.style.borderTop = '2px solid var(--border-color)';
-      summaryItem.style.marginTop = 'var(--space-sm)';
-      summaryItem.style.fontWeight = 'bold';
-      
-      const summaryLabel = document.createElement('span');
-      summaryLabel.textContent = 'Total Payout:';
-      summaryLabel.style.color = 'var(--text-heading)';
-      
-      const summaryValue = document.createElement('span');
-      summaryValue.textContent = `${totalPayoutValue} USD`;
-      summaryValue.style.color = 'var(--primary-color)';
-      
-      summaryItem.appendChild(summaryLabel);
-      summaryItem.appendChild(summaryValue);
-      votesList.appendChild(summaryItem);
-      
-      content.appendChild(votesList);
-    } else {
-      const noVotes = document.createElement('p');
-      noVotes.className = 'no-votes';
-      noVotes.textContent = 'No votes on this post yet.';
-      noVotes.style.color = 'var(--text-muted)';
-      noVotes.style.textAlign = 'center';
-      noVotes.style.padding = 'var(--space-md)';
-      content.appendChild(noVotes);
+    if (!this.post.active_votes || this.post.active_votes.length === 0) {
+      content.appendChild(this.createNoVotesMessage());
+      return content;
     }
     
-    // Assemble the popup
-    popup.appendChild(header);
-    popup.appendChild(content);
+    const totalPayoutValue = this.getPendingPayout(this.post);
+    const totalVotingPower = this.calculateTotalVotingPower();
+    const votesList = this.createVotesList(totalPayoutValue, totalVotingPower);
     
-    // Style the popup with CSS variables - make responsive
-    popup.style.position = 'fixed';
-    popup.style.top = '50%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.backgroundColor = 'var(--background-light)';
-    popup.style.color = 'var(--text-color)';
-    popup.style.padding = this.isMobile ? 'var(--space-sm)' : 'var(--space-lg)';
-    popup.style.borderRadius = 'var(--radius-md)';
-    popup.style.boxShadow = 'var(--popup-box-shadow)';
-    popup.style.zIndex = 'var(--z-modal)';
-    popup.style.maxHeight = '80vh';
-    popup.style.overflow = 'auto';
-    
-    // Responsive width
-    if (this.isMobile) {
-      popup.style.width = '90%';
-      popup.style.maxWidth = '100%';
-      popup.style.minWidth = 'auto';
-    } else {
-      popup.style.minWidth = '500px';
-      popup.style.maxWidth = '90%';
-    }
-    
-    // Create and style the overlay with CSS variables
-    const overlay = document.createElement('div');
-    overlay.className = 'popup-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    overlay.style.zIndex = 'calc(var(--z-modal) - 1)';
-    
-    // Close popup when clicking overlay
-    overlay.addEventListener('click', () => {
-      document.body.removeChild(overlay);
-      document.body.removeChild(popup);
+    content.appendChild(votesList);
+    return content;
+  }
+  
+  createNoVotesMessage() {
+    return this.createElement('p', 'no-votes', {
+      color: 'var(--text-muted)',
+      textAlign: 'center',
+      padding: 'var(--space-md)'
+    }, 'No votes on this post yet.');
+  }
+  
+  calculateTotalVotingPower() {
+    return this.post.active_votes.reduce((sum, vote) => {
+      return sum + Math.abs(vote.percent);
+    }, 0);
+  }
+  
+  createVotesList(totalPayoutValue, totalVotingPower) {
+    const votesList = this.createElement('ul', 'votes-list', {
+      listStyle: 'none',
+      padding: '0',
+      margin: '0'
     });
     
-    // Add to DOM
-    document.body.appendChild(overlay);
-    document.body.appendChild(popup);
+    const sortedVotes = [...this.post.active_votes].sort((a, b) => 
+      Math.abs(b.percent) - Math.abs(a.percent)
+    );
+    
+    sortedVotes.forEach(vote => {
+      votesList.appendChild(this.createVoteItem(vote, totalPayoutValue, totalVotingPower));
+    });
+    
+    votesList.appendChild(this.createSummaryItem(totalPayoutValue));
+    
+    return votesList;
+  }
+  
+  createVoteItem(vote, totalPayoutValue, totalVotingPower) {
+    const voteItem = this.createElement('li', 'vote-item', {
+      display: 'flex',
+      flexWrap: this.isMobile ? 'wrap' : 'nowrap',
+      justifyContent: 'space-between',
+      alignItems: this.isMobile ? 'flex-start' : 'center',
+      padding: this.isMobile ? 'var(--space-xs)' : 'var(--space-sm)',
+      borderBottom: '1px solid var(--border-color)',
+      transition: 'var(--transition-fast)'
+    });
+    
+    const percentage = (vote.percent / 100).toFixed(2);
+    const voteValue = this.calculateVoteValue(vote.percent, totalVotingPower, totalPayoutValue);
+    const formattedValue = voteValue.toFixed(3);
+    
+    const voterWrapper = this.createVoterWrapper(vote.voter);
+    
+    if (this.isMobile) {
+      const infoTimeRow = this.createMobileInfoTimeRow(percentage, formattedValue, vote);
+      voteItem.appendChild(voterWrapper);
+      voteItem.appendChild(infoTimeRow);
+    } else {
+      const voteInfoWrapper = this.createVoteInfoWrapper(percentage, formattedValue, false);
+      const timeWrapper = this.createTimeWrapper(vote.time, false);
+      
+      voteItem.appendChild(voterWrapper);
+      voteItem.appendChild(voteInfoWrapper);
+      voteItem.appendChild(timeWrapper);
+    }
+    
+    this.addHoverEffect(voteItem);
+    
+    return voteItem;
+  }
+  
+  createVoterWrapper(voter) {
+    const voterWrapper = this.createElement('div', '', {
+      display: 'flex',
+      alignItems: 'center',
+      flex: '1',
+      minWidth: this.isMobile ? '100%' : 'auto',
+      marginBottom: this.isMobile ? 'var(--space-xs)' : null
+    });
+    
+    const avatarWrapper = this.createElement('div', '', {
+      marginRight: 'var(--space-sm)'
+    });
+    
+    const avatar = this.createElement('img', 'voter-avatar', {
+      width: this.isMobile ? '24px' : '32px',
+      height: this.isMobile ? '24px' : '32px',
+      borderRadius: 'var(--radius-pill)',
+      border: '2px solid var(--primary-color)',
+      objectFit: 'cover',
+      backgroundColor: 'var(--background-lighter)'
+    });
+    
+    avatar.src = `https://steemitimages.com/u/${voter}/avatar`;
+    avatar.alt = `${voter}'s avatar`;
+    avatar.onerror = function() {
+      this.src = 'https://steemitimages.com/u/default/avatar';
+      this.onerror = null;
+    };
+    
+    const voterName = this.createElement('span', 'voter-name', {
+      color: 'var(--primary-color)',
+      fontWeight: 'bold',
+      textDecoration: 'none',
+      cursor: 'pointer'
+    }, voter);
+    
+    this.addProfileLinkBehavior(voterName, voter);
+    
+    avatarWrapper.appendChild(avatar);
+    voterWrapper.appendChild(avatarWrapper);
+    voterWrapper.appendChild(voterName);
+    
+    return voterWrapper;
+  }
+  
+  addProfileLinkBehavior(element, username) {
+    element.addEventListener('click', () => {
+      window.open(`https://steemit.com/@${username}`, '_blank');
+    });
+    
+    element.addEventListener('mouseover', () => {
+      element.style.textDecoration = 'underline';
+    });
+    
+    element.addEventListener('mouseout', () => {
+      element.style.textDecoration = 'none';
+    });
+  }
+  
+  createVoteInfoWrapper(percentage, formattedValue, isMobile) {
+    const voteInfoWrapper = this.createElement('div', '', {
+      display: 'flex',
+      flexDirection: isMobile ? 'row' : 'column',
+      alignItems: isMobile ? 'center' : 'flex-end',
+      justifyContent: isMobile ? 'flex-start' : 'center',
+      minWidth: isMobile ? 'auto' : '100px',
+      marginRight: isMobile ? 'var(--space-md)' : '0'
+    });
+    
+    const isPositive = parseFloat(percentage) >= 0;
+    const votePercentage = this.createElement('span', 'vote-percentage', {
+      color: isPositive ? 'var(--secondary-color)' : 'var(--text-muted)'
+    }, `${percentage}%`);
+    
+    const voteValueElem = this.createElement('span', 'vote-value', {
+      color: 'var(--primary-light)',
+      fontSize: '0.85em',
+      marginLeft: isMobile ? 'var(--space-sm)' : null
+    }, `${formattedValue} USD`);
+    
+    voteInfoWrapper.appendChild(votePercentage);
+    voteInfoWrapper.appendChild(voteValueElem);
+    
+    return voteInfoWrapper;
+  }
+  
+  createTimeWrapper(voteTime, isMobile) {
+    const timeWrapper = this.createElement('div', '', {
+      minWidth: isMobile ? 'auto' : '140px',
+      textAlign: isMobile ? 'left' : 'right',
+      paddingLeft: isMobile ? '0' : 'var(--space-md)',
+      fontSize: isMobile ? '0.8em' : null,
+      color: isMobile ? 'var(--text-muted)' : null
+    });
+    
+    const voteDate = new Date(voteTime);
+    const formattedDate = isMobile ? 
+      this.formatDateForMobile(voteDate) : 
+      voteDate.toLocaleString();
+    
+    const timeElement = this.createElement('span', 'vote-time', {
+      color: 'var(--text-secondary)',
+      fontSize: isMobile ? '0.9em' : '0.9em'
+    }, formattedDate);
+    
+    timeWrapper.appendChild(timeElement);
+    return timeWrapper;
+  }
+  
+  createMobileInfoTimeRow(percentage, formattedValue, vote) {
+    const infoTimeRow = this.createElement('div', '', {
+      display: 'flex',
+      width: '100%',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    });
+    
+    const voteInfoWrapper = this.createVoteInfoWrapper(percentage, formattedValue, true);
+    const timeWrapper = this.createTimeWrapper(vote.time, true);
+    
+    infoTimeRow.appendChild(voteInfoWrapper);
+    infoTimeRow.appendChild(timeWrapper);
+    
+    return infoTimeRow;
+  }
+  
+  createSummaryItem(totalPayoutValue) {
+    const summaryItem = this.createElement('li', 'vote-summary', {
+      padding: this.isMobile ? 'var(--space-sm)' : 'var(--space-md)',
+      display: 'flex',
+      justifyContent: 'space-between',
+      borderTop: '2px solid var(--border-color)',
+      marginTop: 'var(--space-sm)',
+      fontWeight: 'bold'
+    });
+    
+    const summaryLabel = this.createElement('span', '', {
+      color: 'var(--text-heading)'
+    }, 'Total Payout:');
+    
+    const summaryValue = this.createElement('span', '', {
+      color: 'var(--primary-color)'
+    }, `${totalPayoutValue} USD`);
+    
+    summaryItem.appendChild(summaryLabel);
+    summaryItem.appendChild(summaryValue);
+    
+    return summaryItem;
+  }
+  
+  calculateVoteValue(votePercent, totalVotingPower, totalPayoutValue) {
+    if (totalVotingPower <= 0) {
+      return 0;
+    }
+    return (Math.abs(votePercent) / totalVotingPower) * totalPayoutValue;
+  }
+  
+  addHoverEffect(element) {
+    element.addEventListener('mouseover', () => {
+      element.style.backgroundColor = 'var(--background-lighter)';
+    });
+    
+    element.addEventListener('mouseout', () => {
+      element.style.backgroundColor = 'transparent';
+    });
+  }
+  
+  createElement(tagName, className = '', styles = {}, textContent = '') {
+    const element = document.createElement(tagName);
+    
+    if (className) {
+      element.className = className;
+    }
+    
+    Object.entries(styles).forEach(([property, value]) => {
+      if (value !== null) {
+        element.style[property] = value;
+      }
+    });
+    
+    if (textContent) {
+      element.textContent = textContent;
+    }
+    
+    return element;
   }
   
   // New helper method to format dates on mobile
