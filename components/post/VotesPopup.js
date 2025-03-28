@@ -230,7 +230,7 @@ class VotesPopup {
   
   addProfileLinkBehavior(element, username) {
     element.addEventListener('click', () => {
-      window.open(`https://steemit.com/@${username}`, '_blank');
+      window.open(`/profile/@${username}`, '_self');
     });
     
     element.addEventListener('mouseover', () => {

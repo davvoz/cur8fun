@@ -2,6 +2,7 @@ import BasePostView from '../../views/BasePostView.js';
 import CommentRenderer from '../comments/CommentRenderer.js';
 import CommentLoader from '../comments/CommentLoader.js';
 import CommentUIManager from '../comments/CommentUIManager.js';
+import LoadingIndicator from '../LoadingIndicator.js';
 
 export default class CommentsList extends BasePostView {
   constructor(username, useCache = false) {
@@ -13,6 +14,7 @@ export default class CommentsList extends BasePostView {
     this._renderer = new CommentRenderer();
     this._loader = new CommentLoader(username);
     this._uiManager = null;
+    this.loadingIndicator = null;
 
     // Maintain original properties for compatibility
     this.commentsData = null;
@@ -60,10 +62,18 @@ export default class CommentsList extends BasePostView {
   async _loadComments() {
     try {
       this.loading = true;
-      this._uiManager.showLoadingState();
+      
+      // Create and show loading indicator
+      if (!this.loadingIndicator) {
+        this.loadingIndicator = new LoadingIndicator('spinner');
+      }
+      this.loadingIndicator.show(this.commentsContainer, `Loading comments from @${this.username}...`);
       
       // Carica la prima pagina di commenti
       const comments = await this._loader.loadComments(this.commentsPerPage, 1);
+      
+      // Hide loading indicator
+      this.loadingIndicator.hide();
       
       // Aggiorna la cache locale temporanea
       this.commentCache.clear();
@@ -80,6 +90,8 @@ export default class CommentsList extends BasePostView {
       this.renderLoadedComments();
       
     } catch (error) {
+      // Hide loading indicator
+      if (this.loadingIndicator) this.loadingIndicator.hide();
       this._uiManager.showError(error);
     } finally {
       this.loading = false;
@@ -93,8 +105,6 @@ export default class CommentsList extends BasePostView {
       // Apply current layout
       const currentLayout = this.gridController.settings.layout || 'grid';
       this._uiManager.setupLayout(currentLayout);
-      
-
       
       // If no comments, show message
       if (!this.allComments || this.allComments.length === 0) {
@@ -135,13 +145,22 @@ export default class CommentsList extends BasePostView {
     
     console.log(`Setting up infinite scroll with current page ${this.currentPage}`);
     
+    // Create progress bar loading indicator for infinite scroll
+    const infiniteScrollLoader = new LoadingIndicator('progressBar');
+    
     // Setup the infinite scroll
     this._uiManager.setupInfiniteScroll(async (page) => {
       try {
         console.log(`Loading more comments for page ${page}`);
         
+        // Show loading progress
+        infiniteScrollLoader.show(this.commentsContainer);
+        
         // Carica più commenti tramite il loader
         const newComments = await this._loader.loadMoreComments(page);
+        
+        // Hide loading progress
+        infiniteScrollLoader.hide();
         
         if (newComments && newComments.length > 0) {
           console.log(`Loaded ${newComments.length} new comments for page ${page}`);
@@ -172,6 +191,7 @@ export default class CommentsList extends BasePostView {
         }
       } catch (error) {
         console.error('Error loading more comments:', error);
+        infiniteScrollLoader.hide();
         return false;
       }
     }, commentsWrapper, this.currentPage);
@@ -215,6 +235,10 @@ export default class CommentsList extends BasePostView {
 
   unmount() {
     if (this._uiManager) this._uiManager.cleanup();
+    if (this.loadingIndicator) {
+      this.loadingIndicator.hide();
+      this.loadingIndicator = null;
+    }
     if (this.gridController) this.gridController.unmount();
   }
 
