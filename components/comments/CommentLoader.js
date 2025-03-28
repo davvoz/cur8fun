@@ -61,13 +61,11 @@ export default class CommentLoader {
     return newComments;
   }
   
-  // Controlla se ci sono più commenti da caricare
   hasMore() {
     return this.hasMoreComments;
   }
 
   reset() {
-    // Reset completo dello stato
     this.loading = false;
     this.commentsData = null;
     this.allComments = [];
@@ -78,7 +76,6 @@ export default class CommentLoader {
   }
 
   clear() {
-    // Reset completo, identico a reset()
     return this.reset();
   }
 }
