@@ -1,8 +1,40 @@
 class VotesPopup {
+  static popupCounter = 0;
+  
   constructor(post) {
     this.post = post;
     this.isMobile = window.innerWidth < 768; // Check if device is mobile
+    this.popupId = `votes-popup-${VotesPopup.popupCounter++}`;
+    this.overlay = null;
+    this.popup = null;
+    this.closePopupHandler = this.close.bind(this);
   }
+
+  // Close method to properly clean up the popup
+  close() {
+    // Remove the key event listener first to prevent multiple calls
+    document.removeEventListener('keydown', this.escKeyHandler);
+    
+    // Clean up popup elements if they exist
+    if (this.overlay && document.body.contains(this.overlay)) {
+      document.body.removeChild(this.overlay);
+    }
+    
+    if (this.popup && document.body.contains(this.popup)) {
+      document.body.removeChild(this.popup);
+    }
+    
+    // Clean up references
+    this.overlay = null;
+    this.popup = null;
+  }
+  
+  // Escape key handler
+  escKeyHandler = (e) => {
+    if (e.key === 'Escape') {
+      this.close();
+    }
+  };
 
   getPendingPayout(post) {
     const pending = parseFloat(post.pending_payout_value?.split(' ')[0] || 0);
@@ -12,18 +44,22 @@ class VotesPopup {
   }
 
   show() {
-    const { overlay, popup } = this.createPopupStructure();
-    const content = this.createPopupContent();
+    // First close any existing popups to prevent stacking
+    this.close();
     
-    popup.appendChild(this.createPopupHeader(overlay, popup));
-    popup.appendChild(content);
+    // Create new popup elements
+    this.createPopupElements();
     
-    document.body.appendChild(overlay);
-    document.body.appendChild(popup);
+    // Add Escape key listener
+    document.addEventListener('keydown', this.escKeyHandler);
+    
+    // Add to DOM
+    document.body.appendChild(this.overlay);
+    document.body.appendChild(this.popup);
   }
   
-  createPopupStructure() {
-    const popup = this.createElement('div', 'votes-popup', {
+  createPopupElements() {
+    this.popup = this.createElement('div', `votes-popup ${this.popupId}`, {
       position: 'fixed',
       top: '50%',
       left: '50%',
@@ -41,7 +77,7 @@ class VotesPopup {
       minWidth: this.isMobile ? 'auto' : '500px'
     });
     
-    const overlay = this.createElement('div', 'popup-overlay', {
+    this.overlay = this.createElement('div', `popup-overlay ${this.popupId}-overlay`, {
       position: 'fixed',
       top: '0',
       left: '0',
@@ -51,17 +87,15 @@ class VotesPopup {
       zIndex: 'calc(var(--z-modal) - 1)'
     });
     
-    const closePopup = () => {
-      document.body.removeChild(overlay);
-      document.body.removeChild(popup);
-    };
+    // Add overlay click handler
+    this.overlay.addEventListener('click', this.closePopupHandler);
     
-    overlay.addEventListener('click', closePopup);
-    
-    return { overlay, popup, closePopup };
+    // Create and add content
+    this.popup.appendChild(this.createPopupHeader());
+    this.popup.appendChild(this.createPopupContent());
   }
   
-  createPopupHeader(overlay, popup) {
+  createPopupHeader() {
     const header = this.createElement('div', 'votes-popup-header', {
       display: 'flex',
       justifyContent: 'space-between',
@@ -87,10 +121,9 @@ class VotesPopup {
       fontSize: '1.5rem'
     });
     closeBtn.innerHTML = '&times;';
-    closeBtn.addEventListener('click', () => {
-      document.body.removeChild(overlay);
-      document.body.removeChild(popup);
-    });
+    
+    // Add click handler for close button
+    closeBtn.addEventListener('click', this.closePopupHandler);
     
     header.appendChild(title);
     header.appendChild(closeBtn);
@@ -230,7 +263,10 @@ class VotesPopup {
   
   addProfileLinkBehavior(element, username) {
     element.addEventListener('click', () => {
-      window.open(`/profile/@${username}`, '_self');
+      // Close popup first
+      this.close();
+      // Then navigate
+      window.open(`#/@${username}`, '_self');
     });
     
     element.addEventListener('mouseover', () => {

@@ -436,7 +436,7 @@ class BasePostView {
     const { size: cardSize, layout } = this.getCardConfig();
     
     // Use different image sizes based on card size setting AND layout
-    const sizesToTry = this.getImageSizesToTry(cardSize, layout);
+    const sizesToTry = this.getImageSizesToTry( layout);
     
     let currentSizeIndex = 0;
     let isLoadingPlaceholder = false;
@@ -530,7 +530,7 @@ class BasePostView {
   /**
    * Get appropriate image sizes based only on layout
    */
-  getImageSizesToTry(cardSize, layout) {
+  getImageSizesToTry( layout) {
     // Simplify image sizes based only on layout type
     switch(layout) {
       case 'list':

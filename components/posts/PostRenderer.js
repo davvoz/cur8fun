@@ -164,7 +164,7 @@ export default class PostRenderer {
 
     const cardSize = 'medium'; // Default size
     const layout = 'grid'; // Default layout
-    const sizesToTry = this.getImageSizesToTry(cardSize, layout);
+    const sizesToTry = this.getImageSizesToTry( layout);
 
     let currentSizeIndex = 0;
     let isLoadingPlaceholder = false;
@@ -333,7 +333,7 @@ export default class PostRenderer {
     return cleanUrl;
   }
 
-  getImageSizesToTry(cardSize, layout) {
+  getImageSizesToTry( layout) {
     switch(layout) {
       case 'list':
         return [
