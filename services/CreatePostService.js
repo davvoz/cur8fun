@@ -23,19 +23,6 @@ class CreatePostService {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
 
-  /**
-   * Create a new post on the Steem blockchain
-   * 
-   * @param {Object} postData - Post data
-   * @param {string} postData.title - Post title
-   * @param {string} postData.body - Post body in markdown format
-   * @param {Array<string>} postData.tags - Post tags (max 5)
-   * @param {string} [postData.community] - Community name (optional)
-   * @param {Object} options - Additional options
-   * @param {boolean} options.includeBeneficiary - Whether to include the beneficiary (default: true)
-   * @param {number} options.beneficiaryWeight - Weight for beneficiary (default: 500 = 5%)
-   * @returns {Promise<Object>} - Result from the blockchain operation
-   */
   async createPost(postData, options = {}) {
     if (this.isProcessing) {
       throw new Error('Another post is already being processed');
@@ -45,150 +32,150 @@ class CreatePostService {
       throw new Error('You must be logged in to create a post');
     }
 
-    const { title, body, tags, community } = postData;
-    
-    // Opzioni per il beneficiario
-    const includeBeneficiary = options.includeBeneficiary !== false; // true di default
-    const beneficiaryWeight = options.beneficiaryWeight || this.defaultBeneficiary.weight;
-    
-    // Validate post data
-    this.validatePostData(postData);
-    
     try {
       this.isProcessing = true;
+      const { title } = postData;
       eventEmitter.emit('post:creation-started', { title });
       
-      // Ensure Steem library is loaded
+      // Validate input data
+      this.validatePostData(postData);
       await steemService.ensureLibraryLoaded();
       
-      // Get necessary user data
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) {
-        throw new Error('User not authenticated. Please login again.');
-      }
+      // Prepare post data
+      const postDetails = await this.preparePostDetails(postData, options);
       
-      const username = currentUser.username;
-      const isMobile = this.isMobileDevice();
+      // Broadcast the post using available method
+      const result = await this.broadcastUsingAvailableMethod(postDetails);
       
-      // MODIFICATO: Controlla prima se abbiamo la posting key
-      const postingKey = authService.getPostingKey();
-      const hasKeychain = typeof window.steem_keychain !== 'undefined';
-      
-      // Generate a permlink from the title
-      const permlink = this.generatePermlink(title);
-      
-      // Prepare tags - first tag is the main category
-      const processedTags = this.processTags(tags);
-      
-      // Determine parent permlink (primary tag or community)
-      let parentPermlink;
-      if (community) {
-        parentPermlink = `hive-${community.replace(/^hive-/, '')}`;
-      } else {
-        parentPermlink = processedTags[0] || 'steemee';
-      }
-      
-      // Prepare JSON metadata
-      const metadata = {
-        tags: processedTags,
-        app: 'steemee/1.0',
-        format: 'markdown'
-      };
-      
-      // Add community info to metadata if posting to a community
-      if (community) {
-        metadata.community = community;
-      }
-      
-      // Prepare beneficiaries array
-      const beneficiaries = [];
-      if (includeBeneficiary) {
-        beneficiaries.push({
-          account: this.defaultBeneficiary.name,
-          weight: beneficiaryWeight
-        });
-      }
-      
-      // Broadcast to the blockchain - PRIORITÀ MODIFICATA
-      let result;
-      
-      // MODIFICATO: Prima controlla se abbiamo la chiave, poi se Keychain è disponibile
-      if (postingKey) {
-        // Usa la chiave privata se è disponibile (priorità massima)
-        console.log('Using posting key to publish post');
-        result = await this.broadcastPost({
-          username,
-          postingKey,
-          parentPermlink,
-          title,
-          body,
-          permlink,
-          metadata,
-          beneficiaries
-        });
-      } else if (hasKeychain) {
-        // Se non abbiamo la chiave, prova con Keychain
-        console.log('Using Keychain to publish post');
-        
-        // Verifica se siamo su mobile e Keychain non è disponibile
-        if (isMobile && !window.steem_keychain) {
-          throw new Error('Steem Keychain is not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
-        }
-        
-        result = await this.broadcastPostWithKeychain({
-          username,
-          parentPermlink,
-          title,
-          body,
-          permlink,
-          metadata,
-          beneficiaries
-        });
-      } else {
-        // Né chiave né Keychain disponibili
-        throw new Error('No valid posting credentials available. Please login with your posting key or install Steem Keychain.');
-      }
-      
-      // Emit success event
-      eventEmitter.emit('post:creation-completed', {
-        success: true,
-        author: username,
-        permlink: permlink,
-        title: title,
-        community: community
-      });
-      
+      this.emitSuccessEvent(postDetails);
       return result;
     } catch (error) {
-      console.error('Error creating post:', error);
-      
-      // More detailed error handling
-      let errorMessage = error.message || 'Unknown error occurred while creating post';
-      
-      // Handle keychain cancellation specifically
-      if (error.message && (
-          error.message.includes('cancel') || 
-          error.message.includes('Cancel') ||
-          error.message.includes('Request was canceled'))) {
-        errorMessage = 'Operation was cancelled.';
-      }
-      
-      // Emit error event with appropriate message
-      eventEmitter.emit('post:creation-error', { error: errorMessage });
-      
+      this.handlePostCreationError(error);
       throw error;
     } finally {
       this.isProcessing = false;
     }
   }
+
+  preparePostDetails(postData, options = {}) {
+    const { title, body, tags, community } = postData;
+    const currentUser = this.validateUserAuthentication();
+    const username = currentUser.username;
+    
+    // Process beneficiary options
+    const includeBeneficiary = options.includeBeneficiary !== false;
+    const beneficiaryWeight = options.beneficiaryWeight || this.defaultBeneficiary.weight;
+    
+    // Generate permlink and process tags
+    const permlink = this.generatePermlink(title);
+    const processedTags = this.processTags(tags);
+    
+    // Determine parent permlink
+    const parentPermlink = community 
+      ? `hive-${community.replace(/^hive-/, '')}`
+      : (processedTags[0] || 'steemee');
+    
+    // Prepare metadata
+    const metadata = this.createPostMetadata(processedTags, community);
+    
+    // Prepare beneficiaries
+    const beneficiaries = [];
+    if (includeBeneficiary) {
+      beneficiaries.push({
+        account: this.defaultBeneficiary.name,
+        weight: beneficiaryWeight
+      });
+    }
+    
+    return {
+      username,
+      title,
+      body,
+      permlink,
+      parentPermlink,
+      metadata,
+      beneficiaries,
+      community
+    };
+  }
+
+  validateUserAuthentication() {
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please login again.');
+    }
+    return currentUser;
+  }
+
+  createPostMetadata(tags, community) {
+    const metadata = {
+      tags,
+      app: 'steemee/1.0',
+      format: 'markdown'
+    };
+    
+    if (community) {
+      metadata.community = community;
+    }
+    
+    return metadata;
+  }
+
+  async broadcastUsingAvailableMethod(postDetails) {
+    
+    const postingKey = authService.getPostingKey();
+    const hasKeychain = typeof window.steem_keychain !== 'undefined';
+    const isMobile = this.isMobileDevice();
+    
+    let result;
+    
+    if (postingKey) {
+      result = await this.broadcastPost({
+        ...postDetails,
+        postingKey
+      });
+    } 
+    else if (hasKeychain) {
+      if (isMobile && !window.steem_keychain) {
+        throw new Error('Steem Keychain is not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
+      }
+      
+      result = await this.broadcastPostWithKeychain(postDetails);
+    }
+    else {
+      throw new Error('No valid posting credentials available. Please login with your posting key or install Steem Keychain.');
+    }
+    
+   
+    
+    return result;
+  }
+
+  emitSuccessEvent(postDetails) {
+    eventEmitter.emit('post:creation-completed', {
+      success: true,
+      author: postDetails.username,
+      permlink: postDetails.permlink,
+      title: postDetails.title,
+      community: postDetails.community
+    });
+  }
+
+  handlePostCreationError(error) {
+    console.error('Error creating post:', error);
+    
+    let errorMessage = error.message || 'Unknown error occurred while creating post';
+    
+    if (error.message && (
+        error.message.includes('cancel') || 
+        error.message.includes('Cancel') ||
+        error.message.includes('Request was canceled'))) {
+      errorMessage = 'Operation was cancelled.';
+    }
+    
+    eventEmitter.emit('post:creation-error', { error: errorMessage });
+  }
   
-  /**
-   * Broadcast post using Steem Keychain
-   * 
-   * @param {Object} options - Post options
-   * @returns {Promise<Object>} - Blockchain result
-   * @private
-   */
   broadcastPostWithKeychain({ username, parentPermlink, title, body, permlink, metadata, beneficiaries = [] }) {
     return new Promise((resolve, reject) => {
       const jsonMetadata = JSON.stringify(metadata);
@@ -253,12 +240,6 @@ class CreatePostService {
     });
   }
   
-  /**
-   * Validate post data
-   * 
-   * @param {Object} postData - Post data to validate
-   * @throws {Error} If validation fails
-   */
   validatePostData(postData) {
     const { title, body, tags } = postData;
     
@@ -283,12 +264,7 @@ class CreatePostService {
     }
   }
   
-  /**
-   * Generate a permlink from post title
-   * 
-   * @param {string} title - Post title
-   * @returns {string} - Permlink
-   */
+
   generatePermlink(title) {
     // Create permlink from title - lowercase, replace spaces with hyphens
     let permlink = title
@@ -305,12 +281,6 @@ class CreatePostService {
     return permlink.substring(0, 255); // Ensure permlink isn't too long
   }
   
-  /**
-   * Process tags - sanitize, validate, etc.
-   * 
-   * @param {Array<string>} tags - Raw tags
-   * @returns {Array<string>} - Processed tags
-   */
   processTags(tags) {
     if (!Array.isArray(tags)) {
       return [];
@@ -326,13 +296,6 @@ class CreatePostService {
       .slice(0, 5); // Limit to 5 tags
   }
   
-  /**
-   * Broadcast post to the blockchain
-   * 
-   * @param {Object} options - Post options
-   * @returns {Promise<Object>} - Blockchain result
-   * @private
-   */
   async broadcastPost({ username, postingKey, parentPermlink, title, body, permlink, metadata, beneficiaries = [] }) {
     // Format JSON metadata
     const jsonMetadata = JSON.stringify(metadata);
@@ -385,17 +348,6 @@ class CreatePostService {
     });
   }
   
-  /**
-   * Edit an existing post
-   * 
-   * @param {Object} postData - Post data
-   * @param {string} postData.author - Original author
-   * @param {string} postData.permlink - Original permlink
-   * @param {string} postData.title - New title
-   * @param {string} postData.body - New body content
-   * @param {Array<string>} postData.tags - New tags
-   * @returns {Promise<Object>} - Result from blockchain operation
-   */
   async editPost(postData) {
     // Implement post editing functionality
     // Similar to createPost but uses existing permlink
