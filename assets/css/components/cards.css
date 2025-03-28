@@ -83,63 +83,6 @@
 
 }
 
-/* Error state for images */
-.post-image-container.error {
-    background-color: var(--background-subtle);
-    position: relative;
-    overflow: visible;
-}
-
-.post-image-container.error img {
-    opacity: 0.3;
-    filter: grayscale(1);
-}
-
-/* Remove the previous after content since we're using a real element now */
-.post-image-container.error::after {
-    content: none;
-}
-
-/* Error message styling */
-.post-image-container .error-message {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    text-align: center;
-    max-width: 90%;
-    z-index: 3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Add a subtle visual indicator of error type */
-.post-image-container.error::before {
-    content: "error";
-    font-family: 'Material Icons';
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    background-color: rgba(220, 53, 69, 0.9);
-    color: white;
-    padding: 3px 6px;
-    border-radius: 50%;
-    font-size: 0.9rem;
-    z-index: 2;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* Disable hover effects for error state */
-.post-card:hover .post-image-container.error img {
-    transform: none;
-    filter: grayscale(1);
-}
 
 /* Loading state for images */
 .post-image-container.loading::before {

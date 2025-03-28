@@ -553,16 +553,18 @@
 
 /* Immagine ridimensionata */
 .posts-container.grid-layout-list .post-image-container {
-  max-height: 100%;
   padding-bottom: 0;
   flex-shrink: 0;
   border-radius: 0;
   position: relative;
   border-right: 1px solid var(--border-color-light);
-  margin:  var(--space-xs);
   width: auto;
 }
 
+ .error{
+  display: none;
+  border-radius: 100%;
+}
 /* Contenuto con layout migliorato */
 .posts-container.grid-layout-list .post-content-wrapper {
   display: flex;
