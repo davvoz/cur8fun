@@ -1,38 +1,51 @@
+// Core utilities
 import router from './utils/Router.js';
+import eventEmitter from './utils/EventEmitter.js';
+import NavigationManager from './utils/NavigationManager.js';
+
+// Services
+import authService from './services/AuthService.js';
+import { SearchService } from './services/SearchService.js';
+
+// Content views
 import HomeView from './views/HomeView.js';
 import PostView from './views/PostView.js';
+import TagView from './views/TagView.js';
+import SearchView from './views/SearchView.js';
+import CreatePostView from './views/CreatePostView.js';
+
+// Community views
+import CommunityView from './views/CommunityView.js';
+import CommunitiesListView from './views/CommunitiesListView.js';
+
+// User account views
 import LoginView from './views/LoginView.js';
 import ProfileView from './views/ProfileView.js';
-import CreatePostView from './views/CreatePostView.js';
-import NotFoundView from './views/NotFoundView.js';
-import WalletView from './views/WalletView.js';
-import SearchView from './views/SearchView.js';
-import TagView from './views/TagView.js';
-import eventEmitter from './utils/EventEmitter.js';
-import authService from './services/AuthService.js';
-import NavigationManager from './utils/NavigationManager.js';
-import { SearchService } from './services/SearchService.js';
 import RegisterView from './views/RegisterView.js';
-import EditProfileView from './views/EditProfileView.js'; // Importa EditProfileView
-import CommunityView from './views/CommunityView.js'; // Importa CommunityView
+import EditProfileView from './views/EditProfileView.js';
+import WalletView from './views/WalletView.js';
+
+// Utility views
+import NotFoundView from './views/NotFoundView.js';
 
 // Setup routes with proper handlers
 router
   .addRoute('/', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
-  .addRoute('/register', RegisterView) // Aggiungi questa riga
+  .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/trending', HomeView, { tag: 'trending' })
   .addRoute('/hot', HomeView, { tag: 'hot' })
   .addRoute('/new', HomeView, { tag: 'created' })
   .addRoute('/promoted', HomeView, { tag: 'promoted' })
   .addRoute('/wallet', WalletView, { requiresAuth: true })
-  .addRoute('/search', SearchView) // Add search route
-  .addRoute('/tag/:tag', TagView) // Add the TagView route
+  .addRoute('/search', SearchView)
+  .addRoute('/tag/:tag', TagView)
   .addRoute('/@:username', ProfileView)
   .addRoute('/@:author/:permlink', PostView)
-  .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true }) // Aggiungi questa riga
+  .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
+  .addRoute('/communities', CommunitiesListView) // Add the new route
   .setNotFound(NotFoundView);
 
 // Auth guard middleware

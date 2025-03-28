@@ -1,8 +1,13 @@
-import LoadingIndicator from '../components/LoadingIndicator.js';
-import GridController from '../components/GridController.js';
-import eventEmitter from '../utils/EventEmitter.js';
-import ContentRenderer from '../components/ContentRenderer.js';
+// Router
 import router from '../utils/Router.js';
+
+// Components
+import ContentRenderer from '../components/ContentRenderer.js';
+import GridController from '../components/GridController.js';
+import LoadingIndicator from '../components/LoadingIndicator.js';
+
+// Utilities
+import eventEmitter from '../utils/EventEmitter.js';
 
 /**
  * Base class for views that display lists of posts
