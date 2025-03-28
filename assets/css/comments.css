@@ -172,21 +172,6 @@
   100% { opacity: 0.6; }
 }
 
-/* Count display */
-.comments-count,
-.posts-count {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  margin: var(--space-md) 0;
-  padding: var(--space-sm) var(--space-md);
-  background-color: var(--primary-color);
-  color: var(--text-on-primary);
-  border-radius: var(--radius-md);
-  font-weight: 500;
-}
-
 .count-badge {
   font-size: 1.2rem;
   font-weight: 700;

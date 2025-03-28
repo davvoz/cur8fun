@@ -230,24 +230,7 @@ export default class PostsList extends BasePostView {
 
     try {
       // Mostra il contatore di post
-      const countDiv = document.createElement('div');
-      countDiv.className = 'posts-count';
-      countDiv.innerHTML = `
-        <div class="count-badge">${totalCount}</div>
-        <div class="count-text">Post totali di @${this.username}</div>
-      `;
-
-      countDiv.style.margin = '20px 0';
-      countDiv.style.textAlign = 'center';
-      countDiv.style.fontWeight = 'bold';
-      countDiv.style.background = 'var(--primary-color)';
-      countDiv.style.color = 'var(--primary-text-color)';
-      countDiv.style.padding = '10px 15px';
-      countDiv.style.borderRadius = '8px';
-      countDiv.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-      this.postsContainer.appendChild(countDiv);
-
-      // Gestisci il caso in cui non ci siano post
+     
       if (!this.allPosts || this.allPosts.length === 0) {
         this.postsContainer.innerHTML = `
           <div class="empty-posts-message">

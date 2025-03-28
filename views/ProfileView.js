@@ -10,8 +10,8 @@ import ProfileTabs from '../components/profile/ProfileTabs.js';
 
 // Static cache for components
 const componentCache = {
-  posts: {},
-  comments: {}
+  posts: {},  // Manteniamo la cache per i post
+  comments: {} // Ora non la useremo più per i commenti
 };
 
 class ProfileView extends View {
@@ -32,7 +32,7 @@ class ProfileView extends View {
     
     // Caching state
     this.postsLoaded = !!componentCache.posts[this.username];
-    this.commentsLoaded = !!componentCache.comments[this.username];
+    this.commentsLoaded = false; // Non usiamo più la cache per i commenti
     this.postsContainer = null;
     this.commentsContainer = null;
   }
@@ -53,14 +53,8 @@ class ProfileView extends View {
     }
     this.postsComponent = componentCache.posts[this.username];
     
-    // Get or create comments component
-    if (!componentCache.comments[this.username]) {
-      componentCache.comments[this.username] = new CommentsList(this.username, true);
-    } else {
-      // Reset the component if it exists to ensure it's ready for reuse
-      componentCache.comments[this.username].reset();
-    }
-    this.commentsComponent = componentCache.comments[this.username];
+    // Sempre creiamo una nuova istanza di CommentsList
+    this.commentsComponent = new CommentsList(this.username, false);
   }
 
   async render(container) {
@@ -252,12 +246,14 @@ class ProfileView extends View {
       } else {
         this.commentsLoaded = true;
       }
-    } else {
-      // Force refresh grid layout with a small delay to ensure DOM is ready
-      const LAYOUT_REFRESH_DELAY = 50;
+    } else if (isPostsTab) {
+      // Solo per i post usiamo il refresh del layout
       setTimeout(() => {
         component.refreshGridLayout();
-      }, LAYOUT_REFRESH_DELAY);
+      }, 50);
+    } else {
+      // Per i commenti, ricarica sempre
+      component.render(container);
     }
   }
   
