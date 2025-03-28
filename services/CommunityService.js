@@ -179,140 +179,7 @@ class CommunityService {
       throw error;
     }
   }
-  
-  /**
-   * Pubblica un post in una community
-   * @param {string} username - Username dell'utente
-   * @param {string} community - Nome della community
-   * @param {Object} postData - Dati del post
-   * @returns {Promise<Object>} - Risultato dell'operazione
-   */
-  async postToCommunity(username, community, postData) {
-    await steemService.ensureLibraryLoaded();
-    
-    if (!username) {
-      throw new Error('Nome utente richiesto per pubblicare nella community');
-    }
-    
-    if (!community) {
-      throw new Error('Nome della community richiesto');
-    }
-    
-    // Prepara i dati del post
-    const { title, body, tags = [] } = postData;
-    
-    if (!title || !body) {
-      throw new Error('Titolo e contenuto sono richiesti per il post');
-    }
-    
-    // Verifica disponibilità chiave posting
-    const postingKey = authService.getPostingKey();
-    const hasKeychain = this.isKeychainAvailable();
-    
-    try {
-      // Genera permlink dal titolo
-      const permlink = this.generatePermlink(title);
-      
-      // Aggiungi il nome della community al metadata
-      const jsonMetadata = {
-        tags: tags,
-        app: 'steemee/1.0',
-        format: 'markdown',
-        community: community
-      };
-      
-      // Prepara l'operazione per la blockchain
-      const operations = [
-        ['comment', {
-          parent_author: '',
-          parent_permlink: `hive-${community.replace(/^hive-/, '')}`,
-          author: username,
-          permlink: permlink,
-          title: title,
-          body: body,
-          json_metadata: JSON.stringify(jsonMetadata)
-        }]
-      ];
-      
-      // Usa prima la posting key se disponibile, poi keychain
-      if (postingKey) {
-        console.log('Using posting key to publish to community');
-        return new Promise((resolve, reject) => {
-          window.steem.broadcast.send(
-            { operations: operations, extensions: [] },
-            { posting: postingKey },
-            (err, result) => {
-              if (err) {
-                console.error('Error publishing to community with posting key:', err);
-                reject(err);
-              } else {
-                eventEmitter.emit('post:creation-completed', {
-                  success: true,
-                  author: username,
-                  permlink: permlink,
-                  title: title,
-                  community: community
-                });
-                resolve(result);
-              }
-            }
-          );
-        });
-      } else if (hasKeychain) {
-        console.log('Using Keychain to publish to community');
-        return new Promise((resolve, reject) => {
-          window.steem_keychain.requestBroadcast(
-            username,
-            operations,
-            'posting',
-            (response) => {
-              if (response.success) {
-                console.log('Post pubblicato con successo nella community:', response);
-                eventEmitter.emit('post:creation-completed', {
-                  success: true,
-                  author: username,
-                  permlink: permlink,
-                  title: title,
-                  community: community
-                });
-                resolve(response);
-              } else {
-                console.error('Errore nella pubblicazione del post:', response.error);
-                eventEmitter.emit('post:creation-error', {
-                  error: response.error
-                });
-                reject(new Error(response.error));
-              }
-            }
-          );
-        });
-      } else {
-        throw new Error('No valid posting credentials available. Please login with your posting key or install Steem Keychain.');
-      }
-    } catch (error) {
-      console.error('Errore nella preparazione del post:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Genera un permlink basato sul titolo
-   * @param {string} title - Titolo del post
-   * @returns {string} - Permlink generato
-   */
-  generatePermlink(title) {
-    const slug = title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '') // Rimuovi caratteri speciali
-      .replace(/\s+/g, '-')     // Sostituisci spazi con trattini
-      .replace(/-+/g, '-')      // Evita trattini multipli
-      .trim();
-      
-    // Aggiungi timestamp per evitare conflitti
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
-    return `${slug}-${timestamp}`;
-  }
-  
+
   /**
    * Iscriviti a una community usando Keychain
    * @param {string} username - Username dell'utente
@@ -382,7 +249,7 @@ class CommunityService {
       throw error;
     }
   }
-  
+
   /**
    * Annulla iscrizione da una community usando Keychain
    * @param {string} username - Username dell'utente

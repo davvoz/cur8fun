@@ -536,24 +536,18 @@ class CreatePostView extends View {
         tags: this.tags,
         permlink: permlink // Passa il permlink generato
       };
-
-      // Usa il servizio appropriato per pubblicare
-      let result = true;
-
+      
+      // Aggiungi la community se selezionata
       if (this.selectedCommunity) {
-        // Pubblica in una community
-        result = await communityService.postToCommunity(
-          username,
-          this.selectedCommunity.name,
-          postData
-        );
-      } else {
-        // Pubblica sul blog personale
-        result = await createPostService.createPost(postData);
+        postData.community = this.selectedCommunity.name;
       }
-      // Send notification to Telegram after successful post creation https://davvoz.github.io/steemee/#/
+
+      // Usa il servizio centralizzato per creare post
+      const result = await createPostService.createPost(postData);
+
+      // Send notification to Telegram after successful post creation
       if (result) {
-        const postUrl = `https://davvoz.github.io/steemee/#/@verdu.green/steemgram-test-20250327234217`;
+        const postUrl = `https://davvoz.github.io/steemee/#/@${username}/${permlink}`;
         try {
           await fetch('https://imridd.eu.pythonanywhere.com/api/telegram/send_message_animals', {
             method: 'POST',
@@ -567,6 +561,7 @@ class CreatePostView extends View {
           // We don't throw here as the post was created successfully
         }
       }
+      
       // Mostra messaggio di successo
       this.showStatus('Post published successfully!', 'success');
 

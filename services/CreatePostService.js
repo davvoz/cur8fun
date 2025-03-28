@@ -58,7 +58,7 @@ class CreatePostService {
   }
 
   preparePostDetails(postData, options = {}) {
-    const { title, body, tags, community } = postData;
+    const { title, body, tags, community, permlink: customPermlink } = postData;
     const currentUser = this.validateUserAuthentication();
     const username = currentUser.username;
     
@@ -66,11 +66,13 @@ class CreatePostService {
     const includeBeneficiary = options.includeBeneficiary !== false;
     const beneficiaryWeight = options.beneficiaryWeight || this.defaultBeneficiary.weight;
     
-    // Generate permlink and process tags
-    const permlink = this.generatePermlink(title);
+    // Generate permlink or use the provided one
+    const permlink = customPermlink || this.generatePermlink(title);
+    
+    // Process tags
     const processedTags = this.processTags(tags);
     
-    // Determine parent permlink
+    // Determine parent permlink - use community if provided, otherwise first tag
     const parentPermlink = community 
       ? `hive-${community.replace(/^hive-/, '')}`
       : (processedTags[0] || 'steemee');
