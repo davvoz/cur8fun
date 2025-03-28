@@ -1,8 +1,11 @@
 /**
  * Service for managing Steem communities
  */
-import steemService from './SteemService.js';
+// Services
 import authService from './AuthService.js';
+import steemService from './SteemService.js';
+
+// Utilities
 import eventEmitter from '../utils/EventEmitter.js';
 
 class CommunityService {

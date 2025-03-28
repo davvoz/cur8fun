@@ -1,9 +1,14 @@
+// Base class
+import BasePostView from './BasePostView.js';
+
+// Services
+import authService from '../services/AuthService.js';
 import steemService from '../services/SteemService.js';
 import communityService from '../services/CommunityService.js';
-import BasePostView from './BasePostView.js';
-import InfiniteScroll from '../utils/InfiniteScroll.js';
-import authService from '../services/AuthService.js';
+
+// Utilities
 import eventEmitter from '../utils/EventEmitter.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class CommunityView extends BasePostView {
   constructor(params) {
