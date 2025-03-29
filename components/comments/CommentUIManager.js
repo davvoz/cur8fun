@@ -71,11 +71,100 @@ export default class CommentUIManager {
     return wrapper;
   }
 
-  renderComments(comments, wrapper) {
+  renderComments(comments, container) {
+    if (!comments || comments.length === 0 || !container) return;
+    
     comments.forEach(comment => {
-      const commentItem = this.renderer.renderComment(comment);
-      wrapper.appendChild(commentItem);
+      // Create a post-like card for the comment
+      const commentCard = this._createPostLikeCommentCard(comment);
+      container.appendChild(commentCard);
     });
+  }
+
+  _createPostLikeCommentCard(comment) {
+    // Create a card similar to post cards
+    const card = document.createElement('div');
+    card.className = 'post-card comment-card';
+    card.dataset.commentId = `${comment.author}_${comment.permlink}`;
+    
+    // Get the first image if any, for thumbnail
+    const imageUrl = this._getFirstImageFromContent(comment.body) || '/assets/images/default-comment-thumbnail.jpg';
+    
+    // Format the date
+    const date = new Date(comment.created);
+    const formattedDate = date.toLocaleDateString('en-US', {
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric'
+    });
+    
+    // Extract a preview of the comment text (first 150 characters)
+    const textPreview = this._stripMarkdown(comment.body).substring(0, 150) + '...';
+    
+    // Create the card HTML structure similar to post cards
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="author-info">
+          <img src="https://steemitimages.com/u/${comment.author}/avatar/small" class="avatar" alt="${comment.author}" />
+          <div class="author-details">
+            <a href="/#/@${comment.author}" class="author-name">@${comment.author}</a>
+            <span class="date">${formattedDate}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-thumbnail" style="background-image: url('${imageUrl}')"></div>
+      <div class="card-content">
+        <a href="/#/@${comment.author}/${comment.permlink}" class="comment-link">
+          <h3 class="comment-title">Comment on: ${comment.root_title || 'a post'}</h3>
+        </a>
+        <p class="comment-text">${textPreview}</p>
+      </div>
+      <div class="card-footer">
+        <div class="engagement">
+          <span class="votes">
+            <i class="fa fa-thumbs-up"></i> ${comment.net_votes || 0}
+          </span>
+          <span class="replies">
+            <i class="fa fa-comment"></i> ${comment.children || 0}
+          </span>
+          <span class="payout">
+            <i class="fa fa-dollar-sign"></i> ${comment.pending_payout_value || '$0.00'}
+          </span>
+        </div>
+      </div>
+    `;
+    
+    // Add click event to the card
+    card.addEventListener('click', (e) => {
+      // Don't navigate if clicking on author link
+      if (e.target.closest('.author-name')) return;
+      
+      // Add # to the URL for proper routing
+      window.location.href = `/#/@${comment.author}/${comment.permlink}`;
+    });
+    
+    return card;
+  }
+
+  _getFirstImageFromContent(markdown) {
+    // Extract the first image URL from markdown content
+    const imageRegex = /!\[.*?\]\((.*?)\)/;
+    const match = markdown.match(imageRegex);
+    return match ? match[1] : null;
+  }
+
+  _stripMarkdown(markdown) {
+    // Simple markdown stripping for preview text
+    return markdown
+      .replace(/#+\s(.*)/g, '$1') // Remove headings
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just text
+      .replace(/(\*\*|__)(.*?)\1/g, '$2') // Remove bold
+      .replace(/(\*|_)(.*?)\1/g, '$2') // Remove italic
+      .replace(/~~(.*?)~~/g, '$1') // Remove strikethrough
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/\n/g, ' '); // Replace newlines with spaces
   }
 
   setupInfiniteScroll(loadMoreFn, wrapper, initialPage = 1) {
