@@ -44,6 +44,11 @@
 @import 'comments.css';
 @import 'styles.css';
 
+@import 'pages/community.css';
+@import 'pages/communities.css';
+
+@import 'layout/profile-cards.css';
+
 /*mobile styles */
 @media (max-width: 768px) {
   .grid-controller-container {
