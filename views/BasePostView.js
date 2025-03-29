@@ -33,10 +33,57 @@ class BasePostView {
       'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
     ];
     
+    // Initialize mobile detection and handling
+    this.setupMobileResponsiveness();
+    
     // Initialize SteemContentRenderer for image extraction
     this.initSteemRenderer();
   }
   
+  /**
+   * Setup mobile responsiveness
+   */
+  setupMobileResponsiveness() {
+    // Apply mobile styling initially
+    this.handleMobileLayout();
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+      this.handleMobileLayout();
+    });
+  }
+  
+  /**
+   * Check if the current device is mobile (based on screen width)
+   */
+  isMobileDevice() {
+    return window.innerWidth < 768; // Common breakpoint for mobile devices
+  }
+  
+  /**
+   * Handle mobile layout adjustments
+   */
+  handleMobileLayout() {
+    // Find all posts-container elements (there might be multiple in the app)
+    const containers = document.querySelectorAll('.posts-container');
+    
+    if (this.isMobileDevice()) {
+      // Add mobile class to enforce single column
+      containers.forEach(container => {
+        container.classList.add('mobile-view');
+        
+        // Force single column through inline style for immediate effect
+        container.style.gridTemplateColumns = '1fr';
+      });
+    } else {
+      // Remove mobile class on larger screens
+      containers.forEach(container => {
+        container.classList.remove('mobile-view');
+        container.style.gridTemplateColumns = ''; // Remove inline style to let CSS take over
+      });
+    }
+  }
+
   /**
    * Initialize SteemContentRenderer for image extraction
    */

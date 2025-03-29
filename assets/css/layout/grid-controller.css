@@ -270,7 +270,13 @@
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: var(--space-lg);
 }
+/*grid-layout-grid su mobile deve avere solo 1 colonna*/
 
+@media (max-width: 768px) {
+  .grid-layout-grid {
+    grid-template-columns: 1fr; /* Single column on mobile */
+  }
+}
 /* Base styles for all layouts - struttura verticale standard */
 .post-card {
   display: flex;
@@ -731,7 +737,7 @@
 @media (max-width: 768px) {
   /* Grid layout on mobile */
   .posts-container.grid-layout-grid {
-    grid-template-columns: repeat(2, 1fr); /* Two columns on mobile */
+    grid-template-columns: repeat(1, 1fr); /* Two columns on mobile */
   }
   
   /* List layout on mobile - improved card design */
