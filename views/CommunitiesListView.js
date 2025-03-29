@@ -120,16 +120,33 @@ class CommunitiesListView {
     this.container.appendChild(categoriesContainer);
   }
 
+  /**
+   * Render featured section that will contain top communities
+   * More compact and better positioned
+   */
   renderFeaturedSection() {
     const featuredSection = document.createElement('div');
-    featuredSection.className = 'featured-communities';
+    featuredSection.className = 'featured-communities compact';
+    featuredSection.id = 'featured-communities';
+    
+    // More subtle heading with better spacing
     featuredSection.innerHTML = `
-      <h2 class="section-title">
-        <span class="material-icons">star</span>
-        Top Communities
-      </h2>
+      <div class="featured-header">
+        <h3 class="section-title">
+          <span class="material-icons">star</span>
+          Top Communities
+        </h3>
+      </div>
+      <div class="featured-communities-grid"></div>
     `;
-    this.container.appendChild(featuredSection);
+    
+    // Insert after categories but before the main content
+    const categoriesContainer = this.container.querySelector('.community-categories');
+    if (categoriesContainer && categoriesContainer.nextSibling) {
+      this.container.insertBefore(featuredSection, categoriesContainer.nextSibling);
+    } else {
+      this.container.appendChild(featuredSection);
+    }
   }
 
   async loadCommunities() {
@@ -146,34 +163,64 @@ class CommunitiesListView {
     }
   }
   
+  /**
+   * Update or hide the featured communities section based on current filters
+   * Improved to handle layout better
+   */
   updateFeaturedCommunities() {
-    // Only show featured if we're on the 'all' category
-    if (this.activeCategory !== 'all') return;
-    
-    const featuredSection = this.container.querySelector('.featured-communities');
+    const featuredSection = this.container.querySelector('#featured-communities');
     if (!featuredSection) return;
     
-    // Clear any existing content except the title
-    const title = featuredSection.querySelector('.section-title');
-    featuredSection.innerHTML = '';
-    featuredSection.appendChild(title);
+    // Hide featured section if not on 'all' category or if searching
+    if (this.activeCategory !== 'all' || this.searchQuery) {
+      featuredSection.style.display = 'none';
+      return;
+    }
     
-    // Create a grid for featured communities
-    const featuredGrid = document.createElement('div');
-    featuredGrid.className = 'communities-grid';
+    // Show the section
+    featuredSection.style.display = 'block';
     
-    // Get top 3 communities by subscriber count
+    // Get the grid container
+    const featuredGrid = featuredSection.querySelector('.featured-communities-grid');
+    if (!featuredGrid) return;
+    
+    // Clear existing content
+    featuredGrid.innerHTML = '';
+    
+    // Get top 3 communities by subscriber count (limit to 2 on smaller screens)
+    const maxFeatured = window.innerWidth < 768 ? 2 : 3;
+    
     const topCommunities = [...this.communities]
+      .filter(community => {
+        // Better filtering for featured communities
+        const name = (community.name || '').toLowerCase();
+        const title = (community.title || '').toLowerCase();
+        const subscribers = community.subscribers || 0;
+        
+        const potentiallyNSFW = 
+          name.includes('nsfw') || 
+          title.includes('nsfw') ||
+          name.includes('adult') || 
+          title.includes('adult');
+          
+        // Must have meaningful subscriber count and not be NSFW
+        return !potentiallyNSFW && subscribers > 100;
+      })
       .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0))
-      .slice(0, 3);
+      .slice(0, maxFeatured);
     
-    // Render each top community
+    // If no communities meet our criteria, hide the section
+    if (topCommunities.length === 0) {
+      featuredSection.style.display = 'none';
+      return;
+    }
+    
+    // Render each top community with a special featured card style
+    // Use a more compact style for featured cards
     topCommunities.forEach(community => {
-      const communityCard = this.createCommunityCard(community);
+      const communityCard = this.createCommunityCard(community, true);
       featuredGrid.appendChild(communityCard);
     });
-    
-    featuredSection.appendChild(featuredGrid);
   }
 
   async loadUserSubscriptions() {
@@ -363,9 +410,14 @@ class CommunitiesListView {
     container.appendChild(communitiesGrid);
   }
 
-  createCommunityCard(community) {
+  /**
+   * Create a community card - with an optimized featured style
+   */
+  createCommunityCard(community, isFeatured = false) {
     const card = document.createElement('div');
-    card.className = 'community-card';
+    card.className = isFeatured 
+      ? 'community-card featured-card' 
+      : 'community-card';
     
     // Get community ID (with or without hive- prefix)
     const communityId = community.name.includes('hive-') 
@@ -382,39 +434,65 @@ class CommunitiesListView {
     // Avatar URL (fallback to default if not provided)
     const avatarUrl = community.avatar_url || `https://images.hive.blog/u/${communityId}/avatar`;
     
-    // Format description with fallback and length limit
+    // Format description - for featured cards, make it shorter
     const description = community.about || 'No description available.';
-    const shortDescription = description.length > 120 
-      ? description.substring(0, 120) + '...' 
+    const descriptionLimit = isFeatured ? 80 : 120;
+    const shortDescription = description.length > descriptionLimit 
+      ? description.substring(0, descriptionLimit) + '...' 
       : description;
     
-    card.innerHTML = `
-      <div class="community-card-header">
-        <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" onerror="this.src='./assets/img/default-avatar.png'">
-        <h3 class="community-title">${community.title || community.name}</h3>
-      </div>
-      <div class="community-card-body">
-        <p class="community-description">${shortDescription}</p>
-      </div>
-      <div class="community-card-footer">
-        <div class="community-stats">
-          <span class="community-stat">
-            <span class="material-icons">group</span> ${community.subscribers || 0}
-          </span>
+    // Simplified layout for featured cards
+    if (isFeatured) {
+      card.innerHTML = `
+        <div class="community-card-header compact">
+          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
+               onerror="this.src='./assets/img/default-avatar.png'">
+          <div>
+            <h3 class="community-title">${community.title || community.name}</h3>
+            <span class="featured-badge"><span class="material-icons">star</span> Featured</span>
+          </div>
         </div>
-        <div class="community-actions">
-          <a href="#/community/${communityId}" class="view-btn">View</a>
-          ${this.currentUser ? `
-            <button class="subscribe-btn ${isSubscribed ? 'subscribed' : ''} ${isPending ? 'pending' : ''}" 
-              data-community="${communityId}" ${isPending ? 'disabled' : ''}>
-              ${isPending ? '<span class="loading-spinner-sm"></span>' : isSubscribed ? 'Unsubscribe' : 'Subscribe'}
-            </button>
-          ` : ''}
+        <div class="community-card-footer">
+          <div class="community-stats">
+            <span class="community-stat">
+              <span class="material-icons">group</span> ${community.subscribers || 0}
+            </span>
+          </div>
+          <div class="community-actions">
+            <a href="#/community/${communityId}" class="view-btn">View</a>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      // Regular card layout (your existing code)
+      card.innerHTML = `
+        <div class="community-card-header">
+          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" onerror="this.src='./assets/img/default-avatar.png'">
+          <h3 class="community-title">${community.title || community.name}</h3>
+        </div>
+        <div class="community-card-body">
+          <p class="community-description">${shortDescription}</p>
+        </div>
+        <div class="community-card-footer">
+          <div class="community-stats">
+            <span class="community-stat">
+              <span class="material-icons">group</span> ${community.subscribers || 0}
+            </span>
+          </div>
+          <div class="community-actions">
+            <a href="#/community/${communityId}" class="view-btn">View</a>
+            ${this.currentUser ? `
+              <button class="subscribe-btn ${isSubscribed ? 'subscribed' : ''} ${isPending ? 'pending' : ''}" 
+                data-community="${communityId}" ${isPending ? 'disabled' : ''}>
+                ${isPending ? '<span class="loading-spinner-sm"></span>' : isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
     
-    // Add event listener to subscribe button
+    // Add event listeners (existing code)
     const subscribeBtn = card.querySelector('.subscribe-btn');
     if (subscribeBtn) {
       subscribeBtn.addEventListener('click', (e) => {

@@ -8,10 +8,10 @@ export const mainNavItems = [
     showInSide: true
   },
   {
-    id: 'search',
-    label: 'Search',
-    icon: 'search',
-    path: '/search',
+    id: 'communities',
+    label: 'Communities',
+    icon: 'groups',
+    path: '/communities',
     showInBottom: true,
     showInSide: true
   },
