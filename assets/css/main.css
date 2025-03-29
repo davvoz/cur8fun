@@ -1,36 +1,49 @@
+/* Base styles */
 @import 'base/reset.css';
 @import 'base/variables.css';
 @import 'base/typography.css';
 @import 'base/layout.css';
-@import 'layout/navigation.css';
-@import 'layout/sidebar.css';
+
+/* Layout styles */
 @import 'layout/grid-controller.css';
-@import 'components/components.css';
+@import 'layout/navigation.css';
+@import 'layout/profile-cards.css';
+@import 'layout/sidebar.css';
+
+/* Component styles */
+@import 'components/auth.css';
 @import 'components/cards.css';
+@import 'components/components.css';
+@import 'components/image-upload.css';
 @import 'components/loaders.css';
 @import 'components/notifications.css';
-@import 'components/auth.css';
-@import 'components/image-upload.css'; 
-@import 'componets/communities-list.css';
+@import 'components/post-excerpt.css';
+@import 'components/tag-selection.css';
+
 /* Feature-specific styles */
+@import 'features/animations.css';
+@import 'features/create-post.css';
+@import 'features/markdown-editor.css';
+@import 'features/markdown.css';
 @import 'features/post.css';
 @import 'features/profile.css';
 @import 'features/search.css';
-@import 'features/markdown.css';
-@import 'features/markdown-editor.css';
-@import 'features/create-post.css';
-@import 'features/animations.css';
+
+/* Page styles */
+@import 'pages/community.css';
+@import 'pages/home.css';
 @import 'pages/tag.css';
 @import 'pages/wallet/wallet.css';
-@import 'utils/responsive.css';
+@import 'pages/communities-list.css';
+
+/* Utility styles */
 @import 'utils/content.css';
-@import 'components/tag-selection.css';
-@import 'styles.css';
-@import 'pages/home.css';
-@import 'pages/community.css';
-@import 'components/post-excerpt.css';
+@import 'utils/responsive.css';
+
+/* Other styles */
 @import 'comments.css';
-@import 'layout/profile-cards';
+@import 'styles.css';
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

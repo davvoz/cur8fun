@@ -686,6 +686,170 @@ class CommunityService {
       return communities; // Restituisci i dati originali in caso di errore
     }
   }
+
+  /**
+   * Unified method for community-related API calls with UI handling
+   * @param {string} operation - The operation type ('details', 'posts', 'subscriptions', etc.)
+   * @param {Object} params - Parameters for the operation
+   * @param {boolean} useCache - Whether to use cached results if available (passes to service)
+   * @returns {Promise<Object>} - The result of the operation
+   */
+  async communityFetch(operation, params = {}, useCache = true) {
+    // Show operation-specific loading state
+    this.showOperationLoading(operation);
+
+    try {
+      let result;
+      
+      // Route to the appropriate service method based on operation
+      switch (operation) {
+        case 'details':
+          const communityName = params.communityId?.startsWith('hive-') 
+            ? params.communityId 
+            : `hive-${params.communityId}`;
+          result = await this.findCommunityByName(communityName);
+          break;
+          
+        case 'posts':
+          const fetchParams = {
+            community: params.communityId.replace(/^hive-/, ''),
+            sort: params.sort || 'trending',
+            limit: params.limit || 20
+          };
+
+          if (params.lastAuthor && params.lastPermlink) {
+            fetchParams.start_author = params.lastAuthor;
+            fetchParams.start_permlink = params.lastPermlink;
+          }
+          
+          const rawPosts = await steemService.fetchCommunityPosts(fetchParams);
+          
+          // Process and enrich the posts with community info
+          if (Array.isArray(rawPosts)) {
+            const community = params.communityDetails || this.community;
+            const enrichedPosts = rawPosts.map(post => ({
+              ...post,
+              community: params.communityId.replace(/^hive-/, ''),
+              community_title: community?.title || this.formatCommunityTitle(params.communityId)
+            }));
+            
+            result = {
+              posts: enrichedPosts,
+              hasMore: enrichedPosts.length >= fetchParams.limit
+            };
+          } else {
+            result = { posts: [], hasMore: false };
+          }
+          break;
+          
+        case 'subscriptions':
+          result = await this.getSubscribedCommunities(params.username, useCache);
+          break;
+          
+        case 'subscribe':
+          result = await this.subscribeToCommunity(params.username, params.communityName);
+          break;
+          
+        case 'unsubscribe':
+          result = await this.unsubscribeFromCommunity(params.username, params.communityName);
+          break;
+          
+        case 'search':
+          result = await this.searchCommunities(params.query, params.limit, useCache);
+          break;
+          
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`Error in communityFetch (${operation}):`, error);
+      // Emit error event for UI notification
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: `Failed to fetch community ${operation}: ${error.message}`
+      });
+      return null;
+    } finally {
+      // Hide operation-specific loading state
+      this.hideOperationLoading(operation);
+    }
+  }
+
+  /**
+   * Show loading state for specific operation
+   */
+  showOperationLoading(operation) {
+    if (!this.container) return;
+    
+    switch (operation) {
+      case 'details':
+        const headerLoading = this.container.querySelector('.community-header-loading');
+        if (headerLoading) headerLoading.style.display = 'flex';
+        break;
+        
+      case 'posts':
+        const postsContainer = this.container.querySelector('.posts-container');
+        if (postsContainer) this.loadingIndicator.show(postsContainer);
+        break;
+        
+      case 'subscribe':
+      case 'unsubscribe':
+        const button = this.container.querySelector('#subscribe-button');
+        if (button) {
+          button.disabled = true;
+          button.classList.add('button-loading');
+          button.innerHTML = '<span class="loading-spinner-sm"></span> Processing...';
+        }
+        break;
+        
+      case 'search':
+        const searchResultsContainer = this.container.querySelector('.search-results');
+        if (searchResultsContainer) {
+          const loadingEl = document.createElement('div');
+          loadingEl.className = 'search-loading';
+          loadingEl.innerHTML = '<div class="spinner"></div><p>Searching communities...</p>';
+          searchResultsContainer.innerHTML = '';
+          searchResultsContainer.appendChild(loadingEl);
+        }
+        break;
+    }
+  }
+
+  /**
+   * Hide loading state for specific operation
+   */
+  hideOperationLoading(operation) {
+    if (!this.container) return;
+    
+    switch (operation) {
+      case 'details':
+        const headerLoading = this.container.querySelector('.community-header-loading');
+        if (headerLoading) headerLoading.style.display = 'none';
+        break;
+        
+      case 'posts':
+        this.loadingIndicator.hide();
+        break;
+        
+      case 'subscribe':
+      case 'unsubscribe':
+        const button = this.container.querySelector('#subscribe-button');
+        if (button) {
+          button.disabled = false;
+          button.classList.remove('button-loading');
+        }
+        break;
+        
+      case 'search':
+        const searchLoading = this.container.querySelector('.search-loading');
+        if (searchLoading) {
+          searchLoading.remove();
+        }
+        break;
+    }
+  }
 }
 
 // Create and export singleton instance

@@ -18,6 +18,7 @@ class CommunityView extends BasePostView {
     this.isSubscribed = false;
     this.currentUser = authService.getCurrentUser();
     this.sortOrder = 'trending'; // Default sort order
+    this._communityCache = {}; // Initialize cache
   }
 
   /**
@@ -52,11 +53,18 @@ class CommunityView extends BasePostView {
       }
       
       // Fetch posts using the common pattern
-      const result = await this.fetchCommunityPosts(page);
+      const result = await this.communityFetch('posts', {
+        communityId: this.communityId,
+        sort: this.sortOrder,
+        page,
+        lastAuthor: page > 1 && this.posts.length > 0 ? this.posts[this.posts.length - 1].author : undefined,
+        lastPermlink: page > 1 && this.posts.length > 0 ? this.posts[this.posts.length - 1].permlink : undefined,
+        communityDetails: this.community
+      });
       
       // Check if result has the expected structure
       if (!result || !result.posts) {
-        console.error('Invalid result from fetchCommunityPosts:', result);
+        console.error('Invalid result from communityFetch:', result);
         return false;
       }
       
@@ -93,76 +101,26 @@ class CommunityView extends BasePostView {
   }
 
   /**
-   * Fetch community posts with proper community info
-   */
-  async fetchCommunityPosts(page = 1) {
-    try {
-      const postsPerPage = 20;
-      const params = {
-        community: this.communityId.replace(/^hive-/, ''),
-        sort: this.sortOrder,
-        limit: postsPerPage
-      };
-
-      if (page > 1 && this.posts.length > 0) {
-        const lastPost = this.posts[this.posts.length - 1];
-        params.start_author = lastPost.author;
-        params.start_permlink = lastPost.permlink;
-      }
-
-      console.log(`Fetching ${this.sortOrder} posts for community ${this.communityId}, page ${page}`);
-      
-      // Use the new specialized method for community posts
-      const rawPosts = await steemService.fetchCommunityPosts(params);
-      
-      if (!Array.isArray(rawPosts)) {
-        console.error('Invalid response from fetchCommunityPosts:', rawPosts);
-        return { posts: [], hasMore: false };
-      }
-      
-      // Enriched posts with community info
-      const enrichedPosts = rawPosts.map(post => ({
-        ...post,
-        community: this.communityId.replace(/^hive-/, ''),
-        community_title: this.community.title || communityService.formatCommunityTitle(this.communityId)
-      }));
-
-      console.log(`Retrieved ${enrichedPosts.length} posts for community ${this.communityId}`);
-
-      return {
-        posts: enrichedPosts,
-        hasMore: enrichedPosts.length >= postsPerPage
-      };
-    } catch (error) {
-      console.error(`Error fetching posts for community ${this.communityId}:`, error);
-      return { posts: [], hasMore: false };
-    }
-  }
-
-  /**
    * Fetch community details
    */
   async fetchCommunityDetails() {
     try {
       console.log(`Fetching details for community ${this.communityId}`);
       
-      // Normalize community name format
-      const communityName = this.communityId.startsWith('hive-') 
-        ? this.communityId 
-        : `hive-${this.communityId}`;
+      const result = await this.communityFetch('details', { communityId: this.communityId });
       
-      this.community = await communityService.findCommunityByName(communityName);
-      
-      if (!this.community) {
-        console.error(`Community ${communityName} not found`);
+      if (!result) {
+        console.error(`Community ${this.communityId} not found`);
         this.showError('Community not found');
         return false;
       }
       
+      this.community = result;
+      
       // Check if user is subscribed
       if (this.currentUser) {
         try {
-          const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username, false);
+          const subscriptions = await this.communityFetch('subscriptions', { username: this.currentUser.username });
           
           // Normalize community names for comparison
           const normalizedCommunityName = this.community.name.replace(/^hive-/, '');
@@ -379,10 +337,10 @@ class CommunityView extends BasePostView {
     try {
       if (this.isSubscribed) {
         // Unsubscribe
-        await communityService.unsubscribeFromCommunity(
-          this.currentUser.username,
-          this.community.name
-        );
+        await this.communityFetch('unsubscribe', {
+          username: this.currentUser.username,
+          communityName: this.community.name
+        });
         this.isSubscribed = false;
         eventEmitter.emit('notification', {
           type: 'success',
@@ -390,10 +348,10 @@ class CommunityView extends BasePostView {
         });
       } else {
         // Subscribe
-        await communityService.subscribeToCommunity(
-          this.currentUser.username, 
-          this.community.name
-        );
+        await this.communityFetch('subscribe', {
+          username: this.currentUser.username, 
+          communityName: this.community.name
+        });
         this.isSubscribed = true;
         eventEmitter.emit('notification', {
           type: 'success',
@@ -508,6 +466,177 @@ class CommunityView extends BasePostView {
     }).catch(err => {
       console.error('Could not initialize grid controller:', err);
     });
+  }
+
+  /**
+   * Unified method for community-related API calls with caching support
+   * @param {string} operation - The operation type ('details', 'posts', 'subscriptions', etc.)
+   * @param {Object} params - Parameters for the operation
+   * @param {boolean} useCache - Whether to use cached results if available
+   * @returns {Promise<Object>} - The result of the operation
+   */
+  async communityFetch(operation, params = {}, useCache = true) {
+    // Create cache key based on operation and parameters
+    const cacheKey = `${operation}:${JSON.stringify(params)}`;
+    
+    // Check if we have this in cache
+    if (useCache && this._communityCache && this._communityCache[cacheKey]) {
+      const cachedData = this._communityCache[cacheKey];
+      // Only use cache if it hasn't expired
+      if (Date.now() - cachedData.timestamp < 300000) { // 5 minutes expiry
+        console.log(`Using cached data for ${operation}`);
+        return cachedData.data;
+      }
+    }
+
+    // Initialize cache if needed
+    if (!this._communityCache) {
+      this._communityCache = {};
+    }
+
+    // Show operation-specific loading state
+    this.showOperationLoading(operation);
+
+    try {
+      let result;
+      
+      // Route to the appropriate API call based on operation
+      switch (operation) {
+        case 'details':
+          const communityName = params.communityId?.startsWith('hive-') 
+            ? params.communityId 
+            : `hive-${params.communityId}`;
+          result = await communityService.findCommunityByName(communityName);
+          break;
+          
+        case 'posts':
+          const postsPerPage = params.limit || 20;
+          const fetchParams = {
+            community: params.communityId.replace(/^hive-/, ''),
+            sort: params.sort || 'trending',
+            limit: postsPerPage
+          };
+
+          if (params.page > 1 && params.lastAuthor && params.lastPermlink) {
+            fetchParams.start_author = params.lastAuthor;
+            fetchParams.start_permlink = params.lastPermlink;
+          }
+          
+          const rawPosts = await steemService.fetchCommunityPosts(fetchParams);
+          
+          // Process and enrich the posts with community info
+          if (Array.isArray(rawPosts)) {
+            const community = params.communityDetails || this.community;
+            const enrichedPosts = rawPosts.map(post => ({
+              ...post,
+              community: params.communityId.replace(/^hive-/, ''),
+              community_title: community?.title || communityService.formatCommunityTitle(params.communityId)
+            }));
+            
+            result = {
+              posts: enrichedPosts,
+              hasMore: enrichedPosts.length >= postsPerPage
+            };
+          } else {
+            result = { posts: [], hasMore: false };
+          }
+          break;
+          
+        case 'subscriptions':
+          result = await communityService.getSubscribedCommunities(params.username, false);
+          break;
+          
+        case 'subscribe':
+          result = await communityService.subscribeToCommunity(params.username, params.communityName);
+          break;
+          
+        case 'unsubscribe':
+          result = await communityService.unsubscribeFromCommunity(params.username, params.communityName);
+          break;
+          
+        case 'members':
+          result = await communityService.getCommunityMembers(params.communityId, params.page || 1);
+          break;
+          
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
+      }
+      
+      // Cache the successful result
+      this._communityCache[cacheKey] = {
+        data: result,
+        timestamp: Date.now()
+      };
+      
+      return result;
+    } catch (error) {
+      console.error(`Error in communityFetch (${operation}):`, error);
+      // Emit error event for UI notification
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: `Failed to fetch community ${operation}: ${error.message}`
+      });
+      return null;
+    } finally {
+      // Hide operation-specific loading state
+      this.hideOperationLoading(operation);
+    }
+  }
+
+  /**
+   * Show loading state for specific operation
+   */
+  showOperationLoading(operation) {
+    if (!this.container) return;
+    
+    switch (operation) {
+      case 'details':
+        const headerLoading = this.container.querySelector('.community-header-loading');
+        if (headerLoading) headerLoading.style.display = 'flex';
+        break;
+        
+      case 'posts':
+        const postsContainer = this.container.querySelector('.posts-container');
+        if (postsContainer) this.loadingIndicator.show(postsContainer);
+        break;
+        
+      case 'subscribe':
+      case 'unsubscribe':
+        const button = this.container.querySelector('#subscribe-button');
+        if (button) {
+          button.disabled = true;
+          button.classList.add('button-loading');
+          button.innerHTML = '<span class="loading-spinner-sm"></span> Processing...';
+        }
+        break;
+    }
+  }
+
+  /**
+   * Hide loading state for specific operation
+   */
+  hideOperationLoading(operation) {
+    if (!this.container) return;
+    
+    switch (operation) {
+      case 'details':
+        const headerLoading = this.container.querySelector('.community-header-loading');
+        if (headerLoading) headerLoading.style.display = 'none';
+        break;
+        
+      case 'posts':
+        this.loadingIndicator.hide();
+        break;
+        
+      case 'subscribe':
+      case 'unsubscribe':
+        const button = this.container.querySelector('#subscribe-button');
+        if (button) {
+          button.disabled = false;
+          button.classList.remove('button-loading');
+        }
+        break;
+    }
   }
 }
 
