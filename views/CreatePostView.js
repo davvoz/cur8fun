@@ -71,23 +71,65 @@ class CreatePostView extends View {
     const communityContainer = document.createElement('div');
     communityContainer.className = 'community-selector-container';
 
+    // Search icon
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'material-icons community-search-icon';
+    searchIcon.textContent = 'people';
+    communityContainer.appendChild(searchIcon);
+
     // Input per ricerca community
     const communitySearch = document.createElement('input');
     communitySearch.type = 'text';
     communitySearch.id = 'community-search';
     communitySearch.className = 'community-search-input';
-    communitySearch.placeholder = 'Search for a community...';
+    communitySearch.placeholder = 'Select or search community';
+    communitySearch.readOnly = true; // Make read-only to act like a dropdown
 
-    // Evento input per cercare community
-    communitySearch.addEventListener('input', (e) => {
-      // Cancella il timeout precedente per evitare troppe richieste
+    // Toggle dropdown on click instead of input event
+    communitySearch.addEventListener('click', () => {
+      const dropdown = document.getElementById('community-dropdown');
+      dropdown.classList.toggle('dropdown-active');
+      communitySearch.classList.toggle('dropdown-active');
+
+      // If opening the dropdown, load communities
+      if (dropdown.classList.contains('dropdown-active') &&
+          (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
+        this.loadSubscribedCommunities();
+      }
+    });
+
+    // Add an event listener to allow searching when user types
+    communitySearch.addEventListener('keyup', (e) => {
+      // Remove readonly when user starts typing
+      if (communitySearch.readOnly) {
+        communitySearch.readOnly = false;
+      }
+
+      // Cancel previous timeout
       clearTimeout(this.searchTimeout);
 
-      // Imposta un nuovo timeout
+      // Setup a new timeout
       this.searchTimeout = setTimeout(() => {
         this.searchCommunities(e.target.value);
       }, 300);
     });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      // Don't close if clicking on the search input
+      if (e.target === communitySearch) return;
+
+      const dropdown = document.getElementById('community-dropdown');
+      if (!dropdown) return;
+
+      // Check if click was inside the dropdown
+      if (dropdown.contains(e.target)) return;
+
+      // Close dropdown
+      dropdown.classList.remove('dropdown-active');
+      if (communitySearch) communitySearch.classList.remove('dropdown-active');
+    });
+
     communityContainer.appendChild(communitySearch);
 
     // Visualizzazione community selezionata
@@ -216,6 +258,13 @@ class CreatePostView extends View {
     try {
       if (!this.user) return;
 
+      const communitySearch = document.getElementById('community-search');
+      const dropdown = document.getElementById('community-dropdown');
+
+      // Mostra il caricamento
+      dropdown.innerHTML = '<div class="dropdown-loading">Loading communities...</div>';
+      dropdown.classList.add('dropdown-active');
+
       const subscriptions = await communityService.getSubscribedCommunities(this.user.username);
 
       // Visualizza le community sottoscritte
@@ -264,6 +313,8 @@ class CreatePostView extends View {
       console.groupEnd();
     } catch (error) {
       console.error('Failed to load subscribed communities:', error);
+      const dropdown = document.getElementById('community-dropdown');
+      dropdown.innerHTML = '<div class="dropdown-error">Failed to load communities</div>';
     }
   }
 
@@ -273,6 +324,7 @@ class CreatePostView extends View {
    */
   async searchCommunities(query) {
     const dropdown = document.getElementById('community-dropdown');
+    dropdown.classList.add('dropdown-active');
 
     if (!query || query.trim() === '') {
       // Se la query è vuota, mostra le community sottoscritte
@@ -453,36 +505,20 @@ class CreatePostView extends View {
     this.selectedCommunity = community;
 
     // Aggiorna il display
-    const display = document.getElementById('selected-community');
     const searchInput = document.getElementById('community-search');
     const dropdown = document.getElementById('community-dropdown');
 
-    // Mostra la community selezionata
-    display.innerHTML = `
-      <div class="selected-community-info">
-        <span class="selected-community-title">${community.title || community.name}</span>
-        <span class="selected-community-name">@${community.name}</span>
-      </div>
-      <button type="button" class="clear-community-btn">
-        <span class="material-icons">close</span>
-      </button>
-    `;
+    // Update the input to show selected community
+    searchInput.value = community.title || community.name;
+    searchInput.setAttribute('data-selected', 'true');
+    searchInput.readOnly = true;
 
-    // Aggiungi handler per il pulsante di cancellazione
-    const clearBtn = display.querySelector('.clear-community-btn');
-    clearBtn.addEventListener('click', () => {
-      this.selectedCommunity = null;
-      display.innerHTML = '';
-      display.classList.add('hidden');
-      searchInput.classList.remove('hidden');
-    });
+    // Close the dropdown
+    dropdown.classList.remove('dropdown-active');
+    searchInput.classList.remove('dropdown-active');
 
-    // Mostra il display e nascondi l'input
-    display.classList.remove('hidden');
-    searchInput.classList.add('hidden');
-
-    // Nascondi il dropdown
-    dropdown.innerHTML = '';
+    // Update selected community in form data
+    this.selectedCommunity = community;
   }
 
   /**
