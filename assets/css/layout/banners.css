@@ -9,8 +9,14 @@
     border: 4px solid black;
     box-shadow: 8px 8px 0 black;
     margin: 20px 0;
-    animation: shake 0.5s infinite;
+    animation: crazyShake 0.3s infinite;
     position: relative;
+    text-shadow: 3px 3px 0 #000, -3px -3px 0 #ff0;
+}
+
+.brutal-banner:hover {
+    transform: scale(1.1) rotate(3deg);
+    transition: all 0.2s;
 }
 
 .brutal-banner.slide-left {
@@ -20,14 +26,14 @@
 }
 
 .brutal-banner.bounce {
-    animation: bounce 1s infinite;
-    background: linear-gradient(45deg, #ffff00, #ff8800);
+    animation: crazyBounce 0.7s infinite;
+    background: repeating-linear-gradient(45deg, #ff0, #ff0 10px, #f00 10px, #f00 20px);
     display: none;
 }
 
 .brutal-banner.flash {
-    animation: flash 2s infinite;
-    background: linear-gradient(45deg, #00ff00, #0000ff);
+    animation: crazyFlash 0.5s infinite;
+    background: conic-gradient(from 45deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
     display: none;
 }
 
@@ -39,6 +45,7 @@
     transform: rotate(-90deg);
     transform-origin: left top;
     display: none;
+    animation: spinAndWobble 2s infinite;
 }
 
 .sticky-banner {
@@ -86,6 +93,7 @@
     justify-content: center;
     font-size: 20px;
     border: 2px solid white;
+    animation: spinButton 3s linear infinite;
 }
 
 .banner-hidden {
@@ -116,6 +124,38 @@
 @keyframes fadeOut {
     from { opacity: 1; }
     to { opacity: 0; display: none; }
+}
+
+@keyframes crazyShake {
+    0% { transform: translate(2px, 1px) rotate(1deg); }
+    25% { transform: translate(-3px, 2px) rotate(-2deg); }
+    50% { transform: translate(2px, -3px) rotate(3deg); }
+    75% { transform: translate(-1px, -1px) rotate(-5deg); }
+    100% { transform: translate(2px, 3px) rotate(0deg); }
+}
+
+@keyframes crazyBounce {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.2) rotate(5deg); }
+}
+
+@keyframes crazyFlash {
+    0% { filter: hue-rotate(0deg) contrast(200%); }
+    50% { filter: hue-rotate(180deg) contrast(300%); }
+    100% { filter: hue-rotate(360deg) contrast(200%); }
+}
+
+@keyframes spinAndWobble {
+    0% { transform: rotate(-90deg) scale(1); }
+    25% { transform: rotate(-85deg) scale(1.1); }
+    50% { transform: rotate(-95deg) scale(0.9); }
+    75% { transform: rotate(-87deg) scale(1.2); }
+    100% { transform: rotate(-90deg) scale(1); }
+}
+
+@keyframes spinButton {
+    from { transform: translateY(-50%) rotate(0deg); }
+    to { transform: translateY(-50%) rotate(360deg); }
 }
 
 .banner-visible {
