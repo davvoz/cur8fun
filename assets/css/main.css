@@ -44,6 +44,19 @@
 @import 'comments.css';
 @import 'styles.css';
 
+/*mobile styles */
+@media (max-width: 768px) {
+  .grid-controller-container {
+    display: none;
+  }
+  .grid-controls{
+    display: none;
+  }
+  .grid-controller{
+    display: none ;
+  }
+}
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */
