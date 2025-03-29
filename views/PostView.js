@@ -28,8 +28,7 @@ class PostView extends View {
     this.element = null;
     this.loadingIndicator = new LoadingIndicator('spinner');
     
-    // Container references
-    this.loadingContainer = null;
+
     this.postContent = null;
     this.errorMessage = null;
     this.commentsContainer = null;
@@ -101,10 +100,6 @@ class PostView extends View {
     const postView = document.createElement('div');
     postView.className = 'post-view';
 
-    // Create a loading container 
-    this.loadingContainer = document.createElement('div');
-    this.loadingContainer.className = 'loading-container';
-
     // Post content container
     this.postContent = document.createElement('div');
     this.postContent.className = 'post-content';
@@ -120,7 +115,6 @@ class PostView extends View {
     this.commentsContainer.className = 'comments-section';
 
     // Append all elements
-    postView.appendChild(this.loadingContainer);
     postView.appendChild(this.postContent);
     postView.appendChild(this.errorMessage);
     postView.appendChild(this.commentsContainer);
@@ -132,7 +126,6 @@ class PostView extends View {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    this.loadingIndicator.show(this.loadingContainer, 'Loading post...');
     this.postContent.style.display = 'none';
     this.errorMessage.style.display = 'none';
 

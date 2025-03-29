@@ -11,23 +11,45 @@ export default class CommentRenderer {
     });
   }
 
-  renderComment(comment, metadata) {
-    if (!comment) {
-      console.error('Cannot render comment: data is missing');
-      return document.createElement('div');
+  renderComment(comment, container, options = {}) {
+    // Support the legacy direct rendering method while also supporting the new card layout
+    if (options.useCardLayout) {
+      return this._renderCommentCard(comment, container);
+    } else {
+      if (!comment) {
+        console.error('Cannot render comment: data is missing');
+        return document.createElement('div');
+      }
+
+      const commentItem = document.createElement('div');
+      commentItem.className = 'post-card comment-card';
+      commentItem.dataset.commentId = `${comment.author}_${comment.permlink}`;
+
+      commentItem.appendChild(this.createHeader(comment));
+      commentItem.appendChild(this.createMainContent(comment, metadata || this.parseMetadata(comment.json_metadata)));
+      
+      // Add navigation handler
+      this.addNavigationHandler(commentItem, comment);
+
+      return commentItem;
     }
+  }
 
-    const commentItem = document.createElement('div');
-    commentItem.className = 'post-card comment-card';
-    commentItem.dataset.commentId = `${comment.author}_${comment.permlink}`;
-
-    commentItem.appendChild(this.createHeader(comment));
-    commentItem.appendChild(this.createMainContent(comment, metadata || this.parseMetadata(comment.json_metadata)));
+  _renderCommentCard(comment, container) {
+    // This is a simplified version that can be used by CommentUIManager
+    const commentElement = document.createElement('div');
+    commentElement.className = 'comment-item card-style';
+    commentElement.dataset.author = comment.author;
+    commentElement.dataset.permlink = comment.permlink;
     
-    // Add navigation handler
-    this.addNavigationHandler(commentItem, comment);
-
-    return commentItem;
+    // Add basic content - actual rendering is handled by CommentUIManager
+    commentElement.textContent = `Comment by @${comment.author}`;
+    
+    if (container) {
+      container.appendChild(commentElement);
+    }
+    
+    return commentElement;
   }
 
   createHeader(comment) {

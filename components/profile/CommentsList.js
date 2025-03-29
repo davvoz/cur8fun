@@ -104,7 +104,7 @@ export default class CommentsList extends BasePostView {
     try {
       // Apply current layout
       const currentLayout = this.gridController.settings.layout || 'grid';
-      this._uiManager.setupLayout(currentLayout);
+      this._uiManager.setupLayout(currentLayout, { useCardLayout: true }); // Add card layout option
       
       // If no comments, show message
       if (!this.allComments || this.allComments.length === 0) {
@@ -118,8 +118,9 @@ export default class CommentsList extends BasePostView {
       
       // Create wrapper for comments
       const commentsWrapper = this._uiManager.createCommentsWrapper(currentLayout);
+      commentsWrapper.classList.add('comments-grid'); // Add grid class for styling
       
-      // Render initial comments
+      // Render initial comments with card layout option
       this._uiManager.renderComments(this.allComments, commentsWrapper);
       
       // Setup infinite scroll

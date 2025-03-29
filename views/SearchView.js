@@ -83,10 +83,6 @@ class SearchView extends View {
     const resultsContainer = document.createElement('div');
     resultsContainer.className = 'search-results';
     
-    // Create loading container
-    const loadingContainer = document.createElement('div');
-    loadingContainer.className = 'loading-container';
-    
     // No results message
     const noResults = document.createElement('div');
     noResults.className = 'no-results';
@@ -95,13 +91,11 @@ class SearchView extends View {
     
     // Append all elements
     searchContainer.appendChild(resultsContainer);
-    searchContainer.appendChild(loadingContainer);
     searchContainer.appendChild(noResults);
     
     this.element.appendChild(searchContainer);
     
     this.resultsContainer = resultsContainer;
-    this.loadingContainer = loadingContainer;
     this.noResults = noResults;
     
     // Initialize loading indicator
