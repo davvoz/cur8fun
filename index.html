@@ -78,32 +78,6 @@
 </head>
 <body>
     <div id="app">
-        <div class="banner-container">
-            <div class="brutal-banner" data-banner="1">
-                🔥 HOLY MOLY! 99999% GAINS! CLICK NOW!!! 🚀
-                <div class="banner-close">×</div>
-            </div>
-            
-            <div class="brutal-banner bounce" data-banner="2" style="display: none;">
-                💫 WOW! WOW! FREE CRYPTO! SO FREE! 💫
-                <div class="banner-close">×</div>
-            </div>
-
-            <div class="brutal-banner flash" data-banner="3" style="display: none;">
-                ⚡ INSANE DEAL! MIND-BLOWING! INCREDIBLE! ⚡
-                <div class="banner-close">×</div>
-            </div>
-
-            <div class="brutal-banner sticky-banner" data-banner="4" style="display: none;">
-                💎 OMG! OMG! YOU WON'T BELIEVE THIS! 💰
-                <div class="banner-close">×</div>
-            </div>
-
-            <div class="brutal-banner side-banner" data-banner="5" style="display: none;">
-                🎯 SUPER SECRET ULTRA RARE CHANCE!!! 🎯
-                <div class="banner-close">×</div>
-            </div>
-        </div>
         
         <nav class="main-nav">
             <div class="nav-container">
@@ -167,49 +141,6 @@
     
     <script type="module" src="index.js"></script>
 
-    <script>
-        class BannerManager {
-            constructor() {
-                this.banners = Array.from(document.querySelectorAll('[data-banner]'));
-                this.currentIndex = 0;
-                this.setupCloseButtons();
-                this.showCurrentBanner();
-            }
-
-            setupCloseButtons() {
-                document.querySelectorAll('.banner-close').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const banner = e.target.closest('.brutal-banner');
-                        this.hideBanner(banner);
-                        this.showNextBanner();
-                    });
-                });
-            }
-
-            hideBanner(banner) {
-                banner.classList.add('banner-hidden');
-                setTimeout(() => {
-                    banner.style.display = 'none';
-                    banner.classList.remove('banner-hidden');
-                }, 500);
-            }
-
-            showCurrentBanner() {
-                if (this.currentIndex < this.banners.length) {
-                    this.banners[this.currentIndex].style.display = 'block';
-                }
-            }
-
-            showNextBanner() {
-                this.currentIndex = (this.currentIndex + 1) % this.banners.length;
-                this.showCurrentBanner();
-            }
-        }
-
-        // Initialize banner manager when page loads
-        window.addEventListener('load', () => {
-            new BannerManager();
-        });
-    </script>
+ 
 </body>
 </html>
