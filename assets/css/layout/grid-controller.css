@@ -762,8 +762,8 @@
   
   /* Compact layout on mobile - better spacing */
   .posts-container.grid-layout-compact {
-    grid-template-columns: 1fr 1fr 1fr 1fr; /* Single column for compact view */
-    gap: var(--space-xs);
+    grid-template-columns: 1fr; /* Single column for compact view */
+
   }
   
   .posts-container.grid-layout-compact .post-card {
