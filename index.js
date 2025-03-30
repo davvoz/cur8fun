@@ -5,7 +5,10 @@ import NavigationManager from './utils/NavigationManager.js';
 
 // Services
 import authService from './services/AuthService.js';
-import { SearchService } from './services/SearchService.js';
+import searchService from './services/SearchService.js'; // Import singleton instead
+
+// Import the SearchBar component
+import SearchBar from './components/SearchBar.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
@@ -218,24 +221,21 @@ function handleLogout(e) {
 
 // Initialize search functionality
 const initializeSearch = () => {
-  const searchInput = document.querySelector('.nav-search input');
-  if (!searchInput) return;
+  const searchContainer = document.querySelector('.nav-center');
+  if (!searchContainer) return;
   
-  const searchService = new SearchService();
-
-  searchInput.addEventListener('keypress', async (e) => {
-    if (e.key === 'Enter') {
-      const query = e.target.value;
-      if (query.trim()) {
-        try {
-          await searchService.handleSearch(query);
-        } catch (error) {
-          console.error('Search failed:', error);
-          // Handle error (show notification, etc.)
-        }
-      }
-    }
+  // Clear existing search markup
+  searchContainer.innerHTML = '';
+  
+  // Create and render the new search bar component
+  const searchBar = new SearchBar({
+    placeholder: 'Search SteemGram...',
+    className: 'nav-search-component'
   });
+  
+  searchBar.render(searchContainer);
+  
+  console.log('Enhanced search initialized');
 };
 
 document.addEventListener('DOMContentLoaded', () => {

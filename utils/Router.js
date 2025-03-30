@@ -129,6 +129,14 @@ class Router {
     
     console.log('Navigating to:', path);
     
+    // Special handling for search paths
+    if (path.startsWith('/search') && params.q) {
+      // If the path is a search with a query, add the query to the URL parameter
+      const searchParams = new URLSearchParams();
+      searchParams.append('q', params.q);
+      path = `/search?${searchParams.toString()}`;
+    }
+    
     if (this.useHashRouting) {
       // For hash routing, update the URL hash (no need to include basePath in hash)
       const targetHash = `#${path}`;

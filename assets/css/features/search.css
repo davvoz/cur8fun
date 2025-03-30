@@ -206,6 +206,347 @@
   border-radius: 3px;
 }
 
+/* Stili per i risultati di account */
+.account-result {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md);
+  position: relative;
+}
+
+.result-type-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  border-radius: 3px;
+}
+
+.badge-account {
+  background-color: var(--primary-color-lighter, #e6f7ff);
+  color: var(--primary-color, #0176d3);
+  border: 1px solid var(--primary-color-light, #b3e0ff);
+}
+
+.account-header {
+  display: flex;
+  margin-bottom: var(--space-md);
+}
+
+.account-avatar-container {
+  margin-right: var(--space-md);
+  flex-shrink: 0;
+}
+
+.account-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary-color);
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.account-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin: 0 0 4px 0;
+}
+
+.account-display-name {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.account-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.account-about {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.account-location {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-sm);
+}
+
+.location-icon {
+  font-size: 16px;
+  margin-right: 4px;
+  color: var(--accent-color, #888);
+}
+
+/* Aggiungi un indicatore del tipo di risultato */
+.result-type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: var(--space-xs);
+}
+
+.badge-account {
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+}
+
+/* Search Suggestions Dropdown */
+.search-suggestions {
+  position: absolute;
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--dropdown-shadow);
+  z-index: 1000;
+  margin-top: 5px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-10px);
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.search-suggestions.active {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+}
+
+.search-suggestions-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.search-suggestion-item {
+  padding: var(--space-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border-color-lighter);
+}
+
+.search-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.search-suggestion-item:hover,
+.search-suggestion-item.selected {
+  background-color: var(--background-hover);
+}
+
+.search-suggestion-item.user {
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  border-left: 3px solid transparent;
+}
+
+.search-suggestion-item.user:hover,
+.search-suggestion-item.user.selected {
+  border-left: 3px solid var(--primary-color);
+  background-color: var(--background-hover);
+}
+
+.search-suggestion-item.no-results,
+.search-suggestion-item.instruction {
+  color: var(--text-secondary);
+  font-style: italic;
+  justify-content: center;
+}
+
+.search-suggestion-item.view-all {
+  font-weight: 500;
+  color: var(--primary-color);
+  justify-content: center;
+  padding: var(--space-md);
+  background-color: var(--background-light);
+}
+
+.suggestion-avatar-container {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--background-light);
+}
+
+.suggestion-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.suggestion-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-text .display-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: var(--text-heading);
+}
+
+.suggestion-text .username {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+/* Position for header search */
+.header-search-container {
+  position: relative;
+}
+
+.header-search-container .search-input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--background-light);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.header-search-container .search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 117, 24, 0.1);
+  outline: none;
+}
+
+.header-search-container .search-suggestions {
+  top: 100%;
+  width: 100%;
+}
+
+/* Add a search icon */
+.header-search-container {
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  right: var(--space-sm);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* Navigation search bar styles */
+.nav-center {
+  position: relative;
+  flex: 1;
+  max-width: 600px;
+  margin: 0 var(--space-md);
+}
+
+.nav-search-component {
+  width: 100%;
+}
+
+.nav-search-component .search-input {
+  width: 100%;
+  height: 38px;
+  padding-left: 40px;
+  padding-right: var(--space-md);
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--background-light);
+  font-size: 0.95rem;
+  color: var(--text-primary);  /* Colore testo principale */
+  font-weight: 500;  /* Testo leggermente più spesso */
+}
+
+/* Migliora il contrasto del placeholder */
+.nav-search-component .search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Assicurati che l'input abbia contrasto sufficiente in tema scuro */
+@media (prefers-color-scheme: dark) {
+  .nav-search-component .search-input {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .nav-search-component .search-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+
+.nav-search-component .search-icon {
+  left: var(--space-sm);
+  right: auto;
+}
+
+.nav-search-component .search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 8px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 1050;
+}
+
+.search-suggestion-item.instruction {
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .nav-center {
+    max-width: none;
+    margin: var(--space-sm) var(--space-sm);
+  }
+  
+  .nav-search-component .search-input {
+    font-size: 14px;
+    height: 36px;
+  }
+  
+  .nav-search-component .search-suggestions {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .result-content {

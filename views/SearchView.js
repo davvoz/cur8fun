@@ -1,5 +1,6 @@
 import View from './View.js';
 import steemService from '../services/SteemService.js';
+import searchService from '../services/SearchService.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 
@@ -15,9 +16,18 @@ class SearchView extends View {
     this.searchMethods = [
       { name: 'by-tag', label: 'By Tag' },
       { name: 'by-author', label: 'By Author' },
+      { name: 'similar-accounts', label: 'Similar Accounts' },
       { name: 'recent', label: 'Recent Posts' }
     ];
-    this.activeMethod = 'by-tag';
+    
+    // Imposta il metodo di ricerca iniziale in base alla query
+    if (this.query.startsWith('@') || searchService.isPossibleUsername(this.query)) {
+      this.activeMethod = 'similar-accounts';
+    } else if (this.query.startsWith('#')) {
+      this.activeMethod = 'by-tag';
+    } else {
+      this.activeMethod = 'by-tag';
+    }
   }
 
   async render(element) {
@@ -51,10 +61,10 @@ class SearchView extends View {
     searchInfo.innerHTML = `
         <p>Search tips:</p>
         <ul>
-            <li>Use <strong>@username</strong> to search for profiles</li>
-            <li>Use <strong>#tag</strong> to search for tags</li>
-            <li>Use <strong>hive-123</strong> for communities</li>
-            <li>Or just type keywords to search posts</li>
+            <li>Type a username (with or without @) to find accounts</li>
+            <li>Use <strong>#tag</strong> to search for specific tags</li>
+            <li>Use <strong>hive-123</strong> to search for communities</li>
+            <li>Simply enter keywords to search for posts</li>
         </ul>
     `;
     
@@ -134,14 +144,27 @@ class SearchView extends View {
     this.isLoading = true;
     
     // Show loading indicator
-    this.loadingIndicator.show(this.loadingContainer, 'Searching...');
+    this.loadingIndicator.show(this.resultsContainer, 'Searching...');
     
     try {
       let results = [];
       
       switch (this.activeMethod) {
+        case 'similar-accounts':
+          // Usa SearchService per cercare account simili
+          const response = await searchService.search({
+            query: this.query,
+            method: 'similar-accounts',
+            page: this.page,
+            limit: 20
+          });
+          
+          results = response.results || [];
+          this.hasMore = response.hasMore;
+          break;
+          
         case 'by-tag':
-          // Search by tag
+          // Per ora, mantieni il codice esistente
           results = await steemService.getPosts({
             tag: this.query.replace(/[^a-zA-Z0-9-]/g, ''),
             limit: 20,
@@ -187,8 +210,13 @@ class SearchView extends View {
         this.hasMore = false;
         
         if (this.page === 1) {
+          // Auto-switch del metodo di ricerca se non ci sono risultati
           if (this.activeMethod === 'by-tag') {
-            // Try another search method if tag search fails
+            // Prova a cercare account simili se la ricerca per tag fallisce
+            this.switchSearchMethod('similar-accounts');
+            return;
+          } else if (this.activeMethod === 'similar-accounts' && !this.query.startsWith('@')) {
+            // Prova la ricerca recente se anche la ricerca di account fallisce
             this.switchSearchMethod('recent');
             return;
           } else {
@@ -196,7 +224,13 @@ class SearchView extends View {
           }
         }
       } else {
-        this.results = [...this.results, ...results];
+        // Concatena i risultati solo se è la prima pagina o i risultati non sono vuoti
+        if (this.page === 1) {
+          this.results = results;
+        } else {
+          this.results = [...this.results, ...results];
+        }
+        
         this.renderResults();
         this.page++;
       }
@@ -226,8 +260,16 @@ class SearchView extends View {
     
     this.noResults.style.display = 'none';
     
-    this.results.forEach(post => {
-      const resultItem = this.createResultItem(post);
+    this.results.forEach(item => {
+      let resultItem;
+      
+      // Determina il tipo di risultato in base al metodo di ricerca attivo
+      if (this.activeMethod === 'similar-accounts') {
+        resultItem = this.createAccountResultItem(item);
+      } else {
+        resultItem = this.createResultItem(item);
+      }
+      
       this.resultsContainer.appendChild(resultItem);
     });
     
@@ -327,6 +369,103 @@ class SearchView extends View {
     // Assemble result item
     resultItem.appendChild(authorContainer);
     resultItem.appendChild(contentPreview);
+    
+    return resultItem;
+  }
+
+  createAccountResultItem(account) {
+    // Considera che ora account.profile è già estratto in SearchService
+    const { name, profile = {} } = account;
+    
+    console.log('Creating account result for:', name, profile);
+    
+    // Create account result item
+    const resultItem = document.createElement('div');
+    resultItem.className = 'search-result-item account-result';
+    
+    // Aggiungi un badge per indicare che è un account
+    const typeBadge = document.createElement('div');
+    typeBadge.className = 'result-type-badge badge-account';
+    typeBadge.textContent = 'ACCOUNT';
+    resultItem.appendChild(typeBadge);
+    
+    // Add click handler to navigate to profile
+    resultItem.addEventListener('click', () => {
+      router.navigate(`/@${name}`);
+    });
+    
+    // Account header with avatar
+    const accountHeader = document.createElement('div');
+    accountHeader.className = 'account-header';
+    
+    // Avatar
+    const avatarContainer = document.createElement('div');
+    avatarContainer.className = 'account-avatar-container';
+    
+    const avatar = document.createElement('img');
+    avatar.className = 'account-avatar';
+    avatar.src = `https://images.hive.blog/u/${name}/avatar`;
+    avatar.alt = name;
+    avatar.onerror = () => {
+      // Fallback to default avatar
+      avatar.src = 'assets/img/default_avatar.png';
+    };
+    avatarContainer.appendChild(avatar);
+    
+    // Account info
+    const accountInfo = document.createElement('div');
+    accountInfo.className = 'account-info';
+    
+    const accountName = document.createElement('h3');
+    accountName.className = 'account-name';
+    accountName.textContent = `@${name}`;
+    
+    // Display name if available
+    const displayName = document.createElement('div');
+    displayName.className = 'account-display-name';
+    displayName.textContent = profile.name || '';
+    
+    accountInfo.appendChild(accountName);
+    accountInfo.appendChild(displayName);
+    accountHeader.appendChild(avatarContainer);
+    accountHeader.appendChild(accountInfo);
+    
+    // Account details section
+    const accountDetails = document.createElement('div');
+    accountDetails.className = 'account-details';
+    
+    // About section if available
+    if (profile.about) {
+      const about = document.createElement('p');
+      about.className = 'account-about';
+      
+      // Strip HTML tags and limit length for the excerpt
+      let plainText = profile.about.replace(/<[^>]*>?/gm, '') || '';
+      plainText = plainText.replace(/\n/g, ' ').trim();
+      about.textContent = plainText.length > 140 
+        ? plainText.substring(0, 140) + '...' 
+        : plainText;
+      
+      accountDetails.appendChild(about);
+    }
+    
+    // Location if available
+    if (profile.location) {
+      const location = document.createElement('div');
+      location.className = 'account-location';
+      
+      const locationIcon = document.createElement('span');
+      locationIcon.className = 'material-icons location-icon';
+      locationIcon.textContent = 'location_on';
+      
+      location.appendChild(locationIcon);
+      location.appendChild(document.createTextNode(profile.location));
+      accountDetails.appendChild(location);
+    }
+    
+    // Assemble result item
+    resultItem.appendChild(accountHeader);
+    resultItem.appendChild(accountDetails);
     
     return resultItem;
   }
