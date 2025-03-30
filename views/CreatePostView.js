@@ -290,6 +290,9 @@ class CreatePostView extends View {
 
     // Carica community iscritte inizialmente
     this.loadSubscribedCommunities();
+
+    // Add resize listener to reposition dropdown when window resizes
+    window.addEventListener('resize', this.handleResize.bind(this));
   }
 
   /**
@@ -303,8 +306,11 @@ class CreatePostView extends View {
       const dropdown = document.getElementById('community-dropdown');
 
       // Mostra il caricamento
-      dropdown.innerHTML = '<div class="dropdown-loading">Loading communities...</div>';
+      dropdown.innerHTML = '<div class="dropdown-loading">Loading your communities</div>';
       dropdown.classList.add('dropdown-active');
+
+      // Position dropdown based on screen size
+      this.positionDropdown();
 
       // Add mobile-friendly header when on mobile
       if (window.innerWidth <= 768) {
@@ -365,12 +371,45 @@ class CreatePostView extends View {
   }
 
   /**
+   * Position the dropdown based on screen size and available space
+   */
+  positionDropdown() {
+    if (window.innerWidth <= 768) return; // Skip for mobile
+    
+    const dropdown = document.getElementById('community-dropdown');
+    const communityContainer = document.querySelector('.community-selector-container');
+    
+    if (!dropdown || !communityContainer) return;
+    
+    // Check if there's enough space on the right
+    const containerRect = communityContainer.getBoundingClientRect();
+    const availableSpaceRight = window.innerWidth - containerRect.right - 20;
+    
+    // If not enough space on right, show below (traditional dropdown)
+    if (availableSpaceRight < 340) {
+      dropdown.style.left = '0';
+      dropdown.style.top = 'calc(100% + 5px)';
+      
+      // Remove the arrow when displaying below
+      dropdown.classList.add('show-below');
+    } else {
+      // Show on the side (default in CSS)
+      dropdown.style.left = '';
+      dropdown.style.top = '';
+      dropdown.classList.remove('show-below');
+    }
+  }
+
+  /**
    * Cerca community in base alla query
    * @param {string} query - Query di ricerca
    */
   async searchCommunities(query) {
     const dropdown = document.getElementById('community-dropdown');
     dropdown.classList.add('dropdown-active');
+    
+    // Position dropdown based on screen size
+    this.positionDropdown();
 
     // Add backdrop for mobile
     this.toggleDropdownBackdrop(true);
@@ -387,7 +426,7 @@ class CreatePostView extends View {
 
     try {
       // Mostra spinner di caricamento
-      dropdown.innerHTML = '<div class="dropdown-loading">Searching...</div>';
+      dropdown.innerHTML = '<div class="dropdown-loading">Searching for communities</div>';
 
       // Re-add mobile header after innerHTML change if on mobile
       if (window.innerWidth <= 768) {
@@ -522,6 +561,10 @@ class CreatePostView extends View {
     communities.forEach(community => {
       const item = document.createElement('li');
       item.className = 'community-item simple-item';
+      
+      // Create container for better organization
+      const contentContainer = document.createElement('div');
+      contentContainer.className = 'community-content';
 
       // Usa un formato semplice con testo sottolineato
       const title = document.createElement('div');
@@ -539,15 +582,17 @@ class CreatePostView extends View {
         title.appendChild(roleTag);
       }
 
+      contentContainer.appendChild(title);
+      
       // Aggiungi il nome come tag secondario
       if (community.name) {
         const nameTag = document.createElement('small');
         nameTag.className = 'community-name-small';
         nameTag.textContent = `@${community.id || ('hive-' + community.name)}`;
-        title.appendChild(nameTag);
+        contentContainer.appendChild(nameTag);
       }
 
-      item.appendChild(title);
+      item.appendChild(contentContainer);
 
       // Click handler
       item.addEventListener('click', () => {
@@ -1196,6 +1241,16 @@ class CreatePostView extends View {
   }
 
   /**
+   * Handle window resize events
+   */
+  handleResize() {
+    const dropdown = document.getElementById('community-dropdown');
+    if (dropdown && dropdown.classList.contains('dropdown-active')) {
+      this.positionDropdown();
+    }
+  }
+
+  /**
    * Pulisce gli event listener quando la vista viene smontata
    */
   unmount() {
@@ -1213,6 +1268,9 @@ class CreatePostView extends View {
     if (backdrop && backdrop.parentNode) {
       backdrop.parentNode.removeChild(backdrop);
     }
+
+    // Remove resize event listener
+    window.removeEventListener('resize', this.handleResize.bind(this));
 
     super.unmount();
   }
