@@ -777,3 +777,163 @@
     cursor: pointer;
   }
 }
+
+/* Aggiungi questi stili per il nuovo layout della ricerca community */
+
+/* Stile per l'input group con i bottoni */
+.community-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--background-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.community-input-group:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
+}
+
+/* Bottone per mostrare le community sottoscritte */
+.show-subscribed-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0 12px;
+  height: 38px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-light);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.show-subscribed-btn:hover {
+  color: var(--primary-color);
+  background-color: rgba(var(--primary-color-rgb), 0.05);
+}
+
+.show-subscribed-btn .material-icons {
+  font-size: 20px;
+}
+
+/* Posizione dell'icona di ricerca */
+.community-search-icon {
+  color: var(--text-secondary);
+  margin: 0 8px;
+  pointer-events: none;
+}
+
+/* Input di ricerca adattato per il nuovo layout */
+.community-search-input {
+  flex-grow: 1;
+  height: 38px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  border-radius: 0;
+}
+
+/* Bottone per cancellare la selezione */
+.clear-selection-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0 12px;
+  height: 38px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.clear-selection-btn:hover {
+  color: var(--error-dark);
+  background-color: rgba(var(--error-color-rgb, 224, 67, 67), 0.05);
+}
+
+.clear-selection-btn .material-icons {
+  font-size: 18px;
+}
+
+.clear-selection-btn.hidden {
+  display: none;
+}
+
+/* Migliora il dropdown per evitare sovrapposizioni */
+.community-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--popup-box-shadow, 0 4px 20px rgba(0, 0, 0, 0.15));
+  z-index: 1000;
+  display: none;
+}
+
+.community-dropdown.dropdown-active {
+  display: block;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .community-input-group {
+    height: 48px;
+  }
+  
+  .show-subscribed-btn {
+    height: 46px;
+    padding: 0 15px;
+  }
+  
+  .show-subscribed-btn .material-icons {
+    font-size: 24px;
+  }
+  
+  .community-search-input {
+    height: 46px;
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 10px 15px;
+  }
+  
+  .clear-selection-btn {
+    height: 46px;
+    padding: 0 15px;
+  }
+  
+  .clear-selection-btn .material-icons {
+    font-size: 22px;
+  }
+  
+  /* Posizionamento del dropdown su mobile */
+  .community-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 80vh;
+    border-bottom: none;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .community-dropdown.dropdown-active {
+    transform: translateY(0);
+  }
+}

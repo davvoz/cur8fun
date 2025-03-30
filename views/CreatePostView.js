@@ -71,113 +71,103 @@ class CreatePostView extends View {
     const communityContainer = document.createElement('div');
     communityContainer.className = 'community-selector-container';
 
+    // Contenitore per l'input con i bottoni
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'community-input-group';
+
+    // Bottone per mostrare le community iscritte
+    const showSubscribedBtn = document.createElement('button');
+    showSubscribedBtn.type = 'button';
+    showSubscribedBtn.className = 'show-subscribed-btn';
+    showSubscribedBtn.title = 'Show your subscribed communities';
+    showSubscribedBtn.innerHTML = '<span class="material-icons">people</span>';
+    showSubscribedBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.showSubscribedCommunities();
+    });
+    inputGroup.appendChild(showSubscribedBtn);
+
     // Search icon
     const searchIcon = document.createElement('span');
     searchIcon.className = 'material-icons community-search-icon';
-    searchIcon.textContent = 'people';
-    communityContainer.appendChild(searchIcon);
+    searchIcon.textContent = 'search';
+    inputGroup.appendChild(searchIcon);
 
     // Input per ricerca community
     const communitySearch = document.createElement('input');
     communitySearch.type = 'text';
     communitySearch.id = 'community-search';
     communitySearch.className = 'community-search-input';
-    communitySearch.placeholder = 'Select or search community';
-    communitySearch.readOnly = window.innerWidth > 768;
-
-    // Add event listener for focus to make the input writeable
-    communitySearch.addEventListener('focus', () => {
-      communitySearch.readOnly = false;
-      const dropdown = document.getElementById('community-dropdown');
-
-      // Only show dropdown on focus for larger screens
-      // On mobile, wait for click to show the dropdown
-      if (window.innerWidth > 768) {
-        dropdown.classList.add('dropdown-active');
-        communitySearch.classList.add('dropdown-active');
-
-        // If opening the dropdown, load communities
-        if (dropdown.classList.contains('dropdown-active') &&
-            (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
-          this.loadSubscribedCommunities();
-        }
-      }
-    });
-
-    // Toggle dropdown on click instead of input event
-    communitySearch.addEventListener('click', (e) => {
-      const dropdown = document.getElementById('community-dropdown');
-
-      // For mobile, always show dropdown on click
-      if (window.innerWidth <= 768) {
-        dropdown.classList.add('dropdown-active');
-        communitySearch.classList.add('dropdown-active');
-        this.toggleDropdownBackdrop(true);
-
-        // If opening the dropdown, load communities
-        if (!dropdown.innerHTML || dropdown.innerHTML.trim() === '') {
-          this.loadSubscribedCommunities();
-        }
-
-        // Prevent keyboard showing on first click for mobile, let the second click focus
-        if (communitySearch.readOnly) {
-          communitySearch.readOnly = false;
-          e.preventDefault(); // Prevent focusing on first click
-        }
-      } else {
-        // For desktop, toggle dropdown
-        dropdown.classList.toggle('dropdown-active');
-        communitySearch.classList.toggle('dropdown-active');
-
-        // If opening the dropdown, load communities
-        if (dropdown.classList.contains('dropdown-active') &&
-            (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
-          this.loadSubscribedCommunities();
-        }
-      }
-    });
+    communitySearch.placeholder = 'Search or select a community';
+    inputGroup.appendChild(communitySearch);
 
     // Add an event listener to allow searching when user types
-    communitySearch.addEventListener('keyup', (e) => {
-      // Remove readonly when user starts typing
-      if (communitySearch.readOnly) {
-        communitySearch.readOnly = false;
+    communitySearch.addEventListener('input', (e) => {
+      // Non fare ricerca se l'input è vuoto o è molto breve
+      if (!e.target.value.trim() || e.target.value.trim().length < 2) {
+        return;
       }
-
+      
       // Cancel previous timeout
       clearTimeout(this.searchTimeout);
-
+      
       // Setup a new timeout
       this.searchTimeout = setTimeout(() => {
         this.searchCommunities(e.target.value);
       }, 300);
+      
+      // Mostra il pulsante di pulizia se c'è testo nell'input
+      const clearBtn = document.getElementById('clear-community-btn');
+      if (clearBtn) {
+        if (e.target.value.trim()) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+      }
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      // Don't close if clicking on the search input
-      if (e.target === communitySearch) return;
-
+    // Toggle dropdown on click 
+    communitySearch.addEventListener('click', (e) => {
       const dropdown = document.getElementById('community-dropdown');
-      if (!dropdown) return;
-
-      // Check if click was inside the dropdown
-      if (dropdown.contains(e.target)) return;
-
-      // Don't close dropdown if clicking on mobile dropdown header close button (handled separately)
-      if (e.target.closest('.dropdown-mobile-close')) return;
-
-      // Close dropdown
-      this.closeDropdown();
+      
+      // Non fare nulla se l'input contiene già del testo
+      if (e.target.value.trim().length > 0) {
+        return;
+      }
+      
+      // Se è su mobile, mostra sempre il dropdown
+      if (window.innerWidth <= 768) {
+        dropdown.classList.add('dropdown-active');
+        communitySearch.classList.add('dropdown-active');
+        this.toggleDropdownBackdrop(true);
+        
+        // Se apriamo il dropdown, carichiamo le community
+        if (!dropdown.innerHTML || dropdown.innerHTML.trim() === '') {
+          this.loadSubscribedCommunities();
+        }
+      } else {
+        // Su desktop, non mostrare automaticamente il dropdown, 
+        // lasciamo che l'utente usi il pulsante "show subscribed"
+      }
     });
 
-    communityContainer.appendChild(communitySearch);
+    // Bottone per cancellare la selezione (inizialmente nascosto)
+    const clearSelectionBtn = document.createElement('button');
+    clearSelectionBtn.type = 'button';
+    clearSelectionBtn.className = 'clear-selection-btn hidden';
+    clearSelectionBtn.title = 'Clear selection';
+    clearSelectionBtn.innerHTML = '<span class="material-icons">close</span>';
+    clearSelectionBtn.id = 'clear-community-btn';
+    clearSelectionBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.clearCommunitySelection();
+    });
+    inputGroup.appendChild(clearSelectionBtn);
 
-    // Visualizzazione community selezionata
-    const selectedCommunityDisplay = document.createElement('div');
-    selectedCommunityDisplay.className = 'selected-community hidden';
-    selectedCommunityDisplay.id = 'selected-community';
-    communityContainer.appendChild(selectedCommunityDisplay);
+    communityContainer.appendChild(inputGroup);
 
     // Dropdown risultati
     const communityDropdown = document.createElement('div');
@@ -692,27 +682,84 @@ class CreatePostView extends View {
   }
 
   /**
+   * Visualizza le community iscritte
+   * Metodo dedicato attivato dal bottone sottoscrizioni
+   */
+  showSubscribedCommunities() {
+    const dropdown = document.getElementById('community-dropdown');
+    
+    // Mostra il caricamento
+    dropdown.innerHTML = '<div class="dropdown-loading">Loading your communities</div>';
+    dropdown.classList.add('dropdown-active');
+    
+    // Position dropdown based on screen size
+    this.positionDropdown();
+    
+    // Add mobile-friendly header when on mobile
+    if (window.innerWidth <= 768) {
+      this.addMobileDropdownHeader(dropdown);
+    }
+    
+    // Add backdrop for mobile
+    this.toggleDropdownBackdrop(true);
+    
+    // Carica le community sottoscritte
+    this.loadSubscribedCommunities();
+  }
+
+  /**
+   * Cancella la selezione della community
+   */
+  clearCommunitySelection() {
+    // Rimuovi la community selezionata
+    this.selectedCommunity = null;
+    
+    // Resetta l'input
+    const searchInput = document.getElementById('community-search');
+    searchInput.value = '';
+    searchInput.setAttribute('data-selected', 'false');
+    
+    // Nascondi il pulsante di pulizia
+    const clearBtn = document.getElementById('clear-community-btn');
+    if (clearBtn) {
+      clearBtn.classList.add('hidden');
+    }
+    
+    // Dai focus all'input per permettere una nuova ricerca
+    searchInput.focus();
+  }
+
+  /**
    * Seleziona una community
+   * Funzione aggiornata per non impostare readonly
    * @param {Object} community - Community selezionata
    */
   selectCommunity(community) {
     this.selectedCommunity = community;
-
+    
     // Aggiorna il display
     const searchInput = document.getElementById('community-search');
     const dropdown = document.getElementById('community-dropdown');
-
+    const clearBtn = document.getElementById('clear-community-btn');
+    
     // Update the input to show selected community
     searchInput.value = community.title || community.name;
     searchInput.setAttribute('data-selected', 'true');
-    searchInput.readOnly = true;
-
+    
+    // Non rendere readOnly per permettere la modifica
+    // searchInput.readOnly = true;
+    
+    // Mostra il pulsante per cancellare la selezione
+    if (clearBtn) {
+      clearBtn.classList.remove('hidden');
+    }
+    
     // Close the dropdown
     dropdown.classList.remove('dropdown-active');
     searchInput.classList.remove('dropdown-active');
-
-    // Update selected community in form data
-    this.selectedCommunity = community;
+    
+    // Rimuovi backdrop per mobile
+    this.toggleDropdownBackdrop(false);
   }
 
   /**
