@@ -426,13 +426,26 @@
   position: relative;
 }
 
+/* Aggiungi questo nuovo stile per il wrapper dell'input */
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* Ridefinizione per l'input di ricerca */
 .header-search-container .search-input {
   width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
+  height: 38px;
+  padding-left: 40px; /* Spazio per l'icona */
+  padding-right: var(--space-md);
+  border-radius: 20px;
   border: 1px solid var(--border-color);
   background: var(--background-light);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .header-search-container .search-input:focus {
@@ -454,9 +467,10 @@
 
 .search-icon {
   position: absolute;
-  right: var(--space-sm);
   color: var(--text-secondary);
   pointer-events: none;
+  font-size: 20px;
+  z-index: 10;
 }
 
 /* Navigation search bar styles */
@@ -501,11 +515,18 @@
   .nav-search-component .search-input::placeholder {
     color: rgba(255, 255, 255, 0.6);
   }
+  
+  .nav-search-component .search-icon {
+    color: rgba(255, 255, 255, 0.8); /* Più luminoso su sfondo scuro */
+  }
 }
 
 .nav-search-component .search-icon {
   left: var(--space-sm);
   right: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-primary); /* Colore più visibile */
 }
 
 .nav-search-component .search-suggestions {
@@ -529,11 +550,24 @@
   .nav-center {
     max-width: none;
     margin: var(--space-sm) var(--space-sm);
+    position: relative; /* Assicura il corretto posizionamento */
+  }
+  
+  .nav-search-component {
+    position: relative;
+    display: flex;
+    align-items: center;
   }
   
   .nav-search-component .search-input {
     font-size: 14px;
     height: 36px;
+    padding-left: 38px; /* Spazio per l'icona */
+  }
+  
+  .nav-search-component .search-icon {
+    left: 12px;
+    font-size: 18px; /* Icona leggermente più piccola su mobile */
   }
   
   .nav-search-component .search-suggestions {
@@ -563,5 +597,36 @@
 @media (min-width: 768px) {
   .search-results {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tema scuro o modalità night - per migliorare la visibilità */
+@media (prefers-color-scheme: dark) {
+  .search-input-wrapper .search-icon {
+    color: rgba(255, 255, 255, 0.85);
+    opacity: 1; /* Garantisce visibilità */
+  }
+  
+  .nav-search-component .search-input {
+    background: rgba(255, 255, 255, 0.15); /* Sfondo leggermente più chiaro */
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3); /* Bordo più visibile */
+  }
+  
+  .nav-search-component .search-input::placeholder {
+    color: rgba(255, 255, 255, 0.7); /* Placeholder più visibile */
+  }
+}
+
+/* Stile specifico per dispositivi di piccole dimensioni */
+@media (max-width: 480px) {
+  .nav-search-component .search-icon {
+    left: 10px;
+    font-size: 20px; /* Icona leggermente più grande per facilità d'uso */
+    color: var(--primary-color); /* Colore distintivo */
+  }
+  
+  .nav-search-component .search-input {
+    height: 40px; /* Input leggermente più alto per il touch */
   }
 }

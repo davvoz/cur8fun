@@ -35,11 +35,22 @@ class SearchBar {
         this.element = document.createElement('div');
         this.element.className = `header-search-container ${this.className}`;
         
+        // Crea un wrapper per posizionare correttamente l'icona di ricerca
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'search-input-wrapper';
+        
+        // Add search icon - posizionata prima dell'input per migliorare l'accessibilità
+        const iconElement = document.createElement('span');
+        iconElement.className = 'search-icon material-icons';
+        iconElement.textContent = 'search';
+        iconElement.setAttribute('aria-hidden', 'true'); // Per accessibilità
+        
         // Create search input
         this.inputElement = document.createElement('input');
         this.inputElement.type = 'text';
         this.inputElement.className = 'search-input';
         this.inputElement.placeholder = this.placeholder;
+        this.inputElement.setAttribute('aria-label', 'Search');
         
         // Add custom data attribute to flag as a search input
         this.inputElement.setAttribute('data-search-input', 'true');
@@ -62,18 +73,15 @@ class SearchBar {
             setTimeout(() => this.inputElement.focus(), 100);
         }
         
-        // Add search icon
-        const iconElement = document.createElement('span');
-        iconElement.className = 'search-icon material-icons';
-        iconElement.textContent = 'search';
-        
         // Create suggestions container
         this.suggestionsElement = document.createElement('div');
         this.suggestionsElement.className = 'search-suggestions';
         
-        // Append elements
-        this.element.appendChild(this.inputElement);
-        this.element.appendChild(iconElement);
+        // Append elements in correct order
+        inputWrapper.appendChild(iconElement);
+        inputWrapper.appendChild(this.inputElement);
+        
+        this.element.appendChild(inputWrapper);
         this.element.appendChild(this.suggestionsElement);
         
         // Append to parent
