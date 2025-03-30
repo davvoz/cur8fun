@@ -19,6 +19,10 @@ class CreatePostView extends View {
 
     // Timeout per la ricerca community
     this.searchTimeout = null;
+
+    // Reference per i gestori eventi esterni
+    this.outsideClickHandler = null;
+    this.keyDownHandler = null;
   }
 
   async render(element) {
@@ -87,12 +91,6 @@ class CreatePostView extends View {
       this.showSubscribedCommunities();
     });
     inputGroup.appendChild(showSubscribedBtn);
-
-    // Search icon
-    const searchIcon = document.createElement('span');
-    searchIcon.className = 'material-icons community-search-icon';
-    searchIcon.textContent = 'search';
-    inputGroup.appendChild(searchIcon);
 
     // Input per ricerca community
     const communitySearch = document.createElement('input');
@@ -283,6 +281,67 @@ class CreatePostView extends View {
 
     // Add resize listener to reposition dropdown when window resizes
     window.addEventListener('resize', this.handleResize.bind(this));
+    
+    // Imposta i gestori per chiudere i dropdown
+    this.setupKeyboardHandler();
+  }
+
+  /**
+   * Imposta il gestore per chiudere il dropdown con tasto ESC
+   */
+  setupKeyboardHandler() {
+    // Rimuovi eventuali listener precedenti
+    if (this.keyDownHandler) {
+      document.removeEventListener('keydown', this.keyDownHandler);
+    }
+
+    // Crea nuovo handler per il tasto ESC
+    this.keyDownHandler = (e) => {
+      if (e.key === 'Escape') {
+        this.closeDropdown();
+      }
+    };
+
+    // Aggiungi listener
+    document.addEventListener('keydown', this.keyDownHandler);
+  }
+
+  /**
+   * Imposta il gestore per click esterni al dropdown
+   */
+  setupOutsideClickHandler() {
+    // Rimuovi eventuali listener precedenti
+    if (this.outsideClickHandler) {
+      document.removeEventListener('click', this.outsideClickHandler);
+    }
+
+    // Timeout per evitare che il click che ha aperto il dropdown lo chiuda immediatamente
+    setTimeout(() => {
+      const dropdown = document.getElementById('community-dropdown');
+      const searchInput = document.getElementById('community-search');
+      const subscribeBtn = document.querySelector('.show-subscribed-btn');
+      
+      // Non procedere se il dropdown non è aperto
+      if (!dropdown || !dropdown.classList.contains('dropdown-active')) {
+        return;
+      }
+
+      // Crea nuovo handler per click esterni
+      this.outsideClickHandler = (e) => {
+        // Non chiudere se il click è sul dropdown, sull'input di ricerca o sul bottone subscribe
+        if (dropdown.contains(e.target) || 
+            (searchInput && searchInput.contains(e.target)) || 
+            (subscribeBtn && subscribeBtn.contains(e.target))) {
+          return;
+        }
+        
+        // Chiudi il dropdown per i click esterni
+        this.closeDropdown();
+      };
+
+      // Aggiungi listener
+      document.addEventListener('click', this.outsideClickHandler);
+    }, 100);
   }
 
   /**
@@ -408,6 +467,9 @@ class CreatePostView extends View {
     if (window.innerWidth <= 768) {
       this.addMobileDropdownHeader(dropdown);
     }
+    
+    // Imposta il gestore per click esterni
+    this.setupOutsideClickHandler();
 
     if (!query || query.trim() === '') {
       // Se la query è vuota, mostra le community sottoscritte
@@ -522,6 +584,12 @@ class CreatePostView extends View {
 
     // Remove backdrop
     this.toggleDropdownBackdrop(false);
+    
+    // Rimuovi il gestore di click esterni quando chiudi il dropdown
+    if (this.outsideClickHandler) {
+      document.removeEventListener('click', this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
   }
 
   /**
@@ -702,6 +770,9 @@ class CreatePostView extends View {
     
     // Add backdrop for mobile
     this.toggleDropdownBackdrop(true);
+    
+    // Imposta il gestore per click esterni
+    this.setupOutsideClickHandler();
     
     // Carica le community sottoscritte
     this.loadSubscribedCommunities();
@@ -1318,6 +1389,18 @@ class CreatePostView extends View {
 
     // Remove resize event listener
     window.removeEventListener('resize', this.handleResize.bind(this));
+    
+    // Rimuovi il gestore di click esterni
+    if (this.outsideClickHandler) {
+      document.removeEventListener('click', this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
+    
+    // Rimuovi il gestore della tastiera
+    if (this.keyDownHandler) {
+      document.removeEventListener('keydown', this.keyDownHandler);
+      this.keyDownHandler = null;
+    }
 
     super.unmount();
   }
