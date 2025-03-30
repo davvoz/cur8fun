@@ -83,18 +83,57 @@ class CreatePostView extends View {
     communitySearch.id = 'community-search';
     communitySearch.className = 'community-search-input';
     communitySearch.placeholder = 'Select or search community';
-    communitySearch.readOnly = true; // Make read-only to act like a dropdown
+    communitySearch.readOnly = window.innerWidth > 768;
+
+    // Add event listener for focus to make the input writeable
+    communitySearch.addEventListener('focus', () => {
+      communitySearch.readOnly = false;
+      const dropdown = document.getElementById('community-dropdown');
+
+      // Only show dropdown on focus for larger screens
+      // On mobile, wait for click to show the dropdown
+      if (window.innerWidth > 768) {
+        dropdown.classList.add('dropdown-active');
+        communitySearch.classList.add('dropdown-active');
+
+        // If opening the dropdown, load communities
+        if (dropdown.classList.contains('dropdown-active') &&
+            (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
+          this.loadSubscribedCommunities();
+        }
+      }
+    });
 
     // Toggle dropdown on click instead of input event
-    communitySearch.addEventListener('click', () => {
+    communitySearch.addEventListener('click', (e) => {
       const dropdown = document.getElementById('community-dropdown');
-      dropdown.classList.toggle('dropdown-active');
-      communitySearch.classList.toggle('dropdown-active');
 
-      // If opening the dropdown, load communities
-      if (dropdown.classList.contains('dropdown-active') &&
-          (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
-        this.loadSubscribedCommunities();
+      // For mobile, always show dropdown on click
+      if (window.innerWidth <= 768) {
+        dropdown.classList.add('dropdown-active');
+        communitySearch.classList.add('dropdown-active');
+        this.toggleDropdownBackdrop(true);
+
+        // If opening the dropdown, load communities
+        if (!dropdown.innerHTML || dropdown.innerHTML.trim() === '') {
+          this.loadSubscribedCommunities();
+        }
+
+        // Prevent keyboard showing on first click for mobile, let the second click focus
+        if (communitySearch.readOnly) {
+          communitySearch.readOnly = false;
+          e.preventDefault(); // Prevent focusing on first click
+        }
+      } else {
+        // For desktop, toggle dropdown
+        dropdown.classList.toggle('dropdown-active');
+        communitySearch.classList.toggle('dropdown-active');
+
+        // If opening the dropdown, load communities
+        if (dropdown.classList.contains('dropdown-active') &&
+            (!dropdown.innerHTML || dropdown.innerHTML.trim() === '')) {
+          this.loadSubscribedCommunities();
+        }
       }
     });
 
@@ -125,9 +164,11 @@ class CreatePostView extends View {
       // Check if click was inside the dropdown
       if (dropdown.contains(e.target)) return;
 
+      // Don't close dropdown if clicking on mobile dropdown header close button (handled separately)
+      if (e.target.closest('.dropdown-mobile-close')) return;
+
       // Close dropdown
-      dropdown.classList.remove('dropdown-active');
-      if (communitySearch) communitySearch.classList.remove('dropdown-active');
+      this.closeDropdown();
     });
 
     communityContainer.appendChild(communitySearch);
@@ -265,6 +306,11 @@ class CreatePostView extends View {
       dropdown.innerHTML = '<div class="dropdown-loading">Loading communities...</div>';
       dropdown.classList.add('dropdown-active');
 
+      // Add mobile-friendly header when on mobile
+      if (window.innerWidth <= 768) {
+        this.addMobileDropdownHeader(dropdown);
+      }
+
       const subscriptions = await communityService.getSubscribedCommunities(this.user.username);
 
       // Visualizza le community sottoscritte
@@ -326,6 +372,14 @@ class CreatePostView extends View {
     const dropdown = document.getElementById('community-dropdown');
     dropdown.classList.add('dropdown-active');
 
+    // Add backdrop for mobile
+    this.toggleDropdownBackdrop(true);
+
+    // Add mobile-friendly header when on mobile
+    if (window.innerWidth <= 768) {
+      this.addMobileDropdownHeader(dropdown);
+    }
+
     if (!query || query.trim() === '') {
       // Se la query è vuota, mostra le community sottoscritte
       return this.loadSubscribedCommunities();
@@ -335,6 +389,11 @@ class CreatePostView extends View {
       // Mostra spinner di caricamento
       dropdown.innerHTML = '<div class="dropdown-loading">Searching...</div>';
 
+      // Re-add mobile header after innerHTML change if on mobile
+      if (window.innerWidth <= 768) {
+        this.addMobileDropdownHeader(dropdown);
+      }
+
       // Cerca community
       const results = await communityService.searchCommunities(query, 10);
 
@@ -343,7 +402,97 @@ class CreatePostView extends View {
     } catch (error) {
       console.error('Failed to search communities:', error);
       dropdown.innerHTML = '<div class="dropdown-error">Error searching communities</div>';
+
+      // Re-add mobile header after innerHTML change if on mobile
+      if (window.innerWidth <= 768) {
+        this.addMobileDropdownHeader(dropdown);
+      }
     }
+  }
+
+  /**
+   * Add mobile-friendly header to dropdown
+   * @param {HTMLElement} dropdown - Dropdown element
+   */
+  addMobileDropdownHeader(dropdown) {
+    // Check if header already exists
+    if (dropdown.querySelector('.dropdown-mobile-header')) {
+      return;
+    }
+
+    // Create mobile header and prepend to dropdown
+    const mobileHeader = document.createElement('div');
+    mobileHeader.className = 'dropdown-mobile-header';
+
+    const mobileTitle = document.createElement('div');
+    mobileTitle.className = 'dropdown-mobile-title';
+    mobileTitle.textContent = 'Select Community';
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'dropdown-mobile-close';
+    closeButton.setAttribute('aria-label', 'Close dropdown');
+    closeButton.innerHTML = '✕';
+    closeButton.addEventListener('click', () => this.closeDropdown());
+
+    mobileHeader.appendChild(mobileTitle);
+    mobileHeader.appendChild(closeButton);
+
+    // Check if dropdown has content and prepend header
+    if (dropdown.firstChild) {
+      dropdown.insertBefore(mobileHeader, dropdown.firstChild);
+    } else {
+      dropdown.appendChild(mobileHeader);
+    }
+  }
+
+  /**
+   * Toggle dropdown backdrop for mobile
+   * @param {boolean} show - Whether to show or hide backdrop
+   */
+  toggleDropdownBackdrop(show) {
+    // Only relevant for mobile
+    if (window.innerWidth > 768) return;
+
+    let backdrop = document.querySelector('.dropdown-backdrop');
+
+    if (show) {
+      // Create backdrop if it doesn't exist
+      if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'dropdown-backdrop';
+        document.body.appendChild(backdrop);
+
+        // Add click listener to close dropdown
+        backdrop.addEventListener('click', () => this.closeDropdown());
+      }
+
+      // Show backdrop with animation
+      setTimeout(() => backdrop.classList.add('active'), 10);
+    } else if (backdrop) {
+      // Hide and remove backdrop
+      backdrop.classList.remove('active');
+
+      // Remove after animation completes
+      setTimeout(() => {
+        if (backdrop.parentNode) {
+          backdrop.parentNode.removeChild(backdrop);
+        }
+      }, 200);
+    }
+  }
+
+  /**
+   * Close the community dropdown
+   */
+  closeDropdown() {
+    const dropdown = document.getElementById('community-dropdown');
+    const communitySearch = document.getElementById('community-search');
+
+    if (dropdown) dropdown.classList.remove('dropdown-active');
+    if (communitySearch) communitySearch.classList.remove('dropdown-active');
+
+    // Remove backdrop
+    this.toggleDropdownBackdrop(false);
   }
 
   /**
@@ -1057,6 +1206,12 @@ class CreatePostView extends View {
 
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
+    }
+
+    // Clean up backdrop if exists
+    const backdrop = document.querySelector('.dropdown-backdrop');
+    if (backdrop && backdrop.parentNode) {
+      backdrop.parentNode.removeChild(backdrop);
     }
 
     super.unmount();
