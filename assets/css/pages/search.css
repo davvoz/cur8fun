@@ -42,7 +42,8 @@
     max-width: 800px;
     margin: 0 auto var(--space-xl);
     transition: transform 0.3s ease;
-    z-index: 20; /* Higher than buttons, lower than dropdown */
+    z-index: 20;
+    /* Higher than buttons, lower than dropdown */
 }
 
 .search-input-wrapper:focus-within {
@@ -89,13 +90,20 @@
 
 /* Animazione per l'hint */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.search-suggestions {   
-     position: absolute;
-    top: 100%; /* Changed from calc(100% - 80px) to position properly below input */
+.search-suggestions {
+    position: absolute;
+    top: 36%;
     left: 0;
     right: 0;
     background: var(--background-light);
@@ -107,7 +115,8 @@
     overflow-y: auto;
     transition: all var(--transition-normal);
     display: none;
-    z-index: 1000; /* Single higher z-index, removed duplicate */
+    z-index: 1000;
+    /* Single higher z-index, removed duplicate */
 }
 
 .search-suggestions.active {
@@ -117,8 +126,15 @@
 
 /* Animazione per il menu a discesa */
 @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .search-suggestion-item {
@@ -210,12 +226,14 @@
     flex: 1;
 }
 
-.display-name, .tag-name {
+.display-name,
+.tag-name {
     color: var(--text-color);
     font-weight: 500;
 }
 
-.username, .post-count {
+.username,
+.post-count {
     color: var(--text-muted);
     font-size: 0.9em;
 }
@@ -336,12 +354,10 @@
     left: -50%;
     width: 200%;
     height: 200%;
-    background: linear-gradient(
-        45deg,
-        transparent,
-        rgba(255, 255, 255, 0.1),
-        transparent
-    );
+    background: linear-gradient(45deg,
+            transparent,
+            rgba(255, 255, 255, 0.1),
+            transparent);
     transform: rotate(45deg);
     transition: all 0.3s ease;
     opacity: 0;
@@ -357,6 +373,7 @@
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -446,8 +463,10 @@
     margin: 0 auto;
     flex-wrap: wrap;
     max-width: 600px;
-    position: relative; /* Added position relative */
-    z-index: 10; /* Lower z-index than suggestions */
+    position: relative;
+    /* Added position relative */
+    z-index: 10;
+    /* Lower z-index than suggestions */
 }
 
 .filter-button {
@@ -542,7 +561,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Responsive adjustments */
@@ -588,7 +609,7 @@
         padding: var(--space-sm) var(--space-lg);
         font-size: 0.9rem;
     }
-    
+
     .search-hint {
         font-size: 0.8rem;
     }
@@ -607,22 +628,20 @@
     .suggestion-avatar-container {
         border-color: var(--border-color-dark);
     }
-    
+
     .search-result-item {
         background: var(--background-dark-light);
     }
-    
+
     .search-result-item:hover {
         background: var(--background-dark-lighter);
     }
-    
+
     .search-result-item::after {
-        background: linear-gradient(
-            45deg,
-            transparent,
-            rgba(255, 255, 255, 0.05),
-            transparent
-        );
+        background: linear-gradient(45deg,
+                transparent,
+                rgba(255, 255, 255, 0.05),
+                transparent);
     }
 
     .results-header {
@@ -632,7 +651,7 @@
     .search-input {
         background: rgba(var(--background-dark-rgb), 0.8);
     }
-    
+
     .tag-result i {
         background-color: rgba(var(--primary-color-rgb), 0.2);
     }
