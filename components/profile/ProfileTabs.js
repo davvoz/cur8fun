@@ -42,7 +42,13 @@ export default class ProfileTabs {
     commentsTab.textContent = 'Comments';
     commentsTab.addEventListener('click', () => this.switchTab('comments'));
 
-    tabsContainer.append(postsTab, commentsTab);
+    // Wallet tab (nuovo)
+    const walletTab = document.createElement('button');
+    walletTab.className = `tab-btn ${this.currentTab === 'wallet' ? 'active' : ''}`;
+    walletTab.textContent = 'Wallet';
+    walletTab.addEventListener('click', () => this.switchTab('wallet'));
+
+    tabsContainer.append(postsTab, commentsTab, walletTab);
     return tabsContainer;
   }
   

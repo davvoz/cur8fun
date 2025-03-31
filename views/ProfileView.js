@@ -7,6 +7,7 @@ import ProfileHeader from '../components/profile/ProfileHeader.js';
 import PostsList from '../components/profile/PostsList.js';
 import CommentsList from '../components/profile/CommentsList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
+import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js';
 
 // Static cache for components
 const componentCache = {
@@ -24,6 +25,9 @@ class ProfileView extends View {
     this.container = null;
     this.profile = null;
     
+    // Aggiungi questa proprietà
+    this.walletContainer = null;
+    
     // Get components from cache or create new ones
     this.initializeComponentsFromCache();
     
@@ -35,6 +39,7 @@ class ProfileView extends View {
     this.commentsLoaded = false; // Non usiamo più la cache per i commenti
     this.postsContainer = null;
     this.commentsContainer = null;
+    this.walletHistoryComponent = null;
   }
 
   initializeComponentsFromCache() {
@@ -149,10 +154,15 @@ class ProfileView extends View {
     commentsGridContainer.className = 'comments-grid-controller-container';
     commentsGridContainer.style.display = 'none';
     
+    const walletGridContainer = document.createElement('div');
+    walletGridContainer.className = 'wallet-grid-controller-container';
+    walletGridContainer.style.display = 'none';
+    
     contentContainer.appendChild(postsGridContainer);
     contentContainer.appendChild(commentsGridContainer);
+    contentContainer.appendChild(walletGridContainer);
     
-    // Create a container for the posts/comments
+    // Create a container for the posts/comments/wallet
     const postsArea = document.createElement('div');
     postsArea.className = 'profile-posts-area';
     contentContainer.appendChild(postsArea);
@@ -182,7 +192,7 @@ class ProfileView extends View {
     const inactiveGridContainer = isPostsTab ? gridContainers.comments : gridContainers.posts;
     
     // Update visibility
-    this.updateContainerVisibility(activeContainer, inactiveContainer, activeGridContainer, inactiveGridContainer);
+    this.updateContainerVisibility(activeContainer, [inactiveContainer, gridContainers.wallet], activeGridContainer, [inactiveGridContainer, gridContainers.wallet]);
     
     // Render grid controller if needed
     this.renderGridControllerIfNeeded(activeGridContainer, activeComponent);
@@ -192,42 +202,90 @@ class ProfileView extends View {
   }
   
   initializeContainersIfNeeded(postsArea) {
-    if (this.postsContainer && this.commentsContainer) return;
+    if (this.postsContainer && this.commentsContainer && this.walletContainer) return;
     
     // Create containers
     this.postsContainer = document.createElement('div');
-    this.postsContainer.className = 'posts-list-container';
+    this.postsContainer.className = 'posts-list-container profile-posts-container'; // <-- Doppia classe per compatibilità
     this.postsContainer.style.width = '100%';
     
     this.commentsContainer = document.createElement('div');
-    this.commentsContainer.className = 'comments-list-container';
+    this.commentsContainer.className = 'comments-list-container profile-comments-container'; // <-- Doppia classe
     this.commentsContainer.style.width = '100%';
     
-    // Add both containers to DOM
+    // Salva come proprietà dell'oggetto e usa classi coerenti
+    this.walletContainer = document.createElement('div');
+    this.walletContainer.className = 'wallet-list-container profile-wallet-container'; // <-- Doppia classe
+    this.walletContainer.style.width = '100%';
+    this.walletContainer.style.display = 'none';
+    
+    // Add all containers to DOM
     postsArea.appendChild(this.postsContainer);
     postsArea.appendChild(this.commentsContainer);
+    postsArea.appendChild(this.walletContainer);
     
     // Initialize posts first (it's the default tab)
     this.postsComponent.render(this.postsContainer);
     this.postsLoaded = true;
     
-    // Initially hide comments container
+    // Initially hide comments and wallet containers
     this.commentsContainer.style.display = 'none';
+    this.walletContainer.style.display = 'none';
   }
   
   getGridContainers() {
-    return {
-      posts: this.container.querySelector('.posts-grid-controller-container'),
-      comments: this.container.querySelector('.comments-grid-controller-container')
-    };
+    let postsContainer = this.container.querySelector('.profile-posts-container');
+    let commentsContainer = this.container.querySelector('.profile-comments-container');
+    let walletContainer = this.container.querySelector('.profile-wallet-container');
+    
+    const contentContainer = this.container.querySelector('.profile-content-container');
+    
+    if (!postsContainer && contentContainer) {
+      postsContainer = document.createElement('div');
+      postsContainer.className = 'profile-posts-container';
+      contentContainer.appendChild(postsContainer);
+    }
+    
+    if (!commentsContainer && contentContainer) {
+      commentsContainer = document.createElement('div');
+      commentsContainer.className = 'profile-comments-container';
+      commentsContainer.style.display = 'none';
+      contentContainer.appendChild(commentsContainer);
+    }
+    
+    if (!walletContainer && contentContainer) {
+      walletContainer = document.createElement('div');
+      walletContainer.className = 'profile-wallet-container';
+      walletContainer.style.display = 'none';
+      contentContainer.appendChild(walletContainer);
+    }
+    
+    return { postsContainer, commentsContainer, walletContainer };
   }
   
-  updateContainerVisibility(activeContainer, inactiveContainer, activeGridContainer, inactiveGridContainer) {
-    activeContainer.style.display = 'block';
-    inactiveContainer.style.display = 'none';
+  updateContainerVisibility(activeContainer, inactiveContainers, activeGridContainer, inactiveGridContainers) {
+    // Mostra il container attivo
+    if (activeContainer) {
+      activeContainer.style.display = '';
+    }
     
-    if (activeGridContainer) activeGridContainer.style.display = 'block';
-    if (inactiveGridContainer) inactiveGridContainer.style.display = 'none';
+    // Nascondi tutti i container inattivi
+    inactiveContainers.forEach(container => {
+      if (container) {
+        container.style.display = 'none';
+      }
+    });
+    
+    // Applica lo stesso ai grid container se presenti
+    if (activeGridContainer) {
+      activeGridContainer.style.display = '';
+    }
+    
+    inactiveGridContainers.forEach(container => {
+      if (container) {
+        container.style.display = 'none';
+      }
+    });
   }
   
   renderGridControllerIfNeeded(gridContainer, component) {
@@ -257,16 +315,79 @@ class ProfileView extends View {
     }
   }
   
-  switchTab(tabName) {
+  async switchTab(tabName) {
+    // Se la tab corrente è già attiva, non fare nulla
     if (this.currentTab === tabName) return;
     
-    console.log(`Switching tab from ${this.currentTab} to ${tabName}`);
+    console.log(`Switching to tab: ${tabName}`);
+    
+    // Ottieni i riferimenti ai container
+    const { postsContainer, commentsContainer, walletContainer } = this.getGridContainers();
+    
+    // Debug dei container
+    console.log('Container disponibili:', {
+      posts: !!postsContainer,
+      comments: !!commentsContainer, 
+      wallet: !!walletContainer
+    });
+    
+    // Trova i contenitori dei controlli griglia
+    const postsGridContainer = this.container.querySelector('.posts-grid-controller-container');
+    const commentsGridContainer = this.container.querySelector('.comments-grid-controller-container');
+    const walletGridContainer = this.container.querySelector('.wallet-grid-controller-container');
+    
+    // Aggiorna visibilità containers in base alla tab selezionata
+    switch(tabName) {
+      case 'posts':
+        this.updateContainerVisibility(
+          postsContainer, 
+          [commentsContainer, walletContainer],
+          postsGridContainer, 
+          [commentsGridContainer, walletGridContainer]
+        );
+        break;
+      case 'comments':
+        this.updateContainerVisibility(
+          commentsContainer, 
+          [postsContainer, walletContainer],
+          commentsGridContainer, 
+          [postsGridContainer, walletGridContainer]
+        );
+        break;
+      case 'wallet':
+        this.updateContainerVisibility(
+          walletContainer, 
+          [postsContainer, commentsContainer],
+          null, // walletGridContainer potrebbe non esistere
+          [postsGridContainer, commentsGridContainer]
+        );
+        
+        // Inizializza il componente wallet se non esiste
+        if (!this.walletHistoryComponent) {
+          console.log("Creating wallet history component for", this.username);
+          
+          // Crea il componente direttamente
+          try {
+            this.walletHistoryComponent = new ProfileWalletHistory(this.username);
+            
+            // Renderizza nel container
+            this.walletHistoryComponent.render(walletContainer);
+          } catch(error) {
+            console.error("Failed to load wallet component:", error);
+            walletContainer.innerHTML = `<div class="error-message">Failed to load wallet history</div>`;
+          }
+        } else {
+          // Aggiorna visibilità e username
+          this.walletHistoryComponent.setVisibility(true);
+          this.walletHistoryComponent.updateUsername(this.username);
+        }
+        break;
+    }
+    
     this.currentTab = tabName;
     
-    // Use a short timeout to ensure DOM updates before applying grid layouts
-    setTimeout(() => {
-      this.loadContentForCurrentTab();
-    }, 10);
+    // Salva la tab attiva nella cache per questo profilo
+    ProfileTabs.activeTabCache[this.username] = tabName;
   }
   
   async checkFollowStatus() {
@@ -336,6 +457,12 @@ class ProfileView extends View {
       this.commentsComponent.unmount();
       this.commentsLoaded = false;
       this.commentsContainer = null;
+    }
+    
+    // Clean up wallet component
+    if (this.walletHistoryComponent) {
+      this.walletHistoryComponent.unmount();
+      this.walletHistoryComponent = null;
     }
   }
 }

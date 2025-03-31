@@ -88,10 +88,19 @@ class WalletService {
       if (account) {
         const steemBalance = parseFloat(account.balance).toFixed(3);
         const sbdBalance = parseFloat(account.sbd_balance).toFixed(3);
+        
+        // Extract vesting shares data 
         const vestingShares = parseFloat(account.vesting_shares);
         const delegatedVestingShares = parseFloat(account.delegated_vesting_shares);
         const receivedVestingShares = parseFloat(account.received_vesting_shares);
         
+        // Calculate actual SP values
+        const ownVestingShares = vestingShares - delegatedVestingShares;
+        const ownSteemPower = await this.vestsToSteem(ownVestingShares);
+        const delegatedOutSP = await this.vestsToSteem(delegatedVestingShares);
+        const delegatedInSP = await this.vestsToSteem(receivedVestingShares);
+        
+        // Calculate effective STEEM Power (with delegations)
         const steemPower = await this.vestsToSteem(
           vestingShares - delegatedVestingShares + receivedVestingShares
         );
@@ -99,7 +108,15 @@ class WalletService {
         this.balances = {
           steem: steemBalance,
           sbd: sbdBalance,
-          steemPower: steemPower.toFixed(3)
+          steemPower: steemPower.toFixed(3),
+          // Add detailed delegation information
+          steemPowerDetails: {
+            total: steemPower.toFixed(3),
+            own: ownSteemPower.toFixed(3),
+            delegatedOut: delegatedOutSP.toFixed(3),
+            delegatedIn: delegatedInSP.toFixed(3),
+            effective: (ownSteemPower + delegatedInSP).toFixed(3)
+          }
         };
         
         // Notify listeners about balance update
@@ -246,6 +263,30 @@ class WalletService {
       return result;
     } catch (error) {
       console.error('Error fetching transaction history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get transaction history for any user (not just the logged-in user)
+   * @param {string} username - Username to get history for
+   * @param {number} limit - Number of transactions to retrieve
+   * @return {Promise<Array>} Array of transactions
+   */
+  async getUserTransactionHistory(username, limit = 30) {
+    if (!username) return [];
+    
+    try {
+      const steem = await steemService.ensureLibraryLoaded();
+      
+      return new Promise((resolve, reject) => {
+        steem.api.getAccountHistory(username, -1, limit, (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+    } catch (error) {
+      console.error(`Error fetching transaction history for ${username}:`, error);
       return [];
     }
   }
