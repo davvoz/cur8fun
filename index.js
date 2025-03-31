@@ -5,10 +5,6 @@ import NavigationManager from './utils/NavigationManager.js';
 
 // Services
 import authService from './services/AuthService.js';
-import searchService from './services/SearchService.js'; // Import singleton instead
-
-// Import the SearchBar component
-import SearchBar from './components/SearchBar.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
@@ -30,6 +26,7 @@ import WalletView from './views/WalletView.js';
 
 // Utility views
 import NotFoundView from './views/NotFoundView.js';
+import NotificationsView from './views/NotificationsView.js';
 
 // Setup routes with proper handlers
 router
@@ -48,7 +45,8 @@ router
   .addRoute('/@:author/:permlink', PostView)
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
-  .addRoute('/communities', CommunitiesListView) // Add the new route
+  .addRoute('/communities', CommunitiesListView) 
+  .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .setNotFound(NotFoundView);
 
 // Auth guard middleware
