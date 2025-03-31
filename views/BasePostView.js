@@ -400,7 +400,6 @@ class BasePostView {
       // Try multiple sources in sequence
       const avatarSources = [
         `https://steemitimages.com/u/${post.author}/avatar`,
-        `https://images.hive.blog/u/${post.author}/avatar`
       ];
       
       let currentSourceIndex = 0;
