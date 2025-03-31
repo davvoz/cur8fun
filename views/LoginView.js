@@ -23,7 +23,6 @@ class LoginView {
    * Renders the login view
    * @param {HTMLElement} container - Container element
    */
-  // Update the render method
   render(container) {
     this.element = container;
 
@@ -253,9 +252,10 @@ class LoginView {
     e.preventDefault();
     const loginForm = e.target;
     const messageEl = this.element.querySelector('.login-message');
+    const passwordInput = loginForm.password;
 
     const username = loginForm.username.value.trim();
-    const privateKey = loginForm.password.value.trim();
+    const privateKey = passwordInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
 
     if (!username || !privateKey) {
@@ -264,10 +264,38 @@ class LoginView {
     }
 
     try {
+      // First clear any previous error styling
+      this.clearErrorStyles();
+      
       await authService.login(username, privateKey, remember);
       this.handleLoginSuccess(username);
     } catch (error) {
-      this.showError(messageEl, `Login failed: ${error.message || 'Invalid credentials'}`);
+      console.error('Login error:', error);
+      
+      // Add error styling to the password field for key-related errors
+      if (error.message.includes('Invalid posting key')) {
+        passwordInput.classList.add('input-error');
+        this.showError(messageEl, `The private key you entered appears to be invalid. Please check and try again.`);
+      } else if (error.message.includes('Account not found')) {
+        loginForm.username.classList.add('input-error');
+        this.showError(messageEl, `Account "${username}" was not found. Please check your username.`);
+      } else {
+        this.showError(messageEl, `Login failed: ${error.message || 'Invalid credentials'}`);
+      }
+
+      // Show a hint for common key errors
+      if (error.message.includes('Invalid posting key format')) {
+        const hintEl = document.createElement('div');
+        hintEl.className = 'login-hint';
+        hintEl.innerHTML = 'Hint: Steem posting keys are typically 51 characters long and start with "5" or "P".';
+        
+        // Insert after the message element
+        if (messageEl.nextSibling) {
+          messageEl.parentNode.insertBefore(hintEl, messageEl.nextSibling);
+        } else {
+          messageEl.parentNode.appendChild(hintEl);
+        }
+      }
     }
   }
 
@@ -280,15 +308,23 @@ class LoginView {
     const remember = loginForm.remember?.checked ?? true;
 
     if (!username) {
+      usernameInput.classList.add('input-error');
       this.showError(messageEl, 'Please enter your username');
       return;
     }
 
+    this.clearErrorStyles();
+    
     try {
       await authService.loginWithKeychain(username, remember);
       this.handleLoginSuccess(username);
     } catch (error) {
-      this.showError(messageEl, `Login failed: ${error.message || 'Authentication failed'}`);
+      if (error.message.includes('Account not found')) {
+        usernameInput.classList.add('input-error');
+        this.showError(messageEl, `Account "${username}" was not found. Please check your username.`);
+      } else {
+        this.showError(messageEl, `Login failed: ${error.message || 'Authentication failed'}`);
+      }
     }
   }
 
@@ -315,7 +351,21 @@ class LoginView {
     if (element) {
       element.textContent = message;
       element.classList.add('error');
+      
+      // Make error more visible
+      element.style.padding = '10px';
+      element.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+      element.style.borderRadius = '4px';
     }
+  }
+
+  clearErrorStyles() {
+    const inputs = this.element.querySelectorAll('input');
+    inputs.forEach(input => input.classList.remove('input-error'));
+    
+    // Remove any previous hints
+    const hints = this.element.querySelectorAll('.login-hint');
+    hints.forEach(hint => hint.remove());
   }
 
   unmount() {
