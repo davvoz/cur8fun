@@ -108,7 +108,7 @@ export default class CommentUIManager {
         <div class="author-info">
           <img src="https://steemitimages.com/u/${comment.author}/avatar/small" class="avatar" alt="${comment.author}" />
           <div class="author-details">
-            <a href="/#/@${comment.author}" class="author-name">@${comment.author}</a>
+            <div  class="author-name">@${comment.author}</div>
             <span class="date">${formattedDate}</span>
           </div>
         </div>
@@ -138,8 +138,10 @@ export default class CommentUIManager {
       // Don't navigate if clicking on author link
       if (e.target.closest('.author-name')) return;
       
+      // Get the base URL (everything before the hash) to preserve deployment path
+      const baseUrl = window.location.href.split('#')[0];
       // Add # to the URL for proper routing
-      window.location.href = `/#/@${comment.author}/${comment.permlink}`;
+      window.location.href = `${baseUrl}#/@${comment.author}/${comment.permlink}`;
     });
     
     return card;
