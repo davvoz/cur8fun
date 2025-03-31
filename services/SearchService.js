@@ -59,6 +59,7 @@ export class SearchService {
      * @returns {Promise<void>}
      */
     async handleSearch(query) {
+       
         const searchResult = this.parseQuery(query);
         
         try {
@@ -248,34 +249,64 @@ export class SearchService {
     }
 
     /**
+     * Search tags by prefix
+     * @param {string} query - The search query
+     * @returns {Promise<Array>} Array of tag objects
+     */
+    async searchTags(query) {
+        try {
+            // Clean the query from # if present
+            const cleanQuery = query.startsWith('#') ? query.substring(1) : query;
+            
+            if (!cleanQuery.trim()) {
+                return [];
+            }
+
+            const params = {
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'condenser_api.get_trending_tags',
+                params: [cleanQuery, 10]  // Limit to 10 suggestions
+            };
+
+            const response = await fetch(this.API_ENDPOINT, {
+                method: 'POST',
+                body: JSON.stringify(params),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.error) {
+                throw new Error(result.error.message);
+            }
+
+            // Filter and map the results
+            return (result.result || [])
+                .filter(tag => tag.name.startsWith(cleanQuery))
+                .map(tag => ({
+                    type: 'tag',
+                    name: tag.name,
+                    count: tag.total_posts
+                }));
+        } catch (error) {
+            console.error('Failed to search tags:', error);
+            return [];
+        }
+    }
+
+    /**
      * Initialize the search functionality with a search input and container for suggestions
      * @param {HTMLElement} searchInput - The search input element
      * @param {HTMLElement} container - Container where to append suggestions
      */
     initSearchInput(searchInput, container) {
-        if (!searchInput || !container) {
-            console.error('Search input or container not provided');
-            return;
+        // Questa funzione non dovrebbe più aggiungere gestori di eventi
+        // ma solo impostare il riferimento al container dei suggerimenti
+        if (container) {
+            this.suggestionsContainer = container;
+            console.log('Search suggestions container initialized');
         }
-        
-        this.suggestionsContainer = container;
-        
-        // Clear previous event listeners if any
-        searchInput.removeEventListener('input', this._handleInputEvent);
-        searchInput.removeEventListener('keydown', this._handleKeydownEvent);
-        searchInput.removeEventListener('blur', this._handleBlurEvent);
-        
-        // Store bound methods to be able to remove them later
-        this._handleInputEvent = this.handleInputEvent.bind(this, searchInput);
-        this._handleKeydownEvent = this.handleKeydownEvent.bind(this, searchInput);
-        this._handleBlurEvent = this.handleBlurEvent.bind(this);
-        
-        // Add event listeners
-        searchInput.addEventListener('input', this._handleInputEvent);
-        searchInput.addEventListener('keydown', this._handleKeydownEvent);
-        searchInput.addEventListener('blur', this._handleBlurEvent);
-        
-        console.log('Search input initialized');
     }
     
     /**
@@ -284,93 +315,22 @@ export class SearchService {
      * @param {Event} event - Input event
      */
     handleInputEvent(inputElement, event) {
-        const query = inputElement.value.trim();
-        this.currentSearchTerm = query;
-        
-        // Clear previous timeout
-        if (this.debounceTimeout) {
-            clearTimeout(this.debounceTimeout);
-        }
-        
-        // Set a new timeout for debouncing
-        this.debounceTimeout = setTimeout(async () => {
-            if (query.length >= 2) {
-                await this.showSuggestions(query);
-            } else {
-                this.hideSuggestions();
-            }
-        }, 300); // 300ms debounce time
-    }
-    
-    /**
-     * Handle keydown events for search navigation
-     * @param {HTMLElement} inputElement - The search input element
-     * @param {KeyboardEvent} event - Keydown event
-     */
-    handleKeydownEvent(inputElement, event) {
-        // Handle Enter key to submit search
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            const query = inputElement.value.trim();
-            
-            if (query) {
-                // First hide suggestions
-                this.hideSuggestions();
-                
-                // Then navigate to search page
-                this.handleSearch(query);
-                
-                // Optionally clear input
-                // inputElement.value = '';
-            }
-        }
-        
-        // Add keyboard navigation for suggestions (up/down arrows)
-        if (this.isShowingSuggestions) {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                this.navigateSuggestions(event.key === 'ArrowDown' ? 1 : -1);
-            } 
-            
-            // Handle Escape to close suggestions
-            if (event.key === 'Escape') {
-                this.hideSuggestions();
-            }
-        }
-    }
-    
-    /**
-     * Handle blur events (clicking away from search input)
-     */
-    handleBlurEvent(event) {
-        // Add a small delay to allow for clicks on suggestions
-        setTimeout(() => {
-            this.hideSuggestions();
-        }, 150);
+        // Questa funzione non viene più utilizzata direttamente
     }
     
     /**
      * Show search suggestions based on the query
      * @param {string} query - The search query
+     * @param {string} searchMethod - The search method ('users' or 'tags')
      */
-    async showSuggestions(query) {
+    async showSuggestions(query, searchMethod = 'users') {
         if (!this.suggestionsContainer) return;
         
         try {
-            const searchResult = this.parseQuery(query);
             let suggestions = [];
             
-            // Cerca sempre account simili se:
-            // 1) La query inizia con @ (caso esplicito di ricerca utente)
-            // 2) La query sembra essere un nome utente (no spazi, caratteri validi per nomi Steem)
-            const isPossiblyUsername = this.isPossibleUsername(query);
-            
-            if (searchResult.type === 'user' || isPossiblyUsername) {
-                // Cerca account simili
-                console.log('Looking for accounts similar to:', query);
+            if (searchMethod === 'users') {
                 const accounts = await this.findSimilarAccounts(query, 5);
-                
-                // Se troviamo account, mostra i suggerimenti
                 if (accounts && accounts.length > 0) {
                     suggestions = accounts.map(account => ({
                         type: 'user',
@@ -379,57 +339,33 @@ export class SearchService {
                         profile: account.profile
                     }));
                 }
-            } 
-            
-            // Se non abbiamo trovato account simili o la query è specifica per altri tipi
-            if (suggestions.length === 0) {
-                if (searchResult.type === 'tag' || query.startsWith('#')) {
-                    // Suggerimenti per tag
-                    suggestions = [{ type: 'instruction', text: `Search for tag: ${query.replace('#', '')}` }];
-                } else if (searchResult.type === 'community') {
-                    // Suggerimenti per community
-                    suggestions = [{ type: 'instruction', text: `Search for community: ${query}` }];
+            } else if (searchMethod === 'tags') {
+                const tags = await this.searchTags(query);
+                if (tags.length > 0) {
+                    suggestions = tags;
                 } else {
-                    // Ricerca post normale
-                    suggestions = [{ type: 'instruction', text: `Search for: ${query}` }];
+                    // If no tags found, suggest creating a new tag search
+                    suggestions = [{
+                        type: 'tag',
+                        name: query.startsWith('#') ? query.substring(1) : query,
+                        isNew: true
+                    }];
                 }
             }
             
-            // Renderizza i suggerimenti
-            this.renderSuggestions(suggestions, query);
-            
+            this.renderSuggestions(suggestions, query, searchMethod);
         } catch (error) {
             console.error('Error showing suggestions:', error);
         }
     }
 
     /**
-     * Check if a query might be a username (without @ prefix)
-     * @param {string} query - Query to check
-     * @returns {boolean} - True if the query might be a username
-     */
-    isPossibleUsername(query) {
-        // Se già inizia con @, lascia che sia gestito dal tipo 'user'
-        if (query.startsWith('@')) return false;
-        
-        const trimmedQuery = query.trim();
-        
-        // Regole per potenziali username Steem/Hive:
-        // 1. Nessuno spazio
-        // 2. Lunghezza tra 3 e 16 caratteri
-        // 3. Solo lettere, numeri, punti, trattini bassi
-        // 4. Non inizia con un punto
-        const usernameRegex = /^[a-z0-9][a-z0-9\-\.]{2,15}$/i;
-        
-        return !trimmedQuery.includes(' ') && usernameRegex.test(trimmedQuery);
-    }
-    
-    /**
      * Render search suggestions in the dropdown
      * @param {Array} suggestions - List of suggestion objects
      * @param {string} query - The original search query
+     * @param {string} searchMethod - The search method ('users' or 'tags')
      */
-    renderSuggestions(suggestions, query) {
+    renderSuggestions(suggestions, query, searchMethod = 'users') {
         if (!this.suggestionsContainer) return;
         
         // Clear previous suggestions
@@ -442,7 +378,26 @@ export class SearchService {
         if (suggestions.length === 0) {
             const noResults = document.createElement('div');
             noResults.className = 'search-suggestion-item no-results';
-            noResults.textContent = 'No suggestions found';
+            
+            // Messaggio personalizzato in base al tipo di ricerca
+            if (searchMethod === 'users') {
+                noResults.innerHTML = `
+                    <div class="no-results-message">
+                        <i class="fas fa-info-circle"></i>
+                        <span>No matching users found. Try a different name.</span>
+                    </div>
+                `;
+            } else if (searchMethod === 'tags') {
+                noResults.innerHTML = `
+                    <div class="no-results-message">
+                        <i class="fas fa-info-circle"></i>
+                        <span>No matching tags found. Press Enter to search anyway.</span>
+                    </div>
+                `;
+            } else {
+                noResults.textContent = 'No suggestions found';
+            }
+            
             wrapper.appendChild(noResults);
         } else {
             suggestions.forEach((suggestion, index) => {
@@ -494,8 +449,37 @@ export class SearchService {
                     item.appendChild(avatarContainer);
                     item.appendChild(textContainer);
                     
+                } else if (suggestion.type === 'tag') {
+                    const tagContainer = document.createElement('div');
+                    tagContainer.className = 'tag-suggestion-container';
+
+                    const hashIcon = document.createElement('i');
+                    hashIcon.className = 'fas fa-hashtag';
+                    tagContainer.appendChild(hashIcon);
+
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'suggestion-text';
+
+                    const tagName = document.createElement('span');
+                    tagName.className = 'tag-name';
+                    tagName.textContent = suggestion.name;
+                    textContainer.appendChild(tagName);
+
+                    if (suggestion.isNew) {
+                        const newTag = document.createElement('span');
+                        newTag.className = 'new-tag';
+                        newTag.textContent = 'Search this tag';
+                        textContainer.appendChild(newTag);
+                    } else if (suggestion.count !== undefined) {
+                        const count = document.createElement('span');
+                        count.className = 'post-count';
+                        count.textContent = `${suggestion.count} posts`;
+                        textContainer.appendChild(count);
+                    }
+
+                    tagContainer.appendChild(textContainer);
+                    item.appendChild(tagContainer);
                 } else {
-                    // Other types of suggestions
                     item.textContent = suggestion.text;
                 }
                 
@@ -509,7 +493,7 @@ export class SearchService {
                         router.navigate(`/@${suggestion.name}`);
                     } else if (suggestion.type === 'tag') {
                         // Navigate to tag page
-                        router.navigate(`/tag/${suggestion.text.replace('#', '')}`);
+                        router.navigate(`/tag/${suggestion.name}`);
                     } else if (suggestion.type === 'community') {
                         // Navigate to community
                         router.navigate(`/community/${suggestion.text}`);
@@ -524,17 +508,6 @@ export class SearchService {
                 wrapper.appendChild(item);
             });
         }
-        
-        // Add "view all results" link at bottom
-        const viewAllLink = document.createElement('div');
-        viewAllLink.className = 'search-suggestion-item view-all';
-        viewAllLink.textContent = `View all results for "${query}"`;
-        viewAllLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.handleSearch(query);
-            this.hideSuggestions();
-        });
-        wrapper.appendChild(viewAllLink);
         
         // Append to container and show
         this.suggestionsContainer.appendChild(wrapper);

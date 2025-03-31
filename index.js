@@ -219,28 +219,10 @@ function handleLogout(e) {
   router.navigate('/');
 }
 
-// Initialize search functionality
-const initializeSearch = () => {
-  const searchContainer = document.querySelector('.nav-center');
-  if (!searchContainer) return;
-  
-  // Clear existing search markup
-  searchContainer.innerHTML = '';
-  
-  // Create and render the new search bar component
-  const searchBar = new SearchBar({
-    placeholder: 'Search SteemGram...',
-    className: 'nav-search-component'
-  });
-  
-  searchBar.render(searchContainer);
-  
-  console.log('Enhanced search initialized');
-};
+
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
-  initializeSearch();
 });
 
 //Per aggiungere una nuova route ,
