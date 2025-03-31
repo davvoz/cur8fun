@@ -1,58 +1,59 @@
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
+import LoadingIndicator from '../../components/LoadingIndicator.js';
 
 export default class CommentUIManager {
   constructor(container, renderer) {
     this.container = container;
     this.renderer = renderer;
     this.infiniteScroll = null;
+    this.loadingIndicator = null;
   }
 
   showLoadingState() {
     if (!this.container) return;
     
-    const loadingElement = document.createElement('div');
-    loadingElement.className = 'comments-loading';
-    loadingElement.innerHTML = '<div class="loading-spinner"></div><p>Loading comments...</p>';
     this.container.innerHTML = '';
-    this.container.appendChild(loadingElement);
+    this.loadingIndicator = new LoadingIndicator('spinner');
+    this.loadingIndicator.show(this.container, 'Loading comments...');
   }
 
   createProgressIndicator() {
-    const div = document.createElement('div');
-    div.className = 'comments-progress';
-    div.innerHTML = `
-      <div class="loading-indicator">
-        <div class="spinner"></div>
-        <div class="loading-text">Caricamento commenti...</div>
-        <div class="progress-bar-container">
-          <div class="progress-bar" style="width: 0%"></div>
-        </div>
-        <div class="loading-counter">Recupero commenti...</div>
-      </div>
-    `;
-    return div;
+    this.container.innerHTML = '';
+    this.loadingIndicator = new LoadingIndicator('progressBar');
+    this.loadingIndicator.show(this.container, 'Caricamento commenti...');
+    
+    // Add counter element
+    const counter = document.createElement('div');
+    counter.className = 'loading-counter';
+    counter.textContent = 'Recupero commenti...';
+    this.loadingIndicator.element.appendChild(counter);
+    
+    return this.loadingIndicator.element;
   }
 
   updateLoadingProgress() {
-    const progressBar = this.container.querySelector('.progress-bar');
-    if (progressBar) {
-      progressBar.style.width = '100%';
-      progressBar.style.animation = 'pulse 1.5s infinite';
+    if (this.loadingIndicator && this.loadingIndicator.type === 'progressBar') {
+      this.loadingIndicator.updateProgress(100);
     }
   }
 
   showLoadingComplete(commentCount) {
-    const loadingText = this.container.querySelector('.loading-text');
-    if (loadingText) loadingText.textContent = 'Caricamento completato!';
+    if (!this.loadingIndicator) return;
     
-    const counter = this.container.querySelector('.loading-counter');
+    if (this.loadingIndicator.element.querySelector('.loading-text')) {
+      this.loadingIndicator.element.querySelector('.loading-text').textContent = 'Caricamento completato!';
+    }
+    
+    const counter = this.loadingIndicator.element.querySelector('.loading-counter');
     if (counter) counter.textContent = `${commentCount} commenti caricati`;
     
-    const progressBar = this.container.querySelector('.progress-bar');
-    if (progressBar) {
-      progressBar.style.animation = 'none';
-      progressBar.style.width = '100%';
-      progressBar.style.backgroundColor = '#4caf50';
+    if (this.loadingIndicator.type === 'progressBar') {
+      this.loadingIndicator.updateProgress(100);
+      const fill = this.loadingIndicator.element.querySelector('.progress-fill');
+      if (fill) {
+        fill.style.animation = 'none';
+        fill.style.backgroundColor = '#4caf50';
+      }
     }
   }
 
@@ -114,9 +115,7 @@ export default class CommentUIManager {
       </div>
       <div class="card-thumbnail" style="background-image: url('${imageUrl}')"></div>
       <div class="card-content">
-        <a href="/#/@${comment.author}/${comment.permlink}" class="comment-link">
-          <h3 class="comment-title">Comment on: ${comment.root_title || 'a post'}</h3>
-        </a>
+        <h3 class="comment-title">Comment on: ${comment.root_title || 'a post'}</h3>
         <p class="comment-text">${textPreview}</p>
       </div>
       <div class="card-footer">
@@ -214,9 +213,9 @@ export default class CommentUIManager {
       this.infiniteScroll = null;
     }
     
-    const loadingElement = this.container?.querySelector('.comments-loading');
-    if (loadingElement) {
-      loadingElement.remove();
+    if (this.loadingIndicator) {
+      this.loadingIndicator.hide();
+      this.loadingIndicator = null;
     }
   }
 }
