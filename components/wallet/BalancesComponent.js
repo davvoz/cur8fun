@@ -267,6 +267,60 @@ export default class BalancesComponent extends Component {
     }
   }
   
+  renderSteemPower(balances) {
+    const steemPowerContainer = document.createElement('div');
+    steemPowerContainer.className = 'balance-item';
+
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'balance-icon sp-icon';
+    steemPowerContainer.appendChild(iconContainer);
+
+    const detailsContainer = document.createElement('div');
+    detailsContainer.className = 'balance-details';
+    
+    const label = document.createElement('div');
+    label.className = 'balance-label';
+    label.textContent = 'STEEM POWER';
+    detailsContainer.appendChild(label);
+    
+    const value = document.createElement('div');
+    value.className = 'balance-value';
+    value.textContent = balances.steemPower;
+    detailsContainer.appendChild(value);
+
+    // Aggiungi dettagli delle delegazioni se disponibili
+    if (balances.steemPowerDetails) {
+      const delegationInfo = document.createElement('div');
+      delegationInfo.className = 'balance-delegation-info';
+      
+      // Mostra solo se c'è una delega attiva (in entrata o uscita)
+      if (parseFloat(balances.steemPowerDetails.delegatedIn) > 0 || 
+          parseFloat(balances.steemPowerDetails.delegatedOut) > 0) {
+        
+        // Deleghe in entrata
+        if (parseFloat(balances.steemPowerDetails.delegatedIn) > 0) {
+          const incomingDelegation = document.createElement('div');
+          incomingDelegation.className = 'delegation-item delegation-in';
+          incomingDelegation.innerHTML = `<span class="delegation-icon">+</span> ${balances.steemPowerDetails.delegatedIn} SP delegated to you`;
+          delegationInfo.appendChild(incomingDelegation);
+        }
+        
+        // Deleghe in uscita
+        if (parseFloat(balances.steemPowerDetails.delegatedOut) > 0) {
+          const outgoingDelegation = document.createElement('div');
+          outgoingDelegation.className = 'delegation-item delegation-out';
+          outgoingDelegation.innerHTML = `<span class="delegation-icon">-</span> ${balances.steemPowerDetails.delegatedOut} SP delegated to others`;
+          delegationInfo.appendChild(outgoingDelegation);
+        }
+        
+        detailsContainer.appendChild(delegationInfo);
+      }
+    }
+
+    steemPowerContainer.appendChild(detailsContainer);
+    return steemPowerContainer;
+  }
+  
   destroy() {
     // Remove event listeners
     eventEmitter.off('wallet:balances-updated', this.handleBalancesUpdated);

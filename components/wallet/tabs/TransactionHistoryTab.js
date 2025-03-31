@@ -1,7 +1,7 @@
 import Component from '../../Component.js';
-import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import { formatDate } from '../../../utils/DateUtils.js';
+import transactionHistoryService from '../../../services/TransactionHistoryService.js';
 
 export default class TransactionHistoryTab extends Component {
   constructor(parentElement, options = {}) {
@@ -10,12 +10,16 @@ export default class TransactionHistoryTab extends Component {
     this.username = authService.getCurrentUser()?.username || '';
     this.isLoading = false;
     this.filters = {
-      transfer: true,
-      vote: true,
-      comment: true,
-      other: true,
-      byUser: true,
-      onUser: true
+      types: {
+        transfer: true,
+        vote: true,
+        comment: true,
+        other: true
+      },
+      direction: {
+        byUser: true,
+        onUser: true
+      }
     };
     this.limit = 50; // Inizia con 50 transazioni
     
@@ -211,12 +215,16 @@ export default class TransactionHistoryTab extends Component {
   
   updateFilters() {
     this.filters = {
-      transfer: this.filterCheckboxes['filter-transfer']?.checked ?? true,
-      vote: this.filterCheckboxes['filter-vote']?.checked ?? true,
-      comment: this.filterCheckboxes['filter-comment']?.checked ?? true,
-      other: this.filterCheckboxes['filter-other']?.checked ?? true,
-      byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
-      onUser: this.filterCheckboxes['filter-on']?.checked ?? true
+      types: {
+        transfer: this.filterCheckboxes['filter-transfer']?.checked ?? true,
+        vote: this.filterCheckboxes['filter-vote']?.checked ?? true,
+        comment: this.filterCheckboxes['filter-comment']?.checked ?? true,
+        other: this.filterCheckboxes['filter-other']?.checked ?? true
+      },
+      direction: {
+        byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
+        onUser: this.filterCheckboxes['filter-on']?.checked ?? true
+      }
     };
   }
   
@@ -250,14 +258,21 @@ export default class TransactionHistoryTab extends Component {
       // Se abbiamo già alcune transazioni, usa l'ultima come punto di partenza
       let from = -1;
       if (this.allTransactions.length > 0) {
-        from = this.allTransactions[this.allTransactions.length - 1][0] - 1;
+        from = this.allTransactions[this.allTransactions.length - 1].id - 1;
       }
       
-      // Recupera la cronologia dell'account
-      const result = await walletService._getAccountHistory(this.username, from, this.limit);
+      // Recupera la cronologia dell'account usando il nuovo servizio
+      const rawTransactions = await transactionHistoryService.getUserTransactionHistory(this.username, this.limit, from);
       
-      if (result && Array.isArray(result)) {
-        this.allTransactions = result;
+      if (rawTransactions && Array.isArray(rawTransactions)) {
+        // Processa e formatta le transazioni
+        let formattedTransactions = [];
+        for (const tx of rawTransactions) {
+          const formattedTx = await transactionHistoryService.formatTransaction(tx, this.username);
+          formattedTransactions.push(formattedTx);
+        }
+        
+        this.allTransactions = formattedTransactions;
         this.renderTransactions();
       }
     } catch (error) {
@@ -323,21 +338,23 @@ export default class TransactionHistoryTab extends Component {
     this.transactionListElement.appendChild(emptyState);
   }
   
-  /**
-   * Renderizza le transazioni con valori VESTS convertiti
-   */
-  async renderTransactions() {
+  renderTransactions() {
     if (!this.transactionListElement) return;
     
-    const filteredTransactions = this.filterTransactions(this.allTransactions);
+    // Filtra le transazioni in base ai filtri correnti
+    const filteredTransactions = transactionHistoryService.filterTransactions(
+      this.allTransactions, 
+      this.filters, 
+      this.username
+    );
     
     if (filteredTransactions.length === 0) {
       this.showEmptyState();
       return;
     }
     
-    // Mostra stato di caricamento durante la conversione
-    this.showLoadingState('Converting VESTS to STEEM Power...');
+    // Ordina le transazioni dalla più recente alla meno recente
+    const sortedTransactions = transactionHistoryService.sortTransactions(filteredTransactions);
     
     // Rimuovi contenuti esistenti
     while (this.transactionListElement.firstChild) {
@@ -348,44 +365,31 @@ export default class TransactionHistoryTab extends Component {
     const transactionListElement = document.createElement('ul');
     transactionListElement.className = 'transaction-list';
     
-    // Ordina le transazioni dalla più recente alla meno recente
-    const sortedTransactions = [...filteredTransactions].reverse();
-    
-    // Aggiungi ogni transazione alla lista (con await)
-    for (const [id, transaction] of sortedTransactions) {
-      const transactionItem = await this.createTransactionItem(transaction);
+    // Aggiungi ogni transazione alla lista
+    for (const tx of sortedTransactions) {
+      const transactionItem = this.createTransactionItem(tx);
       transactionListElement.appendChild(transactionItem);
     }
     
     this.transactionListElement.appendChild(transactionListElement);
   }
   
-  /**
-   * Crea un elemento transazione con valori VESTS convertiti in SP
-   */
-  async createTransactionItem(transaction) {
-    const op = transaction.op;
-    const type = op[0];
-    const data = op[1];
-    
+  createTransactionItem(tx) {
     // Crea l'elemento della transazione
     const listItem = document.createElement('li');
     listItem.className = 'transaction-item';
     
     // Determina se è un'azione dell'utente o verso l'utente
-    const isActionByUser = this.isActionBy(type, data, this.username);
-    const isActionOnUser = this.isActionOn(type, data, this.username);
-    
-    // Seleziona l'icona appropriata e colore per il tipo di transazione
-    const { icon, iconClass } = this.getIconForType(type, data);
+    const isActionByUser = tx.isActionByUser;
+    const isActionOnUser = tx.isActionOnUser;
     
     // Crea l'icona della transazione
     const iconElement = document.createElement('div');
-    iconElement.className = `transaction-icon ${iconClass}`;
+    iconElement.className = `transaction-icon ${tx.iconClass}`;
     
     const iconText = document.createElement('span');
     iconText.className = 'material-icons';
-    iconText.textContent = icon;
+    iconText.textContent = tx.icon;
     
     iconElement.appendChild(iconText);
     listItem.appendChild(iconElement);
@@ -397,7 +401,7 @@ export default class TransactionHistoryTab extends Component {
     // Titolo della transazione
     const titleElement = document.createElement('div');
     titleElement.className = 'transaction-title';
-    titleElement.textContent = this.formatTitle(type);
+    titleElement.textContent = tx.title;
     detailsElement.appendChild(titleElement);
     
     // Metadati della transazione
@@ -406,13 +410,12 @@ export default class TransactionHistoryTab extends Component {
     
     const dateElement = document.createElement('span');
     dateElement.className = 'transaction-date';
-    dateElement.textContent = formatDate(transaction.timestamp);
+    dateElement.textContent = tx.formattedDate;
     metaElement.appendChild(dateElement);
     
     const memoElement = document.createElement('span');
     memoElement.className = 'transaction-memo';
-    // Usiamo await per ottenere la descrizione con valori convertiti
-    memoElement.textContent = await this.formatTransactionDescription(type, data);
+    memoElement.textContent = tx.description;
     metaElement.appendChild(memoElement);
     
     // Aggiungi metaElement a detailsElement
@@ -427,7 +430,7 @@ export default class TransactionHistoryTab extends Component {
     // Aggiungi link all'explorer
     const linkElement = document.createElement('a');
     linkElement.className = 'transaction-link';
-    linkElement.href = this.createExplorerLink(transaction, data);
+    linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
     linkElement.target = '_blank';
     linkElement.rel = 'noopener noreferrer';
     
@@ -446,229 +449,7 @@ export default class TransactionHistoryTab extends Component {
     
     return listItem;
   }
-  
-  filterTransactions(transactions) {
-    return transactions.filter(([id, transaction]) => {
-      const type = transaction.op[0];
-      const data = transaction.op[1];
-      
-      // Filtra per tipo di transazione
-      let passTypeFilter = false;
-      switch (type) {
-        case 'transfer':
-        case 'transfer_to_vesting':
-        case 'withdraw_vesting':
-          passTypeFilter = this.filters.transfer;
-          break;
-        case 'vote':
-        case 'effective_comment_vote':
-          passTypeFilter = this.filters.vote;
-          break;
-        case 'comment':
-        case 'comment_reward':
-        case 'comment_options':
-          passTypeFilter = this.filters.comment;
-          break;
-        default:
-          passTypeFilter = this.filters.other;
-      }
-      if (!passTypeFilter) {
-        return false;
-      }
-      
-      // Filtra per direzione (da/verso l'utente)
-      const isActionByUser = this.isActionBy(type, data, this.username);
-      const isActionOnUser = this.isActionOn(type, data, this.username);
-      
-      return (isActionByUser && this.filters.byUser) || 
-             (isActionOnUser && this.filters.onUser);
-    });
-  }
-  
-  isActionBy(type, data, username) {
-    switch (type) {
-      case 'transfer':
-        return data.from === username;
-      case 'vote':
-        return data.voter === username;
-      case 'comment':
-      case 'comment_options':
-        return data.author === username;
-      case 'transfer_to_vesting':
-        return data.from === username;
-      case 'delegate_vesting_shares':
-        return data.delegator === username;
-      case 'claim_reward_balance':
-        return data.account === username;
-      case 'custom_json':
-        return Array.isArray(data.required_posting_auths) && 
-               data.required_posting_auths.includes(username);
-      default:
-        return false;
-    }
-  }
-  
-  isActionOn(type, data, username) {
-    switch (type) {
-      case 'transfer':
-        return data.to === username;
-      case 'vote':
-        return data.author === username;
-      case 'comment':
-        return data.parent_author === username;
-      case 'transfer_to_vesting':
-        return data.to === username;
-      case 'delegate_vesting_shares':
-        return data.delegatee === username;
-      case 'claim_reward_balance':
-        return data.account === username;
-      case 'curation_reward':
-        return data.curator === username;
-      case 'author_reward':
-      case 'comment_reward':
-        return data.author === username;
-      default:
-        return false;
-    }
-  }
-  
-  getIconForType(type, data) {
-    switch (type) {
-      case 'transfer':
-        return { icon: 'swap_horiz', iconClass: 'transfer' };
-      case 'vote':
-        return data.weight > 0 
-          ? { icon: 'thumb_up', iconClass: 'upvote' } 
-          : { icon: 'thumb_down', iconClass: 'downvote' };
-      case 'comment':
-        return data.parent_author 
-          ? { icon: 'chat', iconClass: 'reply' } 
-          : { icon: 'create', iconClass: 'post' };
-      case 'claim_reward_balance':
-        return { icon: 'redeem', iconClass: 'claim' };
-      case 'transfer_to_vesting':
-        return { icon: 'trending_up', iconClass: 'power-up' };
-      case 'withdraw_vesting':
-        return { icon: 'trending_down', iconClass: 'power-down' };
-      case 'curation_reward':
-        return { icon: 'stars', iconClass: 'curation' };
-      case 'author_reward':
-      case 'comment_reward':
-        return { icon: 'payment', iconClass: 'reward' };
-      case 'delegate_vesting_shares':
-        return { icon: 'share', iconClass: 'delegation' };
-      case 'custom_json':
-        return { icon: 'code', iconClass: 'custom' };
-      default:
-        return { icon: 'receipt', iconClass: 'other' };
-    }
-  }
-  
-  formatTitle(type) {
-    switch (type) {
-      case 'transfer':
-        return 'Transfer';
-      case 'vote':
-        return 'Vote';
-      case 'comment':
-        return 'Comment/Post';
-      case 'claim_reward_balance':
-        return 'Claim Rewards';
-      case 'transfer_to_vesting':
-        return 'Power Up';
-      case 'withdraw_vesting':
-        return 'Power Down';
-      case 'curation_reward':
-        return 'Curation Reward';
-      case 'author_reward':
-      case 'comment_reward':
-        return 'Author Reward';
-      case 'delegate_vesting_shares':
-        return 'Delegation';
-      case 'custom_json':
-        return 'Custom JSON';
-      default:
-        return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    }
-  }
-  
-  /**
-   * Formatta la descrizione della transazione con conversione VESTS->SP
-   */
-  async formatTransactionDescription(type, data) {
-    // Funzione helper per convertire VESTS in SP
-    const convertVestsToSP = async (vestsAmount) => {
-      if (!vestsAmount) return '0 SP';
-      
-      // Estrai solo il valore numerico, rimuovendo 'VESTS'
-      const vestsValue = parseFloat(vestsAmount.split(' ')[0]);
-      
-      try {
-        // Converti VESTS in SP usando il WalletService
-        const spValue = await walletService.vestsToSteem(vestsValue);
-        return `${spValue.toFixed(3)} SP`;
-      } catch (error) {
-        console.error('Error converting VESTS to SP:', error);
-        return vestsAmount; // Fallback al valore originale in caso di errore
-      }
-    };
-  
-    switch (type) {
-      case 'transfer':
-        return `${data.from === this.username ? 'Sent' : 'Received'} ${data.amount} ${data.memo ? `- Memo: ${data.memo}` : ''}`;
-        
-      case 'vote':
-        const weightPercent = (data.weight / 100).toFixed(0);
-        return `${data.voter === this.username ? 'Voted' : 'Received vote'} ${weightPercent}% on @${data.author}/${data.permlink.substring(0, 20)}...`;
-        
-      case 'comment':
-        if (data.parent_author) {
-          return `Replied to @${data.parent_author}/${data.parent_permlink.substring(0, 20)}...`;
-        }
-        return `Created post "${data.title || data.permlink}"`;
-        
-      case 'claim_reward_balance':
-        // Converti reward_vests in SP
-        const rewardSP = await convertVestsToSP(data.reward_vests);
-        return `Claimed ${data.reward_steem || '0 STEEM'}, ${data.reward_sbd || '0 SBD'}, ${rewardSP}`;
-        
-      case 'transfer_to_vesting':
-        return `Powered up ${data.amount} to ${data.to}`;
-        
-      case 'delegate_vesting_shares':
-        // Converti vesting_shares in SP
-        const delegatedSP = await convertVestsToSP(data.vesting_shares);
-        return `${data.delegator === this.username ? 'Delegated' : 'Received delegation of'} ${delegatedSP}`;
-        
-      case 'curation_reward':
-        // Converti reward in SP
-        const curationSP = await convertVestsToSP(data.reward);
-        return `Received ${curationSP} for curating @${data.comment_author}/${data.comment_permlink.substring(0, 15)}...`;
-        
-      case 'author_reward':
-      case 'comment_reward':
-        // Converti vesting_payout in SP
-        const authorSP = await convertVestsToSP(data.vesting_payout);
-        return `Received ${data.sbd_payout || '0 SBD'}, ${data.steem_payout || '0 STEEM'}, ${authorSP} for @${data.author}/${data.permlink.substring(0, 15)}...`;
-        
-      case 'withdraw_vesting':
-        // Converti vesting_shares in SP
-        const withdrawSP = await convertVestsToSP(data.vesting_shares);
-        return `Power down of ${withdrawSP}`;
-        
-      default:
-        return `Operation: ${type}`;
-    }
-  }
-  
-  createExplorerLink(transaction, data) {
-    // Link alle transazioni su steemblocks o altro explorer
-    if (data.author && data.permlink) {
-      return `https://davvoz.github.io/steemee/#/@${data.author}/${data.permlink}`;
-    }
-    return `https://steemblockexplorer.com/tx/${transaction.trx_id}`;
-  }
-  
+
   destroy() {
     // Rimuovi i riferimenti agli elementi DOM
     this.transactionListElement = null;
