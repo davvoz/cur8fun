@@ -2,7 +2,13 @@
 .wallet-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--space-md);
+  padding: 0 var(--space-md);
+}
+
+/* Wallet specific layout styles - ensures consistent width */
+.wallet-view {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* General form cards */
@@ -88,6 +94,11 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .wallet-container {
-    padding: var(--space-sm);
+    padding: 0 var(--space-sm);
   }
+}
+
+/* Ensures wallet layout is not affected by other views */
+.app-content .wallet-view {
+  max-width: none;
 }

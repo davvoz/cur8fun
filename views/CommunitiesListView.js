@@ -31,7 +31,17 @@ class CommunitiesListView {
 
   async render(container) {
     this.container = container;
-    this.container.className = 'communities-list-view';
+    
+    // Clear any previous view classes first
+    const oldClasses = [...this.container.classList];
+    oldClasses.forEach(cls => {
+      if (cls !== 'view-container' && cls !== 'app-content') {
+        this.container.classList.remove(cls);
+      }
+    });
+    
+    // Add the communities-list-view class
+    this.container.classList.add('communities-list-view');
     this.container.innerHTML = '';
     
     // Create header
