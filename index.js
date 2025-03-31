@@ -110,8 +110,15 @@ function renderAuthenticatedNav(container, user) {
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
   
-  // Create Post button
- // navActions.appendChild(createCreatePostButton());
+  // Mobile search button - add before other elements
+  const mobileSearchButton = document.createElement('a');
+  mobileSearchButton.href = '/search';
+  mobileSearchButton.className = 'mobile-search-button';
+  const searchIcon = document.createElement('span');
+  searchIcon.className = 'material-icons';
+  searchIcon.textContent = 'search';
+  mobileSearchButton.appendChild(searchIcon);
+  navActions.appendChild(mobileSearchButton);
   
   // Notifications button
   navActions.appendChild(createNotificationsButton());
@@ -122,12 +129,20 @@ function renderAuthenticatedNav(container, user) {
   container.appendChild(navActions);
 }
 
-// Nel metodo renderUnauthenticatedNav aggiungi anche il pulsante di registrazione
-
 function renderUnauthenticatedNav(container) {
   // Contenitore per i pulsanti
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
+  
+  // Mobile search button - add before other elements
+  const mobileSearchButton = document.createElement('a');
+  mobileSearchButton.href = '/search';
+  mobileSearchButton.className = 'mobile-search-button';
+  const searchIcon = document.createElement('span');
+  searchIcon.className = 'material-icons';
+  searchIcon.textContent = 'search';
+  mobileSearchButton.appendChild(searchIcon);
+  navActions.appendChild(mobileSearchButton);
   
   // Login button
   const loginBtn = document.createElement('a');

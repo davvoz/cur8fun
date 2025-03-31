@@ -49,6 +49,15 @@
 @import 'layout/profile-cards.css';
 @import 'pages/search.css';
 @import 'pages/login.css';
+
+/* Mobile search button in header */
+.mobile-search-button {
+    display: none;
+    color: var(--text-primary);
+    margin-right: 12px;
+    cursor: pointer;
+}
+
 /*mobile styles */
 @media (max-width: 768px) {
   .grid-controller-container {
@@ -59,6 +68,17 @@
   }
   .grid-controller{
     display: none ;
+  }
+
+  .mobile-search-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Hide search in sidebar on mobile */
+  .side-nav .search-nav {
+    display: none;
   }
 }
 
