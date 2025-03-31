@@ -258,8 +258,8 @@
     }
     
     .posts-container.grid-layout-list .post-image-container {
-      width: 100px;
-      height: 100px;
+      width: 100%;
+      
     }
   }
 }

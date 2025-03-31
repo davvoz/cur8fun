@@ -42,6 +42,7 @@
     max-width: 800px;
     margin: 0 auto var(--space-xl);
     transition: transform 0.3s ease;
+    z-index: 20; /* Higher than buttons, lower than dropdown */
 }
 
 .search-input-wrapper:focus-within {
@@ -94,7 +95,7 @@
 
 .search-suggestions {   
      position: absolute;
-    top: calc(100% - 80px);
+    top: 100%; /* Changed from calc(100% - 80px) to position properly below input */
     left: 0;
     right: 0;
     background: var(--background-light);
@@ -102,12 +103,11 @@
     border-radius: var(--radius-md);
     margin-top: var(--space-xs);
     box-shadow: var(--popup-box-shadow);
-    z-index: var(--z-modal);
-    display: none;
     max-height: 400px;
     overflow-y: auto;
     transition: all var(--transition-normal);
-    z-index: 999;
+    display: none;
+    z-index: 1000; /* Single higher z-index, removed duplicate */
 }
 
 .search-suggestions.active {
@@ -446,6 +446,8 @@
     margin: 0 auto;
     flex-wrap: wrap;
     max-width: 600px;
+    position: relative; /* Added position relative */
+    z-index: 10; /* Lower z-index than suggestions */
 }
 
 .filter-button {
