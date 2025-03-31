@@ -8,6 +8,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 class CommunitiesListView {
   constructor() {
     this.container = null;
+    this.viewContainer = null; // Add a reference to the view-specific container
     this.communities = [];
     this.filteredCommunities = [];
     this.isLoading = true;
@@ -31,18 +32,12 @@ class CommunitiesListView {
 
   async render(container) {
     this.container = container;
-    
-    // Clear any previous view classes first
-    const oldClasses = [...this.container.classList];
-    oldClasses.forEach(cls => {
-      if (cls !== 'view-container' && cls !== 'app-content') {
-        this.container.classList.remove(cls);
-      }
-    });
-    
-    // Add the communities-list-view class
-    this.container.classList.add('communities-list-view');
     this.container.innerHTML = '';
+    
+    // Create a view-specific container instead of modifying the main container's class
+    this.viewContainer = document.createElement('div');
+    this.viewContainer.className = 'communities-list-view';
+    this.container.appendChild(this.viewContainer);
     
     // Create header
     this.renderHeader();
@@ -56,7 +51,7 @@ class CommunitiesListView {
     // Create content container
     const contentContainer = document.createElement('div');
     contentContainer.className = 'communities-content';
-    this.container.appendChild(contentContainer);
+    this.viewContainer.appendChild(contentContainer);
     
     // Display loading state
     this.showLoading(contentContainer);
@@ -94,7 +89,7 @@ class CommunitiesListView {
         <input type="text" id="community-search" placeholder="Search communities..." autocomplete="off">
       </div>
     `;
-    this.container.appendChild(header);
+    this.viewContainer.appendChild(header);
     
     // Add event listener for search input
     const searchInput = header.querySelector('#community-search');
@@ -127,7 +122,7 @@ class CommunitiesListView {
       categoriesContainer.appendChild(btn);
     });
     
-    this.container.appendChild(categoriesContainer);
+    this.viewContainer.appendChild(categoriesContainer);
   }
 
   /**
@@ -151,11 +146,11 @@ class CommunitiesListView {
     `;
     
     // Insert after categories but before the main content
-    const categoriesContainer = this.container.querySelector('.community-categories');
+    const categoriesContainer = this.viewContainer.querySelector('.community-categories');
     if (categoriesContainer && categoriesContainer.nextSibling) {
-      this.container.insertBefore(featuredSection, categoriesContainer.nextSibling);
+      this.viewContainer.insertBefore(featuredSection, categoriesContainer.nextSibling);
     } else {
-      this.container.appendChild(featuredSection);
+      this.viewContainer.appendChild(featuredSection);
     }
   }
 
@@ -178,7 +173,7 @@ class CommunitiesListView {
    * Improved to handle layout better
    */
   updateFeaturedCommunities() {
-    const featuredSection = this.container.querySelector('#featured-communities');
+    const featuredSection = this.viewContainer.querySelector('#featured-communities');
     if (!featuredSection) return;
     
     // Hide featured section if not on 'all' category or if searching
@@ -301,7 +296,7 @@ class CommunitiesListView {
     
     // Sort and re-render communities
     this.sortCommunities();
-    this.renderCommunities(this.container.querySelector('.communities-content'));
+    this.renderCommunities(this.viewContainer.querySelector('.communities-content'));
     
     // Also update featured section
     this.updateFeaturedCommunities();
@@ -392,10 +387,10 @@ class CommunitiesListView {
           this.activeCategory = 'all';
           
           // Update UI
-          const searchInput = this.container.querySelector('#community-search');
+          const searchInput = this.viewContainer.querySelector('#community-search');
           if (searchInput) searchInput.value = '';
           
-          const categoryBtns = this.container.querySelectorAll('.category-btn');
+          const categoryBtns = this.viewContainer.querySelectorAll('.category-btn');
           categoryBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.category === 'all');
           });
@@ -615,14 +610,16 @@ class CommunitiesListView {
     this.currentUser = authService.getCurrentUser();
     
     // Reload subscriptions and re-render if the container exists
-    if (this.container) {
+    if (this.viewContainer) {
       if (this.currentUser) {
         this.loadUserSubscriptions().then(() => {
-          this.renderCommunities(this.container.querySelector('.communities-content'));
+          const contentEl = this.viewContainer.querySelector('.communities-content');
+          if (contentEl) this.renderCommunities(contentEl);
         });
       } else {
         this.subscribedCommunities.clear();
-        this.renderCommunities(this.container.querySelector('.communities-content'));
+        const contentEl = this.viewContainer.querySelector('.communities-content');
+        if (contentEl) this.renderCommunities(contentEl);
       }
     }
   }

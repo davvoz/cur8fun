@@ -9,8 +9,8 @@
   width: 100%;
 }
 
-/* Add a scoping class to prevent style leakage */
-.view-container .communities-list-view {
+/* Update this selector to work with proper nesting */
+#main-content .communities-list-view {
   max-width: 1200px;
 }
 
