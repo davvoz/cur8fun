@@ -104,8 +104,6 @@
 .search-suggestions {
     position: absolute;
     top: 36%;
-    left: 0;
-    right: 0;
     background: var(--background-light);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);

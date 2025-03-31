@@ -423,7 +423,7 @@ export class SearchService {
                         
                         // If that fails too, use default avatar
                         avatar.onerror = () => {
-                            avatar.src = 'assets/img/default_avatar.png';
+                            avatar.src = 'assets/img/default-avatar.png';
                         };
                     };
                     
