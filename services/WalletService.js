@@ -946,12 +946,19 @@ class WalletService {
    * @private
    */
   async _getAccountHistory(username, from = -1, limit = 1000) {
-    return new Promise((resolve, reject) => {
-      window.steem.api.getAccountHistory(username, from, limit, (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
+    try {
+      const steem = await steemService.ensureLibraryLoaded();
+      
+      return new Promise((resolve, reject) => {
+        steem.api.getAccountHistory(username, from, limit, (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
       });
-    });
+    } catch (error) {
+      console.error('Error loading Steem library:', error);
+      throw error;
+    }
   }
   
   /**
@@ -959,18 +966,25 @@ class WalletService {
    * @private
    */
   async _getPostDetails(author, permlink) {
-    return new Promise((resolve, reject) => {
-      window.steem.api.getContent(author, permlink, (err, post) => {
-        if (err) reject(err);
-        else {
-          // Get voters on this post
-          window.steem.api.getActiveVotes(author, permlink, (voteErr, votes) => {
-            if (voteErr) reject(voteErr);
-            else resolve({ post, votes });
-          });
-        }
+    try {
+      const steem = await steemService.ensureLibraryLoaded();
+      
+      return new Promise((resolve, reject) => {
+        steem.api.getContent(author, permlink, (err, post) => {
+          if (err) reject(err);
+          else {
+            // Get voters on this post
+            steem.api.getActiveVotes(author, permlink, (voteErr, votes) => {
+              if (voteErr) reject(voteErr);
+              else resolve({ post, votes });
+            });
+          }
+        });
       });
-    });
+    } catch (error) {
+      console.error('Error loading Steem library:', error);
+      throw error;
+    }
   }
 }
 

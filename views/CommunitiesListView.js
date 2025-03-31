@@ -8,6 +8,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 class CommunitiesListView {
   constructor() {
     this.container = null;
+    this.viewContainer = null; // Add a reference to the view-specific container
     this.communities = [];
     this.filteredCommunities = [];
     this.isLoading = true;
@@ -31,18 +32,12 @@ class CommunitiesListView {
 
   async render(container) {
     this.container = container;
-    
-    // Clear any previous view classes first
-    const oldClasses = [...this.container.classList];
-    oldClasses.forEach(cls => {
-      if (cls !== 'view-container' && cls !== 'app-content') {
-        this.container.classList.remove(cls);
-      }
-    });
-    
-    // Add the communities-list-view class
-    this.container.classList.add('communities-list-view');
     this.container.innerHTML = '';
+    
+    // Create a view-specific container instead of modifying the main container's class
+    this.viewContainer = document.createElement('div');
+    this.viewContainer.className = 'communities-list-view';
+    this.container.appendChild(this.viewContainer);
     
     // Create header
     this.renderHeader();
@@ -56,7 +51,7 @@ class CommunitiesListView {
     // Create content container
     const contentContainer = document.createElement('div');
     contentContainer.className = 'communities-content';
-    this.container.appendChild(contentContainer);
+    this.viewContainer.appendChild(contentContainer);
     
     // Display loading state
     this.showLoading(contentContainer);
@@ -94,7 +89,7 @@ class CommunitiesListView {
         <input type="text" id="community-search" placeholder="Search communities..." autocomplete="off">
       </div>
     `;
-    this.container.appendChild(header);
+    this.viewContainer.appendChild(header);
     
     // Add event listener for search input
     const searchInput = header.querySelector('#community-search');
@@ -127,7 +122,7 @@ class CommunitiesListView {
       categoriesContainer.appendChild(btn);
     });
     
-    this.container.appendChild(categoriesContainer);
+    this.viewContainer.appendChild(categoriesContainer);
   }
 
   /**
@@ -151,11 +146,11 @@ class CommunitiesListView {
     `;
     
     // Insert after categories but before the main content
-    const categoriesContainer = this.container.querySelector('.community-categories');
+    const categoriesContainer = this.viewContainer.querySelector('.community-categories');
     if (categoriesContainer && categoriesContainer.nextSibling) {
-      this.container.insertBefore(featuredSection, categoriesContainer.nextSibling);
+      this.viewContainer.insertBefore(featuredSection, categoriesContainer.nextSibling);
     } else {
-      this.container.appendChild(featuredSection);
+      this.viewContainer.appendChild(featuredSection);
     }
   }
 
@@ -178,7 +173,7 @@ class CommunitiesListView {
    * Improved to handle layout better
    */
   updateFeaturedCommunities() {
-    const featuredSection = this.container.querySelector('#featured-communities');
+    const featuredSection = this.viewContainer.querySelector('#featured-communities');
     if (!featuredSection) return;
     
     // Hide featured section if not on 'all' category or if searching
@@ -301,7 +296,7 @@ class CommunitiesListView {
     
     // Sort and re-render communities
     this.sortCommunities();
-    this.renderCommunities(this.container.querySelector('.communities-content'));
+    this.renderCommunities(this.viewContainer.querySelector('.communities-content'));
     
     // Also update featured section
     this.updateFeaturedCommunities();
@@ -383,6 +378,20 @@ class CommunitiesListView {
         </div>
       `;
       
+      // Add animation to the empty state
+      const emptyState = container.querySelector('.empty-state');
+      if (emptyState) {
+        emptyState.style.opacity = '0';
+        emptyState.style.transform = 'translateY(20px)';
+        
+        // Trigger animation after a small delay
+        setTimeout(() => {
+          emptyState.style.transition = 'all 0.5s ease';
+          emptyState.style.opacity = '1';
+          emptyState.style.transform = 'translateY(0)';
+        }, 100);
+      }
+      
       // Add event listener for reset button
       const resetBtn = container.querySelector('.reset-filters');
       if (resetBtn) {
@@ -392,16 +401,31 @@ class CommunitiesListView {
           this.activeCategory = 'all';
           
           // Update UI
-          const searchInput = this.container.querySelector('#community-search');
+          const searchInput = this.viewContainer.querySelector('#community-search');
           if (searchInput) searchInput.value = '';
           
-          const categoryBtns = this.container.querySelectorAll('.category-btn');
+          const categoryBtns = this.viewContainer.querySelectorAll('.category-btn');
           categoryBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.category === 'all');
           });
           
           // Refilter
           this.filterCommunities();
+        });
+        
+        // Add ripple effect to button
+        resetBtn.addEventListener('mousedown', function(e) {
+          const x = e.clientX - e.target.getBoundingClientRect().left;
+          const y = e.clientY - e.target.getBoundingClientRect().top;
+          
+          const ripple = document.createElement('span');
+          ripple.className = 'ripple-effect';
+          ripple.style.left = `${x}px`;
+          ripple.style.top = `${y}px`;
+          
+          this.appendChild(ripple);
+          
+          setTimeout(() => ripple.remove(), 600);
         });
       }
       
@@ -421,7 +445,7 @@ class CommunitiesListView {
   }
 
   /**
-   * Create a community card - with an optimized featured style
+   * Create a community card - with enhanced animations and effects
    */
   createCommunityCard(community, isFeatured = false) {
     const card = document.createElement('div');
@@ -455,8 +479,11 @@ class CommunitiesListView {
     if (isFeatured) {
       card.innerHTML = `
         <div class="community-card-header compact">
-          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
-               onerror="this.src='./assets/img/default-avatar.png'">
+          <div class="avatar-container">
+            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
+                onerror="this.src='./assets/img/default-avatar.png'">
+            <div class="avatar-glow"></div>
+          </div>
           <div>
             <h3 class="community-title">${community.title || community.name}</h3>
             <span class="featured-badge"><span class="material-icons">star</span> Featured</span>
@@ -474,10 +501,14 @@ class CommunitiesListView {
         </div>
       `;
     } else {
-      // Regular card layout (your existing code)
+      // Regular card layout with enhanced styling
       card.innerHTML = `
         <div class="community-card-header">
-          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" onerror="this.src='./assets/img/default-avatar.png'">
+          <div class="avatar-container">
+            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
+                onerror="this.src='./assets/img/default-avatar.png'">
+            <div class="avatar-glow"></div>
+          </div>
           <h3 class="community-title">${community.title || community.name}</h3>
         </div>
         <div class="community-card-body">
@@ -502,9 +533,24 @@ class CommunitiesListView {
       `;
     }
     
-    // Add event listeners (existing code)
+    // Add event listeners
     const subscribeBtn = card.querySelector('.subscribe-btn');
     if (subscribeBtn) {
+      // Add ripple effect to button
+      subscribeBtn.addEventListener('mousedown', function(e) {
+        const x = e.clientX - this.getBoundingClientRect().left;
+        const y = e.clientY - this.getBoundingClientRect().top;
+        
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-effect';
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        
+        this.appendChild(ripple);
+        
+        setTimeout(() => ripple.remove(), 600);
+      });
+      
       subscribeBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent card click
         this.handleSubscribeToggle(subscribeBtn, communityId, isSubscribed);
@@ -615,14 +661,16 @@ class CommunitiesListView {
     this.currentUser = authService.getCurrentUser();
     
     // Reload subscriptions and re-render if the container exists
-    if (this.container) {
+    if (this.viewContainer) {
       if (this.currentUser) {
         this.loadUserSubscriptions().then(() => {
-          this.renderCommunities(this.container.querySelector('.communities-content'));
+          const contentEl = this.viewContainer.querySelector('.communities-content');
+          if (contentEl) this.renderCommunities(contentEl);
         });
       } else {
         this.subscribedCommunities.clear();
-        this.renderCommunities(this.container.querySelector('.communities-content'));
+        const contentEl = this.viewContainer.querySelector('.communities-content');
+        if (contentEl) this.renderCommunities(contentEl);
       }
     }
   }

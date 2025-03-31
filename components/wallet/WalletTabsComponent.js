@@ -9,7 +9,7 @@ export default class WalletTabsComponent extends Component {
   constructor(parentElement, options = {}) {
     super(parentElement, options);
     this.tabs = {};
-    this.activeTab = 'transfer';
+    this.activeTab = 'history';
     this.handleTabClick = this.handleTabClick.bind(this);
   }
   
@@ -22,12 +22,12 @@ export default class WalletTabsComponent extends Component {
     const tabButtonsContainer = document.createElement('div');
     tabButtonsContainer.className = 'tab-buttons';
     
-    // Define tab data - Removed the rewards tab
+    // Define tab data - Moved history to first position
     const tabData = [
-      { id: 'transfer', label: 'Transfer', isActive: true },
+      { id: 'history', label: 'History', isActive: true },
+      { id: 'transfer', label: 'Transfer', isActive: false },
       { id: 'power', label: 'Power Up/Down', isActive: false },
       { id: 'delegate', label: 'Delegate', isActive: false },
-      { id: 'history', label: 'History', isActive: false },
       { id: 'curation', label: 'Curation', isActive: false }
     ];
     
@@ -56,7 +56,7 @@ export default class WalletTabsComponent extends Component {
     this.parentElement.appendChild(this.element);
     
     // Initialize the default tab
-    this.initializeTab('transfer');
+    this.initializeTab('history');
     
     return this.element;
   }
