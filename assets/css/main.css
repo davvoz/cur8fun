@@ -49,7 +49,7 @@
 @import 'layout/profile-cards.css';
 @import 'pages/search.css';
 @import 'pages/login.css';
-
+@import 'pages/notifications.css';
 /* Mobile search button in header */
 .mobile-search-button {
     display: none;
