@@ -378,6 +378,20 @@ class CommunitiesListView {
         </div>
       `;
       
+      // Add animation to the empty state
+      const emptyState = container.querySelector('.empty-state');
+      if (emptyState) {
+        emptyState.style.opacity = '0';
+        emptyState.style.transform = 'translateY(20px)';
+        
+        // Trigger animation after a small delay
+        setTimeout(() => {
+          emptyState.style.transition = 'all 0.5s ease';
+          emptyState.style.opacity = '1';
+          emptyState.style.transform = 'translateY(0)';
+        }, 100);
+      }
+      
       // Add event listener for reset button
       const resetBtn = container.querySelector('.reset-filters');
       if (resetBtn) {
@@ -398,6 +412,21 @@ class CommunitiesListView {
           // Refilter
           this.filterCommunities();
         });
+        
+        // Add ripple effect to button
+        resetBtn.addEventListener('mousedown', function(e) {
+          const x = e.clientX - e.target.getBoundingClientRect().left;
+          const y = e.clientY - e.target.getBoundingClientRect().top;
+          
+          const ripple = document.createElement('span');
+          ripple.className = 'ripple-effect';
+          ripple.style.left = `${x}px`;
+          ripple.style.top = `${y}px`;
+          
+          this.appendChild(ripple);
+          
+          setTimeout(() => ripple.remove(), 600);
+        });
       }
       
       return;
@@ -416,7 +445,7 @@ class CommunitiesListView {
   }
 
   /**
-   * Create a community card - with an optimized featured style
+   * Create a community card - with enhanced animations and effects
    */
   createCommunityCard(community, isFeatured = false) {
     const card = document.createElement('div');
@@ -450,8 +479,11 @@ class CommunitiesListView {
     if (isFeatured) {
       card.innerHTML = `
         <div class="community-card-header compact">
-          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
-               onerror="this.src='./assets/img/default-avatar.png'">
+          <div class="avatar-container">
+            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
+                onerror="this.src='./assets/img/default-avatar.png'">
+            <div class="avatar-glow"></div>
+          </div>
           <div>
             <h3 class="community-title">${community.title || community.name}</h3>
             <span class="featured-badge"><span class="material-icons">star</span> Featured</span>
@@ -469,10 +501,14 @@ class CommunitiesListView {
         </div>
       `;
     } else {
-      // Regular card layout (your existing code)
+      // Regular card layout with enhanced styling
       card.innerHTML = `
         <div class="community-card-header">
-          <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" onerror="this.src='./assets/img/default-avatar.png'">
+          <div class="avatar-container">
+            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
+                onerror="this.src='./assets/img/default-avatar.png'">
+            <div class="avatar-glow"></div>
+          </div>
           <h3 class="community-title">${community.title || community.name}</h3>
         </div>
         <div class="community-card-body">
@@ -497,9 +533,24 @@ class CommunitiesListView {
       `;
     }
     
-    // Add event listeners (existing code)
+    // Add event listeners
     const subscribeBtn = card.querySelector('.subscribe-btn');
     if (subscribeBtn) {
+      // Add ripple effect to button
+      subscribeBtn.addEventListener('mousedown', function(e) {
+        const x = e.clientX - this.getBoundingClientRect().left;
+        const y = e.clientY - this.getBoundingClientRect().top;
+        
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-effect';
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        
+        this.appendChild(ripple);
+        
+        setTimeout(() => ripple.remove(), 600);
+      });
+      
       subscribeBtn.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent card click
         this.handleSubscribeToggle(subscribeBtn, communityId, isSubscribed);
