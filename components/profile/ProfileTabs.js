@@ -11,6 +11,11 @@ export default class ProfileTabs {
     this.onTabChange = onTabChange;
     this.container = null;
     this.username = username;
+    this.contentContainers = {
+      posts: null,
+      comments: null,
+      wallet: null
+    };
   }
   
   // Helper to extract username from URL
@@ -23,6 +28,13 @@ export default class ProfileTabs {
     this.container = container;
     const tabsContainer = this.createProfileTabs();
     container.appendChild(tabsContainer);
+    
+    // Create content containers for each tab
+    this.createContentContainers(container);
+    
+    // Initialize visibility based on current tab
+    this.updateContentVisibility();
+    
     return tabsContainer;
   }
   
@@ -52,6 +64,36 @@ export default class ProfileTabs {
     return tabsContainer;
   }
   
+  createContentContainers(parentContainer) {
+    // Find or create content containers for each tab
+    Object.keys(this.contentContainers).forEach(tabName => {
+      // Check if container already exists
+      let contentContainer = parentContainer.querySelector(`.profile-tab-content.${tabName}-tab-content`);
+      
+      // Create if it doesn't exist
+      if (!contentContainer) {
+        contentContainer = document.createElement('div');
+        contentContainer.className = `profile-tab-content ${tabName}-tab-content`;
+        parentContainer.appendChild(contentContainer);
+      }
+      
+      this.contentContainers[tabName] = contentContainer;
+    });
+  }
+  
+  updateContentVisibility() {
+    // Hide all content containers first
+    Object.entries(this.contentContainers).forEach(([tabName, container]) => {
+      if (container) {
+        if (tabName === this.currentTab) {
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
+        }
+      }
+    });
+  }
+  
   switchTab(tabName) {
     if (this.currentTab === tabName) return;
 
@@ -69,6 +111,9 @@ export default class ProfileTabs {
     // Update current tab
     this.currentTab = tabName;
     
+    // Update content visibility
+    this.updateContentVisibility();
+    
     // Cache the tab selection for this username
     if (this.username) {
       ProfileTabs.activeTabCache[this.username] = tabName;
@@ -82,5 +127,22 @@ export default class ProfileTabs {
   
   getCurrentTab() {
     return this.currentTab;
+  }
+  
+  // New method to get content container for a specific tab
+  getContentContainer(tabName) {
+    return this.contentContainers[tabName] || null;
+  }
+  
+  // New method to set active tab programmatically
+  setActiveTab(tabName) {
+    if (Object.keys(this.contentContainers).includes(tabName)) {
+      this.switchTab(tabName);
+    }
+  }
+  
+  // Check if a specific tab is active
+  isTabActive(tabName) {
+    return this.currentTab === tabName;
   }
 }

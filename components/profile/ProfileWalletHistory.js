@@ -46,7 +46,8 @@ export default class ProfileWalletHistory extends Component {
     
     // Crea il layout principale
     const walletHistoryContainer = document.createElement('div');
-    walletHistoryContainer.className = 'wallet-history-container';
+    walletHistoryContainer.className = 'wallet-list-container profile-wallet-container';
+    walletHistoryContainer.style.width = '100%';
     
     // Intestazione
     const header = document.createElement('div');
@@ -101,6 +102,9 @@ export default class ProfileWalletHistory extends Component {
     
     // Aggiungi al container
     container.appendChild(walletHistoryContainer);
+    
+    // Update container reference for internal operations
+    this.container = walletHistoryContainer;
     
     // Carica le transazioni e i dati del portafoglio
     this.loadWalletData();

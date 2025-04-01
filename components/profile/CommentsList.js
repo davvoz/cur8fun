@@ -35,18 +35,26 @@ export default class CommentsList extends BasePostView {
     
     console.log(`Rendering CommentsList for @${this.username}`);
     
+    // Make sure we're rendering in a cleared container
+    container.innerHTML = '';
+    
+    // Create a comments container with appropriate class
+    this.commentsContainer = document.createElement('div');
+    this.commentsContainer.className = 'comments-container card-layout grid-layout-list';
+    this.commentsContainer.style.width = '100%';
+    container.appendChild(this.commentsContainer);
+    
     // Maintain compatibility properties
-    this.container = container;
-    this.commentsContainer = container;
+    this.container = this.commentsContainer;
     
     // Reset state completamente
     this.reset();
     
     // Initialize UI manager if needed
-    this._uiManager = new CommentUIManager(container, this._renderer);
+    this._uiManager = new CommentUIManager(this.commentsContainer, this._renderer);
     
     // Add retry handler
-    container.addEventListener('retry-comments', () => {
+    this.commentsContainer.addEventListener('retry-comments', () => {
       this._loadComments();
     });
     
