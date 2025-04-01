@@ -62,6 +62,7 @@ export default class CommentsList extends BasePostView {
   async _loadComments() {
     try {
       this.loading = true;
+      console.log(`[CommentsList] Inizio caricamento commenti per @${this.username}`);
       
       // Create and show loading indicator
       if (!this.loadingIndicator) {
@@ -74,6 +75,21 @@ export default class CommentsList extends BasePostView {
       
       // Hide loading indicator
       this.loadingIndicator.hide();
+      
+      console.log(`[CommentsList] Caricati ${comments.length} commenti per @${this.username}`);
+      console.log(`[CommentsList] Contenuto commenti:`, comments);
+      
+      if (comments.length > 0) {
+        console.log(`[CommentsList] Primo commento:`, {
+          author: comments[0].author,
+          permlink: comments[0].permlink,
+          title: comments[0].title || 'N/A',
+          created: comments[0].created,
+          votes: comments[0].net_votes
+        });
+      } else {
+        console.log(`[CommentsList] Nessun commento trovato per @${this.username}`);
+      }
       
       // Aggiorna la cache locale temporanea
       this.commentCache.clear();
@@ -90,6 +106,7 @@ export default class CommentsList extends BasePostView {
       this.renderLoadedComments();
       
     } catch (error) {
+      console.error(`[CommentsList] Errore nel caricamento commenti:`, error);
       // Hide loading indicator
       if (this.loadingIndicator) this.loadingIndicator.hide();
       this._uiManager.showError(error);
@@ -99,15 +116,23 @@ export default class CommentsList extends BasePostView {
   }
 
   async renderLoadedComments() {
-    if (!this.commentsContainer) return;
+    if (!this.commentsContainer) {
+      console.warn(`[CommentsList] Container commenti mancante`);
+      return;
+    }
     
     try {
+      console.log(`[CommentsList] Rendering ${this.allComments?.length || 0} commenti`);
+      
       // Apply current layout
       const currentLayout = this.gridController.settings.layout || 'grid';
-      this._uiManager.setupLayout(currentLayout, { useCardLayout: true }); // Add card layout option
+      console.log(`[CommentsList] Layout corrente: ${currentLayout}`);
+      
+      this._uiManager.setupLayout(currentLayout, { useCardLayout: true });
       
       // If no comments, show message
       if (!this.allComments || this.allComments.length === 0) {
+        console.log(`[CommentsList] Nessun commento da mostrare per @${this.username}`);
         this.commentsContainer.innerHTML += `
           <div class="empty-comments-message">
             @${this.username} non ha ancora pubblicato commenti.
@@ -118,10 +143,12 @@ export default class CommentsList extends BasePostView {
       
       // Create wrapper for comments
       const commentsWrapper = this._uiManager.createCommentsWrapper(currentLayout);
-      commentsWrapper.classList.add('comments-grid'); // Add grid class for styling
+      commentsWrapper.classList.add('comments-grid');
+      console.log(`[CommentsList] Creato wrapper commenti con layout ${currentLayout}`);
       
       // Render initial comments with card layout option
       this._uiManager.renderComments(this.allComments, commentsWrapper);
+      console.log(`[CommentsList] Renderizzati ${this.allComments.length} commenti`);
       
       // Setup infinite scroll
       this._setupInfiniteScroll(commentsWrapper);
@@ -129,14 +156,16 @@ export default class CommentsList extends BasePostView {
       // Apply grid layout
       this.gridController.target = this.commentsContainer;
       this.gridController.applySettings();
+      console.log(`[CommentsList] Layout griglia applicato`);
       
       // Dispatch event that comments are ready
       window.dispatchEvent(new CustomEvent('comments-rendered', {
         detail: { container: this.commentsContainer }
       }));
+      console.log(`[CommentsList] Evento comments-rendered emesso`);
       
     } catch (error) {
-      console.error('Error rendering comments:', error);
+      console.error('[CommentsList] Error rendering comments:', error);
       this._uiManager.showError(error);
     }
   }

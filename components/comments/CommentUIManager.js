@@ -57,11 +57,19 @@ export default class CommentUIManager {
     }
   }
 
-  setupLayout(layout) {
+  setupLayout(layout, options = {}) {
     if (!this.container) return;
+    
+    console.log(`[CommentUIManager] Setting up layout: ${layout}, useCardLayout: ${options.useCardLayout}`);
     
     this.container.innerHTML = '';
     this.container.className = `comments-container grid-layout-${layout}`;
+    
+    // Add additional classes for card layout if specified
+    if (options.useCardLayout) {
+      this.container.classList.add('card-layout');
+      console.log(`[CommentUIManager] Added card-layout class`);
+    }
   }
 
   createCommentsWrapper(layout) {
@@ -69,17 +77,35 @@ export default class CommentUIManager {
     wrapper.className = 'comments-cards-wrapper';
     wrapper.classList.add(`layout-${layout}`);
     this.container.appendChild(wrapper);
+    
+    console.log(`[CommentUIManager] Created comments wrapper with layout: ${layout}`);
+    
     return wrapper;
   }
 
   renderComments(comments, container) {
-    if (!comments || comments.length === 0 || !container) return;
+    if (!comments || comments.length === 0 || !container) {
+      console.warn(`[CommentUIManager] No comments to render or no container`);
+      return;
+    }
     
-    comments.forEach(comment => {
+    console.log(`[CommentUIManager] Rendering ${comments.length} comments`);
+    
+    comments.forEach((comment, index) => {
+      // Log dettagli del commento
+      console.log(`[CommentUIManager] Rendering comment ${index + 1}/${comments.length}:`, {
+        id: `${comment.author}_${comment.permlink}`,
+        author: comment.author,
+        created: comment.created,
+        votes: comment.net_votes || 0
+      });
+      
       // Create a post-like card for the comment
       const commentCard = this._createPostLikeCommentCard(comment);
       container.appendChild(commentCard);
     });
+    
+    console.log(`[CommentUIManager] Completed rendering ${comments.length} comments`);
   }
 
   _createPostLikeCommentCard(comment) {

@@ -3,6 +3,7 @@ import PostRenderer from '../posts/PostRenderer.js';
 import PostLoader from '../posts/PostLoader.js';
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
 import LoadingIndicator from '../LoadingIndicator.js';
+import GridController from '../GridController.js'; // Add explicit import for GridController
 
 export default class PostsList extends BasePostView {
   constructor(username, useCache = false) {
@@ -23,6 +24,13 @@ export default class PostsList extends BasePostView {
 
     // Add a specific loading indicator for infinite scroll
     this.infiniteScrollLoader = null;
+    
+    // Explicitly initialize the grid controller if not already done by BasePostView
+    if (!this.gridController) {
+      this.gridController = new GridController({
+        targetSelector: '.posts-container'
+      });
+    }
   }
 
   async render(container) {
@@ -37,17 +45,23 @@ export default class PostsList extends BasePostView {
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'content-wrapper';
     
+    // Create grid controller container
+    const gridControllerContainer = document.createElement('div');
+    gridControllerContainer.className = 'grid-controller-container';
+    
     // Create posts container
     const postsContainer = document.createElement('div');
     postsContainer.className = 'posts-container';
     
     // Add to content wrapper
+    contentWrapper.appendChild(gridControllerContainer);
     contentWrapper.appendChild(postsContainer);
     
     // Add to main container
     container.appendChild(contentWrapper);
     
-    // No separate grid controller rendering - it's handled by BasePostView
+    // Explicitly render the grid controller
+    this.renderGridController(gridControllerContainer);
     
     // If we already have posts (from cache) and useCache is enabled, render them
     if (this.useCache && this.posts.length > 0) {
@@ -56,6 +70,23 @@ export default class PostsList extends BasePostView {
       // Otherwise load posts fresh
       this.loadPosts(1);
     }
+  }
+  
+  // Add method to render grid controller
+  renderGridController(container) {
+    if (!container || !this.gridController) return;
+    
+    console.log('Rendering grid controller for posts list');
+    this.gridController.render(container);
+    
+    // Set target explicitly to ensure it works correctly
+    setTimeout(() => {
+      const postsContainer = this.container?.querySelector('.posts-container');
+      if (postsContainer) {
+        this.gridController.target = postsContainer;
+        this.gridController.applySettings();
+      }
+    }, 100);
   }
   
   async loadPosts(page = 1) {
@@ -260,6 +291,11 @@ export default class PostsList extends BasePostView {
     this.currentPage = 1;
     // Reload posts when called
     this.loadPosts(1);
+    
+    // Make sure grid controller settings are applied
+    if (this.gridController) {
+      this.gridController.applySettings();
+    }
   }
   
   /**

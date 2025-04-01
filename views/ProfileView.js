@@ -345,7 +345,15 @@ class ProfileView extends View {
           postsGridContainer, 
           [commentsGridContainer, walletGridContainer]
         );
+        
+        // Se necessario, forza aggiornamento dei post
+        if (this.postsComponent) {
+          setTimeout(() => {
+            this.postsComponent.refreshGridLayout();
+          }, 50);
+        }
         break;
+        
       case 'comments':
         this.updateContainerVisibility(
           commentsContainer, 
@@ -353,7 +361,19 @@ class ProfileView extends View {
           commentsGridContainer, 
           [postsGridContainer, walletGridContainer]
         );
+        
+        // Forziamo sempre il render dei commenti quando si passa a questa tab
+        console.log(`[ProfileView] Forza rendering dei commenti`);
+        if (this.commentsComponent && commentsContainer) {
+          // Reset e render per garantire che i commenti siano sempre aggiornati
+          this.commentsComponent.reset();
+          this.commentsComponent.render(commentsContainer);
+          this.commentsLoaded = true;
+        } else {
+          console.error('[ProfileView] CommentsComponent o container mancante');
+        }
         break;
+        
       case 'wallet':
         this.updateContainerVisibility(
           walletContainer, 
