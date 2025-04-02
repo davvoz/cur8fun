@@ -3,6 +3,7 @@ import CommentRenderer from '../comments/CommentRenderer.js';
 import CommentLoader from '../comments/CommentLoader.js';
 import CommentUIManager from '../comments/CommentUIManager.js';
 import LoadingIndicator from '../LoadingIndicator.js';
+import GridController from '../GridController.js'; // Add explicit import for GridController
 
 export default class CommentsList extends BasePostView {
   constructor(username, useCache = false) {
@@ -28,6 +29,13 @@ export default class CommentsList extends BasePostView {
     this.commentsPerPage = 20;
     this.currentPage = 1;
     this.commentCache = new Map(); // Cache temporanea solo per la sessione corrente
+    
+    // Explicitly initialize the grid controller if not already done by BasePostView
+    if (!this.gridController) {
+      this.gridController = new GridController({
+        targetSelector: '.comments-container'
+      });
+    }
   }
 
   async render(container) {
@@ -35,36 +43,64 @@ export default class CommentsList extends BasePostView {
     
     console.log(`Rendering CommentsList for @${this.username}`);
     
-    // Make sure we're rendering in a cleared container
-    container.innerHTML = '';
-    
-    // Create a comments container with appropriate class
-    this.commentsContainer = document.createElement('div');
-    this.commentsContainer.className = 'comments-container card-layout grid-layout-list';
-    this.commentsContainer.style.width = '100%';
-    container.appendChild(this.commentsContainer);
-    
     // Maintain compatibility properties
-    this.container = this.commentsContainer;
+    this.container = container;
+    
+    // Create content structure
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'content-wrapper';
+    
+    // Create grid controller container
+    const gridControllerContainer = document.createElement('div');
+    gridControllerContainer.className = 'grid-controller-container';
+    
+    // Create comments container
+    const commentsContainer = document.createElement('div');
+    commentsContainer.className = 'comments-container';
+    
+    // Add to content wrapper
+    contentWrapper.appendChild(gridControllerContainer);
+    contentWrapper.appendChild(commentsContainer);
+    
+    // Add to main container
+    container.appendChild(contentWrapper);
+    
+    // Update the commentsContainer reference
+    this.commentsContainer = commentsContainer;
+    
+    // Explicitly render the grid controller
+    this.renderGridController(gridControllerContainer);
     
     // Reset state completamente
     this.reset();
     
     // Initialize UI manager if needed
-    this._uiManager = new CommentUIManager(this.commentsContainer, this._renderer);
+    this._uiManager = new CommentUIManager(commentsContainer, this._renderer);
     
     // Add retry handler
-    this.commentsContainer.addEventListener('retry-comments', () => {
+    commentsContainer.addEventListener('retry-comments', () => {
       this._loadComments();
     });
     
     // Carica sempre i commenti da zero
     await this._loadComments();
   }
-
-  _restoreFromCache() {
-    // Non ripristiniamo più dalla cache
-    return false;
+  
+  // Add method to render grid controller
+  renderGridController(container) {
+    if (!container || !this.gridController) return;
+    
+    console.log('Rendering grid controller for comments list');
+    this.gridController.render(container);
+    
+    // Set target explicitly to ensure it works correctly
+    setTimeout(() => {
+      const commentsContainer = this.container?.querySelector('.comments-container');
+      if (commentsContainer) {
+        this.gridController.target = commentsContainer;
+        this.gridController.applySettings();
+      }
+    }, 100);
   }
 
   async _loadComments() {
@@ -269,6 +305,11 @@ export default class CommentsList extends BasePostView {
     
     // Always reload if we're coming back to this view
     this._loadComments();
+    
+    // Make sure grid controller settings are applied
+    if (this.gridController) {
+      this.gridController.applySettings();
+    }
   }
 
   unmount() {
