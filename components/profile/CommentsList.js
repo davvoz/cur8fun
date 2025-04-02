@@ -3,6 +3,7 @@ import CommentRenderer from '../comments/CommentRenderer.js';
 import CommentLoader from '../comments/CommentLoader.js';
 import CommentUIManager from '../comments/CommentUIManager.js';
 import LoadingIndicator from '../LoadingIndicator.js';
+import GridController from '../GridController.js'; // Add explicit import for GridController
 
 export default class CommentsList extends BasePostView {
   constructor(username, useCache = false) {
@@ -15,6 +16,7 @@ export default class CommentsList extends BasePostView {
     this._loader = new CommentLoader(username);
     this._uiManager = null;
     this.loadingIndicator = null;
+    this.infiniteScrollLoader = null;
 
     // Maintain original properties for compatibility
     this.commentsData = null;
@@ -22,12 +24,18 @@ export default class CommentsList extends BasePostView {
     this.allComments = [];
     this.loading = false;
     this.container = null;
-    this.commentsContainer = null;
     
     // Pagination settings for rendering
     this.commentsPerPage = 20;
     this.currentPage = 1;
     this.commentCache = new Map(); // Cache temporanea solo per la sessione corrente
+    
+    // Explicitly initialize the grid controller if not already done by BasePostView
+    if (!this.gridController) {
+      this.gridController = new GridController({
+        targetSelector: '.comments-container'
+      });
+    }
   }
 
   async render(container) {
@@ -35,36 +43,61 @@ export default class CommentsList extends BasePostView {
     
     console.log(`Rendering CommentsList for @${this.username}`);
     
-    // Make sure we're rendering in a cleared container
-    container.innerHTML = '';
+    // Store container reference
+    this.container = container;
     
-    // Create a comments container with appropriate class
-    this.commentsContainer = document.createElement('div');
-    this.commentsContainer.className = 'comments-container card-layout grid-layout-list';
-    this.commentsContainer.style.width = '100%';
-    container.appendChild(this.commentsContainer);
+    // Create content structure
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'content-wrapper';
     
-    // Maintain compatibility properties
-    this.container = this.commentsContainer;
+    // Create grid controller container
+    const gridControllerContainer = document.createElement('div');
+    gridControllerContainer.className = 'grid-controller-container';
+    
+    // Create comments container
+    const commentsContainer = document.createElement('div');
+    commentsContainer.className = 'comments-container';
+    
+    // Add to content wrapper
+    contentWrapper.appendChild(gridControllerContainer);
+    contentWrapper.appendChild(commentsContainer);
+    
+    // Add to main container
+    container.appendChild(contentWrapper);
+    
+    // Explicitly render the grid controller
+    this.renderGridController(gridControllerContainer);
     
     // Reset state completamente
     this.reset();
     
     // Initialize UI manager if needed
-    this._uiManager = new CommentUIManager(this.commentsContainer, this._renderer);
+    this._uiManager = new CommentUIManager(commentsContainer, this._renderer);
     
     // Add retry handler
-    this.commentsContainer.addEventListener('retry-comments', () => {
+    commentsContainer.addEventListener('retry-comments', () => {
       this._loadComments();
     });
     
     // Carica sempre i commenti da zero
     await this._loadComments();
   }
-
-  _restoreFromCache() {
-    // Non ripristiniamo più dalla cache
-    return false;
+  
+  // Add method to render grid controller
+  renderGridController(container) {
+    if (!container || !this.gridController) return;
+    
+    console.log('Rendering grid controller for comments list');
+    this.gridController.render(container);
+    
+    // Set target explicitly to ensure it works correctly
+    setTimeout(() => {
+      const commentsContainer = this.container?.querySelector('.comments-container');
+      if (commentsContainer) {
+        this.gridController.target = commentsContainer;
+        this.gridController.applySettings();
+      }
+    }, 100);
   }
 
   async _loadComments() {
@@ -76,7 +109,15 @@ export default class CommentsList extends BasePostView {
       if (!this.loadingIndicator) {
         this.loadingIndicator = new LoadingIndicator('spinner');
       }
-      this.loadingIndicator.show(this.commentsContainer, `Loading comments from @${this.username}...`);
+      
+      // Get the comments container
+      const commentsContainer = this.container?.querySelector('.comments-container');
+      if (!commentsContainer) {
+        console.warn('No comments container found for loading');
+        return;
+      }
+      
+      this.loadingIndicator.show(commentsContainer, `Loading comments from @${this.username}...`);
       
       // Carica la prima pagina di commenti
       const comments = await this._loader.loadComments(this.commentsPerPage, 1);
@@ -117,20 +158,30 @@ export default class CommentsList extends BasePostView {
       console.error(`[CommentsList] Errore nel caricamento commenti:`, error);
       // Hide loading indicator
       if (this.loadingIndicator) this.loadingIndicator.hide();
-      this._uiManager.showError(error);
+      
+      // Get comments container for showing error
+      const commentsContainer = this.container?.querySelector('.comments-container');
+      if (commentsContainer && this._uiManager) {
+        this._uiManager.showError(error);
+      }
     } finally {
       this.loading = false;
     }
   }
 
   async renderLoadedComments() {
-    if (!this.commentsContainer) {
+    // Get the comments container
+    const commentsContainer = this.container?.querySelector('.comments-container');
+    if (!commentsContainer) {
       console.warn(`[CommentsList] Container commenti mancante`);
       return;
     }
     
     try {
       console.log(`[CommentsList] Rendering ${this.allComments?.length || 0} commenti`);
+      
+      // Clear container before adding new content
+      commentsContainer.innerHTML = '';
       
       // Apply current layout
       const currentLayout = this.gridController.settings.layout || 'grid';
@@ -141,17 +192,20 @@ export default class CommentsList extends BasePostView {
       // If no comments, show message
       if (!this.allComments || this.allComments.length === 0) {
         console.log(`[CommentsList] Nessun commento da mostrare per @${this.username}`);
-        this.commentsContainer.innerHTML += `
-          <div class="empty-comments-message">
-            @${this.username} non ha ancora pubblicato commenti.
-          </div>
-        `;
+        this.renderNoCommentsMessage(commentsContainer);
         return;
       }
       
       // Create wrapper for comments
       const commentsWrapper = this._uiManager.createCommentsWrapper(currentLayout);
       commentsWrapper.classList.add('comments-grid');
+      
+      // Explicitly add the layout class to the wrapper
+      commentsWrapper.classList.add(`grid-layout-${currentLayout}`);
+      
+      // Make sure the wrapper is appended to the container
+      commentsContainer.appendChild(commentsWrapper);
+      
       console.log(`[CommentsList] Creato wrapper commenti con layout ${currentLayout}`);
       
       // Render initial comments with card layout option
@@ -161,21 +215,36 @@ export default class CommentsList extends BasePostView {
       // Setup infinite scroll
       this._setupInfiniteScroll(commentsWrapper);
       
-      // Apply grid layout
-      this.gridController.target = this.commentsContainer;
-      this.gridController.applySettings();
-      console.log(`[CommentsList] Layout griglia applicato`);
+      // IMPORTANT: Set the grid controller target to the comments wrapper, not the container
+      setTimeout(() => {
+        // Update target to commentsWrapper instead of commentsContainer
+        this.gridController.target = commentsWrapper;
+        this.gridController.applySettings();
+        console.log(`[CommentsList] Layout griglia applicato al wrapper dei commenti`);
+      }, 300);
       
       // Dispatch event that comments are ready
       window.dispatchEvent(new CustomEvent('comments-rendered', {
-        detail: { container: this.commentsContainer }
+        detail: { container: commentsContainer, wrapper: commentsWrapper }
       }));
       console.log(`[CommentsList] Evento comments-rendered emesso`);
       
     } catch (error) {
       console.error('[CommentsList] Error rendering comments:', error);
-      this._uiManager.showError(error);
+      if (this._uiManager) {
+        this._uiManager.showError(error);
+      }
     }
+  }
+
+  renderNoCommentsMessage(container) {
+    const noCommentsMessage = document.createElement('div');
+    noCommentsMessage.className = 'no-comments-message';
+    noCommentsMessage.innerHTML = `
+      <h3>No comments found</h3>
+      <p>@${this.username} hasn't published any comments yet.</p>
+    `;
+    container.appendChild(noCommentsMessage);
   }
 
   _setupInfiniteScroll(commentsWrapper) {
@@ -184,7 +253,16 @@ export default class CommentsList extends BasePostView {
     console.log(`Setting up infinite scroll with current page ${this.currentPage}`);
     
     // Create progress bar loading indicator for infinite scroll
-    const infiniteScrollLoader = new LoadingIndicator('progressBar');
+    if (!this.infiniteScrollLoader) {
+      this.infiniteScrollLoader = new LoadingIndicator('progressBar');
+    }
+    
+    // Get the comments container
+    const commentsContainer = this.container?.querySelector('.comments-container');
+    if (!commentsContainer) {
+      console.warn('No comments container found for infinite scroll setup');
+      return;
+    }
     
     // Setup the infinite scroll
     this._uiManager.setupInfiniteScroll(async (page) => {
@@ -192,13 +270,13 @@ export default class CommentsList extends BasePostView {
         console.log(`Loading more comments for page ${page}`);
         
         // Show loading progress
-        infiniteScrollLoader.show(this.commentsContainer);
+        this.infiniteScrollLoader.show(commentsContainer);
         
         // Carica più commenti tramite il loader
         const newComments = await this._loader.loadMoreComments(page);
         
         // Hide loading progress
-        infiniteScrollLoader.hide();
+        this.infiniteScrollLoader.hide();
         
         if (newComments && newComments.length > 0) {
           console.log(`Loaded ${newComments.length} new comments for page ${page}`);
@@ -216,8 +294,11 @@ export default class CommentsList extends BasePostView {
           
           // Apply grid layout again to include new items
           setTimeout(() => {
+            // Use commentsWrapper as target instead of commentsContainer
+            this.gridController.target = commentsWrapper;
             this.gridController.applySettings();
-          }, 100);
+            console.log(`Grid layout reapplied to wrapper after loading page ${page}`);
+          }, 300); // Increased timeout
           
           // Ritorna se ci sono altri commenti da caricare
           const hasMore = this._loader.hasMore();
@@ -229,7 +310,7 @@ export default class CommentsList extends BasePostView {
         }
       } catch (error) {
         console.error('Error loading more comments:', error);
-        infiniteScrollLoader.hide();
+        this.infiniteScrollLoader.hide();
         return false;
       }
     }, commentsWrapper, this.currentPage);
@@ -237,8 +318,14 @@ export default class CommentsList extends BasePostView {
 
   setContainer(container) {
     if (container) {
+      // Store the container for future reference
       this.container = container;
-      this.commentsContainer = container;
+      
+      // If we haven't rendered yet and the container is provided,
+      // call render to initialize the view
+      if (container.childElementCount === 0) {
+        this.render(container);
+      }
     }
     return this;
   }
@@ -262,13 +349,20 @@ export default class CommentsList extends BasePostView {
   refreshGridLayout() {
     console.log("Refreshing comments grid layout");
     
-    if (!this.commentsContainer) {
+    if (!this.container) {
       console.warn("No comments container available for refresh");
       return;
     }
     
+    // Reset current page before reloading
+    this.currentPage = 1;
     // Always reload if we're coming back to this view
     this._loadComments();
+    
+    // Make sure grid controller settings are applied
+    if (this.gridController) {
+      this.gridController.applySettings();
+    }
   }
 
   unmount() {
@@ -277,10 +371,43 @@ export default class CommentsList extends BasePostView {
       this.loadingIndicator.hide();
       this.loadingIndicator = null;
     }
-    if (this.gridController) this.gridController.unmount();
+    if (this.infiniteScrollLoader) {
+      this.infiniteScrollLoader.hide();
+      this.infiniteScrollLoader = null;
+    }
+    if (this.gridController) {
+      this.gridController.unmount();
+    }
   }
 
   getGridType() {
     return this.gridController ? this.gridController.settings.layout : 'grid';
+  }
+
+  // Updated forceLayoutRefresh method to target the comments wrapper
+  forceLayoutRefresh() {
+    if (!this.container) return;
+    
+    const commentsContainer = this.container.querySelector('.comments-container');
+    if (!commentsContainer) return;
+    
+    // Find the comments wrapper inside the container
+    const commentsWrapper = commentsContainer.querySelector('.comments-grid') || 
+                           commentsContainer.querySelector('.comments-cards-wrapper');
+    
+    if (!commentsWrapper) {
+      console.warn('No comments wrapper found for layout refresh');
+      return;
+    }
+    
+    console.log('Forcing comments grid layout refresh on wrapper');
+    
+    // Set the target explicitly to the comments wrapper
+    this.gridController.target = commentsWrapper;
+    
+    // Apply settings with a delay to ensure DOM is ready
+    setTimeout(() => {
+      this.gridController.applySettings();
+    }, 300);
   }
 }

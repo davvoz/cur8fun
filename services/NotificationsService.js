@@ -2,6 +2,7 @@ import steemService from './SteemService.js';
 import authService from './AuthService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import { TYPES } from '../models/Notification.js';
+import transactionHistoryService from './TransactionHistoryService.js';
 
 /**
  * Service for managing user notifications in the Steem application
@@ -11,23 +12,12 @@ class NotificationsService {
         this.notificationsCache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes cache
         this.unreadCount = 0;
-        
-        // Listen for authentication changes
-        eventEmitter.on('auth:changed', ({ user }) => {
-            if (!user) {
-                // Clear cache when user logs out
-                this.clearCache();
-            }
-        });
+        this.allNotificationsCache = null;
+        this.debugMode = true; // Attiva debugging esteso
     }
 
     /**
      * Fetches notifications for the current user
-     * @param {string} type - Type of notifications to fetch (default: all)
-     * @param {number} page - Page number for pagination
-     * @param {number} limit - Number of notifications per page
-     * @param {boolean} forceRefresh - Whether to bypass cache
-     * @returns {Promise<{notifications: Array, hasMore: boolean}>} 
      */
     async getNotifications(type = TYPES.ALL, page = 1, limit = 20, forceRefresh = false) {
         const currentUser = authService.getCurrentUser();
@@ -37,588 +27,72 @@ class NotificationsService {
         }
 
         const username = currentUser.username;
-        console.log(`Current user: ${username}, looking for notifications of type: ${type}`);
-        const cacheKey = `${username}_${type}_notifications_page_${page}`;
         
-        // Check cache first unless forceRefresh is true
-        if (!forceRefresh) {
-            const cachedNotifications = this.getCachedNotifications(cacheKey);
-            if (cachedNotifications) {
-                console.log(`Using cached notifications for ${username}, type: ${type}, page: ${page}`);
-                return cachedNotifications;
-            }
-        }
+        // RISOLUZIONE MACELLO: FORZA SEMPRE IL RECUPERO COMPLETO PER OGNI TIPO
+        console.log(`🚀 RECUPERO COMPLETO per ${username}, tipo: ${type}`);
         
         try {
-            console.log(`Fetching ${type} notifications for ${username}, page: ${page}`);
-            // Different logic based on notification type
-            let notifications = [];
-            let hasMore = false;
+            // Se in cache e non forzato, usa la cache
+            const cacheKey = `${username}_ALL_NOTIFICATIONS`;
+            let allNotifications = null;
             
-            // Use account history to get notifications
-            const startFrom = page > 1 ? (page - 1) * limit : -1;
-            console.log(`Calling getAccountHistory with username: ${username}, startFrom: ${startFrom}, limit: ${limit + 1}`);
-            
-            // Option to use test data if in development environment or explicitly requested
-            const useTestData = localStorage.getItem('use_test_notifications') === 'true';
-            let accountHistory;
-            
-            if (useTestData) {
-                console.log('Using test notification data instead of calling API');
-                accountHistory = this.getMockAccountHistory();
-            } else {
-                accountHistory = await steemService.getAccountHistory(username, startFrom, limit + 1);
-                // Save a copy of raw data for debugging
-                try {
-                    localStorage.setItem('last_account_history', JSON.stringify(accountHistory));
-                    console.log('Raw account history saved to localStorage for debugging');
-                } catch (e) {
-                    console.warn('Could not save account history to localStorage:', e);
+            if (!forceRefresh) {
+                allNotifications = this.getCachedNotifications(cacheKey)?.notifications;
+                if (allNotifications && allNotifications.length > 0) {
+                    console.log(`✅ Usando cache con ${allNotifications.length} notifiche`);
                 }
             }
             
-            if (accountHistory && Array.isArray(accountHistory)) {
-                console.log(`Received account history with ${accountHistory.length} items`);
+            // Se la cache non esiste o è forzato il refresh, recupera tutto
+            if (!allNotifications || forceRefresh) {
+                console.log(`🔄 Recupero completo dello storico per ${username}`);
                 
-                // Process account history to extract notifications
-                const processedNotifications = this.processAccountHistory(accountHistory, type);
-                notifications = processedNotifications.slice(0, limit);
-                hasMore = accountHistory.length > limit;
+                // Recupera TUTTE le notifiche storiche
+                allNotifications = await this.fetchAllHistoricalNotifications(username);
                 
-                // Update unread count on first page fetch
-                if (page === 1 && type === TYPES.ALL) {
-                    this.unreadCount = notifications.filter(n => !n.isRead).length;
-                    eventEmitter.emit('notifications:updated', { unreadCount: this.unreadCount });
-                }
+                // Salva in cache
+                this.setCachedNotifications(cacheKey, { 
+                    notifications: allNotifications,
+                    hasMore: false
+                });
                 
-                // Cache the results
-                this.cacheNotifications(cacheKey, { notifications, hasMore });
-                
-                console.log(`Retrieved ${notifications.length} notifications`);
-                if (notifications.length === 0) {
-                    console.warn("No notifications found after processing account history");
-                    
-                    // Show first few items of history for debugging
-                    if (accountHistory.length > 0) {
-                        console.log("First few items from account history:");
-                        accountHistory.slice(0, 3).forEach((item, i) => {
-                            console.log(`History item ${i}:`, JSON.stringify(item));
-                        });
-                    }
-                }
-            } else {
-                console.error("Account history is empty or not an array:", accountHistory);
-                // If no valid data received, try with example data
-                if (!useTestData) {
-                    console.log("Trying with mock data to verify notification processing logic");
-                    const mockHistory = this.getMockAccountHistory();
-                    const mockNotifications = this.processAccountHistory(mockHistory, type);
-                    console.log(`Mock processing found ${mockNotifications.length} notifications`);
-                    
-                    // Do not cache, only display for debugging purposes
-                    if (mockNotifications.length > 0) {
-                        console.log("Mock notifications processed successfully. Consider enabling test mode for development.");
-                    }
-                }
+                console.log(`💾 Salvate ${allNotifications.length} notifiche in cache`);
             }
             
-            return { notifications, hasMore };
+            // Filtra per tipo (se non è ALL)
+            let filteredNotifications = allNotifications;
+            if (type !== TYPES.ALL) {
+                filteredNotifications = allNotifications.filter(n => n.type === type);
+                console.log(`🔍 Filtrate per tipo ${type}: ${filteredNotifications.length} notifiche`);
+            }
+            
+            // Debug dei conteggi per tipo
+            if (this.debugMode) {
+                const countByType = allNotifications.reduce((acc, n) => {
+                    acc[n.type] = (acc[n.type] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                console.log("📊 CONTEGGIO NOTIFICHE PER TIPO:", countByType);
+            }
+            
+            // Applica paginazione
+            const start = (page - 1) * limit;
+            const end = start + limit;
+            const paginatedNotifications = filteredNotifications.slice(start, end);
+            
+            console.log(`📄 Pagina ${page}: mostro ${paginatedNotifications.length} notifiche (${start}-${end} di ${filteredNotifications.length})`);
+            
+            return {
+                notifications: paginatedNotifications,
+                hasMore: end < filteredNotifications.length
+            };
         } catch (error) {
-            console.error(`Error fetching notifications for ${username}:`, error);
+            console.error(`❌ Errore nel recupero notifiche:`, error);
             return { notifications: [], hasMore: false };
         }
     }
-    
-    /**
-     * Process account history to extract notifications
-     * @param {Array} history - Account history from the blockchain
-     * @param {string} type - Type of notifications to filter
-     * @returns {Array} - Processed notifications
-     */
-    processAccountHistory(history, type) {
-        if (!history || !Array.isArray(history)) {
-            console.error('Invalid history data received:', history);
-            return [];
-        }
-        
-        console.log(`Processing account history: ${history.length} items, filtering for type: ${type}`);
-        console.debug('Account history structure sample:', JSON.stringify(history.slice(0, 2)));
-        
-        const notifications = [];
-        const currentUser = authService.getCurrentUser()?.username;
-        
-        if (!currentUser) {
-            console.warn('Cannot process notifications: Current user not available');
-            return [];
-        }
-        
-        console.log(`Looking for notifications for user: ${currentUser}`);
-        
-        // Debug counters
-        let countChecked = 0, countSkipped = 0;
-        let countByType = {
-            comment: 0,
-            vote: 0,
-            follow: 0,
-            reblog: 0,
-            custom_json: 0,
-            other: 0
-        };
-        
-        history.forEach((historyItem, index) => {
-            try {
-                if (!Array.isArray(historyItem) || historyItem.length < 2) {
-                    console.warn(`Invalid history item format at index ${index}:`, historyItem);
-                    countSkipped++;
-                    return;
-                }
-                
-                const [id, transaction] = historyItem;
-                
-                // Log the exact structure of the item
-                console.debug(`Structure of history item ${index}:`, JSON.stringify(historyItem).substring(0, 200));
-                
-                // Handle different possible data formats
-                let opType, opData;
-                
-                if (transaction.op && Array.isArray(transaction.op) && transaction.op.length >= 2) {
-                    // Standard format
-                    opType = transaction.op[0];
-                    opData = transaction.op[1];
-                } else if (transaction.operation && Array.isArray(transaction.operation) && transaction.operation.length >= 2) {
-                    // Alternative format
-                    opType = transaction.operation[0];
-                    opData = transaction.operation[1];
-                } else if (transaction.operations && Array.isArray(transaction.operations) && transaction.operations.length > 0) {
-                    // Another possible format
-                    const firstOp = transaction.operations[0];
-                    if (Array.isArray(firstOp) && firstOp.length >= 2) {
-                        opType = firstOp[0];
-                        opData = firstOp[1];
-                    } else {
-                        console.warn(`Unsupported operation format in transaction:`, transaction);
-                        countSkipped++;
-                        return;
-                    }
-                } else {
-                    console.warn(`Transaction at index ${index} does not contain recognizable operation data:`, transaction);
-                    countSkipped++;
-                    return;
-                }
-                
-                // Increment the operation type counter
-                if (countByType.hasOwnProperty(opType)) {
-                    countByType[opType]++;
-                } else {
-                    countByType.other++;
-                }
-                
-                console.debug(`Processing operation: ${opType}`, JSON.stringify(opData).substring(0, 150));
-                
-                // Parse based on operation type
-                let notification = null;
-                
-                switch (opType) {
-                    case 'comment': 
-                        if (opData.parent_author === currentUser) {
-                            notification = this.createNotification(
-                                TYPES.REPLIES,
-                                {
-                                    author: opData.author,
-                                    permlink: opData.permlink,
-                                    parent_permlink: opData.parent_permlink,
-                                    body: opData.body.substring(0, 140) + (opData.body.length > 140 ? '...' : ''),
-                                    timestamp: transaction.timestamp || new Date().toISOString()
-                                },
-                                false
-                            );
-                        } else if (opData.body && opData.body.includes(`@${currentUser}`)) {
-                            notification = this.createNotification(
-                                TYPES.MENTIONS,
-                                {
-                                    author: opData.author,
-                                    permlink: opData.permlink,
-                                    body: opData.body.substring(0, 140) + (opData.body.length > 140 ? '...' : ''),
-                                    timestamp: transaction.timestamp || new Date().toISOString()
-                                },
-                                false
-                            );
-                        }
-                        break;
-                        
-                    case 'vote':
-                        if (opData.author === currentUser && opData.weight > 0) {
-                            notification = this.createNotification(
-                                TYPES.UPVOTES,
-                                {
-                                    voter: opData.voter,
-                                    permlink: opData.permlink,
-                                    weight: opData.weight / 100,
-                                    timestamp: transaction.timestamp || new Date().toISOString()
-                                },
-                                false
-                            );
-                        }
-                        break;
-                        
-                    case 'follow':
-                        if (opData.what && opData.following === currentUser) {
-                            notification = this.createNotification(
-                                TYPES.FOLLOWS,
-                                {
-                                    follower: opData.follower,
-                                    timestamp: transaction.timestamp || new Date().toISOString()
-                                },
-                                false
-                            );
-                        }
-                        break;
-                        
-                    case 'reblog':
-                        if (opData.author === currentUser) {
-                            notification = this.createNotification(
-                                TYPES.RESTEEMS,
-                                {
-                                    account: opData.account,
-                                    permlink: opData.permlink,
-                                    timestamp: transaction.timestamp || new Date().toISOString()
-                                },
-                                false
-                            );
-                        }
-                        break;
-                    
-                    case 'custom_json':
-                        try {
-                            let jsonData;
-                            try {
-                                jsonData = typeof opData.json === 'string' ? JSON.parse(opData.json) : opData.json;
-                            } catch (e) {
-                                break;
-                            }
-                            
-                            if (jsonData && Array.isArray(jsonData) && jsonData.length > 1 && jsonData[0] === 'follow') {
-                                const followData = jsonData[1];
-                                if (followData && followData.following === currentUser && 
-                                    followData.what && Array.isArray(followData.what) && followData.what.includes('blog')) {
-                                    notification = this.createNotification(
-                                        TYPES.FOLLOWS,
-                                        {
-                                            follower: followData.follower,
-                                            timestamp: transaction.timestamp || new Date().toISOString()
-                                        },
-                                        false
-                                    );
-                                }
-                            } else if (jsonData && Array.isArray(jsonData) && jsonData.length > 1 && jsonData[0] === 'reblog') {
-                                const reblogData = jsonData[1];
-                                if (reblogData && reblogData.author === currentUser) {
-                                    notification = this.createNotification(
-                                        TYPES.RESTEEMS,
-                                        {
-                                            account: reblogData.account,
-                                            permlink: reblogData.permlink,
-                                            timestamp: transaction.timestamp || new Date().toISOString()
-                                        },
-                                        false
-                                    );
-                                }
-                            }
-                        } catch (e) {}
-                        break;
-                }
-                
-                if (notification) {
-                    if (type === TYPES.ALL || notification.type === type) {
-                        notifications.push(notification);
-                    }
-                }
-            } catch (error) {
-                countSkipped++;
-            }
-        });
-        
-        return notifications;
-    }
-    
-    /**
-     * Creates a notification object
-     */
-    createNotification(type, data, isRead = false) {
-        return {
-            type,
-            data,
-            timestamp: data.timestamp || new Date().toISOString(),
-            isRead
-        };
-    }
-    
-    /**
-     * Creates sample account history data for testing
-     * @returns {Array} Mock account history
-     */
-    getMockAccountHistory() {
-        const currentUser = authService.getCurrentUser()?.username || 'testuser';
-        const now = new Date().toISOString();
-        
-        return [
-            [
-                1234,
-                {
-                    trx_id: "abc123",
-                    block: 12345678,
-                    timestamp: now,
-                    op: ["vote", {
-                        voter: "voter1",
-                        author: currentUser,
-                        permlink: "test-post-1",
-                        weight: 10000
-                    }]
-                }
-            ],
-            [
-                1235,
-                {
-                    trx_id: "def456",
-                    block: 12345679,
-                    timestamp: now,
-                    op: ["comment", {
-                        parent_author: currentUser,
-                        parent_permlink: "test-post-1",
-                        author: "commenter1",
-                        permlink: "re-test-post-1",
-                        title: "",
-                        body: "This is a reply to your post!",
-                        json_metadata: "{}"
-                    }]
-                }
-            ],
-            [
-                1236,
-                {
-                    trx_id: "ghi789",
-                    block: 12345680,
-                    timestamp: now,
-                    op: ["comment", {
-                        parent_author: "someoneelse",
-                        parent_permlink: "their-post",
-                        author: "mentioner1",
-                        permlink: "mentioning-you",
-                        title: "",
-                        body: `Hey @${currentUser}, check this out!`,
-                        json_metadata: "{}"
-                    }]
-                }
-            ],
-            [
-                1237,
-                {
-                    trx_id: "jkl012",
-                    block: 12345681,
-                    timestamp: now,
-                    op: ["custom_json", {
-                        required_auths: [],
-                        required_posting_auths: ["follower1"],
-                        id: "follow",
-                        json: JSON.stringify(["follow", {
-                            follower: "follower1",
-                            following: currentUser,
-                            what: ["blog"]
-                        }])
-                    }]
-                }
-            ],
-            [
-                1238,
-                {
-                    trx_id: "mno345",
-                    block: 12345682,
-                    timestamp: now,
-                    op: ["custom_json", {
-                        required_auths: [],
-                        required_posting_auths: ["reblogger1"],
-                        id: "reblog",
-                        json: JSON.stringify(["reblog", {
-                            account: "reblogger1",
-                            author: currentUser,
-                            permlink: "test-post-1"
-                        }])
-                    }]
-                }
-            ]
-        ];
-    }
-    
-    /**
-     * Load notifications using test data
-     * Enable this in the browser console with: 
-     * localStorage.setItem('use_test_notifications', 'true')
-     * Then reload the page
-     */
-    async testNotifications() {
-        localStorage.setItem('use_test_notifications', 'true');
-        console.log('Test notifications enabled. Refresh the page to see mock notifications.');
-        return this.getNotifications(TYPES.ALL, 1, 20, true);
-    }
-    
-    /**
-     * Display the last account history data received from the API
-     * Can be used for debugging in the browser console
-     */
-    displayLastAccountHistory() {
-        try {
-            const history = localStorage.getItem('last_account_history');
-            if (!history) {
-                console.log('No saved account history found');
-                return null;
-            }
-            
-            const parsedHistory = JSON.parse(history);
-            console.log(`Found saved account history with ${parsedHistory.length} items`);
-            console.log('First few items:');
-            parsedHistory.slice(0, 3).forEach((item, i) => {
-                console.log(`Item ${i}:`, item);
-            });
-            
-            return parsedHistory;
-        } catch (e) {
-            console.error('Error displaying saved account history:', e);
-            return null;
-        }
-    }
-    
-    /**
-     * Mark a notification as read
-     * @param {object} notification - The notification to mark
-     */
-    async markAsRead(notification) {
-        if (!notification) return;
-        
-        const currentUser = authService.getCurrentUser();
-        if (!currentUser) return;
-        
-        // Update notification status
-        notification.isRead = true;
-        
-        try {
-            this.saveNotificationStatus(currentUser.username, notification);
-            this.decrementUnreadCount();
-        } catch (error) {
-            console.error('Error marking notification as read:', error);
-        }
-    }
-    
-    /**
-     * Mark all notifications as read
-     */
-    async markAllAsRead() {
-        const currentUser = authService.getCurrentUser();
-        if (!currentUser) return;
-        
-        this.notificationsCache.forEach((value, key) => {
-            if (key.startsWith(`${currentUser.username}_`)) {
-                const updated = {
-                    ...value,
-                    notifications: value.notifications.map(n => ({...n, isRead: true}))
-                };
-                this.notificationsCache.set(key, updated);
-            }
-        });
-        
-        this.saveAllNotificationsRead(currentUser.username);
-        this.unreadCount = 0;
-        eventEmitter.emit('notifications:updated', { unreadCount: 0 });
-    }
-    
-    /**
-     * Save notification read status (implementation depends on storage strategy)
-     */
-    saveNotificationStatus(username, notification) {
-        try {
-            const readStatusKey = `${username}_read_notifications`;
-            let readStatuses = {};
-            
-            try {
-                const stored = localStorage.getItem(readStatusKey);
-                if (stored) {
-                    readStatuses = JSON.parse(stored);
-                }
-            } catch (e) {}
-            
-            const notificationId = this.generateNotificationId(notification);
-            readStatuses[notificationId] = true;
-            localStorage.setItem(readStatusKey, JSON.stringify(readStatuses));
-        } catch (error) {
-            console.error('Error saving notification status:', error);
-        }
-    }
-    
-    /**
-     * Save all notifications as read
-     */
-    saveAllNotificationsRead(username) {
-        try {
-            const timestamp = new Date().toISOString();
-            localStorage.setItem(`${username}_all_read_timestamp`, timestamp);
-        } catch (error) {
-            console.error('Error saving all-read status:', error);
-        }
-    }
-    
-    /**
-     * Generate a unique ID for a notification
-     */
-    generateNotificationId(notification) {
-        const { type, data, timestamp } = notification;
-        let idParts = [type];
-        
-        switch (type) {
-            case TYPES.REPLIES:
-            case TYPES.MENTIONS:
-                idParts.push(data.author, data.permlink);
-                break;
-            case TYPES.UPVOTES:
-                idParts.push(data.voter, data.permlink);
-                break;
-            case TYPES.FOLLOWS:
-                idParts.push(data.follower);
-                break;
-            case TYPES.RESTEEMS:
-                idParts.push(data.account, data.permlink);
-                break;
-        }
-        
-        idParts.push(timestamp);
-        return idParts.join('_');
-    }
-    
-    /**
-     * Decrement the unread count
-     */
-    decrementUnreadCount() {
-        if (this.unreadCount > 0) {
-            this.unreadCount--;
-            eventEmitter.emit('notifications:updated', { unreadCount: this.unreadCount });
-        }
-    }
-    
-    /**
-     * Get the count of unread notifications
-     */
-    getUnreadCount() {
-        return this.unreadCount;
-    }
-    
-    /**
-     * Load the unread count for the current user
-     */
-    async loadUnreadCount() {
-        const { notifications } = await this.getNotifications(TYPES.ALL, 1, 50);
-        this.unreadCount = notifications.filter(n => !n.isRead).length;
-        eventEmitter.emit('notifications:updated', { unreadCount: this.unreadCount });
-        return this.unreadCount;
-    }
-    
+
     /**
      * Get notifications from cache
      */
@@ -637,24 +111,373 @@ class NotificationsService {
         
         return cacheEntry.data;
     }
-    
+
     /**
      * Cache notifications
      */
-    cacheNotifications(cacheKey, data) {
+    setCachedNotifications(cacheKey, data) {
         this.notificationsCache.set(cacheKey, {
             data,
             timestamp: Date.now()
         });
     }
-    
+
     /**
-     * Clear the notifications cache
+     * Recupera e analizza TUTTA la storia dell'account
+     */
+    async fetchAllHistoricalNotifications(username) {
+        // RECUPERO MULTI-CICLO DI TUTTA LA STORIA SENZA SALTI
+        console.log(`⏳ AVVIO RECUPERO MASSIVO per ${username}`);
+        
+        // Parametri iniziali
+        let lastId = -1;
+        let allNotifications = [];
+        let seenTransactions = new Set();
+        let seenNotifications = new Set();
+        let historySizesUsed = [1000, 2000, 500, 200, 100]; // Dimensioni batch da provare
+        let cycleCount = 0;
+        let continueSearch = true;
+        let totalTransactions = 0;
+        
+        this.showBusyMessage("RECUPERO STORICO NOTIFICHE IN CORSO...<br>Potrebbe richiedere qualche minuto");
+        
+        // APPROCCIO MASSIVO:
+        // Recupera lo storico ripetutamente con diverse dimensioni batch fino a ID=1
+        while (continueSearch && cycleCount < 100) { // Limite di sicurezza
+            cycleCount++;
+            
+            for (const batchSize of historySizesUsed) {
+                try {
+                    this.updateBusyMessage(`Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}<br>Trovate ${allNotifications.length} notifiche`);
+                    
+                    console.log(`🔍 Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}`);
+                    
+                    const history = await transactionHistoryService.getUserTransactionHistory(username, batchSize, lastId);
+                    
+                    if (!history || !Array.isArray(history) || history.length === 0) {
+                        console.log('📭 Nessuna transazione trovata');
+                        continueSearch = false;
+                        break;
+                    }
+                    
+                    totalTransactions += history.length;
+                    
+                    // Trova l'ID più vecchio da cui continuare
+                    const lastTransaction = history[history.length - 1];
+                    if (!Array.isArray(lastTransaction) || lastTransaction.length < 1) {
+                        continueSearch = false;
+                        break;
+                    }
+                    
+                    const oldestId = lastTransaction[0];
+                    console.log(`📜 Recuperate ${history.length} transazioni. ID più vecchio: ${oldestId}`);
+                    
+                    // Se abbiamo raggiunto l'inizio o siamo bloccati, fermiamoci
+                    if (oldestId <= 1 || oldestId === lastId) {
+                        console.log(`🏁 Raggiunto ID ${oldestId}, fine ricerca`);
+                        continueSearch = false;
+                        break;
+                    }
+                    
+                    // Salva il nuovo lastId per il prossimo ciclo
+                    lastId = oldestId;
+                    
+                    // Processa le transazioni per estrarre notifiche
+                    const newNotifications = this.processAccountHistory(history);
+                    
+                    // Aggiungi solo notifiche uniche
+                    newNotifications.forEach(notification => {
+                        const notificationId = this.generateNotificationId(notification, true);
+                        if (!seenNotifications.has(notificationId)) {
+                            seenNotifications.add(notificationId);
+                            allNotifications.push(notification);
+                        }
+                    });
+                    
+                    console.log(`✅ Trovate ${newNotifications.length} nuove notifiche, totale: ${allNotifications.length}`);
+                    
+                    // Breve pausa per non sovraccaricare
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Se poche transazioni, probabilmente abbiamo finito
+                    if (history.length < batchSize / 2) {
+                        console.log('📉 Meno della metà del batch, probabilmente abbiamo finito');
+                        continueSearch = false;
+                        break;
+                    }
+                    
+                    break; // Usciamo dal ciclo for se abbiamo avuto successo con questa dimensione
+                } catch (error) {
+                    console.error(`⚠️ Errore con batch size ${batchSize}:`, error);
+                    // Continuiamo con la prossima dimensione batch
+                }
+            }
+        }
+        
+        this.hideBusyMessage();
+        
+        // Ordina per data (più recenti prima)
+        allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        console.log(`🎉 RECUPERO COMPLETATO: ${allNotifications.length} notifiche in ${totalTransactions} transazioni`);
+        
+        // Statistiche per tipo
+        const countByType = {};
+        allNotifications.forEach(n => {
+            countByType[n.type] = (countByType[n.type] || 0) + 1;
+        });
+        
+        console.log("📊 STATISTICHE FINALI:", countByType);
+        
+        return allNotifications;
+    }
+
+    /**
+     * Processa la storia dell'account in modo più permissivo
+     */
+    processAccountHistory(history) {
+        if (!history || !Array.isArray(history)) {
+            return [];
+        }
+        
+        const notifications = [];
+        const currentUser = authService.getCurrentUser()?.username;
+        if (!currentUser) return [];
+        
+        const seenIds = new Set();
+        
+        history.forEach(historyItem => {
+            try {
+                if (!Array.isArray(historyItem) || historyItem.length < 2) return;
+                
+                const [id, transaction] = historyItem;
+                
+                // Estrai operazione e dati
+                let opType, opData;
+                
+                if (transaction.op && Array.isArray(transaction.op) && transaction.op.length >= 2) {
+                    opType = transaction.op[0];
+                    opData = transaction.op[1];
+                } else if (transaction.operation && Array.isArray(transaction.operation) && transaction.operation.length >= 2) {
+                    opType = transaction.operation[0];
+                    opData = transaction.operation[1];
+                } else if (transaction.operations && Array.isArray(transaction.operations) && transaction.operations.length > 0) {
+                    const firstOp = transaction.operations[0];
+                    if (Array.isArray(firstOp) && firstOp.length >= 2) {
+                        opType = firstOp[0];
+                        opData = firstOp[1];
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+                
+                // Timestamp
+                const timestamp = transaction.timestamp || new Date().toISOString();
+                
+                // REPLIES (quando qualcuno risponde a un tuo post)
+                if (opType === 'comment' && opData.parent_author === currentUser) {
+                    notifications.push(this.createNotification(
+                        TYPES.REPLIES,
+                        {
+                            id,
+                            author: opData.author,
+                            permlink: opData.permlink,
+                            parent_permlink: opData.parent_permlink,
+                            body: opData.body?.substring(0, 140) + (opData.body?.length > 140 ? '...' : '') || '',
+                            timestamp
+                        },
+                        false // Non letto
+                    ));
+                }
+                
+                // MENTIONS (quando qualcuno ti menziona)
+                if (opType === 'comment' && opData.body && opData.body.includes(`@${currentUser}`)) {
+                    notifications.push(this.createNotification(
+                        TYPES.MENTIONS,
+                        {
+                            id,
+                            author: opData.author,
+                            permlink: opData.permlink,
+                            body: opData.body?.substring(0, 140) + (opData.body?.length > 140 ? '...' : '') || '',
+                            timestamp
+                        },
+                        false
+                    ));
+                }
+                
+                // UPVOTES (quando qualcuno vota un tuo post)
+                if (opType === 'vote' && opData.author === currentUser && opData.weight > 0) {
+                    notifications.push(this.createNotification(
+                        TYPES.UPVOTES,
+                        {
+                            id,
+                            voter: opData.voter,
+                            permlink: opData.permlink,
+                            weight: opData.weight / 100,
+                            timestamp
+                        },
+                        false
+                    ));
+                }
+                
+                // CUSTOM_JSON per FOLLOWS e RESTEEMS
+                if (opType === 'custom_json') {
+                    let jsonData;
+                    try {
+                        jsonData = typeof opData.json === 'string' ? JSON.parse(opData.json) : opData.json;
+                    } catch (e) {
+                        return;
+                    }
+                    
+                    if (jsonData && Array.isArray(jsonData) && jsonData.length > 1) {
+                        // FOLLOWS
+                        if (jsonData[0] === 'follow') {
+                            const followData = jsonData[1];
+                            if (followData && followData.following === currentUser && 
+                                followData.what && Array.isArray(followData.what) && followData.what.includes('blog')) {
+                                notifications.push(this.createNotification(
+                                    TYPES.FOLLOWS,
+                                    {
+                                        id,
+                                        follower: followData.follower,
+                                        timestamp
+                                    },
+                                    false
+                                ));
+                            }
+                        } 
+                        // RESTEEMS
+                        else if (jsonData[0] === 'reblog') {
+                            const reblogData = jsonData[1];
+                            if (reblogData && reblogData.author === currentUser) {
+                                notifications.push(this.createNotification(
+                                    TYPES.RESTEEMS,
+                                    {
+                                        id,
+                                        account: reblogData.account,
+                                        permlink: reblogData.permlink,
+                                        timestamp
+                                    },
+                                    false
+                                ));
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Errore nel processare item:', error);
+            }
+        });
+        
+        return notifications;
+    }
+
+    // UI helpers per il feedback durante recupero
+    showBusyMessage(message) {
+        let busyElement = document.getElementById('notifications-busy-message');
+        
+        if (!busyElement) {
+            busyElement = document.createElement('div');
+            busyElement.id = 'notifications-busy-message';
+            busyElement.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 20px; border-radius: 10px; z-index: 9999; max-width: 80vw;';
+            document.body.appendChild(busyElement);
+        }
+        
+        busyElement.innerHTML = `
+            <div style="text-align:center">
+                <div style="width:50px;height:50px;border:3px solid rgba(255,255,255,0.2);border-top:3px solid white;border-radius:50%;margin:0 auto 15px;animation:notifications-spin 1s linear infinite"></div>
+                <div style="font-weight:bold;margin-bottom:10px">RECUPERO NOTIFICHE</div>
+                <div>${message}</div>
+            </div>
+        `;
+        
+        if (!document.querySelector('style#notifications-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'notifications-spin-style';
+            style.textContent = '@keyframes notifications-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}';
+            document.head.appendChild(style);
+        }
+    }
+
+    updateBusyMessage(message) {
+        const busyElement = document.getElementById('notifications-busy-message');
+        if (busyElement) {
+            const messageDiv = busyElement.querySelector('div > div:last-child');
+            if (messageDiv) {
+                messageDiv.innerHTML = message;
+            }
+        }
+    }
+
+    hideBusyMessage() {
+        const busyElement = document.getElementById('notifications-busy-message');
+        if (busyElement) {
+            busyElement.remove();
+        }
+    }
+
+    /**
+     * Clear the notifications cache completely
      */
     clearCache() {
         this.notificationsCache.clear();
+        this.allNotificationsCache = null; // Direct reset instead of calling non-existent method
         this.unreadCount = 0;
-        console.log('Notifications cache cleared');
+        console.log('🧹 Cache notifiche completamente svuotata');
+    }
+
+    /**
+     * Clear the specific all-notifications cache
+     */
+    clearAllNotificationsCache() {
+        this.allNotificationsCache = null;
+        console.log('🧹 Cache notifiche globali svuotata');
+    }
+
+    /**
+     * Creates a notification object
+     */
+    createNotification(type, data, isRead = false) {
+        return {
+            type,
+            data,
+            timestamp: data.timestamp || new Date().toISOString(),
+            isRead
+        };
+    }
+
+    /**
+     * Generate a unique ID for a notification
+     * @param {Object} notification - The notification object
+     * @param {boolean} forLookup - Whether this ID is for lookup (excludes timestamp)
+     */
+    generateNotificationId(notification, forLookup = false) {
+        const { type, data } = notification;
+        let idParts = [type];
+        
+        switch (type) {
+            case TYPES.REPLIES:
+            case TYPES.MENTIONS:
+                idParts.push(data.author, data.permlink);
+                break;
+            case TYPES.UPVOTES:
+                idParts.push(data.voter, data.permlink);
+                break;
+            case TYPES.FOLLOWS:
+                idParts.push(data.follower);
+                break;
+            case TYPES.RESTEEMS:
+                idParts.push(data.account, data.permlink);
+                break;
+        }
+        
+        if (!forLookup && notification.timestamp) {
+            idParts.push(notification.timestamp);
+        }
+        
+        return idParts.join('_');
     }
 }
 

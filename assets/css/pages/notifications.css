@@ -94,6 +94,17 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: var(--space-lg);
+    gap: 10px;
+}
+
+.action-bar .left-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.action-bar .right-actions {
+    display: flex;
+    gap: 5px;
 }
 
 .action-bar button {
@@ -124,6 +135,26 @@
 
 .action-bar .material-icons {
     font-size: 1.2rem;
+}
+
+.force-load-btn {
+    background-color: #e67e22;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.force-load-btn:hover {
+    background-color: #d35400;
+    transform: rotate(180deg);
 }
 
 /* Individual notification styles */
@@ -175,7 +206,15 @@
 
 /* Read vs unread state */
 .notification.read {
-    opacity: 0.75;
+    opacity: 0.85;
+    background: var(--surface-color);
+    border-left-color: transparent;
+}
+
+/* Make upvotes always have their distinctive color, even when read */
+.notification.upvotes.read {
+    border-left-color: #e74c3c; /* Red for upvotes */
+    opacity: 0.7;
 }
 
 .notification.unread {
@@ -246,6 +285,41 @@
     max-width: 100%;
 }
 
+/* Observer target for infinite scroll */
+#notifications-observer-target {
+    width: 100%;
+    height: 20px;
+    margin: 10px 0;
+    visibility: hidden;
+}
+
+/* Observer target per infinite scroll */
+.observer-target {
+    width: 100%;
+    height: 20px;
+    margin: 30px 0;
+    visibility: hidden; /* Hide in production */
+    pointer-events: none; /* Ensure it doesn't interfere with clicks */
+    position: relative;
+    z-index: -1; /* Push below other elements */
+}
+
+/* For debugging only - add this class if you want to see the target */
+.observer-target.debug {
+    visibility: visible;
+    border-bottom: 1px dashed red;
+    background-color: rgba(255, 0, 0, 0.05);
+}
+
+/* End message styling */
+.end-message {
+    text-align: center;
+    padding: var(--space-md);
+    margin-top: var(--space-md);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Loading indicator */
 .loading-indicator {
     display: flex;
@@ -308,6 +382,70 @@
     margin-bottom: var(--space-md);
 }
 
+/* Button to load all historical upvotes */
+.load-all-btn {
+    display: flex;
+    margin: 10px auto;
+    padding: 15px 25px;
+    background: var(--primary-color);
+    color: var(--text-on-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    box-shadow: var(--subtle-shadow);
+}
+
+.load-all-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--elevated-shadow);
+}
+
+.load-all-btn.primary {
+    background: #e74c3c; /* Colore upvote */
+}
+
+.load-all-btn.primary:hover {
+    background: #c0392b;
+}
+
+.load-all-btn .material-icons {
+    font-size: 1.4rem;
+}
+
+/* Busy message overlay */
+#notifications-busy-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    min-width: 350px;
+    max-width: 90vw;
+}
+
+#notifications-busy-message .spinner {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border: 5px solid rgba(255, 255, 255, 0.2);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: notifications-spin 1s linear infinite;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .notification-filters {
@@ -336,3 +474,9 @@
 .notification {
     animation: fadeIn 0.3s ease-out;
 }
+
+@keyframes notifications-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+

@@ -67,11 +67,48 @@ class NotificationsView {
         this.loadingIndicator = this.container.querySelector('.loading-indicator');
         this.emptyState = this.container.querySelector('.empty-state');
         
-        // Load notifications
-        this.loadNotifications(1);
+        // Se siamo nella vista upvotes, aggiungiamo un pulsante speciale per il recupero completo
+        if (this.activeFilter === TYPES.UPVOTES) {
+            const actionBar = this.container.querySelector('.action-bar');
+            const loadAllDiv = document.createElement('div');
+            loadAllDiv.className = 'load-all-buttons';
+            loadAllDiv.style.margin = '20px 0';
+            loadAllDiv.innerHTML = `
+                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 10px;">
+                    Per vedere <strong>TUTTI</strong> gli upvote storici:
+                </p>
+                <div style="display: flex; justify-content: center; gap: 20px;">
+                    <button class="load-all-btn primary">
+                        <span class="material-icons">history</span>
+                        Carica TUTTI gli upvote (COMPLETO)
+                    </button>
+                </div>
+            `;
+            
+            loadAllDiv.querySelector('.load-all-btn').addEventListener('click', () => {
+                this.loadAllHistoricalUpvotes();
+            });
+            
+            this.container.insertBefore(loadAllDiv, this.notificationsContainer);
+        }
         
-        // Setup infinite scroll
-        this.setupInfiniteScroll();
+        // Aggiungi un pulsante EFFICACE per forzare recupero completo
+        const actionBar = this.container.querySelector('.action-bar');
+        const forceButton = document.createElement('button');
+        forceButton.className = 'force-load-btn';
+        forceButton.innerHTML = '<span class="material-icons">restart_alt</span>';
+        forceButton.title = 'Forza recupero completo di tutte le notifiche';
+        forceButton.addEventListener('click', () => this.forceCompleteRefresh());
+        actionBar.appendChild(forceButton);
+        
+        // Load initial notifications (reduced starting limit)
+        await this.loadNotifications(1, 30);
+        
+        // Setup infinite scroll after a short delay to ensure content is rendered
+        setTimeout(() => {
+            this.setupInfiniteScroll();
+            console.log("Infinite scroll configurato dopo il caricamento iniziale");
+        }, 300);
     }
     
     setupEventListeners() {
@@ -88,7 +125,7 @@ class NotificationsView {
         const markReadBtn = this.container.querySelector('.mark-read-btn');
         if (markReadBtn) {
             markReadBtn.addEventListener('click', () => {
-                this.markAllAsRead();
+                alert('Feature not implemented yet!');
             });
         }
         
@@ -120,17 +157,29 @@ class NotificationsView {
             this.notificationsContainer.innerHTML = '';
         }
         
-        // Update URL without triggering a full page reload
-        const url = `#/notifications${filter !== TYPES.ALL ? `/${filter}` : ''}`;
-        history.pushState(null, '', url);
+        // Mostra messaggio temporaneo
+        if (this.notificationsContainer) {
+            this.notificationsContainer.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    Caricamento notifiche ${filter}...
+                </div>
+            `;
+        }
         
-        // Load notifications with new filter
-        this.loadNotifications(1);
+        // Clear e reload con il nuovo filtro
+        await this.forceCompleteRefresh();
+        
+        // Setup infinite scroll again with the new content type
+        setTimeout(() => this.setupInfiniteScroll(), 100);
     }
     
-    async loadNotifications(page = 1) {
-        if (this.loading) return false;
+    async loadNotifications(page = 1, limit = 20) {
+        if (this.loading) {
+            console.log(`Already loading notifications, skipping request for page ${page}`);
+            return false;
+        }
         
+        console.log(`Loading page ${page} with limit ${limit}`);
         this.loading = true;
         
         if (page === 1) {
@@ -138,13 +187,21 @@ class NotificationsView {
         }
         
         try {
-            // Get notifications from service
+            // Force refresh solo per la prima pagina
+            const forceRefresh = page === 1;
+            
+            // Per gli upvote, usa un limite più alto
+            const actualLimit = this.activeFilter === TYPES.UPVOTES ? 50 : limit;
+            
+            console.log(`Requesting notifications: type=${this.activeFilter}, page=${page}, limit=${actualLimit}`);
             const { notifications, hasMore } = await notificationsService.getNotifications(
                 this.activeFilter, 
                 page, 
-                20, 
-                page === 1
+                actualLimit, 
+                forceRefresh
             );
+            
+            console.log(`Received ${notifications.length} notifications, hasMore: ${hasMore}`);
             
             if (page === 1) {
                 // Clear existing notifications for first page
@@ -166,14 +223,23 @@ class NotificationsView {
             // Add new notifications to array
             this.notifications = [...this.notifications, ...uniqueNotifications];
             
+            console.log(`Added ${uniqueNotifications.length} new unique notifications`);
+            console.log(`Total notifications displayed: ${this.notifications.length}`);
+            
             // Render the notifications
             this.renderNotifications(uniqueNotifications);
             
             // Update empty state
             this.updateEmptyState();
             
-            // Return whether there are more notifications to load
-            return hasMore;
+            // Force observer repositioning
+            if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
+                setTimeout(() => {
+                    this.infiniteScroll.setupObserver();
+                }, 100);
+            }
+            
+            return hasMore && uniqueNotifications.length > 0;
         } catch (error) {
             console.error('Failed to load notifications:', error);
             this.showError('Failed to load notifications. Please try again later.');
@@ -184,14 +250,96 @@ class NotificationsView {
         }
     }
     
+    async forceCompleteRefresh() {
+        // Reset completo
+        this.notifications = [];
+        this.renderedNotificationIds.clear();
+        
+        if (this.notificationsContainer) {
+            this.notificationsContainer.innerHTML = '<div style="text-align:center;padding:20px;">Recupero completo delle notifiche in corso...</div>';
+        }
+        
+        // Elimina completamente la cache
+        notificationsService.clearCache();
+        
+        // Disattiva l'infinite scroll
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
+        }
+        
+        this.showLoading();
+        
+        // Carica tutto da zero con limite enorme
+        try {
+            const { notifications } = await notificationsService.getNotifications(
+                this.activeFilter, 
+                1,
+                1000, // Limite massimo
+                true  // Forza refresh
+            );
+            
+            // Clear container
+            if (this.notificationsContainer) {
+                this.notificationsContainer.innerHTML = '';
+            }
+            
+            // Mostra contatore
+            const countDiv = document.createElement('div');
+            countDiv.style.padding = '10px';
+            countDiv.style.textAlign = 'center';
+            countDiv.style.backgroundColor = 'var(--background-light)';
+            countDiv.style.borderRadius = 'var(--radius-md)';
+            countDiv.style.marginBottom = '15px';
+            countDiv.innerHTML = `<strong>Recuperate ${notifications.length} notifiche!</strong>`;
+            this.notificationsContainer.appendChild(countDiv);
+            
+            // Aggiorna stato interno
+            this.notifications = [...notifications];
+            notifications.forEach(n => {
+                this.renderedNotificationIds.add(notificationsService.generateNotificationId(n));
+            });
+            
+            // Renderizza
+            this.renderNotifications(notifications);
+            
+            // Aggiorna stato vuoto
+            this.updateEmptyState();
+            
+            // Attiva infinite scroll se necessario
+            if (notifications.length >= 50) {
+                setTimeout(() => this.setupInfiniteScroll(), 300);
+            }
+        } catch (error) {
+            console.error('Errore nel refresh completo:', error);
+            this.showError('Errore nel recupero completo delle notifiche. Riprova più tardi.');
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
     renderNotifications(notifications) {
         if (!notifications || notifications.length === 0) return;
+        
+        console.log(`Rendering ${notifications.length} notifications`);
         
         // For each notification, create and append element
         notifications.forEach(notification => {
             const notificationElement = this.createNotificationElement(notification);
             this.notificationsContainer.appendChild(notificationElement);
         });
+        
+        // Force repositioning of the infinite scroll observer after adding new content
+        if (this.infiniteScroll) {
+            // Give the DOM time to update
+            setTimeout(() => {
+                // Reset the infinite scroll which will recreate and position the observer
+                if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
+                    this.infiniteScroll.setupObserver();
+                    console.log('Observer repositioned after adding new notifications');
+                }
+            }, 100);
+        }
     }
     
     createNotificationElement(notification) {
@@ -350,7 +498,7 @@ class NotificationsView {
     }
     
     async refreshNotifications() {
-        // Reset and reload with force refresh
+        // Reset e ricarica
         this.notifications = [];
         this.renderedNotificationIds.clear();
         
@@ -358,28 +506,163 @@ class NotificationsView {
             this.notificationsContainer.innerHTML = '';
         }
         
-        // Restart infinite scroll
+        // Forza il refresh completo della cache
+        notificationsService.clearCache();
+        
+        // Destroy dell'infinite scroll
         if (this.infiniteScroll) {
-            this.infiniteScroll.reset(1);
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
         }
         
-        // Load notifications
-        this.loadNotifications(1);
+        // Carica notifiche con refresh forzato 
+        await this.loadNotifications(1, this.activeFilter === TYPES.UPVOTES ? 50 : 30, true);
+        
+        // Ricrea infinite scroll
+        setTimeout(() => this.setupInfiniteScroll(), 300);
+    }
+    
+    /**
+     * Carica TUTTI gli upvote storici senza limiti
+     */
+    async loadAllHistoricalUpvotes() {
+        // Reset completo dello stato
+        this.notifications = [];
+        this.renderedNotificationIds.clear();
+        
+        if (this.notificationsContainer) {
+            this.notificationsContainer.innerHTML = '';
+        }
+        
+        // Disattiva l'infinite scroll perché vogliamo tutto in una volta
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
+        }
+        
+        this.showLoading();
+        
+        // Aggiungi un messaggio di attesa
+        const waitMessage = document.createElement('div');
+        waitMessage.className = 'wait-message';
+        waitMessage.textContent = 'Recuperando tutti gli upvote dal primo all\'ultimo. Questo processo potrebbe richiedere diversi minuti...';
+        waitMessage.style.textAlign = 'center';
+        waitMessage.style.padding = '20px';
+        waitMessage.style.color = 'var(--text-secondary)';
+        waitMessage.style.fontStyle = 'italic';
+        this.notificationsContainer.appendChild(waitMessage);
+        
+        try {
+            // Forza il refresh completo
+            notificationsService.clearCache();
+            
+            // Ottieni TUTTI gli upvote storici
+            // L'API è limitata, quindi potrebbe richiedere molto tempo
+            const allUpvotes = await notificationsService.fetchAllHistoricalNotifications(
+                authService.getCurrentUser().username,
+                TYPES.UPVOTES
+            );
+            
+            // Rimuovi il messaggio di attesa
+            waitMessage.remove();
+            
+            if (!allUpvotes.length) {
+                this.notificationsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p>Nessun upvote trovato nella storia dell'account.</p>
+                    </div>
+                `;
+                this.hideLoading();
+                return;
+            }
+            
+            // Mostra il conteggio totale
+            const countMessage = document.createElement('div');
+            countMessage.className = 'count-message';
+            countMessage.innerHTML = `
+                <div style="text-align: center; padding: 10px; background: var(--background-light); border-radius: var(--radius-md); margin-bottom: 20px;">
+                    <h3>Recuperati ${allUpvotes.length} upvote totali</h3>
+                    <p>Vengono mostrati tutti gli upvote ricevuti dall'inizio dell'account</p>
+                </div>
+            `;
+            this.notificationsContainer.appendChild(countMessage);
+            
+            // Aggiorna lo stato interno
+            this.notifications = [...allUpvotes];
+            
+            // Traccia gli ID già renderizzati
+            allUpvotes.forEach(notification => {
+                const notificationId = notificationsService.generateNotificationId(notification);
+                this.renderedNotificationIds.add(notificationId);
+            });
+            
+            // Renderizza tutte le notifiche
+            this.renderNotifications(allUpvotes);
+            
+            // Aggiorna lo stato vuoto
+            this.updateEmptyState();
+            
+            console.log(`Caricati e visualizzati TUTTI i ${allUpvotes.length} upvote`);
+        } catch (error) {
+            console.error('Errore nel caricamento di tutti gli upvote storici:', error);
+            this.showError('Si è verificato un errore durante il recupero degli upvote. Riprova più tardi.');
+        } finally {
+            this.hideLoading();
+        }
     }
     
     setupInfiniteScroll() {
+        // Clean up any existing infinite scroll instance
         if (this.infiniteScroll) {
             this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
         }
         
+        if (!this.notificationsContainer) {
+            console.error('Cannot setup infinite scroll: container not found');
+            return;
+        }
+        
+        console.log('Setting up infinite scroll - new instance');
+        
+        // Create new infinite scroll with the proper container and callback
         this.infiniteScroll = new InfiniteScroll({
             container: this.notificationsContainer,
-            loadMore: (page) => this.loadNotifications(page),
-            threshold: '200px',
-            loadingMessage: 'Loading more notifications...',
-            endMessage: 'No more notifications to load',
-            errorMessage: 'Failed to load notifications. Please try again.'
+            loadMore: async (page) => {
+                console.log(`InfiniteScroll: triggered load for page ${page}`);
+                try {
+                    // Utilizzare un limite fisso ma grande per ogni pagina
+                    const result = await this.loadNotifications(page, 30);
+                    console.log(`InfiniteScroll: page ${page} loaded, hasMore=${result}`);
+                    
+                    // Importante: forza la riconfigurazione dell'observer
+                    setTimeout(() => {
+                        if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
+                            this.infiniteScroll.setupObserver();
+                            console.log(`InfiniteScroll: observer riconfigurato dopo caricamento pagina ${page}`);
+                        }
+                    }, 100);
+                    
+                    return result;
+                } catch (error) {
+                    console.error("Error in infinite scroll loadMore:", error);
+                    return false;
+                }
+            },
+            threshold: '500px',
+            initialPage: 1,
+            loadingMessage: 'Caricamento notifiche...',
+            endMessage: 'Nessun\'altra notifica da caricare',
+            errorMessage: 'Errore nel caricamento delle notifiche. Riprova.'
         });
+        
+        // Aggiungi un trigger manuale dopo un breve delay per forzare il primo check
+        setTimeout(() => {
+            if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
+                this.infiniteScroll.setupObserver();
+                console.log('InfiniteScroll: observer posizionato manualmente dopo setup');
+            }
+        }, 500);
     }
     
     updateEmptyState() {

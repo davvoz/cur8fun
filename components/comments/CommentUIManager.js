@@ -115,7 +115,7 @@ export default class CommentUIManager {
     card.dataset.commentId = `${comment.author}_${comment.permlink}`;
     
     // Get the first image if any, for thumbnail
-    const imageUrl = this._getFirstImageFromContent(comment.body) || '/assets/images/default-comment-thumbnail.jpg';
+    const imageUrl = this._getFirstImageFromContent(comment.body);
     
     // Format the date
     const date = new Date(comment.created);
@@ -129,17 +129,23 @@ export default class CommentUIManager {
     const textPreview = this._stripMarkdown(comment.body).substring(0, 150) + '...';
     
     // Create the card HTML structure similar to post cards
-    card.innerHTML = `
+    let cardHTML = `
       <div class="card-header">
         <div class="author-info">
           <img src="https://steemitimages.com/u/${comment.author}/avatar/small" class="avatar" alt="${comment.author}" />
           <div class="author-details">
-            <div  class="author-name">@${comment.author}</div>
+            <div class="author-name">@${comment.author}</div>
             <span class="date">${formattedDate}</span>
           </div>
         </div>
-      </div>
-      <div class="card-thumbnail" style="background-image: url('${imageUrl}')"></div>
+      </div>`;
+      
+    // Only add thumbnail section if an image was found
+    if (imageUrl) {
+      cardHTML += `<div class="card-thumbnail" style="background-image: url('${imageUrl}')"></div>`;
+    }
+    
+    cardHTML += `
       <div class="card-content">
         <h3 class="comment-title">Comment on: ${comment.root_title || 'a post'}</h3>
         <p class="comment-text">${textPreview}</p>
@@ -158,6 +164,8 @@ export default class CommentUIManager {
         </div>
       </div>
     `;
+    
+    card.innerHTML = cardHTML;
     
     // Add click event to the card
     card.addEventListener('click', (e) => {
