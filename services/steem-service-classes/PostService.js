@@ -453,7 +453,7 @@ export default class PostService {
     }
 
     /**
-     * Fetches posts from a specific community
+     * Fetches posts from a specific community using bridge.get_ranked_posts
      * @param {Object} params - Parameters for the query
      * @param {string} params.community - Community ID (with or without 'hive-' prefix)
      * @param {string} [params.sort='trending'] - Sort order ('trending', 'hot', 'created', etc.)
@@ -466,93 +466,39 @@ export default class PostService {
         // Ensure the library is loaded
         await this.core.ensureLibraryLoaded();
         
-        // Format the query object for the API
-        const query = {
-            tag: `hive-${params.community.replace(/^hive-/, '')}`,  // Ensure 'hive-' prefix is added
-            sort: params.sort || 'trending',
-            limit: params.limit || 20
-        };
+        // Format community tag - ensure it has 'hive-' prefix
+        const communityTag = `hive-${params.community.replace(/^hive-/, '')}`;
         
-        // Add pagination parameters if provided
-        if (params.start_author && params.start_permlink) {
-            query.start_author = params.start_author;
-            query.start_permlink = params.start_permlink;
-        }
-        
-        console.log(`Fetching community posts for ${query.tag} with sort=${query.sort}, limit=${query.limit}`);
+        console.log(`Fetching community posts for ${communityTag} using bridge API`);
         
         try {
-            // Use the appropriate API method based on sort type
+            // Use bridge.get_ranked_posts directly
             return await new Promise((resolve, reject) => {
-                // Choose the right API method based on sort order
-                let apiMethod;
-                switch(query.sort) {
-                    case 'created':
-                        apiMethod = 'getDiscussionsByCreated';
-                        break;
-                    case 'hot':
-                        apiMethod = 'getDiscussionsByHot';
-                        break;
-                    case 'promoted':
-                        apiMethod = 'getDiscussionsByPromoted';
-                        break;
-                    case 'trending':
-                    default:
-                        apiMethod = 'getDiscussionsByTrending';
-                }
-                
-                // Use this.core.steem instead of this.steem AND wrap query in array
-                this.core.steem.api[apiMethod]([query], (err, result) => {
-                    if (err) {
-                        console.error(`API error in ${apiMethod}:`, err);
-                        reject(err);
-                    } else {
-                        console.log(`Received ${result ? result.length : 0} community posts`);
-                        
-                        // Filter posts to ensure they actually belong to this community
-                        // Sometimes the API returns posts that don't match the community tag
-                        const filteredPosts = (result || []).filter(post => {
-                            const metadata = this.parseMetadata(post.json_metadata);
-                            return metadata && metadata.community === params.community.replace(/^hive-/, '');
-                        });
-                        
-                        resolve(filteredPosts);
+                this.core.steem.api.call(
+                    'bridge.get_ranked_posts',
+                    {
+                        tag: communityTag,
+                        sort: params.sort || 'trending',
+                        limit: params.limit || 20,
+                        start_author: params.start_author || '',
+                        start_permlink: params.start_permlink || ''
+                    },
+                    (err, result) => {
+                        if (err) {
+                            console.error('Bridge API error:', err);
+                            reject(err);
+                        } else {
+                            console.log(`Bridge API returned ${result ? result.length : 0} posts`);
+                            // Return all posts without filtering
+                            resolve(result || []);
+                        }
                     }
-                });
+                );
             });
         } catch (error) {
             console.error('Error fetching community posts:', error);
-            
-            // Retry once with different API method if first attempt fails
-            try {
-                // Fallback to bridge API which might be more reliable for communities
-                return await new Promise((resolve, reject) => {
-                    // Use this.core.steem instead of this.steem
-                    // Bridge API uses different parameter format (not an array)
-                    this.core.steem.api.call(
-                        'bridge.get_ranked_posts',
-                        {
-                            tag: query.tag,
-                            sort: query.sort,
-                            limit: query.limit,
-                            start_author: query.start_author || '',
-                            start_permlink: query.start_permlink || ''
-                        },
-                        (err, result) => {
-                            if (err) {
-                                console.error('Bridge API error:', err);
-                                reject(err);
-                            } else {
-                                console.log(`Bridge API returned ${result ? result.length : 0} posts`);
-                                resolve(result || []);
-                            }
-                        }
-                    );
-                });
-            } catch (retryError) {
-                console.error('Retry also failed:', retryError);
-                return [];
-            }
+            // In case of error, return empty array instead of throwing
+            return [];
         }
     }
 
