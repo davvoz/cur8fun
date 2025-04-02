@@ -9,13 +9,11 @@ export default class TransactionHistoryTab extends Component {
     this.allTransactions = [];
     this.username = authService.getCurrentUser()?.username || '';
     this.isLoading = false;
+    
+    // Struttura modificata per supportare tipi dinamici
+    this.transactionTypes = new Set(); // Per memorizzare i tipi unici di transazione
     this.filters = {
-      types: {
-        transfer: true,
-        vote: true,
-        comment: true,
-        other: true
-      },
+      types: {}, // Sarà popolato dinamicamente
       direction: {
         byUser: true,
         onUser: true
@@ -23,14 +21,22 @@ export default class TransactionHistoryTab extends Component {
     };
     this.limit = 50; // Inizia con 50 transazioni
     
+    // Aggiungi contatori per i tipi di transazioni
+    this.typeCounts = {};
+    
     // Riferimenti agli elementi DOM
     this.transactionListElement = null;
     this.loadMoreButton = null;
     this.filterCheckboxes = {};
+    this.filterContainer = null;
+    this.resultsCounter = null;
     
     // Binding dei metodi
     this.handleApplyFilters = this.handleApplyFilters.bind(this);
     this.handleLoadMore = this.handleLoadMore.bind(this);
+    this.updateFilterUI = this.updateFilterUI.bind(this);
+    this.handleFilterChange = this.handleFilterChange.bind(this);
+    this.toggleAllFiltersOfType = this.toggleAllFiltersOfType.bind(this);
   }
   
   render() {
@@ -78,82 +84,149 @@ export default class TransactionHistoryTab extends Component {
     const details = document.createElement('details');
     
     const summary = document.createElement('summary');
-    summary.textContent = 'Advanced Filters';
+    summary.textContent = 'Filters';
     details.appendChild(summary);
     
     const filterOptions = document.createElement('div');
     filterOptions.className = 'filter-options';
     
-    // Gruppo filtri per tipo
+    // Gruppo filtri per tipo (vuoto inizialmente, sarà popolato dinamicamente)
     const typeFilterGroup = document.createElement('div');
-    typeFilterGroup.className = 'filter-group';
+    typeFilterGroup.className = 'filter-group type-filter-group';
+    typeFilterGroup.id = 'type-filters';
     
-    // Checkboxes per tipi di transazioni
-    const typeFilters = [
-      { id: 'filter-transfer', label: 'Transfers' },
-      { id: 'filter-vote', label: 'Votes' },
-      { id: 'filter-comment', label: 'Comments' },
-      { id: 'filter-other', label: 'Other' }
-    ];
+    // Intestazione con opzioni select/deselect all
+    const typeFilterHeader = document.createElement('div');
+    typeFilterHeader.className = 'filter-group-header';
     
-    typeFilters.forEach(filter => {
-      const label = document.createElement('label');
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = filter.id;
-      checkbox.checked = true;
-      
-      // Salva riferimento alla checkbox
-      this.filterCheckboxes[filter.id] = checkbox;
-      
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(' ' + filter.label));
-      
-      typeFilterGroup.appendChild(label);
-    });
+    const typeHeaderText = document.createElement('span');
+    typeHeaderText.textContent = 'Transaction Types';
+    typeFilterHeader.appendChild(typeHeaderText);
+    
+    // Aggiungi pulsanti select/deselect all
+    const selectAllTypesButton = document.createElement('button');
+    selectAllTypesButton.className = 'filter-select-btn';
+    selectAllTypesButton.textContent = 'Select All';
+    selectAllTypesButton.dataset.action = 'select';
+    selectAllTypesButton.dataset.filterType = 'type';
+    this.registerEventHandler(selectAllTypesButton, 'click', this.toggleAllFiltersOfType);
+    
+    const deselectAllTypesButton = document.createElement('button');
+    deselectAllTypesButton.className = 'filter-select-btn';
+    deselectAllTypesButton.textContent = 'Deselect All';
+    deselectAllTypesButton.dataset.action = 'deselect';
+    deselectAllTypesButton.dataset.filterType = 'type';
+    this.registerEventHandler(deselectAllTypesButton, 'click', this.toggleAllFiltersOfType);
+    
+    const selectButtons = document.createElement('div');
+    selectButtons.className = 'filter-select-actions';
+    selectButtons.appendChild(selectAllTypesButton);
+    selectButtons.appendChild(deselectAllTypesButton);
+    
+    typeFilterHeader.appendChild(selectButtons);
+    typeFilterGroup.appendChild(typeFilterHeader);
+    
+    // Contenitore per i filtri di tipo (verrà popolato dinamicamente)
+    const typeFiltersContainer = document.createElement('div');
+    typeFiltersContainer.className = 'filters-container';
+    typeFilterGroup.appendChild(typeFiltersContainer);
+    
+    // Aggiungi un contatore dei risultati filtrati
+    const resultsCounter = document.createElement('div');
+    resultsCounter.id = 'filtered-results-count';
+    resultsCounter.className = 'results-counter';
+    resultsCounter.textContent = 'Loading transactions...';
     
     // Gruppo filtri per direzione
     const directionFilterGroup = document.createElement('div');
     directionFilterGroup.className = 'filter-group';
     
+    // Intestazione con opzioni select/deselect all per direzione
+    const dirHeaderText = document.createElement('div');
+    dirHeaderText.className = 'filter-group-header';
+    
+    const dirHeaderTextSpan = document.createElement('span');
+    dirHeaderTextSpan.textContent = 'Direction';
+    dirHeaderText.appendChild(dirHeaderTextSpan);
+    
+    const selectAllDirButton = document.createElement('button');
+    selectAllDirButton.className = 'filter-select-btn';
+    selectAllDirButton.textContent = 'Select All';
+    selectAllDirButton.dataset.action = 'select';
+    selectAllDirButton.dataset.filterType = 'direction';
+    this.registerEventHandler(selectAllDirButton, 'click', this.toggleAllFiltersOfType);
+    
+    const deselectAllDirButton = document.createElement('button');
+    deselectAllDirButton.className = 'filter-select-btn';
+    deselectAllDirButton.textContent = 'Deselect All';
+    deselectAllDirButton.dataset.action = 'deselect';
+    deselectAllDirButton.dataset.filterType = 'direction';
+    this.registerEventHandler(deselectAllDirButton, 'click', this.toggleAllFiltersOfType);
+    
+    const dirSelectButtons = document.createElement('div');
+    dirSelectButtons.className = 'filter-select-actions';
+    dirSelectButtons.appendChild(selectAllDirButton);
+    dirSelectButtons.appendChild(deselectAllDirButton);
+    
+    dirHeaderText.appendChild(dirSelectButtons);
+    directionFilterGroup.appendChild(dirHeaderText);
+    
     // Checkboxes per direzione
     const directionFilters = [
-      { id: 'filter-by', label: 'Actions performed by account' },
-      { id: 'filter-on', label: 'Actions received by account' }
+      { id: 'filter-by', label: 'Actions performed by account', icon: 'arrow_upward' },
+      { id: 'filter-on', label: 'Actions received by account', icon: 'arrow_downward' }
     ];
     
+    const dirFiltersContainer = document.createElement('div');
+    dirFiltersContainer.className = 'filters-container';
+    
     directionFilters.forEach(filter => {
+      const filterItem = document.createElement('div');
+      filterItem.className = 'filter-item';
+      
       const label = document.createElement('label');
       
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = filter.id;
       checkbox.checked = true;
+      checkbox.dataset.filterType = 'direction';
+      
+      // Aggiungi event listener per applicare il filtro al cambio
+      this.registerEventHandler(checkbox, 'change', this.handleFilterChange);
       
       // Salva riferimento alla checkbox
       this.filterCheckboxes[filter.id] = checkbox;
       
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(' ' + filter.label));
+      const icon = document.createElement('span');
+      icon.className = 'material-icons filter-icon';
+      icon.textContent = filter.icon;
       
-      directionFilterGroup.appendChild(label);
+      const labelText = document.createElement('span');
+      labelText.textContent = filter.label;
+      
+      label.appendChild(checkbox);
+      label.appendChild(icon);
+      label.appendChild(labelText);
+      
+      filterItem.appendChild(label);
+      dirFiltersContainer.appendChild(filterItem);
     });
     
-    // Pulsante per applicare i filtri
-    const applyButton = document.createElement('button');
-    applyButton.id = 'apply-filters';
-    applyButton.className = 'btn secondary-btn';
-    applyButton.textContent = 'Apply Filters';
+    directionFilterGroup.appendChild(dirFiltersContainer);
     
     // Assembla i filtri
     filterOptions.appendChild(typeFilterGroup);
     filterOptions.appendChild(directionFilterGroup);
-    filterOptions.appendChild(applyButton);
+    filterOptions.appendChild(resultsCounter);
     
     details.appendChild(filterOptions);
     filterContainer.appendChild(details);
     header.appendChild(filterContainer);
+    
+    // Memorizza il riferimento al contenitore dei filtri di tipo per aggiornamenti futuri
+    this.filterContainer = typeFiltersContainer;
+    this.resultsCounter = resultsCounter;
     
     return header;
   }
@@ -191,16 +264,13 @@ export default class TransactionHistoryTab extends Component {
   }
   
   setupEventListeners() {
-    // Gestisci i clic sul pulsante dei filtri
-    const applyFiltersBtn = this.element.querySelector('#apply-filters');
-    if (applyFiltersBtn) {
-      this.registerEventHandler(applyFiltersBtn, 'click', this.handleApplyFilters);
-    }
-    
     // Gestisci i clic sul pulsante "Load More"
     if (this.loadMoreButton) {
       this.registerEventHandler(this.loadMoreButton, 'click', this.handleLoadMore);
     }
+    
+    // Note: non abbiamo più bisogno del pulsante apply filters perché i filtri
+    // si applicano automaticamente al cambio delle checkbox
   }
   
   handleApplyFilters() {
@@ -213,19 +283,57 @@ export default class TransactionHistoryTab extends Component {
     this.loadTransactions();
   }
   
+  // Nuovo metodo per gestire il cambio di un filtro
+  handleFilterChange(event) {
+    this.updateFilters();
+    this.renderTransactions();
+  }
+  
+  // Nuovo metodo per selezionare/deselezionare tutti i filtri di un tipo
+  toggleAllFiltersOfType(event) {
+    const action = event.currentTarget.dataset.action;
+    const filterType = event.currentTarget.dataset.filterType;
+    const shouldCheck = action === 'select';
+    
+    if (filterType === 'type') {
+      // Seleziona/deseleziona tutti i tipi di transazione
+      this.transactionTypes.forEach(type => {
+        const checkboxId = `filter-${type}`;
+        if (this.filterCheckboxes[checkboxId]) {
+          this.filterCheckboxes[checkboxId].checked = shouldCheck;
+        }
+      });
+    } else if (filterType === 'direction') {
+      // Seleziona/deseleziona tutte le direzioni
+      ['filter-by', 'filter-on'].forEach(id => {
+        if (this.filterCheckboxes[id]) {
+          this.filterCheckboxes[id].checked = shouldCheck;
+        }
+      });
+    }
+    
+    // Aggiorna i filtri e renderizza
+    this.updateFilters();
+    this.renderTransactions();
+  }
+  
   updateFilters() {
-    this.filters = {
-      types: {
-        transfer: this.filterCheckboxes['filter-transfer']?.checked ?? true,
-        vote: this.filterCheckboxes['filter-vote']?.checked ?? true,
-        comment: this.filterCheckboxes['filter-comment']?.checked ?? true,
-        other: this.filterCheckboxes['filter-other']?.checked ?? true
-      },
-      direction: {
-        byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
-        onUser: this.filterCheckboxes['filter-on']?.checked ?? true
-      }
+    // Aggiorna i filtri di direzione
+    this.filters.direction = {
+      byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
+      onUser: this.filterCheckboxes['filter-on']?.checked ?? true
     };
+    
+    // Aggiorna i filtri di tipo dinamicamente
+    const typeFilters = {};
+    
+    // Per ogni tipo conosciuto, controlla lo stato della checkbox
+    this.transactionTypes.forEach(type => {
+      const checkboxId = `filter-${type}`;
+      typeFilters[type] = this.filterCheckboxes[checkboxId]?.checked ?? true;
+    });
+    
+    this.filters.types = typeFilters;
   }
   
   async loadTransactions() {
@@ -273,6 +381,11 @@ export default class TransactionHistoryTab extends Component {
         }
         
         this.allTransactions = formattedTransactions;
+        
+        // Estrai i tipi di transazione e aggiorna i filtri
+        this.extractTransactionTypes();
+        this.updateFilterUI();
+        
         this.renderTransactions();
       }
     } catch (error) {
@@ -285,6 +398,102 @@ export default class TransactionHistoryTab extends Component {
         this.loadMoreButton.textContent = 'Load More';
       }
     }
+  }
+  
+  // Nuovo metodo per estrarre i tipi di transazione
+  extractTransactionTypes() {
+    // Reset dei conteggi
+    this.typeCounts = {};
+    
+    for (const tx of this.allTransactions) {
+      // Determina il tipo di transazione
+      const txType = tx.type || 'other';
+      
+      // Aggiungi al set di tipi
+      this.transactionTypes.add(txType);
+      
+      // Aggiorna il conteggio per questo tipo
+      this.typeCounts[txType] = (this.typeCounts[txType] || 0) + 1;
+      
+      // Assicurati che esista nel filtro (come abilitato di default)
+      if (!this.filters.types.hasOwnProperty(txType)) {
+        this.filters.types[txType] = true;
+      }
+    }
+  }
+  
+  // Metodo per aggiornare l'interfaccia dei filtri
+  updateFilterUI() {
+    if (!this.filterContainer) return;
+    
+    // Rimuovi i filtri esistenti
+    while (this.filterContainer.firstChild) {
+      this.filterContainer.removeChild(this.filterContainer.firstChild);
+    }
+    
+    // Ordina i tipi alfabeticamente
+    const sortedTypes = Array.from(this.transactionTypes).sort();
+    
+    // Aggiungi checkbox per ogni tipo di transazione
+    sortedTypes.forEach(type => {
+      const filterItem = document.createElement('div');
+      filterItem.className = 'filter-item';
+      
+      const label = document.createElement('label');
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `filter-${type}`;
+      checkbox.checked = this.filters.types[type] !== false; // Abilitato di default
+      checkbox.dataset.filterType = 'type';
+      
+      // Aggiungi event listener per applicare il filtro al cambio
+      this.registerEventHandler(checkbox, 'change', this.handleFilterChange);
+      
+      // Salva riferimento alla checkbox
+      this.filterCheckboxes[`filter-${type}`] = checkbox;
+      
+      label.appendChild(checkbox);
+      
+      // Icona corrispondente al tipo
+      const icon = document.createElement('span');
+      icon.className = 'material-icons filter-icon';
+      icon.textContent = this.getIconForType(type);
+      label.appendChild(icon);
+      
+      // Formatta il nome del tipo per una migliore leggibilità
+      const displayName = document.createElement('span');
+      displayName.textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')}`;
+      label.appendChild(displayName);
+      
+      // Aggiungi conteggio
+      const count = document.createElement('span');
+      count.className = 'filter-count';
+      count.textContent = this.typeCounts[type] || 0;
+      label.appendChild(count);
+      
+      filterItem.appendChild(label);
+      this.filterContainer.appendChild(filterItem);
+    });
+  }
+  
+  // Helper per ottenere l'icona corrispondente al tipo
+  getIconForType(type) {
+    const iconMap = {
+      transfer: 'swap_horiz',
+      vote: 'thumb_up',
+      comment: 'comment',
+      post: 'post_add',
+      claim: 'redeem',
+      power_up: 'arrow_upward', 
+      power_down: 'arrow_downward',
+      curation: 'auto_awesome',
+      reward: 'stars',
+      delegation: 'handshake',
+      other: 'more_horiz'
+    };
+    
+    return iconMap[type] || 'more_horiz';
   }
   
   showLoadingState() {
@@ -347,6 +556,11 @@ export default class TransactionHistoryTab extends Component {
       this.filters, 
       this.username
     );
+    
+    // Aggiorna il conteggio dei risultati
+    if (this.resultsCounter) {
+      this.resultsCounter.textContent = `Showing ${filteredTransactions.length} of ${this.allTransactions.length} transactions`;
+    }
     
     if (filteredTransactions.length === 0) {
       this.showEmptyState();

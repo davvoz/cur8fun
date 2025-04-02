@@ -8,19 +8,29 @@
 }
 
 .filter-container {
+  width: 100%;
   margin-top: var(--space-sm);
+}
+
+.filter-container details {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .filter-container summary {
   cursor: pointer;
-  color: var(--primary-color);
-  font-weight: 500;
-  display: inline-flex;
+  color: var(--text-heading);
+  font-weight: 600;
+  display: flex;
   align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--surface);
+  border-radius: var(--radius-sm);
 }
 
 .filter-container summary:hover {
-  text-decoration: underline;
+  background-color: var(--background-hover);
 }
 
 .filter-container summary::-webkit-details-marker {
@@ -28,38 +38,119 @@
 }
 
 .filter-container summary::before {
+  content: 'filter_list';
+  font-family: 'Material Icons';
+  margin-right: var(--space-xs);
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.filter-container summary::after {
   content: 'expand_more';
   font-family: 'Material Icons';
-  margin-right: 4px;
+  margin-left: auto;
   transition: transform 0.2s;
 }
 
-.filter-container[open] summary::before {
+.filter-container details[open] summary::after {
   transform: rotate(180deg);
 }
 
 .filter-options {
-  background: var(--surface-alt);
-  border-radius: var(--radius-sm);
-  padding: var(--space-sm);
-  margin-top: var(--space-sm);
+  background: var(--surface);
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-color);
 }
 
 .filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
-.filter-group label {
+.filter-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  padding-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-heading);
+  width: 100%;
+}
+
+.filters-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-sm);
+}
+
+.filter-item {
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.filter-item:hover {
+  background-color: var(--background-hover);
+}
+
+.filter-item label {
   display: flex;
   align-items: center;
   cursor: pointer;
+  width: 100%;
 }
 
-.filter-group input[type="checkbox"] {
+.filter-item input[type="checkbox"] {
   margin-right: var(--space-xs);
+}
+
+.filter-icon {
+  font-size: 1.1rem;
+  margin-right: var(--space-xs);
+  color: var(--primary-color);
+}
+
+.filter-count {
+  margin-left: auto;
+  background-color: var(--background);
+  border-radius: 10px;
+  padding: 0 var(--space-xs);
+  min-width: 24px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.filter-select-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.filter-select-btn {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border: none;
+  background-color: var(--background);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.filter-select-btn:hover {
+  background-color: var(--background-hover);
+}
+
+.results-counter {
+  width: 100%;
+  text-align: center;
+  padding: var(--space-sm) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-sm);
 }
 
 .transaction-container {
