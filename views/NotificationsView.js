@@ -157,10 +157,6 @@ class NotificationsView {
             this.notificationsContainer.innerHTML = '';
         }
         
-        // Update URL without triggering a full page reload
-        const url = `#/notifications${filter !== TYPES.ALL ? `/${filter}` : ''}`;
-        history.pushState(null, '', url);
-        
         // Mostra messaggio temporaneo
         if (this.notificationsContainer) {
             this.notificationsContainer.innerHTML = `
