@@ -43,9 +43,6 @@ class NotificationsView {
                     <span class="material-icons">done_all</span>
                     <span>Mark all as read</span>
                 </button>
-                <button class="refresh-btn" title="Refresh notifications">
-                    <span class="material-icons">refresh</span>
-                </button>
             </div>
             
             <div class="notifications-container"></div>
@@ -129,13 +126,7 @@ class NotificationsView {
             });
         }
         
-        // Refresh button
-        const refreshBtn = this.container.querySelector('.refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                this.refreshNotifications();
-            });
-        }
+        
     }
     
     async changeFilter(filter) {
