@@ -262,14 +262,27 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .count-badge {
@@ -307,4 +320,26 @@
   .comments-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.comments-cards-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/*layout for compact ,grid and list*/
+.comments-cards-wrapper.grid-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-md);
+}
+.comments-cards-wrapper.grid-layout-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.comments-cards-wrapper.grid-layout-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
