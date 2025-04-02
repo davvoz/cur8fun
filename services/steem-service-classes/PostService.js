@@ -469,19 +469,20 @@ export default class PostService {
         // Format community tag - ensure it has 'hive-' prefix
         const communityTag = `hive-${params.community.replace(/^hive-/, '')}`;
         
-        console.log(`Fetching community posts for ${communityTag} using bridge API`);
+        // Imposta un limite ragionevole per il numero di post da caricare
+        const limit = params.limit || 20;
+        
+        console.log(`Fetching community posts for ${communityTag} using bridge API with sort: ${params.sort}, limit: ${limit}`);
         
         try {
-            // Use bridge.get_ranked_posts directly
+            // Use bridge.get_ranked_posts directly with proper pagination
             return await new Promise((resolve, reject) => {
                 this.core.steem.api.call(
                     'bridge.get_ranked_posts',
                     {
                         tag: communityTag,
                         sort: params.sort || 'trending',
-                        limit: params.limit || 20,
-                        start_author: params.start_author || '',
-                        start_permlink: params.start_permlink || ''
+                        limit: limit,
                     },
                     (err, result) => {
                         if (err) {
@@ -489,15 +490,26 @@ export default class PostService {
                             reject(err);
                         } else {
                             console.log(`Bridge API returned ${result ? result.length : 0} posts`);
-                            // Return all posts without filtering
-                            resolve(result || []);
+                            
+                            // Se il sort è 'created', assicurati che l'ordinamento sia corretto
+                            if (params.sort === 'created' && Array.isArray(result)) {
+                                // Ordina esplicitamente per data di creazione (più recente prima)
+                                result.sort((a, b) => {
+                                    return new Date(b.created) - new Date(a.created);
+                                });
+                            }
+                            
+                            // Limita i risultati al numero massimo richiesto
+                            const limitedResult = Array.isArray(result) && result.length > limit ? 
+                                result.slice(0, limit) : result;
+                            
+                            resolve(limitedResult || []);
                         }
                     }
                 );
             });
         } catch (error) {
             console.error('Error fetching community posts:', error);
-            // In case of error, return empty array instead of throwing
             return [];
         }
     }

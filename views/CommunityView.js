@@ -510,22 +510,24 @@ class CommunityView extends BasePostView {
           break;
           
         case 'posts':
-          const postsPerPage = params.limit || 20;
+          const postsPerPage = params.limit || 10; // Riduci a 10 per caricamenti più veloci
           const fetchParams = {
             community: params.communityId.replace(/^hive-/, ''),
             sort: params.sort || 'trending',
             limit: postsPerPage
           };
 
-          if (params.page > 1 && params.lastAuthor && params.lastPermlink) {
+          // Implementazione corretta della paginazione
+          if (params.lastAuthor && params.lastPermlink) {
             fetchParams.start_author = params.lastAuthor;
             fetchParams.start_permlink = params.lastPermlink;
+            console.log(`Using pagination: start with ${params.lastAuthor}/${params.lastPermlink}`);
           }
           
           const rawPosts = await steemService.fetchCommunityPosts(fetchParams);
           
           // Process and enrich the posts with community info
-          if (Array.isArray(rawPosts)) {
+          if (Array.isArray(rawPosts) && rawPosts.length > 0) {
             const community = params.communityDetails || this.community;
             const enrichedPosts = rawPosts.map(post => ({
               ...post,
@@ -535,7 +537,8 @@ class CommunityView extends BasePostView {
             
             result = {
               posts: enrichedPosts,
-              hasMore: enrichedPosts.length >= postsPerPage
+              hasMore: enrichedPosts.length >= postsPerPage,
+              lastPost: enrichedPosts[enrichedPosts.length - 1] // Memorizza l'ultimo post per la paginazione
             };
           } else {
             result = { posts: [], hasMore: false };
