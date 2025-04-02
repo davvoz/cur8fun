@@ -125,7 +125,7 @@ class NotificationsView {
         const markReadBtn = this.container.querySelector('.mark-read-btn');
         if (markReadBtn) {
             markReadBtn.addEventListener('click', () => {
-                this.markAllAsRead();
+                alert('Feature not implemented yet!');
             });
         }
         
