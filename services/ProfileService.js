@@ -326,6 +326,21 @@ class ProfileService {
         }
     }
 
+    /**
+     * Gets the complete list of followers for a user
+     * @param {string} username - Username to get followers for
+     * @returns {Promise<Array>} - Array of follower objects
+     */
+    async getFollowersList(username) {
+        try {
+            const followers = await steemService.getFollowers(username);
+            return followers;
+        } catch (error) {
+            console.error(`Error fetching followers list for ${username}:`, error);
+            return [];
+        }
+    }
+
     async getFollowingCount(username) {
         try {
             const following = await steemService.getFollowing(username);
@@ -333,6 +348,16 @@ class ProfileService {
         } catch (error) {
             console.error(`Error fetching following count for ${username}:`, error);
             return 0;
+        }
+    }
+
+    async getFollowingList(username) {
+        try {
+            const following = await steemService.getFollowing(username);
+            return following;
+        } catch (error) {
+            console.error(`Error fetching following list for ${username}:`, error);
+            return [];
         }
     }
 

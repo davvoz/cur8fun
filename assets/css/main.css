@@ -33,6 +33,8 @@
 @import 'pages/tag.css';
 @import 'pages/wallet/wallet.css';
 @import 'pages/communities-list.css';
+@import 'pages/followers-modal.css';
+@import 'pages/following-modal.css';
 
 /* Utility styles */
 @import 'utils/content.css';

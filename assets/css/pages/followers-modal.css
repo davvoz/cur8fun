@@ -1,0 +1,286 @@
+/* Prevent body scroll when modal is open */
+body.modal-open {
+    overflow: hidden;
+    padding-right: 17px; /* Compensate for scrollbar disappearance */
+}
+
+/* Modal container */
+.followers-modal {
+    display: none;
+    position: fixed;
+    z-index: var(--z-modal);
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0);
+    transition: background-color 0.3s ease;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(0px);
+}
+
+.followers-modal.visible {
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(3px);
+}
+
+.followers-modal-content {
+    background-color: var(--background-light);
+    color: var(--text-color);
+    margin: 0 auto;
+    padding: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--popup-box-shadow);
+    width: 90%;
+    max-width: 550px;
+    max-height: 85vh;
+    overflow: hidden;
+    transform: translateY(50px);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.followers-modal.visible .followers-modal-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Modal header */
+.followers-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-color);
+}
+
+.followers-modal-header h2 {
+    color: var(--text-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.followers-modal-header .username {
+    color: var(--primary-color);
+}
+
+.followers-modal-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 300;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: var(--transition-fast);
+    border-radius: 50%;
+    background-color: transparent;
+}
+
+.followers-modal-close:hover {
+    color: var(--primary-color);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Modal body */
+.followers-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) var(--background-lighter);
+}
+
+.followers-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.followers-modal-body::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);
+    border-radius: var(--radius-pill);
+}
+
+.followers-modal-body::-webkit-scrollbar-track {
+    background-color: var(--background-lighter);
+}
+
+/* Followers list styling */
+.followers-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.follower-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition-fast);
+    cursor: pointer;
+    position: relative;
+}
+
+.follower-item:after {
+    content: 'chevron_right';
+    font-family: 'Material Icons';
+    position: absolute;
+    right: var(--space-lg);
+    opacity: 0;
+    color: var(--primary-color);
+    transition: var(--transition-fast);
+}
+
+.follower-item:hover:after {
+    opacity: 1;
+    transform: translateX(3px);
+}
+
+.follower-item:last-child {
+    border-bottom: none;
+}
+
+.follower-item:hover {
+    background-color: var(--background-lighter);
+}
+
+.follower-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-pill);
+    margin-right: var(--space-md);
+    object-fit: cover;
+    box-shadow: var(--subtle-shadow);
+    transition: transform 0.2s ease;
+}
+
+.follower-item:hover .follower-avatar {
+    transform: scale(1.05);
+}
+
+.follower-username {
+    font-weight: bold;
+    font-size: 16px;
+    color: var(--primary-light);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.follower-username:hover {
+    color: var(--primary-color);
+}
+
+/* Loading state */
+.followers-loading {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+.followers-loading:before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 40px;
+    margin-bottom: var(--space-md);
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.followers-error {
+    display: none;
+    padding: var(--space-xl);
+    text-align: center;
+    color: #ff4d4f;
+    font-weight: 500;
+    background-color: rgba(255, 77, 79, 0.1);
+    border-radius: var(--radius-md);
+    margin: var(--space-lg);
+}
+
+/* No followers state */
+.no-followers {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Style for clickable follower stats */
+.clickable-stat {
+    position: relative;
+    transition: var(--transition-fast);
+}
+
+.clickable-stat::after {
+    content: 'visibility';
+    font-family: 'Material Icons';
+    font-size: 14px;
+    opacity: 0;
+    position: absolute;
+    right: -5px;
+    top: -5px;
+    transition: var(--transition-fast);
+    color: var(--primary-color);
+}
+
+.clickable-stat:hover {
+    transform: translateY(-2px);
+}
+
+.clickable-stat:hover::after {
+    opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .followers-modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    .followers-modal-header {
+        padding: var(--space-md);
+    }
+    
+    .followers-modal-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    .follower-item {
+        padding: var(--space-md);
+    }
+    
+    /* Smaller padding for compensating scrollbar on mobile */
+    body.modal-open {
+        padding-right: 0;
+    }
+}
+
+/* Animation for modal appearance */
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

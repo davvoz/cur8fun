@@ -1,4 +1,6 @@
 import router from '../../utils/Router.js';
+import followersModal from '../FollowersModal.js';
+import followingModal from '../FollowingModal.js';
 
 export default class ProfileHeader {
   constructor(profile, currentUser, onFollowAction) {
@@ -162,8 +164,8 @@ export default class ProfileHeader {
     metrics.className = 'profile-metrics';
 
     metrics.appendChild(this.createStatElement('Posts', this.profile.postCount));
-    metrics.appendChild(this.createStatElement('Followers', this.profile.followerCount));
-    metrics.appendChild(this.createStatElement('Following', this.profile.followingCount));
+    metrics.appendChild(this.createStatElement('Followers', this.profile.followerCount, true));
+    metrics.appendChild(this.createStatElement('Following', this.profile.followingCount, true)); // Added true to make Following clickable
 
     // Actions with enhanced button styling
     const actions = document.createElement('div');
@@ -232,9 +234,15 @@ export default class ProfileHeader {
     return header;
   }
   
-  createStatElement(label, value) {
+  createStatElement(label, value, isClickable = false) {
     const stat = document.createElement('div');
     stat.className = 'stat-container';
+    
+    if (isClickable) {
+      stat.classList.add('clickable-stat');
+      stat.title = `View ${label}`;
+      stat.style.cursor = 'pointer';
+    }
 
     const statValue = document.createElement('div');
     statValue.className = 'stat-value';
@@ -245,6 +253,20 @@ export default class ProfileHeader {
     statLabel.textContent = label;
 
     stat.append(statValue, statLabel);
+    
+    // Add event listener for clickable stats
+    if (isClickable) {
+      if (label === 'Followers') {
+        stat.addEventListener('click', () => {
+          followersModal.open(this.profile.username);
+        });
+      } else if (label === 'Following') {
+        stat.addEventListener('click', () => {
+          followingModal.open(this.profile.username);
+        });
+      }
+    }
+    
     return stat;
   }
   
