@@ -5,13 +5,66 @@ import router from '../utils/Router.js';
 export default class CommentController {
   constructor(view) {
     this.view = view;
+    this.initialized = false;
+    
+    // Attach event listeners after DOM is ready
+    setTimeout(() => this.initializeEventListeners(), 100);
+  }
+  
+  /**
+   * Initialize event listeners for comment forms
+   */
+  initializeEventListeners() {
+    if (this.initialized) return;
+    
+    // Find the comment form
+    const commentForm = this.view.element.querySelector('.comment-form');
+    const submitButton = commentForm?.querySelector('.submit-comment');
+    
+    if (submitButton) {
+      // Remove any existing listeners to prevent duplicates
+      submitButton.removeEventListener('click', this.handleNewCommentClick);
+      
+      // Add click event listener with bound context
+      submitButton.addEventListener('click', this.handleNewCommentClick.bind(this));
+      console.log('Comment submit button listener attached');
+    } else {
+      console.warn('Comment submit button not found');
+    }
+    
+    this.initialized = true;
+  }
+  
+  /**
+   * Handle click on the submit comment button
+   * @param {Event} event - Click event
+   */
+  handleNewCommentClick(event) {
+    event.preventDefault();
+    console.log('Comment submit button clicked');
+    this.handleNewComment();
   }
   
   async handleNewComment() {
-    const textarea = this.view.element.querySelector('.comment-form textarea');
-    if (!textarea) return;
+    console.log('Handling new comment submission');
+    
+    // Find the comment form with more robust selectors
+    const commentForm = this.view.element.querySelector('.comment-form') || 
+                        this.view.element.querySelector('form[class*="comment"]');
+    
+    if (!commentForm) {
+      console.error('Comment form not found');
+      return;
+    }
+    
+    const textarea = commentForm.querySelector('textarea');
+    if (!textarea) {
+      console.error('Comment textarea not found');
+      return;
+    }
     
     const commentText = textarea.value.trim();
+    console.log('Comment text:', commentText ? 'Found' : 'Empty');
 
     // Validate comment
     if (!this.validateComment(commentText, textarea)) return;
@@ -19,9 +72,71 @@ export default class CommentController {
     // Check login
     if (!this.checkLoggedIn()) return;
 
-    // Find UI elements
-    const submitButton = this.view.element.querySelector('.submit-comment');
-    if (!submitButton) return;
+    // Find submit button (more robust selector)
+    const submitButton = commentForm.querySelector('.submit-comment') || 
+                        commentForm.querySelector('button[type="submit"]');
+                        
+    if (!submitButton) {
+      console.error('Submit button not found');
+      return;
+    }
+    
+    // Try multiple approaches to find post information
+    let postAuthor, postPermlink;
+    
+    // Method 1: From view.post object
+    if (this.view.post && this.view.post.author && this.view.post.permlink) {
+      console.log('Found post info from view.post');
+      postAuthor = this.view.post.author;
+      postPermlink = this.view.post.permlink;
+    } 
+    // Method 2: From data attributes on page elements
+    else {
+      // Try to find post info from meta tags or data attributes
+      const postContainer = this.view.element.querySelector('[data-author][data-permlink]') || 
+                           document.querySelector('[data-author][data-permlink]');
+      
+      if (postContainer) {
+        console.log('Found post info from DOM data attributes');
+        postAuthor = postContainer.dataset.author;
+        postPermlink = postContainer.dataset.permlink;
+      }
+      // Method 3: From URL path if following /@author/permlink pattern
+      else {
+        const urlPath = window.location.pathname;
+        const match = urlPath.match(/\/@([a-zA-Z0-9\-.]+)\/([a-zA-Z0-9\-]+)/);
+        
+        if (match && match.length >= 3) {
+          console.log('Found post info from URL');
+          postAuthor = match[1];
+          postPermlink = match[2];
+        }
+      }
+    }
+    
+    // Method 4: Look for hidden inputs that might contain the data
+    if (!postAuthor || !postPermlink) {
+      const authorInput = commentForm.querySelector('input[name="parent_author"]');
+      const permlinkInput = commentForm.querySelector('input[name="parent_permlink"]');
+      
+      if (authorInput && permlinkInput) {
+        console.log('Found post info from hidden inputs');
+        postAuthor = authorInput.value;
+        postPermlink = permlinkInput.value;
+      }
+    }
+    
+    // Final check if we found the post information
+    if (!postAuthor || !postPermlink) {
+      console.error('Missing post information. Author:', postAuthor, 'Permlink:', postPermlink);
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Error: Cannot identify the post to comment on'
+      });
+      return;
+    }
+    
+    console.log('Commenting on post by:', postAuthor, 'with permlink:', postPermlink);
     
     // Set loading state
     const originalText = submitButton.textContent;
@@ -30,8 +145,8 @@ export default class CommentController {
     try {
       // Submit comment
       const result = await commentService.createComment({
-        parentAuthor: this.view.post.author,
-        parentPermlink: this.view.post.permlink,
+        parentAuthor: postAuthor,
+        parentPermlink: postPermlink,
         body: commentText,
         metadata: {
           app: 'steemee/1.0',
@@ -190,12 +305,23 @@ export default class CommentController {
   }
   
   getErrorMessage(error) {
-    if (error.message.includes('Keychain')) {
+    console.log('Processing error:', error);
+    
+    if (!error) return 'Unknown error occurred';
+    
+    if (error.message && error.message.includes('Keychain')) {
       return this.getKeychainErrorMessage(error.message);
-    } else if (error.message.includes('posting key')) {
+    } else if (error.message && error.message.includes('posting key')) {
       return 'Invalid posting key. Please login again.';
+    } else if (error.message === 'i') {
+      return 'Invalid comment parameters. Please try again with different text.';
+    } else if (error.message && error.message.includes('permlink')) {
+      return 'Invalid permlink format. Please try again.';
+    } else if (error.message && error.message.includes('STEEM_MIN_ROOT_COMMENT_INTERVAL')) {
+      return 'Please wait a while before posting another comment.';
     }
-    return `Error: ${error.message}`;
+    
+    return `Error: ${error.message || 'Failed to post comment'}`;
   }
   
   getKeychainErrorMessage(errorMessage) {
@@ -227,6 +353,11 @@ export default class CommentController {
   }
   
   cleanup() {
-    // No specific cleanup needed yet
+    // Remove event listeners
+    const submitButton = this.view.element.querySelector('.submit-comment');
+    if (submitButton) {
+      submitButton.removeEventListener('click', this.handleNewCommentClick);
+    }
+    this.initialized = false;
   }
 }
