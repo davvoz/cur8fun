@@ -1,4 +1,5 @@
 import eventEmitter from './EventEmitter.js';
+import EditPostView from '../views/EditPostView.js';
 
 /**
  * Client-side router for handling navigation
@@ -82,22 +83,35 @@ class Router {
 
   /**
    * Add a route to the router
-   * @param {string} path - URL path to match
+   * @param {string|RegExp} path - URL path to match or regex pattern
    * @param {Function} viewClass - View class to instantiate
    * @param {Object} [options={}] - Additional route options
    */
   addRoute(path, viewClass, options = {}) {
-    // Convert path pattern to regular expression
-    const pattern = path
-      .replace(/:\w+/g, '([^/]+)')
-      .replace(/\*/, '.*');
+    let pattern;
+    let paramNames = [];
     
-    const paramNames = (path.match(/:\w+/g) || [])
-      .map(param => param.substring(1));
+    if (path instanceof RegExp) {
+      // If path is already a RegExp, use it directly
+      pattern = path;
+    } else if (typeof path === 'string') {
+      // Extract parameter names from string paths (e.g., '/user/:id')
+      paramNames = (path.match(/:\w+/g) || []).map(param => param.substring(1));
+      
+      // Convert path pattern to regular expression
+      pattern = new RegExp(
+        '^' + path
+          .replace(/:\w+/g, '([^/]+)')
+          .replace(/\*/, '.*') + 
+        '$'
+      );
+    } else {
+      throw new Error('Path must be a string or RegExp');
+    }
     
     this.routes.push({
       path,
-      pattern: new RegExp(`^${pattern}$`),
+      pattern,
       viewClass,
       paramNames,
       options
@@ -204,11 +218,25 @@ class Router {
       const match = path.match(route.pattern);
       if (match) {
         matchedRoute = route;
+        
         // Extract parameters from URL
-        if (route.paramNames.length > 0) {
+        if (route.paramNames && route.paramNames.length > 0) {
+          // For named parameter routes like '/user/:id'
           route.paramNames.forEach((name, index) => {
             params[name] = match[index + 1];
           });
+        } else if (route.path instanceof RegExp && match.length > 1) {
+          // For regex routes, map captured groups to standard parameter names
+          // For the edit route specifically: /edit/@(author)/(permlink)
+          if (path.startsWith('/edit/@') && match.length >= 3) {
+            params.author = match[1];
+            params.permlink = match[2];
+          } else {
+            // For other regex routes, provide capture groups as params.0, params.1, etc.
+            for (let i = 1; i < match.length; i++) {
+              params[i-1] = match[i];
+            }
+          }
         }
         break;
       }
@@ -356,6 +384,9 @@ class Router {
         }
       }
     });
+    
+    // Add edit route - using the EditPostView class directly
+    this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, EditPostView);
     
     // Handle initial route
     if (this.useHashRouting) {

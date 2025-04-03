@@ -1,11 +1,12 @@
 import VotesPopup from './VotesPopup.js';
 
 class PostActions {
-  constructor(post, upvoteCallback, commentCallback, shareCallback) {
+  constructor(post, upvoteCallback, commentCallback, shareCallback,editCallback) {
     this.post = post;
     this.upvoteCallback = upvoteCallback;
     this.commentCallback = commentCallback;
     this.shareCallback = shareCallback;
+    this.editCallback = editCallback; 
   }
 
   render() {
@@ -15,8 +16,8 @@ class PostActions {
     const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.net_votes || 0);
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
-    // Add new vote details button
     const votesDetailsBtn = this.createActionButton('votes-details-btn', 'how_to_vote', 'Votes');
+    const editBtn = this.createActionButton('edit-btn', 'edit', 'Edit'); // New button for editing
 
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
@@ -27,6 +28,7 @@ class PostActions {
     postActions.appendChild(shareBtn);
     postActions.appendChild(votesDetailsBtn); // Add the new button
     postActions.appendChild(payoutInfo);
+    postActions.appendChild(editBtn); 
 
     // Add event listeners
     if (this.upvoteCallback) {
@@ -39,6 +41,10 @@ class PostActions {
     
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
+    }
+
+    if (this.editCallback) {
+      editBtn.addEventListener('click', this.editCallback); // Add event listener for edit button
     }
     
     // Add event listener for votes details button

@@ -4,6 +4,7 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import ContentRenderer from '../components/ContentRenderer.js';
 import steemService from '../services/SteemService.js'; 
 import communityService from '../services/CommunityService.js';
+import authService from '../services/AuthService.js';
 
 // Import components
 import PostHeader from '../components/post/PostHeader.js';
@@ -181,11 +182,13 @@ class PostView extends View {
       this.contentRenderer
     );
     
+    // Add edit functionality to the PostActions component
     this.postActionsComponent = new PostActions(
       this.post,
-      () => this.voteController.handlePostVote(this.post),       // Delegato al controller
-      () => this.commentController.handleNewComment(this.post),  // Delegato al controller
-      () => this.handleShare()
+      () => this.voteController.handlePostVote(this.post),       
+      () => this.commentController.handleNewComment(this.post),  
+      () => this.handleShare(),
+      () => this.handleEdit()                                   // Add edit handler
     );
     
     this.postTagsComponent = new PostTags(
@@ -195,10 +198,28 @@ class PostView extends View {
     this.commentsSectionComponent = new CommentsSection(
       this.comments,
       this.post,
-      (comment, text) => this.commentController.handleReply(comment, text),  // Delegato al controller
-      (commentEl, voteBtn) => this.voteController.handleCommentVote(commentEl, voteBtn), // Delegato al controller
+      (comment, text) => this.commentController.handleReply(comment, text),
+      (commentEl, voteBtn) => this.voteController.handleCommentVote(commentEl, voteBtn),
       this.contentRenderer
     );
+  }
+
+  /**
+   * Handle edit button click
+   * Redirects the user to the edit page
+   */
+  handleEdit() {
+    const { author, permlink } = this.post;
+    router.navigate(`/edit/@${author}/${permlink}`);
+  }
+
+  /**
+   * Check if current user can edit the post
+   * @returns {boolean} true if user is the author
+   */
+  canEditPost() {
+    const currentUser = authService.getCurrentUser();
+    return currentUser && currentUser.username === this.post.author;
   }
 
   renderComponents() {
