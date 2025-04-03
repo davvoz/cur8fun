@@ -774,6 +774,17 @@ class WalletService {
       const maxOperations = 5000;
       const startTime = Date.now();
       const maxTimeMs = 30000; // 30 seconds maximum
+      const batchSize = 2000; // Increased batch size for account history
+      
+      // Get account data for later calculations
+      const account = await steemService.getUser(curator);
+      if (!account) {
+        throw new Error('Account not found');
+      }
+      
+      const curatorSP = parseFloat(account.vesting_shares) - 
+                        parseFloat(account.delegated_vesting_shares) + 
+                        parseFloat(account.received_vesting_shares);
       
       // Continue fetching history until we get data older than the cutoff date
       while (isWithinTimeframe) {
@@ -784,109 +795,70 @@ class WalletService {
         }
         
         try {
-          // Get account history in batches
-          const accountHistory = await this._getAccountHistory(curator, lastId);
+          // Get account history in larger batches
+          const accountHistory = await this._getAccountHistory(curator, lastId, batchSize);
           if (!accountHistory || accountHistory.length === 0) break;
           
           // Sort by ID in descending order
           accountHistory.sort((a, b) => b[0] - a[0]);
           
-          // Process all operations in this batch
-          for (const entry of accountHistory) {
+          // Filter only curation rewards within timeframe
+          const curationRewards = accountHistory.filter(entry => {
             const [id, operation] = entry;
-            
-            // Process only curation reward operations
             if (operation.op[0] === 'curation_reward') {
               const timestamp = new Date(operation.timestamp + 'Z');
-              
-              // Stop if we reach data older than cutoff
-              if (timestamp < cutoffDate) {
-                isWithinTimeframe = false;
-                break;
-              }
-              
-              const opData = operation.op[1];
-              
-              // Extract operation data
-              const comment_author = opData.comment_author || opData.author;
-              const comment_permlink = opData.comment_permlink || opData.permlink;
-              const reward = opData.reward;
-              
-              if (!comment_author || !comment_permlink || !reward) {
-                console.warn('Invalid curation reward data structure');
-                continue;
-              }
-              
-              const postIdentifier = `@${comment_author}/${comment_permlink}`;
-              
-              try {
-                // Get post and vote details
-                const { post, votes } = await this._getPostDetails(comment_author, comment_permlink);
-                const curatorVote = votes.find(v => v.voter === curator);
-                
-                if (curatorVote) {
-                  // Parse reward amount
-                  const reward_vests = parseFloat(reward.split(' ')[0]);
-                  
-                  // Calculate vote metrics
-                  const percent = curatorVote.percent / 100;
-                  const vote_time = new Date(curatorVote.time + 'Z');
-                  const created_time = new Date(post.created + 'Z');
-                  const voteAgeMins = Math.floor((vote_time - created_time) / (1000 * 60));
-                  
-                  // Calculate vote value using the dedicated method instead of simple division
-                  const account = await steemService.getUser(curator);
-                  const curatorSP = account ? parseFloat(account.vesting_shares) - parseFloat(account.delegated_vesting_shares) + parseFloat(account.received_vesting_shares) : 0;
-                  const voteValueResult = await this.calculateVoteValue(percent, curatorSP);
-                  const calculatedVoteValue = voteValueResult.steemValue || 0;
-                  
-                  // Convert to STEEM Power
-                  const effective_reward_sp = await this.vestsToSteem(reward_vests);
-                  const estimated_reward = calculatedVoteValue;
-                  const vote_power_sp = estimated_reward * 2; // Full vote value
-                  
-                  // Calculate efficiency percentage
-                  const efficiency = (effective_reward_sp / estimated_reward) * 100;
-                  
-                  // Store result
-                  allResults.push({
-                    post: postIdentifier,
-                    rewardSP: effective_reward_sp,
-                    voteValue: vote_power_sp, 
-                    expectedReward: estimated_reward,
-                    efficiency: efficiency,
-                    percent: percent,
-                    time: curatorVote.time,
-                    voteAgeMins: voteAgeMins
-                  });
-                  
-                  processedCount++;
-                  
-                  // Emit progress updates periodically
-                  if (processedCount % 10 === 0) {
-                    eventEmitter.emit('curation:calculation-progress', {
-                      username: curator,
-                      processedCount,
-                      latestResults: allResults
-                    });
-                  }
-                }
-              } catch (error) {
-                console.warn(`Error processing post ${postIdentifier}:`, error);
-                continue;
-              }
+              lastId = id - 1; // Update last ID for next batch
+              return timestamp >= cutoffDate;
+            }
+            return false;
+          });
+          
+          // If we have found curation rewards, process them in parallel batches
+          if (curationRewards.length > 0) {
+            const batchPromises = [];
+            const batchSize = 10; // Process 10 operations concurrently
+            
+            for (let i = 0; i < curationRewards.length; i += batchSize) {
+              const batch = curationRewards.slice(i, i + batchSize);
+              batchPromises.push(this._processCurationBatch(batch, curator, curatorSP));
             }
             
-            // Update last ID for next batch
-            lastId = id - 1;
-            if (lastId < 0) break;
+            // Wait for all batches to complete
+            const batchResults = await Promise.all(batchPromises);
+            const newResults = batchResults.flat().filter(Boolean); // Remove any nulls
+            
+            // Add new results
+            if (newResults.length > 0) {
+              allResults = [...allResults, ...newResults];
+              processedCount += newResults.length;
+              
+              // Emit progress updates in larger increments
+              eventEmitter.emit('curation:calculation-progress', {
+                username: curator,
+                processedCount,
+                latestResults: allResults
+              });
+            }
           }
           
-          // Break if we've gone past the timeframe
-          if (!isWithinTimeframe) break;
+          // Check if we're still within timeframe by looking at last operation
+          if (lastId < 0 || accountHistory.length < batchSize) {
+            // We've processed all available history
+            isWithinTimeframe = false;
+          } else {
+            // Check last operation time
+            const lastOp = accountHistory[accountHistory.length - 1];
+            if (lastOp && lastOp[1]) {
+              const lastTimestamp = new Date(lastOp[1].timestamp + 'Z');
+              if (lastTimestamp < cutoffDate) {
+                isWithinTimeframe = false;
+              }
+            }
+          }
+          
         } catch (error) {
           console.error('Error retrieving account history:', error);
-          throw error;
+          // Continue processing despite errors
         }
       }
       
@@ -932,17 +904,13 @@ class WalletService {
       // Calculate APR based on rewards and vesting shares
       let apr = 0;
       try {
-        // Get account data for vesting shares calculation
-        const account = await steemService.getUser(curator);
-        if (account) {
-          const delegatedVestingShares = parseFloat(account.delegated_vesting_shares.split(' ')[0]);
-          const vestingShares = parseFloat(account.vesting_shares.split(' ')[0]);
-          const receivedVestingShares = parseFloat(account.received_vesting_shares.split(' ')[0]);
-          const totalVestingShares = vestingShares + receivedVestingShares - delegatedVestingShares;
-          
-          // Calculate APR
-          apr = await this.calculateAPR(totalRewards, totalVestingShares);
-        }
+        const delegatedVestingShares = parseFloat(account.delegated_vesting_shares.split(' ')[0]);
+        const vestingShares = parseFloat(account.vesting_shares.split(' ')[0]);
+        const receivedVestingShares = parseFloat(account.received_vesting_shares.split(' ')[0]);
+        const totalVestingShares = vestingShares + receivedVestingShares - delegatedVestingShares;
+        
+        // Calculate APR
+        apr = await this.calculateAPR(totalRewards, totalVestingShares);
       } catch (error) {
         console.warn('Error calculating APR:', error);
       }
@@ -986,7 +954,83 @@ class WalletService {
       throw error;
     }
   }
-  
+
+  /**
+   * Process a batch of curation rewards in parallel
+   * @private
+   * @param {Array} curationBatch - Array of curation reward operations
+   * @param {string} curator - Username of the curator
+   * @param {number} curatorSP - Curator's effective SP
+   * @returns {Promise<Array>} Array of processed curation results
+   */
+  async _processCurationBatch(curationBatch, curator, curatorSP) {
+    try {
+      // Process all curation rewards in parallel
+      const promises = curationBatch.map(async ([id, operation]) => {
+        try {
+          const opData = operation.op[1];
+          
+          // Extract operation data
+          const comment_author = opData.comment_author || opData.author;
+          const comment_permlink = opData.comment_permlink || opData.permlink;
+          const reward = opData.reward;
+          
+          if (!comment_author || !comment_permlink || !reward) {
+            return null;
+          }
+          
+          const postIdentifier = `@${comment_author}/${comment_permlink}`;
+          
+          // Get post and vote details
+          const { post, votes } = await this._getPostDetails(comment_author, comment_permlink);
+          const curatorVote = votes.find(v => v.voter === curator);
+          
+          if (!curatorVote) return null;
+          
+          // Parse reward amount
+          const reward_vests = parseFloat(reward.split(' ')[0]);
+          
+          // Calculate vote metrics
+          const percent = curatorVote.percent / 100;
+          const vote_time = new Date(curatorVote.time + 'Z');
+          const created_time = new Date(post.created + 'Z');
+          const voteAgeMins = Math.floor((vote_time - created_time) / (1000 * 60));
+          
+          // Calculate vote value
+          const voteValueResult = await this.calculateVoteValue(percent, curatorSP);
+          const calculatedVoteValue = voteValueResult.steemValue || 0;
+          
+          // Convert to STEEM Power
+          const effective_reward_sp = await this.vestsToSteem(reward_vests);
+          const estimated_reward = calculatedVoteValue;
+          const vote_power_sp = estimated_reward * 2; // Full vote value
+          
+          // Calculate efficiency percentage
+          const efficiency = (effective_reward_sp / estimated_reward) * 100;
+          
+          return {
+            post: postIdentifier,
+            rewardSP: effective_reward_sp,
+            voteValue: vote_power_sp, 
+            expectedReward: estimated_reward,
+            efficiency: efficiency,
+            percent: percent,
+            time: curatorVote.time,
+            voteAgeMins: voteAgeMins
+          };
+        } catch (error) {
+          console.warn(`Error processing curation reward:`, error);
+          return null;
+        }
+      });
+      
+      return (await Promise.all(promises)).filter(Boolean);
+    } catch (error) {
+      console.error('Error processing curation batch:', error);
+      return [];
+    }
+  }
+
   /**
    * Helper method to get account history from Steem API
    * @private
