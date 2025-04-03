@@ -182,13 +182,14 @@ class PostView extends View {
       this.contentRenderer
     );
     
-    // Add edit functionality to the PostActions component
+    // Pass canEditPost() result to PostActions component
     this.postActionsComponent = new PostActions(
       this.post,
       () => this.voteController.handlePostVote(this.post),       
       () => this.commentController.handleNewComment(this.post),  
       () => this.handleShare(),
-      () => this.handleEdit()                                   // Add edit handler
+      () => this.handleEdit(),
+      this.canEditPost()                                  // Pass whether user can edit the post
     );
     
     this.postTagsComponent = new PostTags(

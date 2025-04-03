@@ -1,12 +1,13 @@
 import VotesPopup from './VotesPopup.js';
 
 class PostActions {
-  constructor(post, upvoteCallback, commentCallback, shareCallback,editCallback) {
+  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, canEdit = false) {
     this.post = post;
     this.upvoteCallback = upvoteCallback;
     this.commentCallback = commentCallback;
     this.shareCallback = shareCallback;
     this.editCallback = editCallback; 
+    this.canEdit = canEdit; // Store whether current user can edit this post
   }
 
   render() {
@@ -17,7 +18,6 @@ class PostActions {
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
     const votesDetailsBtn = this.createActionButton('votes-details-btn', 'how_to_vote', 'Votes');
-    const editBtn = this.createActionButton('edit-btn', 'edit', 'Edit'); // New button for editing
 
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
@@ -26,9 +26,18 @@ class PostActions {
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
     postActions.appendChild(shareBtn);
-    postActions.appendChild(votesDetailsBtn); // Add the new button
+    postActions.appendChild(votesDetailsBtn);
     postActions.appendChild(payoutInfo);
-    postActions.appendChild(editBtn); 
+    
+    // Only add edit button if user can edit the post
+    if (this.canEdit) {
+      const editBtn = this.createActionButton('edit-btn', 'edit', 'Edit');
+      postActions.appendChild(editBtn);
+      
+      if (this.editCallback) {
+        editBtn.addEventListener('click', this.editCallback);
+      }
+    }
 
     // Add event listeners
     if (this.upvoteCallback) {
@@ -41,10 +50,6 @@ class PostActions {
     
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
-    }
-
-    if (this.editCallback) {
-      editBtn.addEventListener('click', this.editCallback); // Add event listener for edit button
     }
     
     // Add event listener for votes details button
