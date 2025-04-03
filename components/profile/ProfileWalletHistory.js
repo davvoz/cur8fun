@@ -3,6 +3,8 @@ import walletService from '../../services/WalletService.js';
 import { formatDate } from '../../utils/DateUtils.js';
 import steemService from '../../services/SteemService.js';
 import transactionHistoryService from '../../services/TransactionHistoryService.js';
+import WalletResourcesComponent from '../wallet/WalletResourcesComponent.js';
+import WalletBalancesComponent from '../wallet/WalletBalancesComponent.js';
 
 export default class ProfileWalletHistory extends Component {
   constructor(username) {
@@ -13,26 +15,12 @@ export default class ProfileWalletHistory extends Component {
     this.limit = 30;
     this.transactionList = null;
     this.loadMoreButton = null;
-    this.walletSummary = null;
-    
-    // Dati del portafoglio
-    this.balances = {
-      steem: '0.000',
-      sbd: '0.000',
-      steemPower: '0.000'
-    };
-    
-    // Stato delle risorse
-    this.resources = {
-      voting: 0,
-      bandwidth: 0,
-      rc: 0
-    };
+    this.balancesComponent = null;
+    this.resourcesComponent = null;
     
     // Binding dei metodi
     this.loadTransactions = this.loadTransactions.bind(this);
     this.loadMoreTransactions = this.loadMoreTransactions.bind(this);
-    this.loadWalletData = this.loadWalletData.bind(this);
   }
   
   render(container) {
@@ -60,16 +48,21 @@ export default class ProfileWalletHistory extends Component {
     
     walletHistoryContainer.appendChild(header);
     
-    // Sezione riepilogo portafoglio
-    this.walletSummary = document.createElement('div');
-    this.walletSummary.className = 'wallet-summary';
-    this.walletSummary.innerHTML = `
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading wallet data...</p>
-      </div>
-    `;
-    walletHistoryContainer.appendChild(this.walletSummary);
+    // Top Section: Balances and Resources in Horizontal Layout
+    const topSection = document.createElement('div');
+    topSection.className = 'wallet-top-section';
+    
+    // Container for balances
+    const balancesContainer = document.createElement('div');
+    balancesContainer.className = 'wallet-balances-container';
+    topSection.appendChild(balancesContainer);
+    
+    // Container for resource meters
+    const resourcesContainer = document.createElement('div');
+    resourcesContainer.className = 'wallet-resources-container';
+    topSection.appendChild(resourcesContainer);
+    
+    walletHistoryContainer.appendChild(topSection);
     
     // Separatore
     const divider = document.createElement('div');
@@ -106,210 +99,23 @@ export default class ProfileWalletHistory extends Component {
     // Update container reference for internal operations
     this.container = walletHistoryContainer;
     
-    // Carica le transazioni e i dati del portafoglio
-    this.loadWalletData();
+    // Initialize wallet balances component
+    this.balancesComponent = new WalletBalancesComponent(balancesContainer, {
+      username: this.username
+    });
+    this.balancesComponent.render();
+    
+    // Initialize wallet resources component
+    this.resourcesComponent = new WalletResourcesComponent(resourcesContainer, {
+      username: this.username
+    });
+    this.resourcesComponent.render();
+    
+    // Carica le transazioni
     this.showLoadingState();
     this.loadTransactions();
     
     return walletHistoryContainer;
-  }
-  
-  async loadWalletData() {
-    try {
-      // Ottieni informazioni sull'account
-      const account = await steemService.getUser(this.username);
-      
-      if (!account) {
-        this.showWalletSummaryError("Failed to load account data");
-        return;
-      }
-      
-      // Estrai i saldi
-      const steemBalance = parseFloat(account.balance).toFixed(3);
-      const sbdBalance = parseFloat(account.sbd_balance).toFixed(3);
-      
-      // Calcola STEEM Power
-      const vestingShares = parseFloat(account.vesting_shares);
-      const delegatedVestingShares = parseFloat(account.delegated_vesting_shares);
-      const receivedVestingShares = parseFloat(account.received_vesting_shares);
-      
-      const steemPower = await walletService.vestsToSteem(
-        vestingShares - delegatedVestingShares + receivedVestingShares
-      );
-      
-      // Aggiorna i saldi
-      this.balances = {
-        steem: steemBalance,
-        sbd: sbdBalance,
-        steemPower: steemPower.toFixed(3)
-      };
-      
-      // Ottieni informazioni sulle risorse
-      // Nota: questi valori sono simulati, in un'implementazione reale sarebbero ottenuti dalla blockchain
-      this.resources = {
-        voting: this.calculateVotingPower(account),
-        bandwidth: 75, // Valore simulato
-        rc: 80 // Valore simulato
-      };
-      
-      // Renderizza il riepilogo del portafoglio
-      this.renderWalletSummary();
-      
-    } catch (error) {
-      console.error('Error loading wallet data:', error);
-      this.showWalletSummaryError("Failed to load wallet data");
-    }
-  }
-  
-  calculateVotingPower(account) {
-    // Voting Power calculation
-    const lastVoteTime = new Date(account.last_vote_time + 'Z').getTime();
-    const secondsPassedSinceLastVote = (new Date().getTime() - lastVoteTime) / 1000;
-    const regeneratedVotingPower = secondsPassedSinceLastVote * (10000 / (5 * 24 * 60 * 60));
-    const currentVotingPower = Math.min(10000, account.voting_power + regeneratedVotingPower) / 100;
-    
-    return Math.floor(currentVotingPower);
-  }
-  
-  renderWalletSummary() {
-    if (!this.walletSummary) return;
-    
-    this.walletSummary.innerHTML = `
-      <div class="wallet-summary-grid">
-        <div class="balance-card">
-          <h5>STEEM Balance</h5>
-          <div class="balance-value">${this.balances.steem} STEEM</div>
-        </div>
-        <div class="balance-card">
-          <h5>SBD Balance</h5>
-          <div class="balance-value">${this.balances.sbd} SBD</div>
-        </div>
-        <div class="balance-card">
-          <h5>STEEM Power</h5>
-          <div class="balance-value">${this.balances.steemPower} SP</div>
-        </div>
-      </div>
-      
-      <div class="resources-section">
-        <h5>Account Resources</h5>
-        <div class="resource-meters">
-          <div class="resource-meter">
-            <div class="resource-label">Voting Power</div>
-            <div class="meter-container">
-              <div class="meter" style="width: ${this.resources.voting}%"></div>
-            </div>
-            <div class="meter-value">${this.resources.voting}%</div>
-          </div>
-          
-          <div class="resource-meter">
-            <div class="resource-label">Bandwidth</div>
-            <div class="meter-container">
-              <div class="meter" style="width: ${this.resources.bandwidth}%"></div>
-            </div>
-            <div class="meter-value">${this.resources.bandwidth}%</div>
-          </div>
-          
-          <div class="resource-meter">
-            <div class="resource-label">Resource Credits</div>
-            <div class="meter-container">
-              <div class="meter" style="width: ${this.resources.rc}%"></div>
-            </div>
-            <div class="meter-value">${this.resources.rc}%</div>
-          </div>
-        </div>
-      </div>
-      
-      <style>
-        .wallet-summary-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-        
-        .balance-card {
-          background-color: #f5f5f5;
-          border-radius: 8px;
-          padding: 16px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        
-        .balance-card h5 {
-          margin: 0 0 8px;
-          color: #555;
-          font-weight: 500;
-        }
-        
-        .balance-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #1a5099;
-        }
-        
-        .resources-section {
-          margin-top: 24px;
-        }
-        
-        .resources-section h5 {
-          margin: 0 0 16px;
-        }
-        
-        .resource-meters {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        
-        .resource-meter {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
-        .resource-label {
-          width: 120px;
-          font-size: 0.9rem;
-        }
-        
-        .meter-container {
-          flex: 1;
-          height: 8px;
-          background-color: #e0e0e0;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        
-        .meter {
-          height: 100%;
-          background-color: #4caf50;
-          border-radius: 4px;
-        }
-        
-        .meter-value {
-          width: 50px;
-          text-align: right;
-          font-size: 0.9rem;
-          font-weight: 500;
-        }
-        
-        .section-divider {
-          height: 1px;
-          background-color: #e0e0e0;
-          margin: 24px 0;
-        }
-      </style>
-    `;
-  }
-  
-  showWalletSummaryError(message) {
-    if (!this.walletSummary) return;
-    
-    this.walletSummary.innerHTML = `
-      <div class="error-state">
-        <i class="material-icons">error_outline</i>
-        <p>${message}</p>
-      </div>
-    `;
   }
   
   async loadTransactions() {
@@ -496,8 +302,14 @@ export default class ProfileWalletHistory extends Component {
         title.textContent = `Wallet Details for @${this.username}`;
       }
       
-      // Ricarica i dati del portafoglio
-      this.loadWalletData();
+      // Update child components
+      if (this.balancesComponent) {
+        this.balancesComponent.updateUsername(newUsername);
+      }
+      
+      if (this.resourcesComponent) {
+        this.resourcesComponent.updateUsername(newUsername);
+      }
       
       // Ricarica le transazioni
       this.showLoadingState();
@@ -527,11 +339,21 @@ export default class ProfileWalletHistory extends Component {
       this.loadMoreButton.removeEventListener('click', this.loadMoreTransactions);
     }
     
+    // Clean up child components
+    if (this.balancesComponent) {
+      this.balancesComponent.destroy();
+      this.balancesComponent = null;
+    }
+    
+    if (this.resourcesComponent) {
+      this.resourcesComponent.destroy();
+      this.resourcesComponent = null;
+    }
+    
     // Pulisci i riferimenti DOM
     this.container = null;
     this.transactionList = null;
     this.loadMoreButton = null;
-    this.walletSummary = null;
     
     // Resetta lo stato
     this.allTransactions = [];

@@ -7,10 +7,53 @@
 }
 
 .balance-card {
+  flex: 1;
+  min-width: 200px;
   background: var(--background-lighter);
   border-radius: var(--radius-md);
-  padding: var(--space-lg);
+  padding: var(--space-md);
   box-shadow: var(--card-shadow);
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.balance-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.balance-card-icon {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--space-md);
+}
+
+.balance-card-icon .material-icons {
+  font-size: 24px;
+}
+
+.balance-card-content {
+  flex: 1;
+}
+
+.balance-card h5 {
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.balance-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--text-primary);
 }
 
 .balance-type {
@@ -22,12 +65,6 @@
 
 .balance-type .material-icons {
   margin-right: var(--space-xs);
-}
-
-.balance-value {
-  font-size: 1.6rem;
-  font-weight: bold;
-  margin-bottom: var(--space-xs);
 }
 
 .balance-usd {
@@ -90,4 +127,114 @@
 
 .rewards-indicator.hidden {
   display: none;
+}
+
+/* Horizontal balances layout */
+.balance-cards-row {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+/* Resource meters styling */
+.resource-meters {
+  margin: var(--space-md) 0;
+}
+
+.meters-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.resource-meter {
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--card-shadow-light);
+}
+
+.meter-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.meter-icon {
+  color: var(--primary-color);
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.meter-label {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.meter-value {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.meter-bar {
+  height: 10px;
+  background-color: var(--background-darker);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.meter-fill {
+  height: 100%;
+  width: 0;
+  position: relative;
+  border-radius: 5px;
+}
+
+.meter-fill.animating {
+  transition: width 0.6s ease-out;
+}
+
+.meter-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.meter-fill.high {
+  background-color: var(--success-color);
+}
+
+.meter-fill.medium {
+  background-color: var(--warning-color);
+}
+
+.meter-fill.low {
+  background-color: var(--error-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .balance-cards-row {
+    flex-direction: column;
+  }
+  
+  .balance-card {
+    width: 100%;
+  }
 }

@@ -1,8 +1,8 @@
 import View from './View.js';
 import authService from '../services/AuthService.js';
 import walletService from '../services/WalletService.js';
-import BalancesComponent from '../components/wallet/BalancesComponent.js';
-import ResourceMetersComponent from '../components/wallet/ResourceMetersComponent.js';
+import WalletBalancesComponent from '../components/wallet/WalletBalancesComponent.js';
+import WalletResourcesComponent from '../components/wallet/WalletResourcesComponent.js';
 import WalletTabsComponent from '../components/wallet/WalletTabsComponent.js';
 
 /**
@@ -70,9 +70,6 @@ class WalletView extends View {
     // Initialize components
     this.initializeComponents();
     
-    // Request wallet data from service
-    walletService.updateBalances();
-    
     return this.element;
   }
   
@@ -112,56 +109,31 @@ class WalletView extends View {
     // Initialize balance component
     const balancesContainer = this.element.querySelector('#wallet-balances-container');
     if (balancesContainer) {
-      const balancesComponent = new BalancesComponent(balancesContainer);
+      const balancesComponent = new WalletBalancesComponent(balancesContainer, {
+        username: this.currentUser
+      });
       balancesComponent.render();
       this.components.push(balancesComponent);
     }
     
-    // Initialize resource meters component with default values
+    // Initialize resource meters component
     const resourcesContainer = this.element.querySelector('#wallet-resources-container');
     if (resourcesContainer) {
-      const resourcesComponent = new ResourceMetersComponent(resourcesContainer, {
-        initialResources: {
-          voting: 0,    // Will be updated by service
-          rc: 0,        // Will be updated by service
-          bandwidth: 0  // Will be updated by service
-        }
+      const resourcesComponent = new WalletResourcesComponent(resourcesContainer, {
+        username: this.currentUser
       });
       resourcesComponent.render();
       this.components.push(resourcesComponent);
-      
-      // Request resource data (simulated for now)
-      this.loadResourceData(resourcesComponent);
     }
     
     // Initialize tabs component
     const tabsContainer = this.element.querySelector('#wallet-tabs-container');
     if (tabsContainer) {
-      const tabsComponent = new WalletTabsComponent(tabsContainer);
+      const tabsComponent = new WalletTabsComponent(tabsContainer, {
+        username: this.currentUser
+      });
       tabsComponent.render();
       this.components.push(tabsComponent);
-    }
-  }
-  
-  /**
-   * Load resource usage data for meters
-   */
-  async loadResourceData(resourcesComponent) {
-    try {
-      // In a real implementation, this would be from a service call
-      // Simulating network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const resourceData = {
-        voting: 85,
-        rc: 70,
-        bandwidth: 45
-      };
-      
-      resourcesComponent.updateResources(resourceData);
-      
-    } catch (error) {
-      console.error('Failed to load resource data:', error);
     }
   }
   
