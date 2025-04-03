@@ -8,7 +8,17 @@ export default class WalletBalancesComponent extends Component {
     this.balances = {
       steem: '0.000',
       sbd: '0.000',
-      steemPower: '0.000'
+      steemPower: '0.000',
+      usdValues: {
+        steem: '0.00',
+        sbd: '0.00',
+        steemPower: '0.00',
+        total: '0.00'
+      },
+      prices: {
+        steem: 0,
+        sbd: 1
+      }
     };
     this.isLoading = true;
     this.error = null;
@@ -54,7 +64,17 @@ export default class WalletBalancesComponent extends Component {
       this.balances = {
         steem: balanceData.steem,
         sbd: balanceData.sbd,
-        steemPower: balanceData.steemPower
+        steemPower: balanceData.steemPower,
+        usdValues: balanceData.usdValues || {
+          steem: '0.00',
+          sbd: '0.00',
+          steemPower: '0.00',
+          total: '0.00'
+        },
+        prices: balanceData.prices || {
+          steem: 0,
+          sbd: 1
+        }
       };
       
       this.isLoading = false;
@@ -104,7 +124,16 @@ export default class WalletBalancesComponent extends Component {
   renderBalances() {
     if (!this.balanceContainer) return;
     
+    // Build price info section if price data is available
+    const hasPriceData = this.balances.prices && this.balances.prices.steem > 0;
+    const priceInfoHtml = hasPriceData ? 
+      `<div class="price-info">
+         <span class="current-price">Current STEEM price: $${this.balances.prices.steem.toFixed(4)}</span>
+         <span class="total-value">Total value: $${this.balances.usdValues.total}</span>
+       </div>` : '';
+    
     this.balanceContainer.innerHTML = `
+      ${priceInfoHtml}
       <div class="balance-cards-row">
         <div class="balance-card">
           <div class="balance-card-icon">
@@ -113,6 +142,7 @@ export default class WalletBalancesComponent extends Component {
           <div class="balance-card-content">
             <h5>STEEM Balance</h5>
             <div class="balance-value">${this.balances.steem} STEEM</div>
+            <div class="balance-usd">≈ $${this.balances.usdValues.steem}</div>
           </div>
         </div>
         <div class="balance-card">
@@ -122,6 +152,7 @@ export default class WalletBalancesComponent extends Component {
           <div class="balance-card-content">
             <h5>SBD Balance</h5>
             <div class="balance-value">${this.balances.sbd} SBD</div>
+            <div class="balance-usd">≈ $${this.balances.usdValues.sbd}</div>
           </div>
         </div>
         <div class="balance-card">
@@ -131,6 +162,7 @@ export default class WalletBalancesComponent extends Component {
           <div class="balance-card-content">
             <h5>STEEM Power</h5>
             <div class="balance-value">${this.balances.steemPower} SP</div>
+            <div class="balance-usd">≈ $${this.balances.usdValues.steemPower}</div>
           </div>
         </div>
       </div>

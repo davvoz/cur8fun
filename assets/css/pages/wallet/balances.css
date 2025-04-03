@@ -228,6 +228,43 @@
   background-color: var(--error-color);
 }
 
+/* Price information styles */
+.price-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.current-price {
+  display: flex;
+  align-items: center;
+}
+
+.current-price::before {
+  content: 'trending_up';
+  font-family: 'Material Icons';
+  margin-right: 5px;
+  color: var(--primary-color);
+}
+
+.total-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.balance-usd {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .balance-cards-row {

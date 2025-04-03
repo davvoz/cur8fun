@@ -1253,6 +1253,51 @@ calculateVotingPower(account) {
 }
 
 /**
+ * Fetch current STEEM and SBD prices from market APIs
+ * @returns {Promise<Object>} Current prices in USD
+ */
+async getCryptoPrices() {
+  try {
+    // Fetch STEEM price data
+    const steemResponse = await fetch('https://api.steemit.com', {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'market_history_api.get_ticker',
+        id: 1
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!steemResponse.ok) throw new Error('Failed to fetch STEEM price data');
+    
+    const steemData = await steemResponse.json();
+    
+    // Extract the latest price from the response
+    let steemPrice = 0;
+    let sbdPrice = 1; // SBD is a stablecoin pegged at ~1 USD
+    
+    if (steemData.result && steemData.result.latest) {
+      steemPrice = parseFloat(steemData.result.latest);
+      console.log('Current STEEM price:', steemPrice);
+    } else {
+      console.warn('Could not extract STEEM price from API response', steemData);
+    }
+    
+    return {
+      steem: steemPrice,
+      sbd: sbdPrice
+    };
+  } catch (error) {
+    console.error('Error fetching crypto prices:', error);
+    return {
+      steem: 0,
+      sbd: 1 // Default to 1 USD for SBD as it's a stablecoin
+    };
+  }
+}
+
+/**
  * Get user's wallet balances
  * @param {string} username - Username to get balances for
  * @returns {Promise<Object>} User's balances
@@ -1279,10 +1324,35 @@ async getUserBalances(username) {
       vestingShares - delegatedVestingShares + receivedVestingShares
     );
     
+    // Fetch current prices
+    const prices = await this.getCryptoPrices();
+    
+    // Calculate USD values
+    const steemUsdValue = (parseFloat(steemBalance) * prices.steem).toFixed(2);
+    const sbdUsdValue = (parseFloat(sbdBalance) * prices.sbd).toFixed(2);
+    const spUsdValue = (parseFloat(steemPower) * prices.steem).toFixed(2);
+    
+    // Calculate total USD value
+    const totalUsdValue = (
+      parseFloat(steemUsdValue) + 
+      parseFloat(sbdUsdValue) + 
+      parseFloat(spUsdValue)
+    ).toFixed(2);
+    
     return {
       steem: steemBalance,
       sbd: sbdBalance,
       steemPower: steemPower.toFixed(3),
+      prices: {
+        steem: prices.steem,
+        sbd: prices.sbd
+      },
+      usdValues: {
+        steem: steemUsdValue,
+        sbd: sbdUsdValue,
+        steemPower: spUsdValue,
+        total: totalUsdValue
+      },
       account // Include the full account for advanced usage
     };
   } catch (error) {
