@@ -829,15 +829,20 @@ class WalletService {
                   const reward_vests = parseFloat(reward.split(' ')[0]);
                   
                   // Calculate vote metrics
-                  const vote_weight = curatorVote.weight / 100; 
                   const percent = curatorVote.percent / 100;
                   const vote_time = new Date(curatorVote.time + 'Z');
                   const created_time = new Date(post.created + 'Z');
                   const voteAgeMins = Math.floor((vote_time - created_time) / (1000 * 60));
                   
+                  // Calculate vote value using the dedicated method instead of simple division
+                  const account = await steemService.getUser(curator);
+                  const curatorSP = account ? parseFloat(account.vesting_shares) - parseFloat(account.delegated_vesting_shares) + parseFloat(account.received_vesting_shares) : 0;
+                  const voteValueResult = await this.calculateVoteValue(percent, curatorSP);
+                  const calculatedVoteValue = voteValueResult.steemValue || 0;
+                  
                   // Convert to STEEM Power
                   const effective_reward_sp = await this.vestsToSteem(reward_vests);
-                  const estimated_reward = await this.vestsToSteem(vote_weight);
+                  const estimated_reward = calculatedVoteValue;
                   const vote_power_sp = estimated_reward * 2; // Full vote value
                   
                   // Calculate efficiency percentage
@@ -1027,6 +1032,112 @@ class WalletService {
       throw error;
     }
   }
+
+ /**
+ * Calculate vote value using the official Steem formula
+ * @param {number} votePercent - Vote percentage (-100 to 100)
+ * @param {number} effectiveVests - User's effective vesting shares (including delegations)
+ * @param {number} votingPower - Voting power (default: 10000 = 100%)
+ * @returns {Promise<Object>} Estimated vote value in SBD and STEEM
+ */
+async calculateVoteValue(votePercent, effectiveVests = null, votingPower = 10000) {
+  try {
+    const steem = await steemService.ensureLibraryLoaded();
+    
+    // Step 1: Get dynamic global properties
+    const props = await new Promise((resolve, reject) => {
+      steem.api.getDynamicGlobalProperties((error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    });
+    
+    // Step 2: Calculate SP/VESTS ratio
+    const totalVestingFundSteem = parseFloat(props.total_vesting_fund_steem.split(' ')[0]);
+    const totalVestingShares = parseFloat(props.total_vesting_shares.split(' ')[0]);
+    const steemPerVests = totalVestingFundSteem / totalVestingShares;
+    
+    // Step 3: If no vesting shares provided, use current user's
+    let vestingShares = effectiveVests;
+    if (!vestingShares) {
+      const account = await steemService.getUser(this.currentUser);
+      if (!account) throw new Error('Unable to get account info');
+      
+      const accountVests = parseFloat(account.vesting_shares.split(' ')[0]);
+      const delegatedOut = parseFloat(account.delegated_vesting_shares.split(' ')[0]);
+      const receivedVests = parseFloat(account.received_vesting_shares.split(' ')[0]);
+      vestingShares = accountVests - delegatedOut + receivedVests;
+    }
+    
+    // Step 4: Convert vests to Steem Power
+    const sp = vestingShares * steemPerVests;
+    
+    // Step 5: Calculate 'r' (SP/spv ratio)
+    const r = sp / steemPerVests;
+    
+    // Step 6: Calculate 'p' (voting power)
+    const weight = Math.abs(votePercent) * 100; // Convert percentage to weight (100% = 10000)
+    const p = (votingPower * weight / 10000 + 49) / 50;
+    
+    // Step 7: Get reward fund
+    const rewardFund = await new Promise((resolve, reject) => {
+      steem.api.getRewardFund('post', (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    });
+    
+    // Step 8: Calculate rbPrc
+    const recentClaims = parseFloat(rewardFund.recent_claims);
+    const rewardBalance = parseFloat(rewardFund.reward_balance.split(' ')[0]);
+    const rbPrc = rewardBalance / recentClaims;
+    
+    // Step 9: Get median price from Steem API
+    const priceInfo = await new Promise((resolve, reject) => {
+      steem.api.getCurrentMedianHistoryPrice((error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    });
+    
+    const baseAmount = parseFloat(priceInfo.base.split(' ')[0]);
+    const quoteAmount = parseFloat(priceInfo.quote.split(' ')[0]);
+    const steemToSbdRate = baseAmount / quoteAmount;
+    
+    // Step 10: Apply the official Steem formula
+    // result = r * p * 100 * rbPrc
+    const steemValue = r * p * 100 * rbPrc;
+    
+    // Convert STEEM to USD/SBD using the median price
+    const usdValue = steemValue * steemToSbdRate;
+    
+    // Log calculated values for debugging
+    console.log(`Vote Value Calculation:
+      - SP: ${sp.toFixed(3)}
+      - Vote Weight: ${weight}
+      - Voting Power: ${votingPower}
+      - Price ratio: ${steemToSbdRate.toFixed(4)}
+      - Result: ${steemValue.toFixed(4)} STEEM ($${usdValue.toFixed(4)})`);
+    
+    return {
+      steemValue: parseFloat(steemValue.toFixed(4)),
+      sbdValue: parseFloat(usdValue.toFixed(4)),
+      formula: {
+        r: r,
+        p: p,
+        rbPrc: rbPrc,
+        media: steemToSbdRate
+      }
+    };
+  } catch (error) {
+    console.error('Error calculating vote value:', error);
+    return {
+      steemValue: 0,
+      sbdValue: 0,
+      error: error.message
+    };
+  }
+}
 }
 
 // Create and export singleton instance
