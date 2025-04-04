@@ -9,7 +9,7 @@ class CommentService {
   constructor() {
     this.isProcessing = false;
     this.commentInProgress = new Set(); // Track ongoing comments to prevent duplicates
-    
+
     // Listen for auth changes
     eventEmitter.on('auth:changed', ({ user }) => {
       // Reset processing state when user changes
@@ -17,15 +17,15 @@ class CommentService {
       this.commentInProgress.clear();
     });
   }
-  
+
   /**
    * Verify if Keychain is available in the browser
    * @returns {boolean} True if Keychain is available
    */
   isKeychainAvailable() {
-    return typeof window !== 'undefined' && 
-           typeof window.steem_keychain !== 'undefined' &&
-           !!window.steem_keychain;
+    return typeof window !== 'undefined' &&
+      typeof window.steem_keychain !== 'undefined' &&
+      !!window.steem_keychain;
   }
 
   /**
@@ -42,27 +42,27 @@ class CommentService {
    */
   validateCommentData(commentData) {
     const { parentAuthor, parentPermlink, body } = commentData;
-    
+
     if (!parentAuthor) {
       throw new Error('Parent author is required');
     }
-    
+
     if (!parentPermlink) {
       throw new Error('Parent permlink is required');
     }
-    
+
     if (!body || typeof body !== 'string') {
       throw new Error('Comment body is required and must be a string');
     }
-    
+
     if (body.trim().length < 3) {
       throw new Error('Comment must be at least 3 characters');
     }
-    
+
     if (body.length > 65535) {
       throw new Error('Comment is too long (maximum 65535 characters)');
     }
-    
+
     return true;
   }
 
@@ -82,52 +82,68 @@ class CommentService {
     if (!currentUser) {
       throw new Error('You must be logged in to comment');
     }
-    
+
     const username = currentUser.username;
-    
+
     // Generate comment identifier to prevent duplicates
     const commentId = `${username}_${commentData.parentAuthor}_${commentData.parentPermlink}_${Date.now()}`;
-    
+
     // Prevent duplicate comment submissions
     if (this.commentInProgress.has(commentId)) {
       throw new Error('Comment operation already in progress');
     }
-    
+
     try {
       this.commentInProgress.add(commentId);
       this.isProcessing = true;
-      
+
       // Validate data
       this.validateCommentData(commentData);
-      
+
       // Generate a unique permlink for the comment
       const permlink = this.generateCommentPermlink(commentData.parentPermlink);
-      
+
       // Prepare metadata
       const metadata = {
-        app: 'steemee/1.0',
+        app: 'cur8.fun/0.0.1',
         format: 'markdown',
         ...(commentData.metadata || {})
       };
-      
+
       await steemService.ensureLibraryLoaded();
-      
+
       // Determine login method and platform
       const loginMethod = currentUser.loginMethod || 'privateKey';
       const isMobile = this.isMobileDevice();
-      
+
       let result;
-      
+
       // On mobile, notify if keychain isn't available
       if (loginMethod === 'keychain' && isMobile && !this.isKeychainAvailable()) {
-        throw new Error('Steem Keychain not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
+        //controlliamo nel localhost se c'è la posting key
+        const postingKey = authService.getPostingKey();
+        if (!postingKey) {
+          throw new Error('Keychain not available and no posting key found. Please login again.');
+        }
+        //using the posting key to comment
+        result = await this._commentWithKey({
+          postingKey,
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink,
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+
       }
-      
+
       eventEmitter.emit('comment:started', {
         parentAuthor: commentData.parentAuthor,
         parentPermlink: commentData.parentPermlink
       });
-      
+
       // Use the appropriate method based on login type
       if (loginMethod === 'keychain' && this.isKeychainAvailable()) {
         result = await this._commentWithKeychain({
@@ -155,7 +171,7 @@ class CommentService {
         if (!postingKey) {
           throw new Error('Posting key not available. Please login again.');
         }
-        
+
         result = await this._commentWithKey({
           postingKey,
           username,
@@ -167,7 +183,7 @@ class CommentService {
           metadata
         });
       }
-      
+
       // Emit success event
       eventEmitter.emit('comment:created', {
         author: username,
@@ -176,7 +192,7 @@ class CommentService {
         parentPermlink: commentData.parentPermlink,
         body: commentData.body
       });
-      
+
       return {
         success: true,
         author: username,
@@ -186,30 +202,30 @@ class CommentService {
       };
     } catch (error) {
       console.error('Error creating comment:', error);
-      
+
       // Elaborate error message based on context
       let errorMessage = error.message || 'Failed to create comment';
-      
+
       // Handle specific Keychain errors
       if (errorMessage.includes('user canceled')) {
         errorMessage = 'Operation cancelled by user';
         error.isCancelled = true;
       }
-      
+
       // Emit error event
       eventEmitter.emit('comment:error', {
         error: errorMessage,
         parentAuthor: commentData.parentAuthor,
         parentPermlink: commentData.parentPermlink
       });
-      
+
       throw error;
     } finally {
       this.isProcessing = false;
       this.commentInProgress.delete(commentId);
     }
   }
-  
+
   /**
    * Generate a unique permlink for a comment
    * @param {string} parentPermlink - Permlink of the parent post/comment
@@ -219,20 +235,20 @@ class CommentService {
   generateCommentPermlink(parentPermlink) {
     // Sanitize the parent permlink for base - remove all non-alphanumeric characters except dashes
     const sanitized = parentPermlink.replace(/[^a-z0-9\-]/g, '').substring(0, 20);
-    
+
     // Add timestamp for uniqueness
     const timestamp = new Date().getTime().toString(36);
-    
+
     // Generate unique permlink - ensure it complies with Steem's permlink requirements
     const permlink = `re-${sanitized}-${timestamp}`;
-    
+
     // Permlink must be all lowercase and contain only letters, numbers, and hyphens
     const finalPermlink = permlink.toLowerCase().replace(/[^a-z0-9\-]/g, '');
-    
+
     console.log('Generated permlink:', finalPermlink);
     return finalPermlink;
   }
-  
+
   /**
    * Create comment using Steem Keychain
    * @param {Object} options - Comment options
@@ -242,7 +258,7 @@ class CommentService {
   _commentWithKeychain(options) {
     return new Promise((resolve, reject) => {
       const { username, parentAuthor, parentPermlink, permlink, title, body, metadata } = options;
-      
+
       const operations = [
         ['comment', {
           parent_author: parentAuthor,
@@ -254,7 +270,7 @@ class CommentService {
           json_metadata: JSON.stringify(metadata)
         }]
       ];
-      
+
       window.steem_keychain.requestBroadcast(
         username,
         operations,
@@ -265,9 +281,9 @@ class CommentService {
           } else {
             // Check if operation was cancelled
             if (response.error && (
-                response.error.includes('cancel') || 
-                response.error.includes('Cancel') ||
-                response.error === 'user_cancel')
+              response.error.includes('cancel') ||
+              response.error.includes('Cancel') ||
+              response.error === 'user_cancel')
             ) {
               const cancelError = new Error('USER_CANCELLED');
               cancelError.isCancelled = true;
@@ -280,7 +296,7 @@ class CommentService {
       );
     });
   }
-  
+
   /**
    * Create comment using SteemLogin
    * @param {Object} options - Comment options
@@ -289,12 +305,12 @@ class CommentService {
    */
   async _commentWithSteemLogin(options) {
     const { username, parentAuthor, parentPermlink, permlink, title, body, metadata } = options;
-    
+
     const token = authService.getSteemLoginToken();
     if (!token) {
       throw new Error('SteemLogin token not available');
     }
-    
+
     try {
       // Call SteemLogin API to comment
       const response = await fetch('https://api.steemlogin.com/api/broadcast', {
@@ -317,19 +333,19 @@ class CommentService {
           ]
         })
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to comment through SteemLogin');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('SteemLogin comment error:', error);
       throw error;
     }
   }
-  
+
   /**
    * Create comment using direct posting key
    * @param {Object} options - Comment options
@@ -338,44 +354,44 @@ class CommentService {
    */
   _commentWithKey(options) {
     return new Promise((resolve, reject) => {
-      const { 
-        postingKey, 
-        username, 
-        parentAuthor, 
-        parentPermlink, 
-        permlink, 
-        title, 
-        body, 
-        metadata 
+      const {
+        postingKey,
+        username,
+        parentAuthor,
+        parentPermlink,
+        permlink,
+        title,
+        body,
+        metadata
       } = options;
-      
+
       console.log(`Attempting to comment with posting key: @${username} on @${parentAuthor}/${parentPermlink}`);
-      
+
       // Validate essential parameters
       if (!postingKey) {
         return reject(new Error('Missing posting key'));
       }
-      
+
       if (!username) {
         return reject(new Error('Missing username'));
       }
-      
+
       if (!parentPermlink) {
         return reject(new Error('Missing parent permlink'));
       }
-      
+
       if (!permlink) {
         return reject(new Error('Missing comment permlink'));
       }
-      
+
       // Ensure parentPermlink doesn't contain invalid characters
       const sanitizedParentPermlink = parentPermlink.replace(/[^a-zA-Z0-9\-]/g, '');
-      
+
       // Convert metadata to string if it's not already
-      const metadataString = typeof metadata === 'string' 
-        ? metadata 
+      const metadataString = typeof metadata === 'string'
+        ? metadata
         : JSON.stringify(metadata || {});
-      
+
       // Debug log the comment parameters
       console.log('Comment parameters:', {
         parentAuthor,
@@ -386,7 +402,7 @@ class CommentService {
         bodyLength: body ? body.length : 0,
         hasMetadata: !!metadataString
       });
-      
+
       try {
         window.steem.broadcast.comment(
           postingKey,
@@ -400,12 +416,12 @@ class CommentService {
           (err, result) => {
             if (err) {
               console.error('Steem broadcast comment error:', err);
-              
+
               // Detailed error logging
               if (typeof err === 'object') {
                 console.error('Error details:', JSON.stringify(err, null, 2));
               }
-              
+
               // Properly format error message
               let errorMessage;
               if (typeof err === 'object') {
@@ -425,7 +441,7 @@ class CommentService {
               } else {
                 errorMessage = 'Unknown error occurred while commenting';
               }
-              
+
               reject(new Error(errorMessage));
             } else {
               console.log('Comment successful with posting key:', result);
@@ -439,7 +455,7 @@ class CommentService {
       }
     });
   }
-  
+
   /**
    * Test method for commenting using Keychain
    * @param {string} parentAuthor - Author of the parent post/comment
@@ -452,15 +468,15 @@ class CommentService {
       console.error('Steem Keychain is not installed or not available');
       return { success: false, error: 'Keychain not available' };
     }
-    
+
     const user = authService.getCurrentUser();
     if (!user) {
       console.error('User not logged in');
       return { success: false, error: 'Not logged in' };
     }
-    
+
     console.log(`Attempting to comment on @${parentAuthor}/${parentPermlink} with Keychain`);
-    
+
     try {
       const result = await this.createComment({
         parentAuthor,
@@ -472,7 +488,7 @@ class CommentService {
           test: 'keychain_comment_test'
         }
       });
-      
+
       console.log('Comment success:', result);
       return { success: true, result };
     } catch (error) {

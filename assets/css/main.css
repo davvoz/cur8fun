@@ -35,6 +35,7 @@
 @import 'pages/communities-list.css';
 @import 'pages/followers-modal.css';
 @import 'pages/following-modal.css';
+@import 'pages/nested-comments.css'; /* Added import for nested comments styling */
 
 /* Utility styles */
 @import 'utils/content.css';

@@ -213,7 +213,7 @@ export default class CommentController {
         parentPermlink: parentComment.permlink,
         body: replyText,
         metadata: {
-          app: 'steemee/1.0',
+          app: 'cur8.fun/0.0.1',
           format: 'markdown',
           tags: this.extractTags(replyText)
         }

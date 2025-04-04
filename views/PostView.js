@@ -152,8 +152,8 @@ class PostView extends View {
       this.loadingIndicator.updateProgress(100);
 
       this.initComponents();
-      this.renderComponents();
-      await this.voteController.checkVoteStatus(this.post); // Delegato al controller
+      await this.renderComponents(); // Make this call await
+      await this.voteController.checkVoteStatus(this.post);
     } catch (error) {
       console.error('Failed to load post:', error);
 
@@ -223,20 +223,46 @@ class PostView extends View {
     return currentUser && currentUser.username === this.post.author;
   }
 
-  renderComponents() {
+  // Update this method to be async and handle asynchronous component rendering
+  async renderComponents() {
     if (!this.post) return;
     
     while (this.postContent.firstChild) {
       this.postContent.removeChild(this.postContent.firstChild);
     }
 
-    this.postContent.appendChild(this.postHeaderComponent.render());
-    this.postContent.appendChild(this.postContentComponent.render());
-    this.postContent.appendChild(this.postActionsComponent.render());
-    this.postContent.appendChild(this.postTagsComponent.render());
-    this.postContent.appendChild(this.commentsSectionComponent.render());
+    try {
+      // Synchronous components
+      this.postContent.appendChild(this.postHeaderComponent.render());
+      this.postContent.appendChild(this.postContentComponent.render());
+      this.postContent.appendChild(this.postActionsComponent.render());
+      this.postContent.appendChild(this.postTagsComponent.render());
+      
+      // Handle CommentsSection separately since it's async
+      const commentsElement = await this.commentsSectionComponent.render();
+      
+      // Make sure what we're appending is actually a DOM node
+      if (commentsElement && commentsElement.nodeType === Node.ELEMENT_NODE) {
+        this.postContent.appendChild(commentsElement);
+      } else {
+        console.error('Comments section did not return a valid DOM element:', commentsElement);
+        // Create a fallback element
+        const fallbackComments = document.createElement('div');
+        fallbackComments.className = 'comments-fallback';
+        fallbackComments.textContent = 'Comments could not be loaded';
+        this.postContent.appendChild(fallbackComments);
+      }
 
-    this.postContent.style.display = 'block';
+      this.postContent.style.display = 'block';
+    } catch (error) {
+      console.error('Error rendering components:', error);
+      // Handle rendering error
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'component-render-error';
+      errorMessage.textContent = 'Could not display post components';
+      this.postContent.appendChild(errorMessage);
+      this.postContent.style.display = 'block';
+    }
   }
 
   renderNotFoundError() {
@@ -490,7 +516,8 @@ class PostView extends View {
       body: commentResult.body || 'New comment',
       created: new Date().toISOString(),
       net_votes: 0,
-      children: []
+      children: [],
+      isNew: true  // Add this flag to highlight new comments
     };
 
     if (!this.comments) this.comments = [];

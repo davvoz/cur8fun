@@ -117,7 +117,7 @@ class LoginView {
     headingContainer.className = 'login-header';
 
     const heading = document.createElement('h2');
-    heading.textContent = 'Login to Steemgram';
+    heading.textContent = 'Login to cur8.fun';
     headingContainer.appendChild(heading);
 
     return headingContainer;

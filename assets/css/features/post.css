@@ -206,7 +206,8 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   background-color: var(--background-light);
-  border-left: 3px solid var(--border-color);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--subtle-shadow);
 }
 
 .author-container {
@@ -254,7 +255,6 @@
 .replies {
   margin-left: var(--space-lg);
   margin-top: var(--space-md);
-  border-left: 1px solid var(--border-color);
   padding-left: var(--space-md);
 }
 
@@ -265,60 +265,7 @@
   font-style: italic;
 }
 
-/* Comment threading styles - enhanced for better visibility */
-.comment {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: var(--background-light, #fff);
-    border-radius: 8px;
-    border: 1px solid var(--border-color, #eee);
-    position: relative;
-}
 
-.replies {
-    position: relative;
-    margin-left: 2.5rem;
-    padding-left: 1.2rem;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-    border-radius: 0 0 0 8px;
-}
-
-.thread-line {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: var(--primary-color, #ff7518);
-    opacity: 0.5;
-    border-radius: 2px;
-}
-
-/* Depth-specific styling with more distinct hierarchy */
-.depth-0 { margin-left: 0; }
-.depth-1 { margin-left: 1rem; border-left: none; }
-.depth-2 { margin-left: 1rem; border-left-color: var(--secondary-color, #36b); }
-.depth-3 { margin-left: 1rem; border-left-color: var(--accent-color, #3b3); }
-.depth-4 { margin-left: 1rem; border-left-color: var(--tertiary-color, #b3b); }
-.depth-5 { margin-left: 1rem; border-left-color: var(--primary-color, #ff7518); }
-.depth-6 { margin-left: 1rem; border-left-color: var(--text-secondary, #777); }
-
-/* Visual changes for deeper nesting - enhanced visibility */
-.depth-3 .comment,
-.depth-4 .comment,
-.depth-5 .comment,
-.depth-6 .comment {
-    border-left: 3px solid var(--border-color, #e1e4e8);
-}
-
-/* Add more clear visual indicators for each nesting level */
-.replies.depth-0 .thread-line { background-color: var(--primary-color, #ff7518); }
-.replies.depth-1 .thread-line { background-color: var(--secondary-color, #36b); }
-.replies.depth-2 .thread-line { background-color: var(--accent-color, #3b3); }
-.replies.depth-3 .thread-line { background-color: var(--tertiary-color, #b3b); }
-.replies.depth-4 .thread-line { background-color: var(--primary-color, #ff7518); }
-.replies.depth-5 .thread-line { background-color: var(--text-secondary, #777); }
 
 /* 404 Error Styling */
 .not-found-error {

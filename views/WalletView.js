@@ -11,7 +11,7 @@ import WalletTabsComponent from '../components/wallet/WalletTabsComponent.js';
 class WalletView extends View {
   constructor(params = {}) {
     super(params);
-    this.title = 'Wallet | SteemGram';
+    this.title = 'Wallet | cur8.fun';
     this.currentUser = authService.getCurrentUser()?.username;
     
     // Track components for lifecycle management

@@ -1,0 +1,443 @@
+/*
+ * NESTED COMMENTS STYLING
+ * A mobile-first, scalable approach for nested comments
+ */
+
+/* ---------- Base Variables ---------- */
+:root {
+  --comment-indent-step: 12px;    /* Base indentation for each level */
+  --comment-max-visible-depth: 8; /* Maximum visible nesting depth before collapsing */
+  --comment-thread-width: 2px;    /* Width of the thread connecting line */
+  --comment-highlight-duration: 2s;
+}
+
+/* ---------- Main Container ---------- */
+.comments-section {
+  width: 100%;
+  margin: var(--space-md) 0;
+  padding: var(--space-sm);
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--subtle-shadow);
+  
+  /* Better spacing on larger screens */
+  @media (min-width: 768px) {
+    margin: var(--space-xl) 0;
+    padding: var(--space-md);
+    box-shadow: var(--card-box-shadow);
+  }
+}
+
+/* ---------- Comment Forms ---------- */
+/* Base form styles */
+.comment-form,
+.reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* Text input for comments */
+.comment-form textarea,
+.reply-form textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  min-height: 80px;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+  
+  &:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 117, 24, 0.2);
+  }
+  
+  @media (min-width: 768px) {
+    padding: var(--space-md);
+    min-height: 100px;
+  }
+}
+
+/* Reply form specific styles */
+.reply-form {
+  margin-top: var(--space-md);
+  padding: var(--space-sm);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md);
+  
+  @media (min-width: 768px) {
+    padding: var(--space-md);
+  }
+}
+
+/* Submit buttons */
+.submit-comment,
+.submit-reply {
+  align-self: flex-end;
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  
+  &:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
+  
+  @media (min-width: 768px) {
+    padding: var(--space-sm) var(--space-md);
+  }
+}
+
+/* ---------- Comments List ---------- */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  
+  @media (min-width: 768px) {
+    gap: var(--space-md);
+  }
+}
+
+.no-comments {
+  text-align: center;
+  padding: var(--space-md);
+  color: var(--text-secondary);
+  font-style: italic;
+  
+  @media (min-width: 768px) {
+    padding: var(--space-lg);
+  }
+}
+
+/* ---------- Individual Comment ---------- */
+.comment {
+  position: relative;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  transition: background-color var(--transition-fast);
+  width: 100%;
+  box-sizing: border-box;
+  
+ 
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    max-width: fit-content;
+  
+}
+
+/* New comment highlight */
+.new-comment {
+  animation: highlightNew var(--comment-highlight-duration) ease-in-out;
+}
+
+@keyframes highlightNew {
+  0% { background-color: rgba(255, 117, 24, 0.2); }
+  100% { background-color: transparent; }
+}
+
+/* ---------- Comment Header ---------- */
+.comment-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  
+  @media (min-width: 640px) {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.author-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.author-avatar.small {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  object-fit: cover;
+  
+  @media (min-width: 768px) {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.author-name {
+  color: var(--text-heading);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  font-size: 0.9rem;
+  
+  &:hover {
+    color: var(--primary-color);
+  }
+  
+  @media (min-width: 768px) {
+    font-size: 1rem;
+  }
+}
+
+.date-container {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  
+  @media (min-width: 768px) {
+    font-size: 0.85rem;
+  }
+}
+
+/* ---------- Comment Body ---------- */
+.comment-body {
+  margin: var(--space-sm) 0;
+  color: var(--text-color);
+  line-height: 1.5;
+  word-break: break-word;
+  font-size: 0.95rem;
+  
+  @media (min-width: 768px) {
+    margin: var(--space-md) 0;
+    line-height: 1.6;
+  }
+}
+
+.comment-text-fallback {
+  color: var(--text-color);
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+/* ---------- Comment Actions ---------- */
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  font-size: 0.85rem;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  
+  &:hover {
+    color: var(--primary-color);
+    background-color: rgba(255, 117, 24, 0.05);
+  }
+  
+  &.small {
+    font-size: 0.8rem;
+  }
+  
+  &.upvote-btn .material-icons {
+    font-size: 1.1rem;
+    
+    @media (min-width: 768px) {
+      font-size: 1.2rem;
+    }
+  }
+  
+  &.voted {
+    color: var(--primary-color);
+  }
+  
+  @media (min-width: 768px) {
+    font-size: 0.9rem;
+    padding: var(--space-xs) var(--space-sm);
+  }
+}
+
+.vote-percent-indicator {
+  font-size: 0.7rem;
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-xs);
+  margin-left: var(--space-xs);
+}
+
+/* ---------- Nested Replies System ---------- */
+/* Container for replies */
+.replies {
+  position: relative;
+  margin-top: var(--space-sm);
+  padding-left: var(--comment-indent-step);
+  width: 100%;
+  box-sizing: border-box;
+  
+  @media (min-width: 768px) {
+    margin-top: var(--space-md);
+    padding-left: calc(var(--comment-indent-step) * 2);
+  }
+}
+
+/* Adaptable thread line */
+.thread-line {
+  position: absolute;
+  left: calc(var(--comment-indent-step) / 4);
+  top: 0;
+  bottom: 8px;
+  width: var(--comment-thread-width);
+  background-color: var(--border-color);
+  
+  @media (min-width: 768px) {
+    left: calc(var(--comment-indent-step) / 2);
+  }
+}
+
+/* Dynamic nesting with CSS custom properties */
+/* This creates a scalable system that works for any nesting depth */
+.replies-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.replies-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  
+  @media (min-width: 768px) {
+    font-size: 0.8rem;
+  }
+}
+
+/* ---------- Loading and Error States ---------- */
+.loading-replies {
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--background-lighter);
+  text-align: center;
+  color: var(--text-secondary);
+  margin: var(--space-sm) 0;
+  font-size: 0.9rem;
+  
+  @media (min-width: 768px) {
+    padding: var(--space-md);
+    margin: var(--space-md) 0;
+  }
+}
+
+.comment-error,
+.comments-section-error {
+  padding: var(--space-sm);
+  color: #f44336;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm) 0;
+  font-size: 0.9rem;
+  
+  @media (min-width: 768px) {
+    padding: var(--space-md);
+    margin: var(--space-md) 0;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* ---------- Advanced Nesting Support ---------- */
+/* Special styles for deeply nested comments to maintain readability */
+/* Apply to any level beyond our max visible depth */
+.comment[data-depth="6"],
+.comment[data-depth="7"],
+.comment[data-depth="8"] {
+  border-left: 2px solid var(--primary-light);
+  padding-left: var(--space-sm);
+  margin-left: calc(var(--comment-indent-step) / 2);
+}
+
+/* For very deep nesting, collapse the indent to prevent horizontal scrolling */
+.comment[data-depth="9"],
+.comment[data-depth="10"],
+.comment[data-depth="11"],
+.comment[data-depth="12"] {
+  border-left: 3px solid var(--primary-color);
+  padding-left: var(--space-md);
+  margin-left: 0;
+}
+
+@media (max-width: 480px) {
+  /* On very small screens, reduce indentation further */
+  .replies {
+    padding-left: calc(var(--comment-indent-step) / 1.5);
+  }
+  
+  /* Simplify the comment header */
+  .author-container {
+    gap: var(--space-xs);
+  }
+  
+  /* Make sure the text is readable */
+  .comment-body {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  
+  /* Stack action buttons if needed */
+  .comment-actions {
+    gap: var(--space-xs);
+  }
+}
+
+/* ---------- Print Styles ---------- */
+@media print {
+  .comments-section {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+  
+  .comment-form,
+  .reply-form,
+  .comment-actions {
+    display: none;
+  }
+  
+  .thread-line {
+    display: none;
+  }
+}
+
+/* ---------- High Contrast Mode ---------- */
+@media (forced-colors: active) {
+  .thread-line {
+    background-color: CanvasText;
+  }
+  
+  .action-btn.voted {
+    border: 1px solid CanvasText;
+  }
+}
