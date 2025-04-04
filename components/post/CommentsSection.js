@@ -65,15 +65,25 @@ class CommentsSection {
       const commentsHeader = document.createElement('h3');
       commentsHeader.textContent = `Comments (${this.comments.length})`;
 
-      const commentForm = document.createElement('div');
+      // Create a proper form element instead of div for better accessibility and form submission
+      const commentForm = document.createElement('form');
       commentForm.className = 'comment-form';
+      // Prevent default form submission to handle it with JavaScript
+      commentForm.addEventListener('submit', (e) => e.preventDefault());
 
       const textarea = document.createElement('textarea');
       textarea.placeholder = 'Write a comment...';
+      textarea.name = 'comment-text'; // Add name attribute for better form handling
+      textarea.required = true; // Make it required
 
       const submitButton = document.createElement('button');
       submitButton.className = 'submit-comment';
       submitButton.textContent = 'Post Comment';
+      submitButton.type = 'submit'; // Set proper button type
+      
+      // Add data attributes to help identify the form
+      commentForm.dataset.parentAuthor = this.parentPost?.author || '';
+      commentForm.dataset.parentPermlink = this.parentPost?.permlink || '';
 
       commentForm.appendChild(textarea);
       commentForm.appendChild(submitButton);

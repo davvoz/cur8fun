@@ -137,7 +137,6 @@
  
     padding: var(--space-md);
     border-radius: var(--radius-md);
-    max-width: fit-content;
   
 }
 
@@ -309,7 +308,7 @@
   top: 0;
   bottom: 8px;
   width: var(--comment-thread-width);
-  background-color: var(--border-color);
+  background-color: var(--primary-color);
   
   @media (min-width: 768px) {
     left: calc(var(--comment-indent-step) / 2);

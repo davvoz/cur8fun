@@ -7,32 +7,79 @@ export default class CommentController {
     this.view = view;
     this.initialized = false;
     
-    // Attach event listeners after DOM is ready
-    setTimeout(() => this.initializeEventListeners(), 100);
+    // Use MutationObserver instead of setTimeout for more reliable initialization
+    this.observer = new MutationObserver(this.checkForCommentForm.bind(this));
+    
+    // Start observing the view element once it's available
+    if (this.view.element) {
+      this.startObserving();
+    } else {
+      // If view.element isn't available yet, wait for render
+      const originalRender = this.view.renderComponents;
+      this.view.renderComponents = async function(...args) {
+        const result = await originalRender.apply(this, args);
+        this.commentController.startObserving();
+        return result;
+      };
+    }
   }
   
   /**
-   * Initialize event listeners for comment forms
+   * Start observing DOM changes to detect when comment form is added
    */
-  initializeEventListeners() {
+  startObserving() {
+    if (!this.view.element) return;
+    
+    this.observer.observe(this.view.element, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Also try immediate initialization in case the form is already there
+    this.checkForCommentForm();
+  }
+  
+  /**
+   * Check if comment form exists in the DOM and initialize if found
+   */
+  checkForCommentForm() {
     if (this.initialized) return;
     
-    // Find the comment form
-    const commentForm = this.view.element.querySelector('.comment-form');
-    const submitButton = commentForm?.querySelector('.submit-comment');
+    // Try various selectors to find the comment form and button
+    const selectors = [
+      '.comment-form .submit-comment',
+      '.comments-section .submit-comment',
+      'button.submit-comment',
+      '.comments-section form button[type="submit"]'
+    ];
+    
+    let submitButton = null;
+    
+    // Try each selector until we find a matching element
+    for (const selector of selectors) {
+      submitButton = this.view.element.querySelector(selector);
+      if (submitButton) {
+        console.log('Found comment submit button with selector:', selector);
+        break;
+      }
+    }
     
     if (submitButton) {
       // Remove any existing listeners to prevent duplicates
       submitButton.removeEventListener('click', this.handleNewCommentClick);
       
-      // Add click event listener with bound context
-      submitButton.addEventListener('click', this.handleNewCommentClick.bind(this));
-      console.log('Comment submit button listener attached');
-    } else {
-      console.warn('Comment submit button not found');
+      // Create bound handler to ensure correct 'this' context
+      this.boundHandleClick = this.handleNewCommentClick.bind(this);
+      
+      // Add click event listener with proper binding
+      submitButton.addEventListener('click', this.boundHandleClick);
+      console.log('✅ Comment submit button listener attached successfully');
+      
+      this.initialized = true;
+      
+      // Stop observing once we've attached the listener
+      this.observer.disconnect();
     }
-    
-    this.initialized = true;
   }
   
   /**
@@ -353,11 +400,19 @@ export default class CommentController {
   }
   
   cleanup() {
-    // Remove event listeners
-    const submitButton = this.view.element.querySelector('.submit-comment');
-    if (submitButton) {
-      submitButton.removeEventListener('click', this.handleNewCommentClick);
+    // Stop observer
+    if (this.observer) {
+      this.observer.disconnect();
     }
+    
+    // Remove event listeners with proper reference
+    if (this.boundHandleClick) {
+      const submitButton = this.view.element.querySelector('.submit-comment');
+      if (submitButton) {
+        submitButton.removeEventListener('click', this.boundHandleClick);
+      }
+    }
+    
     this.initialized = false;
   }
 }
