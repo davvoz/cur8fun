@@ -1,0 +1,114 @@
+/* Styles for comment-related dialogs and notifications */
+
+/* RC Error Dialog */
+.rc-error-dialog {
+  position: fixed;
+  margin: auto;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 500px;
+  background: var(--background);
+  border-radius: var(--radius-md);
+  box-shadow: var(--popup-box-shadow);
+  z-index: var(--z-modal);
+  padding: var(--space-lg);
+}
+
+.rc-error-dialog-title {
+  color: var(--red, #d32f2f);
+  margin-top: 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-sm);
+}
+
+.rc-error-icon {
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
+.rc-error-icon .material-icons {
+  font-size: 48px;
+  color: var(--red, #d32f2f);
+}
+
+.rc-error-message {
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+.rc-error-link {
+  display: block;
+  margin-bottom: var(--space-lg);
+  color: var(--steem-color);
+  text-decoration: underline;
+}
+
+.rc-error-close-btn {
+  background: var(--steem-color);
+  color: var(--text-on-primary);
+  border: none;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  float: right;
+  font-weight: bold;
+  transition: var(--transition-normal);
+}
+
+.rc-error-close-btn:hover {
+  opacity: 0.9;
+}
+
+.rc-error-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-modal);
+}
+
+/* Loading overlay */
+.comment-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  background-color: rgba(var(--background-rgb, 255, 255, 255), 0.8);
+}
+
+.comment-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--steem-color);
+  animation: spin 1s linear infinite;
+}
+
+.comment-loading-text {
+  margin-left: var(--space-sm);
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Highlight for new replies */
+.highlight-new-reply {
+  animation: highlight-fade 2s ease-in-out;
+}
+
+@keyframes highlight-fade {
+  0%, 20% { background-color: rgba(var(--steem-color-rgb, 26, 80, 153), 0.2); }
+  100% { background-color: transparent; }
+}

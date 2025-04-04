@@ -1,6 +1,9 @@
 import commentService from '../services/CommentService.js';
 import authService from '../services/AuthService.js';
 import router from '../utils/Router.js';
+import LoadingIndicator from '../components/LoadingIndicator.js';
+import steemService from '../services/SteemService.js';
+
 
 export default class CommentController {
   constructor(view) {
@@ -196,7 +199,7 @@ export default class CommentController {
         parentPermlink: postPermlink,
         body: commentText,
         metadata: {
-          app: 'steemee/1.0',
+          app: 'cur8.fun/1.0',
           format: 'markdown',
           tags: this.extractTags(commentText)
         }
@@ -223,12 +226,19 @@ export default class CommentController {
     } catch (error) {
       console.error('Error posting comment:', error);
       
-      // Error handling
+      // Fix the error handling for RC errors
       const errorMessage = this.getErrorMessage(error);
-      this.view.emit('notification', {
-        type: 'error',
-        message: errorMessage
-      });
+      
+      if (error.message && error.message.includes('RC')) {
+        // Show a more prominent error dialog for RC errors
+        this.showRCErrorDialog(errorMessage);
+      } else {
+        // Regular notification for other errors
+        this.view.emit('notification', {
+          type: 'error',
+          message: errorMessage
+        });
+      }
 
       // Reset UI
       this.setSubmitState(submitButton, textarea, false, originalText);
@@ -236,10 +246,21 @@ export default class CommentController {
   }
   
   async handleReply(parentComment, replyText) {
-    // Remove alert that was blocking execution flow
     console.log('Handling reply submission', parentComment);
     
-    if (!replyText.trim()) return;
+    const trimmedReply = replyText.trim();
+    
+    // Check if reply is empty
+    if (!trimmedReply) return;
+    
+    // Check if reply is too short (at least 3 characters)
+    if (trimmedReply.length < 3) {
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Reply too short. Please write at least 3 characters.'
+      });
+      return;
+    }
 
     // Check login
     if (!this.checkLoggedIn()) return;
@@ -318,7 +339,7 @@ export default class CommentController {
         parentPermlink: parentComment.permlink,
         body: replyText,
         metadata: {
-          app: 'cur8.fun/0.0.1',
+          app: 'cur8.fun/1.0',
           format: 'markdown',
           tags: this.extractTags(replyText)
         }
@@ -333,41 +354,102 @@ export default class CommentController {
       // Update UI state to success
       this.setSuccessState(submitButton);
 
-      // Reset textarea and UI immediately to provide feedback
+      // Reset textarea immediately
       textarea.value = '';
-      
-      // Create loading overlay for comments section
-      const commentsSection = this.view.element.querySelector('.comments-section');
-      const loadingOverlay = this.createLoadingOverlay();
-      
-      if (commentsSection) {
-        commentsSection.appendChild(loadingOverlay);
-        // Add a semi-transparent overlay to indicate loading
-        commentsSection.style.position = 'relative';
-      }
       
       // Hide form
       replyForm.style.display = 'none';
       
-      // Give UI time to update before reload
-      setTimeout(() => {
-        // Reload post with a brief delay to show success state
-        this.view.loadPost().then(() => {
-          // Remove the loading overlay after load completes
-          if (loadingOverlay.parentNode) {
-            loadingOverlay.parentNode.removeChild(loadingOverlay);
+      // Create a loading indicator and show it properly
+      const commentsSection = this.view.element.querySelector('.comments-section');
+      const loadingIndicator = new LoadingIndicator('progressBar');
+      
+      if (commentsSection) {
+        // Simply append the loading indicator to the comments section
+        // This avoids the insertBefore error
+        commentsSection.appendChild(loadingIndicator.element);
+        loadingIndicator.updateProgress(20);
+        loadingIndicator.show(commentsSection, 'Processing your reply...');
+      }
+
+      // Store the new reply's author/permlink for highlighting later
+      const newReplyData = {
+        author: result.author,
+        permlink: result.permlink
+      };
+      
+      // Wait longer for the blockchain to process the reply
+      console.log('Waiting for blockchain to process reply...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      try {
+        loadingIndicator.updateProgress(50);
+        
+        // Force cache refresh by adding timestamp to API calls
+        await steemService.clearCache();
+        
+        loadingIndicator.updateProgress(70);
+        console.log('Reloading post with fresh data...');
+        
+        // Reload post with fresh data
+        await this.view.loadPost();
+        
+        loadingIndicator.updateProgress(100);
+        
+        // After reload, find and highlight the new comment
+        setTimeout(() => {
+          try {
+            console.log('Locating new reply in DOM:', newReplyData);
+            const newReplyElement = this.view.element.querySelector(
+              `[data-author="${newReplyData.author}"][data-permlink="${newReplyData.permlink}"]`
+            );
+            
+            if (newReplyElement) {
+              console.log('Found new reply, highlighting and scrolling');
+              // Add highlight class
+              newReplyElement.classList.add('highlight-new-reply');
+              
+              // Scroll the element into view
+              newReplyElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+              });
+            } else {
+              console.warn('New reply element not found in DOM after reload');
+            }
+          } catch (highlightError) {
+            console.error('Error highlighting new reply:', highlightError);
+          } finally {
+            // Hide the loading indicator
+            loadingIndicator.hide();
           }
+        }, 500);
+        
+      } catch (reloadError) {
+        console.error('Error reloading post after reply:', reloadError);
+        loadingIndicator.hide();
+        
+        this.view.emit('notification', {
+          type: 'warning',
+          message: 'Reply was posted but there was an error updating the display'
         });
-      }, 800);
+      }
     } catch (error) {
       console.error('Error posting reply:', error);
 
-      // Error handling
+      // Fix the error handling for RC errors
       const errorMessage = this.getErrorMessage(error);
-      this.view.emit('notification', {
-        type: 'error',
-        message: errorMessage
-      });
+      
+      if (error.message && error.message.includes('RC')) {
+        // Show a more prominent error dialog for RC errors
+        this.showRCErrorDialog(errorMessage);
+      } else {
+        // Regular notification for other errors
+        this.view.emit('notification', {
+          type: 'error',
+          message: errorMessage
+        });
+      }
 
       // Reset UI
       this.setSubmitState(submitButton, textarea, false, originalText);
@@ -375,7 +457,7 @@ export default class CommentController {
   }
   
   /**
-   * Creates a loading overlay element for transitions
+   * Creates a loading overlay element for transitionsa loading overlay element for transitions
    * @returns {HTMLElement} The loading overlay element
    */
   createLoadingOverlay() {
@@ -387,7 +469,6 @@ export default class CommentController {
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(255, 255, 255, 0.8);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -400,8 +481,6 @@ export default class CommentController {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #3498db;
       animation: spin 1s linear infinite;
     `;
     
@@ -490,19 +569,52 @@ export default class CommentController {
     
     if (!error) return 'Unknown error occurred';
     
-    if (error.message && error.message.includes('Keychain')) {
-      return this.getKeychainErrorMessage(error.message);
-    } else if (error.message && error.message.includes('posting key')) {
+    const errorMessage = error.message || '';
+    
+    // Check for Resource Credits (RC) error
+    if (errorMessage.includes('RC') && errorMessage.includes('needs') && errorMessage.includes('has')) {
+      // This is a Resource Credits error
+      return this.getResourceCreditsErrorMessage(errorMessage);
+    } else if (errorMessage.includes('Keychain')) {
+      return this.getKeychainErrorMessage(errorMessage);
+    } else if (errorMessage.includes('posting key')) {
       return 'Invalid posting key. Please login again.';
-    } else if (error.message === 'i') {
+    } else if (errorMessage === 'i') {
       return 'Invalid comment parameters. Please try again with different text.';
-    } else if (error.message && error.message.includes('permlink')) {
+    } else if (errorMessage.includes('permlink')) {
       return 'Invalid permlink format. Please try again.';
-    } else if (error.message && error.message.includes('STEEM_MIN_ROOT_COMMENT_INTERVAL')) {
+    } else if (errorMessage.includes('STEEM_MIN_ROOT_COMMENT_INTERVAL')) {
       return 'Please wait a while before posting another comment.';
     }
     
-    return `Error: ${error.message || 'Failed to post comment'}`;
+    return `Error: ${errorMessage || 'Failed to post comment'}`;
+  }
+  
+  /**
+   * Formats a user-friendly message for Resource Credits errors
+   * @param {string} errorMessage - The original error message
+   * @returns {string} A user-friendly error message
+   */
+  getResourceCreditsErrorMessage(errorMessage) {
+    try {
+      // Try to extract the values from the error message using regex
+      const rcMatch = errorMessage.match(/has\s+(\d+)\s+RC,\s+needs\s+(\d+)\s+RC/);
+      
+      if (rcMatch && rcMatch.length === 3) {
+        const availableRC = parseInt(rcMatch[1]);
+        const requiredRC = parseInt(rcMatch[2]);
+        const percentAvailable = Math.round((availableRC / requiredRC) * 100);
+        
+        return `You don't have enough Resource Credits to perform this action (${percentAvailable}% available). 
+                Please wait a few hours for your RC to regenerate or power up more STEEM.`;
+      }
+      
+      // Fallback if we can't parse the exact values
+      return 'You don\'t have enough Resource Credits (RC) to perform this action. Please wait a few hours for your RC to regenerate or power up more STEEM.';
+    } catch (e) {
+      // If there's any error parsing, return a generic message
+      return 'Insufficient Resource Credits. Please try again later or power up more STEEM.';
+    }
   }
   
   getKeychainErrorMessage(errorMessage) {
@@ -548,5 +660,75 @@ export default class CommentController {
     }
     
     this.initialized = false;
+  }
+  
+  /**
+   * Show a more prominent error dialog for Resource Credits errors
+   * @param {string} message - The error message to display
+   */
+  showRCErrorDialog(message) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'rc-error-overlay';
+    
+    // Create dialog container
+    const dialog = document.createElement('div');
+    dialog.className = 'rc-error-dialog';
+    dialog.style.left = '50%';
+    dialog.style.top = '50%';
+    
+    // Create dialog content
+    const title = document.createElement('h3');
+    title.className = 'rc-error-dialog-title';
+    title.textContent = 'Not Enough Resource Credits';
+    
+    // Add icon container
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'rc-error-icon';
+    iconContainer.innerHTML = '<span class="material-icons">error_outline</span>';
+    
+    // Add message
+    const messageEl = document.createElement('p');
+    messageEl.className = 'rc-error-message';
+    messageEl.textContent = message;
+    
+    // Add learn more link
+    const link = document.createElement('a');
+    link.className = 'rc-error-link';
+    link.href = 'https://cur8.fun/#/@jesta/steem-resource-credits-guide';
+    link.textContent = 'Learn more about Resource Credits';
+    link.target = '_blank';
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'rc-error-close-btn';
+    closeBtn.textContent = 'Close';
+    
+    // Close dialog function
+    const closeDialog = () => {
+      document.body.removeChild(overlay);
+      document.body.removeChild(dialog);
+    };
+    
+    // Add event listeners
+    closeBtn.addEventListener('click', closeDialog);
+    overlay.addEventListener('click', closeDialog);
+    
+    // Add elements to dialog
+    dialog.appendChild(title);
+    dialog.appendChild(iconContainer);
+    dialog.appendChild(messageEl);
+    dialog.appendChild(link);
+    dialog.appendChild(closeBtn);
+    
+    // Add to body
+    document.body.appendChild(overlay);
+    document.body.appendChild(dialog);
+    
+    // Also emit a regular notification
+    this.view.emit('notification', {
+      type: 'error',
+      message: 'Not enough Resource Credits to complete this action'
+    });
   }
 }

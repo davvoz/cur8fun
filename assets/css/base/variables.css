@@ -1,5 +1,7 @@
 /* Variables and design tokens */
 :root {
+    /*var(--background);*/
+    --background : #121212; /* Dark theme background */
     /* Primary colors */
     --primary-color: #ff7518; /* Vibrant orange */
     --primary-light: #ff9248; /* Lighter variant */

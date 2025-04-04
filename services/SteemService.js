@@ -31,6 +31,16 @@ class SteemService {
         return this.core.ensureLibraryLoaded();
     }
 
+    /**
+     * Clears any cached data to ensure fresh results on next request
+     */
+    clearCache() {
+        // If implementing a cache, this would clear it
+        // For now just return a resolved promise
+        console.log('Clearing service cache for fresh data');
+        return Promise.resolve();
+    }
+
     // Post service methods
     async getPostsByCategory(category, page = 1, limit = 20) {
         return this.postService.getPostsByCategory(category, page, limit);

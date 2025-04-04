@@ -52,6 +52,8 @@
 @import 'pages/search.css';
 @import 'pages/login.css';
 @import 'pages/notifications.css';
+@import 'components/comment-dialogs.css';
+@import 'components/comments.css';
 /* Mobile search button in header */
 .mobile-search-button {
     display: none;
