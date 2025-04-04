@@ -333,16 +333,32 @@ export default class CommentController {
       // Update UI state to success
       this.setSuccessState(submitButton);
 
-      // Reset and update UI
+      // Reset textarea and UI immediately to provide feedback
+      textarea.value = '';
+      
+      // Create loading overlay for comments section
+      const commentsSection = this.view.element.querySelector('.comments-section');
+      const loadingOverlay = this.createLoadingOverlay();
+      
+      if (commentsSection) {
+        commentsSection.appendChild(loadingOverlay);
+        // Add a semi-transparent overlay to indicate loading
+        commentsSection.style.position = 'relative';
+      }
+      
+      // Hide form
+      replyForm.style.display = 'none';
+      
+      // Give UI time to update before reload
       setTimeout(() => {
-        textarea.value = '';
-        this.setSubmitState(submitButton, textarea, false, originalText);
-        submitButton.classList.remove('success');
-
-        // Hide form and refresh comments
-        replyForm.style.display = 'none';
-        this.view.loadPost();
-      }, 1000);
+        // Reload post with a brief delay to show success state
+        this.view.loadPost().then(() => {
+          // Remove the loading overlay after load completes
+          if (loadingOverlay.parentNode) {
+            loadingOverlay.parentNode.removeChild(loadingOverlay);
+          }
+        });
+      }, 800);
     } catch (error) {
       console.error('Error posting reply:', error);
 
@@ -356,6 +372,66 @@ export default class CommentController {
       // Reset UI
       this.setSubmitState(submitButton, textarea, false, originalText);
     }
+  }
+  
+  /**
+   * Creates a loading overlay element for transitions
+   * @returns {HTMLElement} The loading overlay element
+   */
+  createLoadingOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    `;
+    
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    spinner.style.cssText = `
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      animation: spin 1s linear infinite;
+    `;
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    const loadingText = document.createElement('div');
+    loadingText.className = 'loading-text';
+    loadingText.textContent = 'Loading comments...';
+    loadingText.style.cssText = `
+      margin-left: 10px;
+      font-size: 14px;
+      color: #333;
+    `;
+    
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.appendChild(spinner);
+    container.appendChild(loadingText);
+    
+    overlay.appendChild(container);
+    return overlay;
   }
   
   validateComment(commentText, textarea) {
