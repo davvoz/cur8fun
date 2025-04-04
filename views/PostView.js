@@ -523,8 +523,14 @@ class PostView extends View {
     if (!this.comments) this.comments = [];
     this.comments.push(newComment);
 
+    // Instead of just updating the comments array, reload all comments
+    // to ensure the tree structure is properly rebuilt
     if (this.commentsSectionComponent) {
-      this.commentsSectionComponent.updateComments(this.comments);
+      // Option 1: Refresh the entire post (more reliable but heavier)
+      this.loadPost();
+      
+      // Option 2: Just update the component with new comments array
+      // this.commentsSectionComponent.updateComments(this.comments);
     }
 
     this.updateCommentCount();

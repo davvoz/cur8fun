@@ -745,12 +745,86 @@ class CommentsSection {
     }
     
     this.comments = newComments || [];
-    this.renderComments();
-
-    // Update the comments count in header
-    const commentsHeader = this.element?.querySelector('h3');
-    if (commentsHeader) {
-      commentsHeader.textContent = `Comments (${this.comments.length})`;
+    
+    // Try to re-fetch replies to ensure proper structure
+    // Use a lighter version of fetchAllReplies that doesn't show loading indicator
+    this.quickRefreshReplies().then(() => {
+      // Then render comments with the updated tree
+      this.renderComments();
+      
+      // Update the comments count in header
+      const commentsHeader = this.element?.querySelector('h3');
+      if (commentsHeader) {
+        commentsHeader.textContent = `Comments (${this.comments.length})`;
+      }
+    }).catch(err => {
+      console.error('Failed to refresh replies:', err);
+      // Fallback to just rendering what we have
+      this.renderComments();
+    });
+  }
+  
+  /**
+   * A lighter version of fetchAllReplies that doesn't show loading indicator
+   * Used when quickly refreshing after new comments are added
+   */
+  async quickRefreshReplies() {
+    if (!this.comments || this.comments.length === 0 || !this.parentPost) return;
+    
+    try {
+      console.log('🔄 Quick refresh of comment replies');
+      
+      // Create a map of existing comments
+      const allCommentsMap = new Map();
+      this.comments.forEach(c => allCommentsMap.set(`${c.author}/${c.permlink}`, c));
+      
+      // Get direct replies to the post to ensure we have all top-level comments
+      const directReplies = await steemApi.getContentReplies(
+        this.parentPost.author, 
+        this.parentPost.permlink
+      );
+      
+      // Add new direct replies if any
+      let newCommentsFound = false;
+      directReplies.forEach(reply => {
+        const key = `${reply.author}/${reply.permlink}`;
+        if (!allCommentsMap.has(key)) {
+          allCommentsMap.set(key, reply);
+          newCommentsFound = true;
+        }
+      });
+      
+      // Only refresh the whole tree if we found new comments
+      if (newCommentsFound) {
+        // Get all comments for processing
+        const allComments = Array.from(allCommentsMap.values());
+        
+        // For each comment, fetch its replies
+        for (const comment of allComments) {
+          try {
+            const replies = await steemApi.getContentReplies(comment.author, comment.permlink);
+            
+            if (replies && replies.length > 0) {
+              for (const reply of replies) {
+                const key = `${reply.author}/${reply.permlink}`;
+                if (!allCommentsMap.has(key)) {
+                  allCommentsMap.set(key, reply);
+                  allComments.push(reply); // Add to processing queue
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(`Couldn't fetch replies for ${comment.author}/${comment.permlink}:`, err);
+          }
+        }
+        
+        // Update the comments array with all found comments
+        this.comments = Array.from(allCommentsMap.values());
+      }
+      
+      console.log(`🔄 Comment refresh complete. Total comments: ${this.comments.length}`);
+    } catch (error) {
+      console.error('Error refreshing replies:', error);
     }
   }
 
