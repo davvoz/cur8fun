@@ -459,8 +459,6 @@
 /* Floating dropdown styles - versione unificata senza distinzioni mobile/desktop */
 .community-dropdown {
   position: absolute;
-  top: calc(100% + 5px);
-  left: 0;
   width: 100%;
   max-height: 400px;
   overflow-y: auto;
@@ -470,7 +468,6 @@
   box-shadow: var(--popup-box-shadow, 0 4px 20px rgba(0, 0, 0, 0.15));
   z-index: 1000;
   display: none;
-  -webkit-overflow-scrolling: touch;
   opacity: 0;
   transform: translateY(-5px);
   transform-origin: top center;
@@ -483,29 +480,31 @@
   transform: translateY(0);
 }
 
-.dropdown-header {
-  padding: 15px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--background-lighter);
-  color: var(--text-heading);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+/* Position below the input */
+.community-dropdown.dropdown-below {
+  top: calc(100% + 5px);
+  left: 0;
 }
 
-.dropdown-header:before {
+/* Position to the side of the input - adjusted to be closer */
+.community-dropdown.dropdown-side {
+  top: 0;
+  left: 100%; /* Align with the right edge of the container */
+  margin-left: 10px; /* Add a small margin instead of large offset */
+}
+
+/* Arrow for side dropdown */
+.community-dropdown.dropdown-side:before {
   content: '';
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  margin-right: 8px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='9' cy='7' r='4'%3E%3C/circle%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'%3E%3C/path%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-size: contain;
+  position: absolute;
+  top: 25px;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  background: var(--surface-color);
+  border-left: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  transform: rotate(45deg);
 }
 
 /* Stile per l'input group con i bottoni */

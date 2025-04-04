@@ -403,25 +403,14 @@ class CreatePostView extends View {
     
     if (!dropdown || !communityContainer) return;
     
-    // Check if there's enough space on the right
-    const containerRect = communityContainer.getBoundingClientRect();
-    const availableSpaceRight = window.innerWidth - containerRect.right - 20;
+    // Remove all positioning classes first
+    dropdown.classList.remove('dropdown-side', 'dropdown-below');
     
-    // If there's space on the right, show on the side (floating dropdown)
-    if (availableSpaceRight >= 340) {
-      dropdown.style.left = 'calc(100% + 15px)';
-      dropdown.style.top = '-10px';
-      dropdown.classList.remove('show-below');
-      
-      // Add the arrow for side positioning
-      dropdown.classList.add('show-side');
-    } else {
-      // Default position below
-      dropdown.style.left = '0';
-      dropdown.style.top = 'calc(100% + 5px)';
-      dropdown.classList.remove('show-side');
-      dropdown.classList.add('show-below');
-    }
+    // Always position dropdown below the input
+    dropdown.classList.add('dropdown-below');
+    
+    // Ensure dropdown width matches container width
+    dropdown.style.width = `${communityContainer.offsetWidth}px`;
   }
 
   /**
