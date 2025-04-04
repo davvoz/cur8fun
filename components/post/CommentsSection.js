@@ -402,6 +402,10 @@ class CommentsSection {
       commentDiv.className = 'comment';
       commentDiv.setAttribute('data-depth', commentDepth); // Add data-depth attribute for CSS styling
       
+      // Add critical data attributes for finding this comment later
+      commentDiv.setAttribute('data-author', comment.author);
+      commentDiv.setAttribute('data-permlink', comment.permlink);
+      
       if (comment.isNew) {
         commentDiv.classList.add('new-comment');
       }

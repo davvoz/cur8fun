@@ -236,18 +236,76 @@ export default class CommentController {
   }
   
   async handleReply(parentComment, replyText) {
+    // Remove alert that was blocking execution flow
+    console.log('Handling reply submission', parentComment);
+    
     if (!replyText.trim()) return;
 
     // Check login
     if (!this.checkLoggedIn()) return;
 
-    // Find UI elements
-    const commentElement = this.view.element.querySelector(`[data-author="${parentComment.author}"][data-permlink="${parentComment.permlink}"]`);
-    const replyForm = commentElement?.querySelector('.reply-form');
+    // Find UI elements with more robust selectors
+    let commentElement = null;
+    
+    // Try multiple selectors to find the comment element
+    const selectors = [
+      `[data-author="${parentComment.author}"][data-permlink="${parentComment.permlink}"]`,
+      `.comment:has(.author-name:contains("@${parentComment.author}"))`,
+      `.comment .author-name[text="@${parentComment.author}"]`
+    ];
+    
+    for (const selector of selectors) {
+      try {
+        commentElement = this.view.element.querySelector(selector);
+        if (commentElement) {
+          console.log('Found comment element with selector:', selector);
+          break;
+        }
+      } catch (e) {
+        // Some selectors might be unsupported in some browsers
+        console.warn('Selector failed:', selector, e);
+      }
+    }
+    
+    // If selectors failed, try a manual search
+    if (!commentElement) {
+      console.log('Trying manual search for comment element');
+      const allComments = this.view.element.querySelectorAll('.comment');
+      for (const element of allComments) {
+        const authorNames = element.querySelectorAll('.author-name');
+        for (const name of authorNames) {
+          if (name.textContent === `@${parentComment.author}`) {
+            commentElement = element;
+            console.log('Found comment through author name');
+            break;
+          }
+        }
+        if (commentElement) break;
+      }
+    }
+    
+    if (!commentElement) {
+      console.error('Could not find comment element for', parentComment.author);
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Could not find the comment to reply to. Please try again.'
+      });
+      return;
+    }
+    
+    // Now find the reply form within this comment
+    const replyForm = commentElement.querySelector('.reply-form');
     const submitButton = replyForm?.querySelector('.submit-reply');
     const textarea = replyForm?.querySelector('textarea');
 
-    if (!submitButton || !textarea) return;
+    if (!submitButton || !textarea) {
+      console.error('Reply form elements missing', {
+        formFound: !!replyForm,
+        buttonFound: !!submitButton,
+        textareaFound: !!textarea
+      });
+      return;
+    }
 
     // Set loading state
     const originalText = submitButton.textContent;
