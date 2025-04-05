@@ -492,52 +492,23 @@ class CommunityService {
   }
 
   /**
-   * Get details of a specific community
+   * Verifica se un tag è un tag community valido
+   * @param {string} tag - Tag da verificare
+   * @returns {boolean} - true se è una community valida
    */
-  async getCommunityDetails(name) {
-    if (!name) {
-      throw new Error('Community name is required');
+  isValidCommunityTag(tag) {
+    if (!tag || typeof tag !== 'string') return false;
+    
+    // La maggior parte delle community Hive hanno un formato hive-NUMERO
+    if (tag.startsWith('hive-')) {
+      // Estrai la parte dopo "hive-"
+      const communityId = tag.substring(5);
+      
+      // Le community valide hanno ID numerico
+      return /^\d+$/.test(communityId);
     }
     
-    try {
-      return await this.sendRequest(`/community/${name}`, 'GET');
-    } catch (error) {
-      console.error(`Error fetching details for community ${name}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get cached search results
-   */
-  getCachedSearch(query) {
-    if (this.cachedSearchResults.has(query)) {
-      const { timestamp, results } = this.cachedSearchResults.get(query);
-      if (Date.now() - timestamp < this.cacheExpiry) {
-        return results;
-      }
-      this.cachedSearchResults.delete(query);
-    }
-    return null;
-  }
-
-  /**
-   * Cache search results
-   */
-  cacheSearchResults(query, results) {
-    this.cachedSearchResults.set(query, {
-      timestamp: Date.now(),
-      results: [...results]
-    });
-  }
-
-  /**
-   * Clear all caches
-   */
-  clearCaches() {
-    this.cachedCommunities = null;
-    this.cachedUserSubscriptions.clear();
-    this.cachedSearchResults.clear();
+    return false;
   }
 
   /**
@@ -547,6 +518,12 @@ class CommunityService {
    */
   async findCommunityByName(communityName) {
     if (!communityName) return null;
+    
+    // Verifica preventiva che sia un tag community valido
+    if (!this.isValidCommunityTag(communityName)) {
+      console.log(`${communityName} non è un tag community valido, ignoro`);
+      return null;
+    }
     
     // Pulisci il nome della community (rimuovi prefisso hive- se presente)
     const cleanName = communityName.replace(/^hive-/, '');

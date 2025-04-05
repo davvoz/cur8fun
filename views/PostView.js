@@ -172,6 +172,8 @@ class PostView extends View {
   initComponents() {
     if (!this.post) return;
     
+    const communityTag = this.getCommunityTag();
+    
     this.postHeaderComponent = new PostHeader(
       this.post,
       (community) => this.renderCommunityBadge(community)
@@ -189,11 +191,11 @@ class PostView extends View {
       () => this.commentController.handleNewComment(this.post),  
       () => this.handleShare(),
       () => this.handleEdit(),
-      this.canEditPost()                                  // Pass whether user can edit the post
+      this.canEditPost()                                  
     );
     
     this.postTagsComponent = new PostTags(
-      this.getPostTags()
+      this.getPostTags() // Questa ora filtrerà correttamente il tag community
     );
     
     this.commentsSectionComponent = new CommentsSection(
@@ -203,6 +205,11 @@ class PostView extends View {
       (commentEl, voteBtn) => this.voteController.handleCommentVote(commentEl, voteBtn),
       this.contentRenderer
     );
+    
+    // Se abbiamo un tag community valido, passiamolo a PostHeaderComponent
+    if (communityTag) {
+      this.postHeaderComponent.setCommunity(communityTag);
+    }
   }
 
   /**
@@ -302,19 +309,88 @@ class PostView extends View {
     this.errorMessage.style.display = 'block';
   }
 
+  /**
+   * Verifica se un tag rappresenta una community valida
+   * @param {string} tag - Tag da verificare
+   * @returns {boolean} - true se è una community valida
+   */
+  isValidCommunityTag(tag) {
+    if (!tag || typeof tag !== 'string') return false;
+    
+    // La maggior parte delle community Hive hanno un formato hive-NUMERO
+    if (tag.startsWith('hive-')) {
+      // Estrai la parte dopo "hive-"
+      const communityId = tag.substring(5);
+      
+      // Le community valide hanno generalmente ID numerico
+      return /^\d+$/.test(communityId);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Estrae il tag community dal post
+   * @returns {string|null} - Tag community o null se non presente
+   */
+  getCommunityTag() {
+    if (!this.post) return null;
+    
+    try {
+      const metadata = this.parseMetadata(this.post.json_metadata);
+      
+      // Cerca nella proprietà community (più affidabile)
+      if (metadata && metadata.community) {
+        const communityTag = metadata.community.startsWith('hive-') 
+          ? metadata.community 
+          : `hive-${metadata.community}`;
+          
+        if (this.isValidCommunityTag(communityTag)) {
+          return communityTag;
+        }
+      }
+      
+      // Come fallback, cerca nei tag
+      if (metadata && Array.isArray(metadata.tags)) {
+        const communityTag = metadata.tags.find(tag => 
+          tag && typeof tag === 'string' && this.isValidCommunityTag(tag)
+        );
+        
+        if (communityTag) {
+          return communityTag;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error extracting community tag:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Ottiene i tag del post, escludendo il tag community
+   * @returns {Array} - Array di tag senza il tag community
+   */
   getPostTags() {
     if (!this.post) return [];
 
     try {
       const metadata = this.parseMetadata(this.post.json_metadata);
+      const communityTag = this.getCommunityTag();
 
       if (metadata && Array.isArray(metadata.tags)) {
         return metadata.tags
-          .filter(tag => typeof tag === 'string' && tag.trim() !== '')
+          .filter(tag => 
+            typeof tag === 'string' && 
+            tag.trim() !== '' && 
+            (!communityTag || tag !== communityTag) // Escludi il tag community
+          )
           .slice(0, 10);
       }
 
-      if (this.post.category && typeof this.post.category === 'string') {
+      if (this.post.category && typeof this.post.category === 'string' && 
+          (!communityTag || this.post.category !== communityTag)) {
         return [this.post.category];
       }
     } catch (error) {
