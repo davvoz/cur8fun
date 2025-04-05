@@ -12,7 +12,7 @@ import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js'
 // Static cache for components
 const componentCache = {
   posts: {},  // Manteniamo la cache per i post
-  comments: {} // Ora non la useremo più per i commenti
+  comments: {} // Ora usiamo la cache anche per i commenti
 };
 
 class ProfileView extends View {
@@ -36,7 +36,7 @@ class ProfileView extends View {
     
     // Caching state
     this.postsLoaded = !!componentCache.posts[this.username];
-    this.commentsLoaded = false; // Non usiamo più la cache per i commenti
+    this.commentsLoaded = !!componentCache.comments[this.username];
     this.postsContainer = null;
     this.commentsContainer = null;
     this.walletHistoryComponent = null;
@@ -58,8 +58,14 @@ class ProfileView extends View {
     }
     this.postsComponent = componentCache.posts[this.username];
     
-    // Sempre creiamo una nuova istanza di CommentsList
-    this.commentsComponent = new CommentsList(this.username, false);
+    // Usa la cache anche per i commenti
+    if (!componentCache.comments[this.username]) {
+      componentCache.comments[this.username] = new CommentsList(this.username, true);
+    } else {
+      // Resetta minimamente lo stato, ma mantieni i dati se possibile
+      componentCache.comments[this.username].prepareForReuse();
+    }
+    this.commentsComponent = componentCache.comments[this.username];
   }
 
   async render(container) {
@@ -362,27 +368,31 @@ class ProfileView extends View {
         break;
         
       case 'comments':
-        // IMPORTANTE: Nascondi SEMPRE il container del grid controller comune per i commenti
-        // perché i commenti usano il proprio controller interno
         this.updateContainerVisibility(
           commentsContainer, 
           [postsContainer, walletContainer],
-          null, // IMPORTANTE: Non usiamo il commentsGridContainer comune
+          null,
           [postsGridContainer, walletGridContainer]
         );
         
         // Nascondi esplicitamente il controller condiviso
         if (commentsGridContainer) commentsGridContainer.style.display = 'none';
         
-        // Forziamo sempre il render dei commenti quando si passa a questa tab
-        console.log(`[ProfileView] Forza rendering dei commenti`);
-        if (this.commentsComponent && commentsContainer) {
-          // Reset e render per garantire che i commenti siano sempre aggiornati
-          this.commentsComponent.reset();
-          this.commentsComponent.render(commentsContainer);
-          this.commentsLoaded = true;
+        // Verifica se i commenti sono già stati caricati prima
+        if (!this.commentsLoaded || commentsContainer.innerHTML === '') {
+          console.log(`[ProfileView] Primo rendering dei commenti`);
+          if (this.commentsComponent && commentsContainer) {
+            this.commentsComponent.render(commentsContainer);
+            this.commentsLoaded = true;
+          }
         } else {
-          console.error('[ProfileView] CommentsComponent o container mancante');
+          console.log(`[ProfileView] Usando commenti già caricati, solo refresh layout`);
+          // Solo aggiorna il layout per adattarlo alla larghezza corrente
+          if (this.commentsComponent) {
+            setTimeout(() => {
+              this.commentsComponent.forceLayoutRefresh();
+            }, 50);
+          }
         }
         break;
         

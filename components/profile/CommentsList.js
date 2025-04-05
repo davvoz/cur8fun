@@ -44,19 +44,19 @@ export default class CommentsList extends BasePostView {
     
     console.log(`[CommentsList] Rendering per @${this.username}`);
     
-    // IMPORTANTE: Pulisci sempre il container per evitare duplicazioni
+    // Verifica se abbiamo già dati caricati precedentemente
+    const hasExistingData = this.allComments && this.allComments.length > 0;
+    
+    // IMPORTANTE: Pulisci il container per evitare duplicazioni
     container.innerHTML = '';
     
     // Salva il riferimento al container principale
     this.container = container;
     
-    // IMPORTANTE: Struttura DOM con classi e ID univoci
+    // Struttura DOM con classi e ID univoci
     const html = `
       <div class="comments-unique-wrapper">
-        <!-- Controller della griglia indipendente -->
         <div class="comments-own-grid-controller"></div>
-        
-        <!-- Container principale con ID univoco -->
         <div id="${this.uniqueContainerId}" class="comments-main-container">
           <!-- I commenti verranno inseriti qui -->
         </div>
@@ -65,17 +65,11 @@ export default class CommentsList extends BasePostView {
     
     container.innerHTML = html;
     
-    // Ottieni i riferimenti ai container creati
+    // Renderizza il grid controller nel suo container
     const gridControllerContainer = container.querySelector('.comments-own-grid-controller');
-    
-    // Rendi il controller della griglia nel suo container dedicato
     if (gridControllerContainer && this.gridController) {
-      console.log('[CommentsList] Rendering GridController in container dedicato');
       this.gridController.render(gridControllerContainer);
     }
-    
-    // Reset state completamente
-    this.reset();
     
     // Initialize UI manager
     const commentsContainer = container.querySelector(`#${this.uniqueContainerId}`);
@@ -86,8 +80,14 @@ export default class CommentsList extends BasePostView {
       this._loadComments();
     });
     
-    // Carica commenti
-    await this._loadComments();
+    // Se abbiamo dati esistenti, renderizza quelli invece di ricaricare
+    if (hasExistingData) {
+      console.log(`[CommentsList] Usando ${this.allComments.length} commenti dalla cache`);
+      await this.renderLoadedComments();
+    } else {
+      // Carica i commenti solo se non ne abbiamo già
+      await this._loadComments();
+    }
   }
 
   async _loadComments() {
@@ -241,6 +241,21 @@ export default class CommentsList extends BasePostView {
     this.allComments = [];
     this._loader?.reset();
     this.commentCache.clear();
+    return this;
+  }
+
+  /**
+   * Prepara il componente per il riutilizzo senza ricaricare i dati
+   * @returns {CommentsList} - Il componente stesso (chainable)
+   */
+  prepareForReuse() {
+    // Non resettare allComments e commentCache
+    // Reset solo stato di loading e pagina corrente
+    this.loading = false;
+    this.currentPage = 1;
+    this.commentsData = this.allComments && this.allComments.length > 0;
+    
+    // Non chiamare this._loader?.reset() che cancellerebbe la cache
     return this;
   }
 
