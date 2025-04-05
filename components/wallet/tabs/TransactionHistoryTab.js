@@ -645,7 +645,7 @@ export default class TransactionHistoryTab extends Component {
     const linkElement = document.createElement('a');
     linkElement.className = 'transaction-link';
     linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
-    linkElement.target = '_blank';
+    linkElement.target =  (tx.data.author && tx.data.permlink) ? '_self' : '_blank';
     linkElement.rel = 'noopener noreferrer';
     
     const linkIcon = document.createElement('span');

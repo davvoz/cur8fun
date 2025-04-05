@@ -299,7 +299,7 @@ class TransactionHistoryService {
    */
   createExplorerLink(transaction, data) {
     if (data.author && data.permlink) {
-      return `https://davvoz.github.io/steemee/#/@${data.author}/${data.permlink}`;
+      return `https://cur8.fun/#/@${data.author}/${data.permlink}`;
     }
     return `https://steemblockexplorer.com/tx/${transaction.trx_id || transaction.id}`;
   }
