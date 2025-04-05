@@ -60,9 +60,28 @@ export default class VoteController {
     });
   }
 
-  async handleCommentVote(commentElement, upvoteBtn) {
-    const author = commentElement.dataset.author;
-    const permlink = commentElement.dataset.permlink;
+  async handleCommentVote(commentParam, upvoteBtn) {
+    let author, permlink;
+    
+    // Handle both DOM element with dataset and direct comment object
+    if (commentParam && commentParam.dataset) {
+      // It's a DOM element
+      author = commentParam.dataset.author;
+      permlink = commentParam.dataset.permlink;
+    } else if (commentParam && typeof commentParam === 'object') {
+      // It's a comment object
+      author = commentParam.author;
+      permlink = commentParam.permlink;
+    } else {
+      console.error('Invalid comment parameter:', commentParam);
+      return;
+    }
+
+    // Check if author and permlink are available
+    if (!author || !permlink) {
+      console.error('Missing author or permlink:', author, permlink);
+      return;
+    }
 
     // Check if user is logged in
     if (!this.checkLoggedIn()) return;
