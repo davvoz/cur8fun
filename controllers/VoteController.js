@@ -99,12 +99,17 @@ export default class VoteController {
 
     // Show vote percentage selector
     this.showVotePercentagePopup(upvoteBtn, async (weight) => {
+      // Safely get the count element
       const countElement = upvoteBtn.querySelector('.count');
+      // Get current count safely, ensuring we have a default if element is not found
+      const currentCount = countElement ? (parseInt(countElement.textContent) || 0) : 0;
 
       try {
         upvoteBtn.disabled = true;
         upvoteBtn.classList.add('voting');
 
+        // Store the current HTML to restore if needed
+        const originalButtonHtml = upvoteBtn.innerHTML;
         upvoteBtn.innerHTML = `<span class="material-icons loading">refresh</span>`;
 
         if (weight === 0) {
@@ -117,16 +122,28 @@ export default class VoteController {
           permlink,
           weight
         });
-
-        const currentCount = parseInt(countElement.textContent) || 0;
         
-        // Update UI
+        // Update UI - instead of replacing all HTML, handle each element individually
         upvoteBtn.classList.add('voted');
-        upvoteBtn.innerHTML = `
-          <span class="material-icons">thumb_up_alt</span>
-          <span class="count">${currentCount + 1}</span>
-          <span class="vote-percent-indicator">${weight / 100}%</span>
-        `;
+        upvoteBtn.innerHTML = '';  // Clear the button
+        
+        // Re-create each element to ensure proper structure
+        const iconElement = document.createElement('span');
+        iconElement.className = 'material-icons';
+        iconElement.textContent = 'thumb_up_alt';
+        upvoteBtn.appendChild(iconElement);
+        
+        // Create new count element
+        const newCountElement = document.createElement('span');
+        newCountElement.className = 'count';
+        newCountElement.textContent = (currentCount + 1);
+        upvoteBtn.appendChild(newCountElement);
+        
+        // Add vote percentage indicator
+        const percentIndicator = document.createElement('span');
+        percentIndicator.className = 'vote-percent-indicator';
+        percentIndicator.textContent = `${weight / 100}%`;
+        upvoteBtn.appendChild(percentIndicator);
         
         this.addSuccessAnimation(upvoteBtn);
         
