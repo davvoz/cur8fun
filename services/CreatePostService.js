@@ -13,6 +13,9 @@ class CreatePostService {
       name: 'micro.cur8',
       weight: 500 // 5% della ricompensa (10000 = 100%)
     };
+    
+    // Chiave per localStorage
+    this.DRAFT_STORAGE_KEY = 'steemee_post_draft';
   }
 
   /**
@@ -46,6 +49,9 @@ class CreatePostService {
       
       // Broadcast the post using available method
       const result = await this.broadcastUsingAvailableMethod(postDetails);
+      
+      // Rimuovi la bozza salvata dopo il successo
+      this.clearDraft();
       
       this.emitSuccessEvent(postDetails);
       return result;
@@ -355,6 +361,120 @@ class CreatePostService {
     // Similar to createPost but uses existing permlink
     // Not fully implemented as the original code doesn't have this feature
     throw new Error('Edit post functionality not yet implemented');
+  }
+
+  /**
+   * Salva una bozza del post nel localStorage
+   * @param {Object} draftData - I dati della bozza (title, body, tags, community)
+   * @returns {boolean} - true se il salvataggio è riuscito
+   */
+  saveDraft(draftData) {
+    try {
+      // Aggiungi timestamp al salvataggio
+      const draft = {
+        ...draftData,
+        timestamp: new Date().toISOString(),
+        username: authService.getCurrentUser()?.username || 'anonymous'
+      };
+      
+      localStorage.setItem(this.DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      console.log('Draft saved successfully', draft);
+      return true;
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Recupera la bozza salvata
+   * @returns {Object|null} - La bozza salvata o null se non esiste
+   */
+  getDraft() {
+    try {
+      const draftJson = localStorage.getItem(this.DRAFT_STORAGE_KEY);
+      if (!draftJson) return null;
+      
+      const draft = JSON.parse(draftJson);
+      
+      // Verifica che la bozza appartenga all'utente corrente
+      const currentUser = authService.getCurrentUser()?.username;
+      if (currentUser && draft.username !== currentUser) {
+        console.log('Draft belongs to a different user, ignoring');
+        return null;
+      }
+      
+      // Verifica che la bozza non sia troppo vecchia (più di 7 giorni)
+      const draftDate = new Date(draft.timestamp);
+      const now = new Date();
+      const daysOld = (now - draftDate) / (1000 * 60 * 60 * 24);
+      
+      if (daysOld > 7) {
+        console.log('Draft is too old, ignoring');
+        this.clearDraft();
+        return null;
+      }
+      
+      return draft;
+    } catch (error) {
+      console.error('Failed to load draft:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Verifica se esiste una bozza salvata
+   * @returns {boolean} - true se esiste una bozza
+   */
+  hasDraft() {
+    return this.getDraft() !== null;
+  }
+  
+  /**
+   * Cancella la bozza salvata
+   */
+  clearDraft() {
+    try {
+      localStorage.removeItem(this.DRAFT_STORAGE_KEY);
+      console.log('Draft cleared');
+    } catch (error) {
+      console.error('Failed to clear draft:', error);
+    }
+  }
+  
+  /**
+   * Calcola l'età della bozza in un formato leggibile
+   * @returns {string|null} - Età della bozza o null se non esiste
+   */
+  getDraftAge() {
+    try {
+      const draft = this.getDraft();
+      if (!draft || !draft.timestamp) return null;
+      
+      const draftDate = new Date(draft.timestamp);
+      const now = new Date();
+      const diffMs = now - draftDate;
+      
+      // Meno di un'ora
+      if (diffMs < 60 * 60 * 1000) {
+        const mins = Math.floor(diffMs / (60 * 1000));
+        return `${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
+      }
+      
+      // Meno di un giorno
+      if (diffMs < 24 * 60 * 60 * 1000) {
+        const hours = Math.floor(diffMs / (60 * 60 * 1000));
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+      }
+      
+      // Più di un giorno
+      const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+      
+    } catch (error) {
+      console.error('Failed to calculate draft age:', error);
+      return null;
+    }
   }
 }
 

@@ -16,6 +16,7 @@ class CreatePostView extends View {
     this.selectedCommunity = null;
     this.isSubmitting = false;
     this.markdownEditor = null;
+    this.hasUnsavedChanges = false;
 
     // Timeout per la ricerca community
     this.searchTimeout = null;
@@ -23,8 +24,10 @@ class CreatePostView extends View {
     // Reference per i gestori eventi esterni
     this.outsideClickHandler = null;
     this.keyDownHandler = null;
+    this.autoSaveTimeout = null;
   }
 
+  // Aggiornamento della funzione render per un'interfaccia più compatta
   async render(element) {
     this.element = element;
 
@@ -43,13 +46,42 @@ class CreatePostView extends View {
     const postEditor = document.createElement('div');
     postEditor.className = 'post-editor-container';
 
-    // Create header
-    const header = document.createElement('header');
+    // Create header compatto
+    const header = document.createElement('div');
     header.className = 'editor-header';
 
+    // Titolo 
     const heading = document.createElement('h1');
     heading.textContent = 'Create New Post';
     header.appendChild(heading);
+
+    // Editor quick actions
+    const quickActions = document.createElement('div');
+    quickActions.className = 'editor-quick-actions';
+    
+    // Save button
+    const saveButton = document.createElement('button');
+    saveButton.className = 'action-button save-button';
+    saveButton.title = 'Save Draft (Ctrl+S)';
+    saveButton.innerHTML = '<span class="material-icons">save</span>';
+    saveButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.saveIfChanged();
+    });
+    quickActions.appendChild(saveButton);
+
+    // Draft status pill
+    const draftStatus = document.createElement('div');
+    draftStatus.className = 'draft-status-pill';
+    draftStatus.id = 'draft-status';
+    draftStatus.innerHTML = `
+      <span class="material-icons">sync</span>
+      <span id="draft-status-text">Auto-saving</span>
+    `;
+    quickActions.appendChild(draftStatus);
+    
+    header.appendChild(quickActions);
+    postEditor.appendChild(header);
 
     // Create form
     const form = document.createElement('form');
@@ -61,6 +93,12 @@ class CreatePostView extends View {
     statusArea.id = 'post-status-message';
     statusArea.className = 'status-message hidden';
     form.appendChild(statusArea);
+
+    // COMPATTO: Draft recovery banner integrato nella parte superiore
+    const draftRecovery = document.createElement('div');
+    draftRecovery.id = 'draft-recovery';
+    draftRecovery.className = 'draft-recovery-banner hidden';
+    form.appendChild(draftRecovery);
 
     // Community selection
     const communityGroup = document.createElement('div');
@@ -180,6 +218,7 @@ class CreatePostView extends View {
     titleInput.required = true;
     titleInput.addEventListener('input', (e) => {
       this.postTitle = e.target.value;
+      this.hasUnsavedChanges = true;
     });
     titleGroup.appendChild(titleInput);
 
@@ -217,6 +256,7 @@ class CreatePostView extends View {
     tagsInput.placeholder = 'Enter tags separated by spaces (e.g., steem art photography)';
     tagsInput.addEventListener('input', (e) => {
       this.tags = e.target.value.split(' ').filter(tag => tag.trim() !== '');
+      this.hasUnsavedChanges = true;
     });
     tagsGroup.appendChild(tagsInput);
 
@@ -235,8 +275,16 @@ class CreatePostView extends View {
     submitBtn.textContent = 'Publish Post';
     form.appendChild(submitBtn);
 
+    // Add shortcut hint in modo compatto
+    const shortcutHint = document.createElement('div');
+    shortcutHint.className = 'shortcut-hint';
+    shortcutHint.innerHTML = `
+      <span class="material-icons" style="font-size: 14px;">info_outline</span>
+      Press <span class="keyboard-key">Ctrl</span>+<span class="keyboard-key">S</span> to save draft manually
+    `;
+    form.appendChild(shortcutHint);
+
     // Append form to container
-    postEditor.appendChild(header);
     postEditor.appendChild(form);
 
     // Add the container to the page
@@ -249,6 +297,7 @@ class CreatePostView extends View {
         placeholder: 'Write your post content here using Markdown...',
         onChange: (value) => {
           this.postBody = value;
+          this.hasUnsavedChanges = true;
         },
         height: '500px',
         initialValue: this.postBody || ''
@@ -259,11 +308,228 @@ class CreatePostView extends View {
     // Carica community iscritte inizialmente
     this.loadSubscribedCommunities();
 
+    // Verifica se esiste una bozza e mostra il prompt
+    this.checkForDraft();
+    
+    // Avvia il salvataggio automatico
+    this.startAutoSave();
+
     // Add resize listener to reposition dropdown when window resizes
     window.addEventListener('resize', this.handleResize.bind(this));
     
     // Imposta i gestori per chiudere i dropdown
     this.setupKeyboardHandler();
+  }
+
+  /**
+   * Controlla se esiste una bozza salvata precedentemente e la mostra
+   * Versione compatta del metodo
+   */
+  checkForDraft() {
+    if (createPostService.hasDraft()) {
+      const draft = createPostService.getDraft();
+      if (!draft) return;
+      
+      const draftAge = createPostService.getDraftAge();
+      
+      // Crea il prompt per recuperare la bozza in versione compatta
+      const draftRecovery = document.getElementById('draft-recovery');
+      if (draftRecovery) {
+        draftRecovery.classList.remove('hidden');
+        draftRecovery.innerHTML = `
+          <div class="draft-recovery-icon">
+            <i class="material-icons">history</i>
+          </div>
+          <div class="draft-recovery-message">
+            <strong>Draft available</strong>
+            Draft from ${draftAge}: "${draft.title || '(No title)'}"
+          </div>
+          <div class="draft-recovery-actions">
+            <button class="btn secondary-btn" id="discard-draft-btn">Discard</button>
+            <button class="btn primary-btn" id="recover-draft-btn">Recover</button>
+          </div>
+        `;
+        
+        // Aggiungi gli event listener ai pulsanti
+        document.getElementById('recover-draft-btn').addEventListener('click', () => {
+          this.loadDraft();
+          draftRecovery.classList.add('hidden');
+        });
+        
+        document.getElementById('discard-draft-btn').addEventListener('click', () => {
+          createPostService.clearDraft();
+          draftRecovery.classList.add('hidden');
+        });
+      }
+    }
+  }
+
+  /**
+   * Carica la bozza salvata nei campi del form
+   */
+  loadDraft() {
+    const draft = createPostService.getDraft();
+    if (!draft) return;
+    
+    // Carica i dati negli input
+    if (draft.title) {
+      this.postTitle = draft.title;
+      const titleInput = document.getElementById('post-title');
+      if (titleInput) titleInput.value = draft.title;
+    }
+    
+    if (draft.body) {
+      this.postBody = draft.body;
+      if (this.markdownEditor) {
+        // Fix: MarkdownEditor non ha il metodo updateValue
+        // Usa il metodo setValue che è quello corretto
+        if (typeof this.markdownEditor.setValue === 'function') {
+          this.markdownEditor.setValue(draft.body);
+        } 
+        // Fallback: prova anche altri metodi comuni se setValue non è disponibile
+        else if (typeof this.markdownEditor.setContent === 'function') {
+          this.markdownEditor.setContent(draft.body);
+        }
+        else if (typeof this.markdownEditor.setMarkdown === 'function') {
+          this.markdownEditor.setMarkdown(draft.body);
+        }
+        // Se nessuno dei metodi è disponibile, registra un errore
+        else {
+          console.error('Non è possibile aggiornare il contenuto dell\'editor: metodo non trovato');
+        }
+      }
+    }
+    
+    if (draft.tags && Array.isArray(draft.tags)) {
+      this.tags = draft.tags;
+      const tagsInput = document.getElementById('post-tags');
+      if (tagsInput) tagsInput.value = draft.tags.join(' ');
+    } else if (typeof draft.tags === 'string') {
+      this.tags = draft.tags.split(' ').filter(tag => tag.trim() !== '');
+      const tagsInput = document.getElementById('post-tags');
+      if (tagsInput) tagsInput.value = draft.tags;
+    }
+    
+    if (draft.community) {
+      this.selectedCommunity = {
+        name: draft.community
+      };
+      
+      const communitySearch = document.getElementById('community-search');
+      if (communitySearch) {
+        communitySearch.value = draft.community;
+        communitySearch.setAttribute('data-selected', 'true');
+      }
+      
+      const clearBtn = document.getElementById('clear-community-btn');
+      if (clearBtn) {
+        clearBtn.classList.remove('hidden');
+      }
+    }
+    
+    // Segnala che non ci sono modifiche non salvate
+    this.hasUnsavedChanges = false;
+    
+    // Mostra notifica
+    this.showStatus('Draft loaded successfully', 'success');
+    
+    // Aggiorna lo stato della bozza
+    this.updateDraftStatus('Saved');
+  }
+
+  /**
+   * Aggiorna lo stato visualizzato del draft
+   * Versione ottimizzata
+   */
+  updateDraftStatus(status) {
+    const draftStatusEl = document.getElementById('draft-status');
+    const statusText = document.getElementById('draft-status-text');
+    
+    if (!draftStatusEl || !statusText) return;
+    
+    // Rimuovi tutte le classi di stato
+    draftStatusEl.classList.remove('saving', 'saved', 'unsaved');
+    
+    // Aggiorna icona e testo in base allo stato
+    let icon = 'sync';
+    
+    if (status === 'Saving...') {
+      draftStatusEl.classList.add('saving');
+      statusText.textContent = 'Saving...';
+      icon = 'sync';
+    } else if (status === 'Saved') {
+      draftStatusEl.classList.add('saved');
+      statusText.textContent = 'Saved';
+      icon = 'check_circle';
+      
+      // Nascondi dopo 3 secondi
+      setTimeout(() => {
+        draftStatusEl.classList.remove('saved');
+        statusText.textContent = 'Auto-save on';
+        draftStatusEl.querySelector('.material-icons').textContent = 'sync';
+      }, 3000);
+    } else if (status === 'Unsaved changes') {
+      draftStatusEl.classList.add('unsaved');
+      statusText.textContent = 'Unsaved';
+      icon = 'edit';
+    }
+    
+    // Aggiorna l'icona
+    draftStatusEl.querySelector('.material-icons').textContent = icon;
+  }
+
+  /**
+   * Salva solo se ci sono modifiche non salvate
+   */
+  saveIfChanged() {
+    if (!this.hasUnsavedChanges) return;
+    
+    // Mostra stato "Saving..."
+    this.updateDraftStatus('Saving...');
+    
+    // Salva la bozza
+    const draftData = {
+      title: this.postTitle,
+      body: this.postBody,
+      tags: this.tags,
+      community: this.selectedCommunity?.name
+    };
+    
+    if (createPostService.saveDraft(draftData)) {
+      // Aggiorna lo stato di salvataggio
+      this.hasUnsavedChanges = false;
+      
+      // Mostra "Saved" con ritardo per l'animazione
+      setTimeout(() => {
+        this.updateDraftStatus('Saved');
+      }, 500);
+      
+      // DEBUG: per test
+      console.log("Draft saved:", draftData);
+    } else {
+      this.updateDraftStatus('Failed to save');
+      console.error("Failed to save draft");
+    }
+  }
+
+  /**
+   * Avvia il salvataggio automatico
+   */
+  startAutoSave() {
+    // Pulisci eventuali timeout esistenti
+    if (this.autoSaveTimeout) {
+      clearInterval(this.autoSaveTimeout);
+    }
+    
+    // Imposta un nuovo intervallo per il salvataggio automatico (ogni 15 secondi)
+    this.autoSaveTimeout = setInterval(() => {
+      if (this.hasUnsavedChanges) {
+        this.saveIfChanged();
+      }
+    }, 15000);
+    
+    // DEBUG: per test
+    console.log("AutoSave started");
   }
 
   /**
@@ -679,6 +945,7 @@ class CreatePostView extends View {
     
     // Dai focus all'input per permettere una nuova ricerca
     searchInput.focus();
+    this.hasUnsavedChanges = true;
   }
 
   /**
@@ -709,6 +976,7 @@ class CreatePostView extends View {
     // Close the dropdown
     dropdown.classList.remove('dropdown-active');
     searchInput.classList.remove('dropdown-active');
+    this.hasUnsavedChanges = true;
   }
 
   /**
@@ -1272,6 +1540,11 @@ class CreatePostView extends View {
     if (this.keyDownHandler) {
       document.removeEventListener('keydown', this.keyDownHandler);
       this.keyDownHandler = null;
+    }
+
+    // Clear auto-save interval
+    if (this.autoSaveTimeout) {
+      clearInterval(this.autoSaveTimeout);
     }
 
     super.unmount();

@@ -291,20 +291,135 @@
   padding: 20px;
 }
 
+/* Editor header compatto e migliorato */
 .editor-header {
-  margin-bottom: 24px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  margin-bottom: 0;
 }
 
 .editor-header h1 {
-  font-size: 2rem;
-  color: var(--text-heading);
+  font-size: 1.4rem;
+  margin: 0;
+  flex: 1;
 }
 
-.post-form {
+/* Draft status pill design */
+.draft-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 30px;
+  margin-left: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background-color: var(--background-lighter);
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.draft-status-pill .material-icons {
+  font-size: 16px;
+}
+
+.draft-status-pill.saving {
+  background-color: #e6f7ff;
+  color: #0366d6;
+  animation: pulse 1.5s infinite;
+}
+
+.draft-status-pill.saved {
+  background-color: #e6ffec;
+  color: #2da44e;
+}
+
+.draft-status-pill.unsaved {
+  background-color: #fff5e6;
+  color: #d76b00;
+}
+
+/* Draft recovery banner migliorato e compatto */
+.draft-recovery-banner {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+  align-items: center;
+  padding: 10px 16px;
+  background-color: #f1f8ff;
+  border-left: 3px solid #0366d6;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.draft-recovery-banner.hidden {
+  display: none;
+}
+
+.draft-recovery-icon {
+  color: #0366d6;
+  display: flex;
+}
+
+.draft-recovery-message {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.draft-recovery-message strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #0366d6;
+}
+
+.draft-recovery-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.draft-recovery-actions button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+/* Quick action buttons in editor */
+.editor-quick-actions {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: none;
+  background-color: var(--background-lighter);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-button:hover {
+  background-color: var(--hover-overlay);
+  color: var(--primary-color);
+}
+
+.action-button .material-icons {
+  font-size: 18px;
+}
+
+/* Form layout compatto */
+.post-form {
+  padding: 16px;
+  background-color: var(--surface-color);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .form-group {
@@ -723,4 +838,120 @@
   color: var(--error-dark);
   font-weight: bold;
   margin-bottom: 10px;
+}
+
+/* CSS per la bozza di post nel CreatePostView */
+
+/* Stato della bozza */
+.draft-status {
+  font-size: 0.8rem;
+  color: #666;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.draft-status.saving {
+  opacity: 1;
+  color: var(--primary-color);
+}
+
+/* Notifica recupero bozza */
+.draft-recovery {
+  margin-bottom: 20px;
+  background-color: #f1f8ff;
+  border: 1px solid #b0d6ff;
+  border-radius: 4px;
+  padding: 15px;
+  position: relative;
+}
+
+.draft-recovery.hidden {
+  display: none;
+}
+
+.draft-recovery-content {
+  display: flex;
+  align-items: center;
+}
+
+.draft-recovery-icon {
+  margin-right: 15px;
+  color: #0366d6;
+}
+
+.draft-recovery-icon i {
+  font-size: 24px;
+}
+
+.draft-recovery-message {
+  flex: 1;
+}
+
+.draft-recovery-message h4 {
+  margin: 0 0 5px;
+  color: #0366d6;
+  font-size: 16px;
+}
+
+.draft-recovery-message p {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.draft-recovery-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Keyboard shortcut hint */
+.keyboard-shortcut {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #666;
+  background-color: #f5f5f5;
+  margin: 0 2px;
+}
+
+/* Keyboard shortcut ridisegnato in modo compatto */
+.shortcut-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 10px;
+}
+
+.keyboard-key {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  background: #f5f5f5;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+}
+
+/* Pulsante per chiudere il recupero della bozza */
+.draft-recovery-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #999;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.draft-recovery-close:hover {
+  color: #666;
 }
