@@ -565,7 +565,10 @@ export default class CurationTab extends Component {
       postCell.className = 'post-cell';
       
       const postLink = document.createElement('a');
-      postLink.href = `https://steemit.com/${item.post}`;
+      // Use internal routing for post links instead of external Steemit links
+      postLink.href = `#/${item.post}`;
+      postLink.target = '_self'; // Ensure links open in the same window
+      postLink.rel = 'noopener noreferrer';
       
       // Display post with truncation if needed
       const displayText = item.post.length > 30 ? 
@@ -574,8 +577,6 @@ export default class CurationTab extends Component {
       
       postLink.textContent = displayText;
       postLink.title = item.post; // Full post as tooltip
-      postLink.target = '_blank';
-      postLink.rel = 'noopener noreferrer';
       postCell.appendChild(postLink);
       row.appendChild(postCell);
       
