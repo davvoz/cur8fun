@@ -179,9 +179,13 @@ class ProfileView extends View {
     
     this.initializeContainersIfNeeded(postsArea);
     
-    // Update container references for components
-    this.postsComponent.setContainer(this.postsContainer);
-    this.commentsComponent.setContainer(this.commentsContainer);
+    // CORREZIONE: Rimuovi le chiamate a setContainer
+    // Verifica se il metodo esiste prima di chiamarlo
+    if (this.postsComponent && typeof this.postsComponent.setContainer === 'function') {
+      this.postsComponent.setContainer(this.postsContainer);
+    }
+    
+    // Non chiamare più setContainer per commentsComponent che non lo supporta
     
     const gridContainers = this.getGridContainers();
     const isPostsTab = this.currentTab === 'posts';
@@ -324,17 +328,20 @@ class ProfileView extends View {
     // Ottieni i riferimenti ai container
     const { postsContainer, commentsContainer, walletContainer } = this.getGridContainers();
     
-    // Debug dei container
-    console.log('Container disponibili:', {
-      posts: !!postsContainer,
-      comments: !!commentsContainer, 
-      wallet: !!walletContainer
-    });
-    
     // Trova i contenitori dei controlli griglia
     const postsGridContainer = this.container.querySelector('.posts-grid-controller-container');
     const commentsGridContainer = this.container.querySelector('.comments-grid-controller-container');
     const walletGridContainer = this.container.querySelector('.wallet-grid-controller-container');
+    
+    // IMPORTANTE: Prima di cambiare tab, resetta i controller per evitare conflitti
+    if (this.currentTab === 'comments' && tabName !== 'comments') {
+      // Quando si esce dalla tab commenti, rimuovi il contenuto del container
+      // per evitare duplicazioni quando si rientra
+      if (commentsContainer) {
+        commentsContainer.innerHTML = '';
+        console.log('[ProfileView] Pulizia container commenti per evitare duplicazioni');
+      }
+    }
     
     // Aggiorna visibilità containers in base alla tab selezionata
     switch(tabName) {
@@ -355,12 +362,17 @@ class ProfileView extends View {
         break;
         
       case 'comments':
+        // IMPORTANTE: Nascondi SEMPRE il container del grid controller comune per i commenti
+        // perché i commenti usano il proprio controller interno
         this.updateContainerVisibility(
           commentsContainer, 
           [postsContainer, walletContainer],
-          commentsGridContainer, 
+          null, // IMPORTANTE: Non usiamo il commentsGridContainer comune
           [postsGridContainer, walletGridContainer]
         );
+        
+        // Nascondi esplicitamente il controller condiviso
+        if (commentsGridContainer) commentsGridContainer.style.display = 'none';
         
         // Forziamo sempre il render dei commenti quando si passa a questa tab
         console.log(`[ProfileView] Forza rendering dei commenti`);
@@ -375,6 +387,7 @@ class ProfileView extends View {
         break;
         
       case 'wallet':
+        // Implementazione wallet invariata
         this.updateContainerVisibility(
           walletContainer, 
           [postsContainer, commentsContainer],
