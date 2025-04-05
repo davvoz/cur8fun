@@ -5,6 +5,24 @@ class PostHeader {
     this.post = post;
     this.renderCommunityCallback = renderCommunityCallback;
     this.element = null;
+    this.community = null; // Add community property
+  }
+
+  // Add the missing setCommunity method
+  setCommunity(community) {
+    this.community = community;
+    
+    // If the element is already rendered, update it
+    if (this.element) {
+      const communityPlaceholder = this.element.querySelector('.community-placeholder');
+      if (communityPlaceholder && this.renderCommunityCallback) {
+        this.renderCommunityCallback(community).then(communityBadge => {
+          if (communityBadge && communityPlaceholder.parentNode) {
+            communityPlaceholder.parentNode.replaceChild(communityBadge, communityPlaceholder);
+          }
+        });
+      }
+    }
   }
 
   render() {
@@ -70,9 +88,9 @@ class PostHeader {
     avataro.appendChild(authorAvatar);
     avataro.appendChild(authorName);
 
-    // Community handling
+    // Community handling - use this.community if it was set
     const metadata = this.parseMetadata(this.post.json_metadata);
-    const community = metadata?.community || this.post.category || null;
+    const community = this.community || metadata?.community || this.post.category || null;
 
     if (community) {
       // Create a placeholder for the community badge
