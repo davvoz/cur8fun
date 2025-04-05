@@ -77,7 +77,9 @@ class LoginView {
     form.appendChild(usernameGroup);
 
     // Keychain login section (if available)
-    if (authService.isKeychainInstalled()) {
+    //controlliamo se siamo su mobile
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (!isMobile ) {
         const keychainButton = this.createButton(
             'Login with SteemKeychain',
             'button',
@@ -86,6 +88,16 @@ class LoginView {
         keychainButton.id = 'keychain-login-btn';
         form.appendChild(keychainButton);
         form.appendChild(this.createDivider());
+        //aggiungi l'evento che controlla se l'estensione è installata
+        keychainButton.addEventListener('click', async () => {
+            if (authService.isKeychainInstalled()) {
+                keychainButton.disabled = false;
+                keychainButton.classList.remove('disabled');
+            } else {
+                keychainButton.disabled = true;
+                keychainButton.classList.add('disabled');
+            }
+        } );
     }
 
     const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
