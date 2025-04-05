@@ -306,6 +306,10 @@ class TransactionHistoryService {
 
   /**
    * Filtra le transazioni in base ai tipi e direzione specificati
+   * @param {Array} transactions - Array di transazioni da filtrare
+   * @param {Object} filters - Oggetto con i filtri da applicare
+   * @param {string} currentUsername - Username dell'utente corrente
+   * @returns {Array} - Transazioni filtrate
    */
   filterTransactions(transactions, filters, currentUsername = null) {
     if (!transactions || !Array.isArray(transactions)) return [];
@@ -313,77 +317,69 @@ class TransactionHistoryService {
     // Se non ci sono filtri, restituisci tutte le transazioni
     if (!filters) return transactions;
     
+    console.log(`Filtering ${transactions.length} transactions with:`, 
+                JSON.stringify(filters, null, 2));
+    
     return transactions.filter(tx => {
-      // Per array di transazioni già elaborate
+      // Ottieni il tipo di transazione
+      let type, data, isActionByUser, isActionOnUser;
+      
+      // Per array di transazioni già elaborate (formato oggetto)
       if (!Array.isArray(tx)) {
-        const type = tx.type;
-        
-        // Filtra per tipo di transazione
-        let passTypeFilter = true;
-        if (filters.types) {
-          if (filters.types.transfer !== undefined && 
-              ['transfer', 'transfer_to_vesting', 'withdraw_vesting'].includes(type)) {
-            passTypeFilter = filters.types.transfer;
-          } else if (filters.types.vote !== undefined && 
-                    ['vote', 'effective_comment_vote'].includes(type)) {
-            passTypeFilter = filters.types.vote;
-          } else if (filters.types.comment !== undefined && 
-                    ['comment', 'comment_reward', 'comment_options'].includes(type)) {
-            passTypeFilter = filters.types.comment;
-          } else if (filters.types.other !== undefined) {
-            passTypeFilter = filters.types.other;
-          }
-        }
-        
-        if (!passTypeFilter) return false;
-        
-        // Filtra per direzione
-        if (filters.direction && currentUsername) {
-          const isActionByUser = tx.isActionByUser || this.isActionBy(type, tx.data, currentUsername);
-          const isActionOnUser = tx.isActionOnUser || this.isActionOn(type, tx.data, currentUsername);
-          
-          return (filters.direction.byUser && isActionByUser) || 
-                 (filters.direction.onUser && isActionOnUser);
-        }
-        
-        return true;
+        type = tx.type;
+        data = tx.data;
+        isActionByUser = tx.isActionByUser;
+        isActionOnUser = tx.isActionOnUser;
       } 
-      // Per array [id, txData] dalla API di Steem
+      // Per array [id, txData] dalla API di Steem (formato grezzo)
       else {
         const [id, txData] = tx;
-        const type = txData.op[0];
-        const data = txData.op[1];
-        
-        // Filtra per tipo di transazione
-        let passTypeFilter = true;
-        if (filters.types) {
-          if (filters.types.transfer !== undefined && 
-              ['transfer', 'transfer_to_vesting', 'withdraw_vesting'].includes(type)) {
-            passTypeFilter = filters.types.transfer;
-          } else if (filters.types.vote !== undefined && 
-                    ['vote', 'effective_comment_vote'].includes(type)) {
-            passTypeFilter = filters.types.vote;
-          } else if (filters.types.comment !== undefined && 
-                    ['comment', 'comment_reward', 'comment_options'].includes(type)) {
-            passTypeFilter = filters.types.comment;
-          } else if (filters.types.other !== undefined) {
-            passTypeFilter = filters.types.other;
-          }
-        }
-        
-        if (!passTypeFilter) return false;
-        
-        // Filtra per direzione
-        if (filters.direction && currentUsername) {
-          const isActionByUser = this.isActionBy(type, data, currentUsername);
-          const isActionOnUser = this.isActionOn(type, data, currentUsername);
-          
-          return (filters.direction.byUser && isActionByUser) || 
-                 (filters.direction.onUser && isActionOnUser);
-        }
-        
-        return true;
+        type = txData.op[0];
+        data = txData.op[1];
+        // Calcola dinamicamente se l'azione è dell'utente o sull'utente
+        isActionByUser = currentUsername ? this.isActionBy(type, data, currentUsername) : false;
+        isActionOnUser = currentUsername ? this.isActionOn(type, data, currentUsername) : false;
       }
+      
+      // 1. Filtra per tipo di transazione - usa filtro dinamico
+      if (filters.types && Object.keys(filters.types).length > 0) {
+        // Se il tipo esiste nei filtri, usa quel valore
+        if (filters.types[type] !== undefined) {
+          if (!filters.types[type]) return false;
+        }
+        // Controlla se tutti i tipi sono disattivati
+        const allTypesDisabled = Object.values(filters.types).every(value => !value);
+        if (allTypesDisabled) return false;
+      }
+      
+      // 2. Filtra per direzione (in/out)
+      if (filters.direction && currentUsername) {
+        const dirByUser = filters.direction.byUser;
+        const dirOnUser = filters.direction.onUser;
+        
+        // Se entrambe le direzioni sono disattivate, nascondi tutto
+        if (!dirByUser && !dirOnUser) {
+          return false;
+        }
+        
+        // Casi speciali dove l'utente è sia mittente che destinatario
+        const isSelfTransaction = isActionByUser && isActionOnUser;
+        
+        // Se è una transazione su sé stesso, mostra se almeno una direzione è attiva
+        if (isSelfTransaction) {
+          return dirByUser || dirOnUser;
+        }
+        
+        // Altrimenti filtra per direzione
+        if (isActionByUser && !dirByUser) return false;
+        if (isActionOnUser && !dirOnUser) return false;
+        
+        // Se non è né by né on user, non dovrebbe essere mostrato
+        if (!isActionByUser && !isActionOnUser) return false;
+      }
+      
+      // La transazione ha passato tutti i filtri
+      return true;
     });
   }
 
