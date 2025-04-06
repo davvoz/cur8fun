@@ -32,63 +32,59 @@ class CommunityView extends BasePostView {
    * Carica post della community utilizzando il pattern di BasePostView
    */
   async loadPosts(page = 1) {
+    if (this.loading) {
+      console.log('Already loading posts, skipping duplicate request.');
+      return false;
+    }
+
+    this.loading = true;
+
     if (page === 1) {
-      this.loading = true;
       this.posts = [];
       this.renderedPostIds.clear();
       this.renderPosts();
-      
-      // Reset infinite scroll if it exists
-      if (this.infiniteScroll) {
-        this.infiniteScroll.reset(1);
-      }
     }
-    
+
     try {
-      // Assicurati che i dettagli della community siano stati caricati
+      // Assicurati che i dettagli della community siano caricati
       if (!this.community && !(await this.fetchCommunityDetails())) {
         console.error('Failed to load community details');
         this.handleLoadError();
         return false;
       }
-      
-      // Fetch posts using the common pattern
+
+      // Fetch posts
       const result = await this.communityFetch('posts', {
         communityId: this.communityId,
         sort: this.sortOrder,
-        page,
+        limit: 30, // Numero di post per pagina
         lastAuthor: page > 1 && this.posts.length > 0 ? this.posts[this.posts.length - 1].author : undefined,
         lastPermlink: page > 1 && this.posts.length > 0 ? this.posts[this.posts.length - 1].permlink : undefined,
         communityDetails: this.community
       });
-      
-      // Check if result has the expected structure
+
       if (!result || !result.posts) {
         console.error('Invalid result from communityFetch:', result);
         return false;
       }
-      
+
       const { posts, hasMore } = result;
-      
-      // Filter out any duplicates before adding to the post array
-      if (Array.isArray(posts)) {
-        const uniquePosts = posts.filter(post => {
-          // Create a unique ID using author and permlink
-          const postId = `${post.author}_${post.permlink}`;
-          // Only include posts we haven't seen yet
-          const isNew = !this.renderedPostIds.has(postId);
-          if (isNew) {
-            this.renderedPostIds.add(postId);
-          }
-          return isNew;
-        });
-        
-        if (uniquePosts.length > 0) {
-          this.posts = [...this.posts, ...uniquePosts];
-          this.renderPosts(page > 1);
+
+      // Filtra i duplicati
+      const uniquePosts = posts.filter(post => {
+        const postId = `${post.author}_${post.permlink}`;
+        if (!this.renderedPostIds.has(postId)) {
+          this.renderedPostIds.add(postId);
+          return true;
         }
+        return false;
+      });
+
+      if (uniquePosts.length > 0) {
+        this.posts = [...this.posts, ...uniquePosts];
+        this.renderPosts(page > 1);
       }
-      
+
       return hasMore;
     } catch (error) {
       console.error('Failed to load community posts:', error);
@@ -172,7 +168,7 @@ class CommunityView extends BasePostView {
     `;
     this.container.appendChild(headerContainer);
     
-    // Create posts container 
+    // Create posts container
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'content-wrapper';
     
@@ -197,7 +193,7 @@ class CommunityView extends BasePostView {
         // Initialize the GridController
         this.initGridController(postsContainer);
         
-        // Now we can load posts using BasePostView pattern
+        // Load initial posts
         this.loadPosts(1).then((hasMore) => {
           // Initialize infinite scroll
           if (postsContainer) {
@@ -304,17 +300,26 @@ class CommunityView extends BasePostView {
    * Change post sort order
    */
   changeSortOrder(order) {
-    if (this.sortOrder === order) return;
-    
+    if (this.sortOrder === order) {
+      // Forza il ricaricamento anche se l'ordine è lo stesso
+      this.loadPosts(1);
+      return;
+    }
+
     this.sortOrder = order;
-    
-    // Update UI for the active tab
+
+    // Aggiorna l'interfaccia utente per evidenziare la scheda attiva
     const sortButtons = this.container.querySelectorAll('.sort-button');
     sortButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.sort === order);
     });
-    
-    // Reload posts with the new order
+
+    // Svuota i post della scheda precedente
+    this.posts = [];
+    this.renderedPostIds.clear();
+    this.renderPosts();
+
+    // Ricarica i post con il nuovo ordine
     this.loadPosts(1);
   }
 
@@ -510,23 +515,21 @@ class CommunityView extends BasePostView {
           break;
           
         case 'posts':
-          const postsPerPage = params.limit || 10; // Riduci a 10 per caricamenti più veloci
+          const postsPerPage = params.limit || 30; // Aumenta il limite predefinito a 30
           const fetchParams = {
             community: params.communityId.replace(/^hive-/, ''),
             sort: params.sort || 'trending',
             limit: postsPerPage
           };
 
-          // Implementazione corretta della paginazione
           if (params.lastAuthor && params.lastPermlink) {
             fetchParams.start_author = params.lastAuthor;
             fetchParams.start_permlink = params.lastPermlink;
             console.log(`Using pagination: start with ${params.lastAuthor}/${params.lastPermlink}`);
           }
-          
+
           const rawPosts = await steemService.fetchCommunityPosts(fetchParams);
-          
-          // Process and enrich the posts with community info
+
           if (Array.isArray(rawPosts) && rawPosts.length > 0) {
             const community = params.communityDetails || this.community;
             const enrichedPosts = rawPosts.map(post => ({
@@ -534,11 +537,11 @@ class CommunityView extends BasePostView {
               community: params.communityId.replace(/^hive-/, ''),
               community_title: community?.title || communityService.formatCommunityTitle(params.communityId)
             }));
-            
+
             result = {
               posts: enrichedPosts,
               hasMore: enrichedPosts.length >= postsPerPage,
-              lastPost: enrichedPosts[enrichedPosts.length - 1] // Memorizza l'ultimo post per la paginazione
+              lastPost: enrichedPosts[enrichedPosts.length - 1]
             };
           } else {
             result = { posts: [], hasMore: false };
