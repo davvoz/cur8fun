@@ -18,6 +18,11 @@ export default class WalletBalancesComponent extends Component {
       prices: {
         steem: 0,
         sbd: 1
+      },
+      steemPowerDetails: {
+        delegatedOut: '0.000',
+        delegatedIn: '0.000',
+        effective: '0.000'
       }
     };
     this.isLoading = true;
@@ -74,6 +79,11 @@ export default class WalletBalancesComponent extends Component {
         prices: balanceData.prices || {
           steem: 0,
           sbd: 1
+        },
+        steemPowerDetails: balanceData.steemPowerDetails || {
+          delegatedOut: '0.000',
+          delegatedIn: '0.000',
+          effective: '0.000'
         }
       };
       
@@ -94,79 +104,150 @@ export default class WalletBalancesComponent extends Component {
   
   showLoadingState() {
     if (!this.balanceContainer) return;
-    
-    this.balanceContainer.innerHTML = `
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading wallet data...</p>
-      </div>
-    `;
+
+    // Clear existing content
+    this.balanceContainer.innerHTML = '';
+
+    // Create loading state elements
+    const loadingState = document.createElement('div');
+    loadingState.className = 'loading-state';
+
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+
+    const loadingText = document.createElement('p');
+    loadingText.textContent = 'Loading wallet data...';
+
+    // Append elements
+    loadingState.appendChild(spinner);
+    loadingState.appendChild(loadingText);
+    this.balanceContainer.appendChild(loadingState);
   }
   
   showErrorState() {
     if (!this.balanceContainer) return;
-    
-    this.balanceContainer.innerHTML = `
-      <div class="error-state">
-        <i class="material-icons">error_outline</i>
-        <p>${this.error}</p>
-        <button class="btn btn-small retry-button">Retry</button>
-      </div>
-    `;
-    
-    // Add retry handler
-    const retryButton = this.balanceContainer.querySelector('.retry-button');
-    if (retryButton) {
-      retryButton.addEventListener('click', this.loadBalanceData);
-    }
+
+    // Clear existing content
+    this.balanceContainer.innerHTML = '';
+
+    // Create error state elements
+    const errorState = document.createElement('div');
+    errorState.className = 'error-state';
+
+    const errorIcon = document.createElement('i');
+    errorIcon.className = 'material-icons';
+    errorIcon.textContent = 'error_outline';
+
+    const errorMessage = document.createElement('p');
+    errorMessage.textContent = this.error;
+
+    const retryButton = document.createElement('button');
+    retryButton.className = 'btn btn-small retry-button';
+    retryButton.textContent = 'Retry';
+    retryButton.addEventListener('click', this.loadBalanceData);
+
+    // Append elements
+    errorState.appendChild(errorIcon);
+    errorState.appendChild(errorMessage);
+    errorState.appendChild(retryButton);
+    this.balanceContainer.appendChild(errorState);
   }
   
   renderBalances() {
     if (!this.balanceContainer) return;
-    
+
+    // Clear existing content
+    this.balanceContainer.innerHTML = '';
+
     // Build price info section if price data is available
-    const hasPriceData = this.balances.prices && this.balances.prices.steem > 0;
-    const priceInfoHtml = hasPriceData ? 
-      `<div class="price-info">
-         <span class="current-price">Current STEEM price: $${this.balances.prices.steem.toFixed(4)}</span>
-         <span class="total-value">Total value: $${this.balances.usdValues.total}</span>
-       </div>` : '';
-    
-    this.balanceContainer.innerHTML = `
-      ${priceInfoHtml}
-      <div class="balance-cards-row">
-        <div class="balance-card">
-          <div class="balance-card-icon">
-            <i class="material-icons">account_balance</i>
-          </div>
-          <div class="balance-card-content">
-            <h5>STEEM Balance</h5>
-            <div class="balance-value">${this.balances.steem} STEEM</div>
-            <div class="balance-usd">≈ $${this.balances.usdValues.steem}</div>
-          </div>
-        </div>
-        <div class="balance-card">
-          <div class="balance-card-icon">
-            <i class="material-icons">attach_money</i>
-          </div>
-          <div class="balance-card-content">
-            <h5>SBD Balance</h5>
-            <div class="balance-value">${this.balances.sbd} SBD</div>
-            <div class="balance-usd">≈ $${this.balances.usdValues.sbd}</div>
-          </div>
-        </div>
-        <div class="balance-card">
-          <div class="balance-card-icon">
-            <i class="material-icons">flash_on</i>
-          </div>
-          <div class="balance-card-content">
-            <h5>STEEM Power</h5>
-            <div class="balance-value">${this.balances.steemPower} SP</div>
-            <div class="balance-usd">≈ $${this.balances.usdValues.steemPower}</div>
-          </div>
-        </div>
-      </div>
-    `;
+    if (this.balances.prices && this.balances.prices.steem > 0) {
+      const priceInfo = document.createElement('div');
+      priceInfo.className = 'price-info';
+
+      const currentPrice = document.createElement('span');
+      currentPrice.className = 'current-price';
+      currentPrice.textContent = `Current STEEM price: $${this.balances.prices.steem.toFixed(4)}`;
+
+      const totalValue = document.createElement('span');
+      totalValue.className = 'total-value';
+      totalValue.textContent = `Total value: $${this.balances.usdValues.total}`;
+
+      priceInfo.appendChild(currentPrice);
+      priceInfo.appendChild(totalValue);
+      this.balanceContainer.appendChild(priceInfo);
+    }
+
+    // Create balance cards row
+    const balanceCardsRow = document.createElement('div');
+    balanceCardsRow.className = 'balance-cards-row';
+
+    // STEEM Balance Card
+    const steemCard = this.createBalanceCard('account_balance', 'STEEM Balance', `${this.balances.steem} STEEM`, `≈ $${this.balances.usdValues.steem}`);
+    balanceCardsRow.appendChild(steemCard);
+
+    // SBD Balance Card
+    const sbdCard = this.createBalanceCard('attach_money', 'SBD Balance', `${this.balances.sbd} SBD`, `≈ $${this.balances.usdValues.sbd}`);
+    balanceCardsRow.appendChild(sbdCard);
+
+    // STEEM Power Card
+    const steemPowerCard = this.createBalanceCard('flash_on', 'STEEM Power', `${this.balances.steemPower} SP`, `≈ $${this.balances.usdValues.steemPower}`);
+
+    const delegationDetails = document.createElement('div');
+    delegationDetails.className = 'delegation-details';
+
+    const delegatedOut = document.createElement('span');
+    delegatedOut.className = 'delegated-out';
+    delegatedOut.textContent = `-${this.balances.steemPowerDetails.delegatedOut} SP`;
+
+    const delegatedIn = document.createElement('span');
+    delegatedIn.className = 'delegated-in';
+    delegatedIn.textContent = `+${this.balances.steemPowerDetails.delegatedIn} SP`;
+
+    delegationDetails.appendChild(delegatedOut);
+    delegationDetails.appendChild(delegatedIn);
+    steemPowerCard.querySelector('.balance-card-content').appendChild(delegationDetails);
+
+    balanceCardsRow.appendChild(steemPowerCard);
+
+    // Append balance cards row
+    this.balanceContainer.appendChild(balanceCardsRow);
+  }
+
+  createBalanceCard(icon, title, value, usdValue) {
+    const card = document.createElement('div');
+    card.className = 'balance-card';
+
+    const cardIcon = document.createElement('div');
+    cardIcon.className = 'balance-card-icon';
+
+    const iconElement = document.createElement('i');
+    iconElement.className = 'material-icons';
+    iconElement.textContent = icon;
+
+    cardIcon.appendChild(iconElement);
+
+    const cardContent = document.createElement('div');
+    cardContent.className = 'balance-card-content';
+
+    const cardTitle = document.createElement('h5');
+    cardTitle.textContent = title;
+
+    const cardValue = document.createElement('div');
+    cardValue.className = 'balance-value';
+    cardValue.textContent = value;
+
+    const cardUsd = document.createElement('div');
+    cardUsd.className = 'balance-usd';
+    cardUsd.textContent = usdValue;
+
+    cardContent.appendChild(cardTitle);
+    cardContent.appendChild(cardValue);
+    cardContent.appendChild(cardUsd);
+
+    card.appendChild(cardIcon);
+    card.appendChild(cardContent);
+
+    return card;
   }
   
   updateUsername(username) {

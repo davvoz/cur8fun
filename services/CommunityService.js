@@ -759,36 +759,12 @@ class CommunityService {
    */
   showOperationLoading(operation) {
     if (!this.container) return;
-    
+
     switch (operation) {
-      case 'details':
-        const headerLoading = this.container.querySelector('.community-header-loading');
-        if (headerLoading) headerLoading.style.display = 'flex';
-        break;
-        
       case 'posts':
         const postsContainer = this.container.querySelector('.posts-container');
-        if (postsContainer) this.loadingIndicator.show(postsContainer);
-        break;
-        
-      case 'subscribe':
-      case 'unsubscribe':
-        const button = this.container.querySelector('#subscribe-button');
-        if (button) {
-          button.disabled = true;
-          button.classList.add('button-loading');
-          button.innerHTML = '<span class="loading-spinner-sm"></span> Processing...';
-        }
-        break;
-        
-      case 'search':
-        const searchResultsContainer = this.container.querySelector('.search-results');
-        if (searchResultsContainer) {
-          const loadingEl = document.createElement('div');
-          loadingEl.className = 'search-loading';
-          loadingEl.innerHTML = '<div class="spinner"></div><p>Searching communities...</p>';
-          searchResultsContainer.innerHTML = '';
-          searchResultsContainer.appendChild(loadingEl);
+        if (postsContainer) {
+          postsContainer.innerHTML = '<div class="loading-spinner">Loading posts...</div>';
         }
         break;
     }
@@ -799,30 +775,13 @@ class CommunityService {
    */
   hideOperationLoading(operation) {
     if (!this.container) return;
-    
+
     switch (operation) {
-      case 'details':
-        const headerLoading = this.container.querySelector('.community-header-loading');
-        if (headerLoading) headerLoading.style.display = 'none';
-        break;
-        
       case 'posts':
-        this.loadingIndicator.hide();
-        break;
-        
-      case 'subscribe':
-      case 'unsubscribe':
-        const button = this.container.querySelector('#subscribe-button');
-        if (button) {
-          button.disabled = false;
-          button.classList.remove('button-loading');
-        }
-        break;
-        
-      case 'search':
-        const searchLoading = this.container.querySelector('.search-loading');
-        if (searchLoading) {
-          searchLoading.remove();
+        const postsContainer = this.container.querySelector('.posts-container');
+        if (postsContainer) {
+          const spinner = postsContainer.querySelector('.loading-spinner');
+          if (spinner) spinner.remove();
         }
         break;
     }
