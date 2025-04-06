@@ -54,6 +54,7 @@
 @import 'pages/notifications.css';
 @import 'components/comment-dialogs.css';
 @import 'components/comments.css';
+@import 'components/auth-error-popup.css';
 /* Mobile search button in header */
 .mobile-search-button {
     display: none;

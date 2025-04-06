@@ -215,7 +215,42 @@ export default class VoteController {
   }
   
   handleVoteError(error, button, countElement) {
-    if (!error.isCancelled) {
+    if (error.isCancelled) {
+      // Don't show error notification for cancelled votes
+      console.log('Vote was cancelled by user');
+    } else if (error.isAuthError) {
+      console.error('Authentication error:', error.message);
+      
+      // Extract the specific reason from the error message
+      let reason = 'Your login session has expired';
+      
+      if (error.message.includes('Posting key not available')) {
+        reason = 'Your posting key is not available';
+      } else if (error.message.includes('keychain')) {
+        reason = 'There was an issue with Steem Keychain';
+      } else if (error.message.includes('authority')) {
+        reason = 'You don\'t have the required permissions';
+      }
+      
+      // Show the auth error notification without automatic redirect
+      this.view.emit('notification', {
+        type: 'error',
+        message: `Authentication failed: ${reason}. Please log in again to vote.`,
+        duration: 5000,
+        action: {
+          text: 'Login',
+          callback: () => {
+            router.navigate('/login', { 
+              returnUrl: window.location.pathname + window.location.search,
+              authError: true,
+              errorReason: reason
+            });
+          }
+        }
+      });
+      
+      // No automatic redirect timeout
+    } else {
       console.error('Failed to vote:', error);
       this.view.emit('notification', {
         type: 'error',
