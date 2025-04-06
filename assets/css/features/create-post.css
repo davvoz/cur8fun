@@ -347,8 +347,8 @@
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  background-color: #f1f8ff;
-  border-left: 3px solid #0366d6;
+  background-color: #041321; /* Adjusted lighter blue */
+  border-left: 3px solid #0056b3; /* Adjusted darker blue */
   margin-bottom: 16px;
   gap: 12px;
 }
