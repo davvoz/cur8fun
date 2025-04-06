@@ -1,0 +1,65 @@
+.auth-error-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: var(--z-modal);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-error-popup {
+    background-color: var(--surface-color);
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    box-shadow: var(--popup-box-shadow);
+    width: 90%;
+    max-width: 400px;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.auth-error-title {
+    margin: 0 0 var(--space-sm) 0;
+    color: var(--primary-color);
+}
+
+.auth-error-message {
+    margin-bottom: var(--space-lg);
+    color: var(--text-color);
+}
+
+.auth-error-buttons {
+    display: flex;
+    justify-content: space-between;
+}
+
+.auth-error-button {
+    padding: var(--space-sm) var(--space-md);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.auth-error-button-primary {
+    background-color: var(--primary-color);
+    color: var(--text-on-primary);
+}
+
+.auth-error-button-primary:hover {
+    background-color: var(--primary-light);
+}
+
+.auth-error-button-secondary {
+    background-color: #007bff;
+    color: var(--text-on-primary);
+    margin-left: var(--space-sm);
+}
+
+.auth-error-button-secondary:hover {
+    background-color: #0069d9;
+}

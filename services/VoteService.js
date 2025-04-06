@@ -1,6 +1,7 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
+import router from '../utils/Router.js'; // Add router import
 
 /**
  * Service for handling social interactions like votes and comments
@@ -75,7 +76,22 @@ class VoteService {
       } else {
         const postingKey = authService.getPostingKey();
         if (!postingKey) {
-          throw new Error('Posting key not available. Please login again.');
+          // Create an auth error with flag directly at the source
+          const authError = new Error('Posting key not available. Please login again.');
+          authError.isAuthError = true;
+          
+          // Show an authentication error popup before emitting the event
+          this._showAuthErrorPopup('Session Expired', 'Your login session has expired. Please log in again to continue voting.');
+          
+          // Emit auth error event immediately
+          eventEmitter.emit('social:auth-error', {
+            error: authError.message,
+            action: 'vote',
+            suggestion: 'Please log in again to continue',
+            showPopup: true  // Flag to indicate a popup has been shown
+          });
+          
+          throw authError;
         }
         result = await this._voteWithKey(voter, postingKey, author, permlink, weight);
       }
@@ -108,6 +124,21 @@ class VoteService {
       }
       
       console.error('Vote failed:', error);
+      
+      // Verifica se si tratta di un errore di autenticazione
+      if (this._isAuthError(error)) {
+        // Emetti un evento specifico per gli errori di autenticazione
+        eventEmitter.emit('social:auth-error', {
+          error: error.message,
+          action: 'vote',
+          suggestion: 'Please log out and log in again to refresh your credentials'
+        });
+        
+        // Formatta un errore più user-friendly
+        const authError = new Error(`Authentication failed: ${error.message}. Please log out and log in again.`);
+        authError.isAuthError = true;
+        throw authError;
+      }
       
       eventEmitter.emit('social:vote-error', {
         error: error.message || 'Failed to vote',
@@ -293,32 +324,101 @@ class VoteService {
       await steemService.ensureLibraryLoaded();
       
       // Get account info and global properties
-      const [account, props] = await Promise.all([
+      const [account, props, rewardFund] = await Promise.all([
         steemService.getUser(user),
-        this._getDynamicGlobalProperties()
+        this._getDynamicGlobalProperties(),
+        this._getRewardFund()
       ]);
       
-      if (!account || !props) {
+      if (!account || !props || !rewardFund) {
         throw new Error('Could not retrieve necessary information');
       }
       
-      // Calculate estimated vote value (this is simplified and should be improved)
-      const vestingShares = parseFloat(account.vesting_shares);
-      const receivedShares = parseFloat(account.received_vesting_shares);
-      const delegatedShares = parseFloat(account.delegated_vesting_shares);
-      
+      // Calculate effective vesting shares
+      const vestingShares = parseFloat(account.vesting_shares.replace(' VESTS', ''));
+      const receivedShares = parseFloat(account.received_vesting_shares.replace(' VESTS', ''));
+      const delegatedShares = parseFloat(account.delegated_vesting_shares.replace(' VESTS', ''));
       const effectiveVests = vestingShares + receivedShares - delegatedShares;
-      const totalVests = parseFloat(props.total_vesting_shares);
-      const totalSteem = parseFloat(props.total_vesting_fund_steem);
       
-      // Basic estimate (doesn't account for voting power or curation rewards)
-      const voteValue = (effectiveVests / totalVests) * totalSteem * 0.02;
+      // Calculate current voting power (ranges from 0 to 10000, meaning 0% to 100%)
+      const lastVoteTime = new Date(account.last_vote_time + 'Z').getTime();
+      const secondsSinceLastVote = (new Date().getTime() - lastVoteTime) / 1000;
+      let votingPower = account.voting_power + (10000 * secondsSinceLastVote / 432000);
+      votingPower = Math.min(votingPower, 10000);
+      
+      // Calculate vote rshares
+      const usedPower = votingPower * 100 / 10000; // Full power vote (100%)
+      const rshares = ((effectiveVests * 1000000) * usedPower) / 10000;
+      
+      // Calculate the value from rshares
+      const recentClaims = parseFloat(rewardFund.recent_claims);
+      const rewardBalance = parseFloat(rewardFund.reward_balance.replace(' STEEM', ''));
+      const steemPrice = 1; // This should ideally be fetched from market data
+      
+      const voteValue = rshares / recentClaims * rewardBalance * steemPrice;
       
       return voteValue;
     } catch (error) {
       console.error('Error estimating vote value:', error);
+      
+      // Explicit check for the specific "Posting key not available" error
+      if (error.message && error.message.includes('Posting key not available')) {
+        console.log('Detected auth error: Posting key not available');
+        eventEmitter.emit('social:auth-error', {
+          error: error.message,
+          action: 'vote',
+          suggestion: 'Please log out and log in again to refresh your credentials'
+        });
+        
+        // Return a special error code
+        return -1;
+      }
+      
+      // Check if this is an authentication error and handle accordingly
+      if (this._isAuthError(error)) {
+        console.log('Detected general auth error:', error.message);
+        eventEmitter.emit('social:auth-error', {
+          error: error.message,
+          action: 'estimate-vote',
+          suggestion: 'Please log out and log in again to refresh your credentials'
+        });
+        
+        // Return a special error code instead of 0
+        return -1;
+      }
+      
       return 0;
     }
+  }
+  
+  /**
+   * Checks if an error is authentication related
+   * @private
+   * @param {Error} error - The error to check
+   * @returns {boolean} - True if the error is auth-related
+   */
+  _isAuthError(error) {
+    if (!error) return false;
+    
+    // Handle both string errors and Error objects
+    const errorMsg = error.message ? error.message.toLowerCase() : 
+                    (typeof error === 'string' ? error.toLowerCase() : '');
+    
+    // More comprehensive check for auth-related errors
+    return (
+      errorMsg.includes('login') || 
+      errorMsg.includes('posting key') ||
+      errorMsg.includes('post key') ||
+      errorMsg.includes('key not available') ||
+      errorMsg.includes('keychain') ||
+      errorMsg.includes('authority') ||
+      errorMsg.includes('unauthorized') ||
+      errorMsg.includes('auth') ||
+      errorMsg.includes('permission') ||
+      errorMsg.includes('credentials') ||
+      errorMsg.includes('session') ||
+      errorMsg.includes('token')
+    );
   }
   
   /**
@@ -328,6 +428,22 @@ class VoteService {
   _getDynamicGlobalProperties() {
     return new Promise((resolve, reject) => {
       window.steem.api.getDynamicGlobalProperties((err, result) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  }
+  
+  /**
+   * Get reward fund info
+   * @private
+   */
+  _getRewardFund() {
+    return new Promise((resolve, reject) => {
+      window.steem.api.getRewardFund('post', (err, result) => {
         if (err) {
           reject(err);
         } else {
@@ -366,6 +482,70 @@ class VoteService {
    */
   clearCache() {
     this.voteCache.clear();
+  }
+  
+  /**
+   * Show a custom auth error popup to the user
+   * @private
+   * @param {string} title - Error title
+   * @param {string} message - Error message
+   */
+  _showAuthErrorPopup(title, message) {
+    // Create popup elements
+    const overlayDiv = document.createElement('div');
+    overlayDiv.className = 'auth-error-overlay';
+
+    const popupDiv = document.createElement('div');
+    popupDiv.className = 'auth-error-popup';
+
+    // Add content
+    const titleElement = document.createElement('h3');
+    titleElement.className = 'auth-error-title';
+    titleElement.textContent = title || 'Authentication Error';
+
+    const messageElement = document.createElement('p');
+    messageElement.className = 'auth-error-message';
+    messageElement.textContent = message || 'Please log out and log in again.';
+
+    const buttonDiv = document.createElement('div');
+    buttonDiv.className = 'auth-error-buttons';
+
+    const okButton = document.createElement('button');
+    okButton.className = 'auth-error-button auth-error-button-primary';
+    okButton.textContent = 'Continue Browsing';
+    
+    const loginButton = document.createElement('button');
+    loginButton.className = 'auth-error-button auth-error-button-secondary';
+    loginButton.textContent = 'Go to Login';
+    
+    // Close the popup when OK is clicked without redirecting
+    okButton.addEventListener('click', () => {
+      document.body.removeChild(overlayDiv);
+    });
+    
+    // Navigate to login page using Router
+    loginButton.addEventListener('click', () => {
+      document.body.removeChild(overlayDiv);
+      const returnUrl = window.location.pathname + window.location.search;
+      
+      // Use the imported router directly
+      router.navigate('/login', { 
+        returnUrl: returnUrl,
+        authError: true,
+        errorReason: 'Your login session has expired'
+      });
+    });
+
+    // Assemble popup
+    buttonDiv.appendChild(okButton);
+    buttonDiv.appendChild(loginButton);
+    popupDiv.appendChild(titleElement);
+    popupDiv.appendChild(messageElement);
+    popupDiv.appendChild(buttonDiv);
+    overlayDiv.appendChild(popupDiv);
+
+    // Add to DOM
+    document.body.appendChild(overlayDiv);
   }
 }
 
