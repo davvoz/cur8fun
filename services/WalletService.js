@@ -1350,54 +1350,66 @@ async getUserBalances(username) {
   try {
     const user = username || this.currentUser;
     if (!user) throw new Error('No username provided');
-    
+
     // Get account data
     const account = await steemService.getUser(user);
     if (!account) throw new Error('Failed to load account data');
-    
+
     // Extract balances
     const steemBalance = parseFloat(account.balance).toFixed(3);
     const sbdBalance = parseFloat(account.sbd_balance).toFixed(3);
-    
+
     // Calculate STEEM Power
     const vestingShares = parseFloat(account.vesting_shares);
     const delegatedVestingShares = parseFloat(account.delegated_vesting_shares);
     const receivedVestingShares = parseFloat(account.received_vesting_shares);
-    
+
+    const ownVestingShares = vestingShares - delegatedVestingShares;
+    const ownSteemPower = await this.vestsToSteem(ownVestingShares);
+    const delegatedOutSP = await this.vestsToSteem(delegatedVestingShares);
+    const delegatedInSP = await this.vestsToSteem(receivedVestingShares);
+
     const steemPower = await this.vestsToSteem(
-      vestingShares - delegatedVestingShares + receivedVestingShares
+        vestingShares - delegatedVestingShares + receivedVestingShares
     );
-    
+
     // Fetch current prices
     const prices = await this.getCryptoPrices();
-    
+
     // Calculate USD values
     const steemUsdValue = (parseFloat(steemBalance) * prices.steem).toFixed(2);
     const sbdUsdValue = (parseFloat(sbdBalance) * prices.sbd).toFixed(2);
     const spUsdValue = (parseFloat(steemPower) * prices.steem).toFixed(2);
-    
+
     // Calculate total USD value
     const totalUsdValue = (
-      parseFloat(steemUsdValue) + 
-      parseFloat(sbdUsdValue) + 
-      parseFloat(spUsdValue)
+        parseFloat(steemUsdValue) + 
+        parseFloat(sbdUsdValue) + 
+        parseFloat(spUsdValue)
     ).toFixed(2);
-    
+
     return {
-      steem: steemBalance,
-      sbd: sbdBalance,
-      steemPower: steemPower.toFixed(3),
-      prices: {
-        steem: prices.steem,
-        sbd: prices.sbd
-      },
-      usdValues: {
-        steem: steemUsdValue,
-        sbd: sbdUsdValue,
-        steemPower: spUsdValue,
-        total: totalUsdValue
-      },
-      account // Include the full account for advanced usage
+        steem: steemBalance,
+        sbd: sbdBalance,
+        steemPower: steemPower.toFixed(3),
+        steemPowerDetails: {
+            total: steemPower.toFixed(3),
+            own: ownSteemPower.toFixed(3),
+            delegatedOut: delegatedOutSP.toFixed(3),
+            delegatedIn: delegatedInSP.toFixed(3),
+            effective: (ownSteemPower + delegatedInSP).toFixed(3)
+        },
+        prices: {
+            steem: prices.steem,
+            sbd: prices.sbd
+        },
+        usdValues: {
+            steem: steemUsdValue,
+            sbd: sbdUsdValue,
+            steemPower: spUsdValue,
+            total: totalUsdValue
+        },
+        account // Include the full account for advanced usage
     };
   } catch (error) {
     console.error('Error fetching user balances:', error);

@@ -265,6 +265,23 @@
   margin-top: 2px;
 }
 
+/* Updated styles for delegation details */
+.delegation-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.delegation-details span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.delegation-details span.hidden {
+  display: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .balance-cards-row {
