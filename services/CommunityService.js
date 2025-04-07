@@ -184,6 +184,37 @@ class CommunityService {
   }
 
   /**
+   * Cache search results
+   * @param {string} cacheKey - Cache key
+   * @param {Array} data - Search results
+   */
+  cacheSearchResults(cacheKey, data) {
+    if (!cacheKey || !data) return;
+    
+    this.cachedSearchResults.set(cacheKey, {
+      data: data,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Get cached search results
+   * @param {string} cacheKey - Cache key
+   * @returns {Array|null} - Cached search results or null
+   */
+  getCachedSearch(cacheKey) {
+    if (!cacheKey) return null;
+    
+    const cachedData = this.cachedSearchResults.get(cacheKey);
+    
+    if (cachedData && (Date.now() - cachedData.timestamp) < this.cacheExpiry) {
+      return cachedData.data;
+    }
+    
+    return null;
+  }
+
+  /**
    * Iscriviti a una community usando Keychain
    * @param {string} username - Username dell'utente
    * @param {string} community - Nome della community
