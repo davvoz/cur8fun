@@ -1041,7 +1041,7 @@ class CreatePostView extends View {
 
       // Send notification to Telegram after successful post creation
       if (result) {
-        const postUrl = `https://cur8.fun/assets/#/@${username}/${permlink}`;
+        const postUrl = `https://cur8.fun/#/@${username}/${permlink}`;
         try {
           await fetch('https://imridd.eu.pythonanywhere.com/api/telegram/send_message_animals', {
             method: 'POST',
