@@ -12,6 +12,7 @@ import PostView from './views/PostView.js';
 import TagView from './views/TagView.js';
 import SearchView from './views/SearchView.js';
 import CreatePostView from './views/CreatePostView.js';
+import MenuView from './views/MenuView.js';
 
 // Community views
 import CommunityView from './views/CommunityView.js';
@@ -47,6 +48,7 @@ router
   .addRoute('/community/:id', CommunityView)
   .addRoute('/communities', CommunitiesListView) 
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
+  .addRoute('/menu', MenuView)
   .setNotFound(NotFoundView);
 
 // Auth guard middleware
@@ -231,8 +233,6 @@ function handleLogout(e) {
   });
   router.navigate('/');
 }
-
-
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
