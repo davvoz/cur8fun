@@ -128,6 +128,17 @@ class RegisterView extends View {
       });
     }
     
+    // Add work in progress indicator
+    if (id === 'username' || id === 'email') {
+      const wipNotice = document.createElement('div');
+      wipNotice.className = 'wip-notice';
+      wipNotice.textContent = 'Work in Progress - Feature not fully implemented yet';
+      wipNotice.style.color = '#ff6b00';
+      wipNotice.style.fontSize = '12px';
+      wipNotice.style.marginTop = '4px';
+      fieldContainer.appendChild(wipNotice);
+    }
+    
     inputWrapper.appendChild(input);
     
     fieldContainer.appendChild(inputWrapper);

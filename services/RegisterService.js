@@ -125,7 +125,14 @@ class RegisterService {
       throw new Error('This account name already exists. Please choose a different name.');
     }
     
-    // Call the API service to create the account
+    // WORK IN PROGRESS: Instead of actually calling the API, return a mock response
+    // to indicate that this feature is not yet fully implemented
+    console.log(`WORK IN PROGRESS: Account creation for ${username} is not yet implemented`);
+    
+    // Show a work in progress error to the user
+    throw new Error('WORK IN PROGRESS: Account creation functionality is not yet fully implemented. This feature will be available soon.');
+    
+    /* Original code commented out
     try {
       console.log(`Sending request to create account: ${username}`);
       
@@ -162,6 +169,7 @@ class RegisterService {
       console.error('API error creating account:', error);
       throw error; // Preserve the original error
     }
+    */
   }
 }
 
