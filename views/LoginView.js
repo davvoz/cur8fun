@@ -36,6 +36,8 @@ class LoginView {
 
     loginContainer.appendChild(this.createHeading());
 
+    // SteemLogin section (temporarily hidden)
+    /* 
     // Sezione login con SteemLogin e HiveSigner
     const oauthSection = document.createElement('div');
     oauthSection.className = 'auth-section oauth-section';
@@ -62,7 +64,8 @@ class LoginView {
     
     // Aggiungi la sezione di login OAuth
     loginContainer.appendChild(oauthSection);
-
+    */
+    
     // Resto del codice esistente (Keychain e login con password)
     // Password form section
     const passwordSection = document.createElement('div');
