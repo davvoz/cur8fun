@@ -62,7 +62,7 @@ class CreatePostView extends View {
     // Save button
     const saveButton = document.createElement('button');
     saveButton.className = 'action-button save-button';
-    saveButton.title = 'Save Draft (Ctrl+S)';
+    saveButton.title = 'Save Draft';
     saveButton.innerHTML = '<span class="material-icons">save</span>';
     saveButton.addEventListener('click', (e) => {
       e.preventDefault();
@@ -275,15 +275,6 @@ class CreatePostView extends View {
     submitBtn.textContent = 'Publish Post';
     form.appendChild(submitBtn);
 
-    // Add shortcut hint in modo compatto
-    const shortcutHint = document.createElement('div');
-    shortcutHint.className = 'shortcut-hint';
-    shortcutHint.innerHTML = `
-      <span class="material-icons" style="font-size: 14px;">info_outline</span>
-      Press <span class="keyboard-key">Ctrl</span>+<span class="keyboard-key">S</span> to save draft manually
-    `;
-    form.appendChild(shortcutHint);
-
     // Append form to container
     postEditor.appendChild(form);
 
@@ -336,28 +327,64 @@ class CreatePostView extends View {
       const draftRecovery = document.getElementById('draft-recovery');
       if (draftRecovery) {
         draftRecovery.classList.remove('hidden');
-        draftRecovery.innerHTML = `
-          <div class="draft-recovery-icon">
-            <i class="material-icons">history</i>
-          </div>
-          <div class="draft-recovery-message">
-            <strong>Draft available</strong>
-            Draft from ${draftAge}: "${draft.title || '(No title)'}"
-          </div>
-          <div class="draft-recovery-actions">
-            <button class="btn secondary-btn" id="discard-draft-btn">Discard</button>
-            <button class="btn primary-btn" id="recover-draft-btn">Recover</button>
-          </div>
-        `;
+        
+        // Clear any existing content
+        while (draftRecovery.firstChild) {
+          draftRecovery.removeChild(draftRecovery.firstChild);
+        }
+        
+        // Create icon container
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'draft-recovery-icon';
+        const icon = document.createElement('i');
+        icon.className = 'material-icons';
+        icon.textContent = 'history';
+        iconDiv.appendChild(icon);
+        
+        // Create message container
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'draft-recovery-message';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Draft available';
+        messageDiv.appendChild(strong);
+        
+        // Add text node for the message
+        messageDiv.appendChild(document.createTextNode(' '));
+        messageDiv.appendChild(document.createTextNode(`Draft from ${draftAge}: "${draft.title || '(No title)'}""`));
+        
+        // Create actions container
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'draft-recovery-actions';
+        
+        // Discard button
+        const discardBtn = document.createElement('button');
+        discardBtn.className = 'btn secondary-btn';
+        discardBtn.id = 'discard-draft-btn';
+        discardBtn.textContent = 'Discard';
+        
+        // Recover button
+        const recoverBtn = document.createElement('button');
+        recoverBtn.className = 'btn primary-btn';
+        recoverBtn.id = 'recover-draft-btn';
+        recoverBtn.textContent = 'Recover';
+        
+        // Append buttons to actions
+        actionsDiv.appendChild(discardBtn);
+        actionsDiv.appendChild(recoverBtn);
+        
+        // Append all elements to draft recovery container
+        draftRecovery.appendChild(iconDiv);
+        draftRecovery.appendChild(messageDiv);
+        draftRecovery.appendChild(actionsDiv);
         
         // Aggiungi gli event listener ai pulsanti
-        document.getElementById('recover-draft-btn').addEventListener('click', (e) => {
+        recoverBtn.addEventListener('click', (e) => {
           e.preventDefault();
           this.loadDraft();
           draftRecovery.classList.add('hidden');
         });
         
-        document.getElementById('discard-draft-btn').addEventListener('click', () => {
+        discardBtn.addEventListener('click', () => {
           createPostService.clearDraft();
           draftRecovery.classList.add('hidden');
         });
