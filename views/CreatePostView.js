@@ -351,7 +351,8 @@ class CreatePostView extends View {
         `;
         
         // Aggiungi gli event listener ai pulsanti
-        document.getElementById('recover-draft-btn').addEventListener('click', () => {
+        document.getElementById('recover-draft-btn').addEventListener('click', (e) => {
+          e.preventDefault();
           this.loadDraft();
           draftRecovery.classList.add('hidden');
         });
@@ -435,6 +436,18 @@ class CreatePostView extends View {
     
     // Aggiorna lo stato della bozza
     this.updateDraftStatus('Saved');
+    
+    // Nascondi correttamente il banner di recupero bozza
+    const draftRecovery = document.getElementById('draft-recovery');
+    if (draftRecovery) {
+      draftRecovery.classList.add('hidden');
+    }
+    
+    // Sposta il focus al titolo per una migliore esperienza utente
+    const titleInput = document.getElementById('post-title');
+    if (titleInput) {
+      titleInput.focus();
+    }
   }
 
   /**

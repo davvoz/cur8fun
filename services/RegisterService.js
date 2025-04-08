@@ -7,10 +7,11 @@ import eventEmitter from '../utils/EventEmitter.js';
 class RegisterService {
   constructor() {
     this.isProcessing = false;
+    this.API_ENDPOINT = 'https://imridd.eu.pythonanywhere.com/api/steem/create_account';
   }
   
   /**
-   * Create a new Steem account through a partner service
+   * Create a new Steem account
    * Note: Creating Steem accounts requires STEEM to pay the fee
    */
   async createAccount(userData) {
@@ -21,34 +22,35 @@ class RegisterService {
     this.isProcessing = true;
     
     try {
-      // Valida i dati dell'utente
+      // Validate user data (only username required)
       this.validateUserData(userData);
       
-      // Emetti l'evento di inizio creazione
+      // Emit the registration start event
       eventEmitter.emit('register:started', { username: userData.username });
       
-      // Assicurati che la libreria Steem sia caricata
+      // Ensure Steem library is loaded
       await steemService.ensureLibraryLoaded();
       
-      // In un'implementazione reale, qui dovresti:
-      // 1. Connettiti a un servizio di creazione account (come SteemConnect)
-      // 2. Paga il costo di creazione dell'account
-      // 3. Crea l'account con le chiavi di accesso 
-      
-      // Esempio di chiamata a un'API ipotetica
+      // Call the account creation API
       const result = await this.createSteemAccount(userData);
       
-      // Notifica di successo
+      // Notify of success
       eventEmitter.emit('register:completed', {
         success: true,
-        username: userData.username
+        username: userData.username,
+        keys: result.keys
       });
       
-      return result;
+      return {
+        success: true,
+        username: userData.username,
+        message: result.message || "Account created successfully!",
+        keys: result.keys
+      };
     } catch (error) {
       console.error('Error creating account:', error);
       
-      // Notifica di errore
+      // Notify of error
       eventEmitter.emit('register:error', {
         error: error.message || 'Failed to create account'
       });
@@ -60,25 +62,17 @@ class RegisterService {
   }
   
   /**
-   * Validate user registration data
+   * Validate user registration data (only username required)
    */
   validateUserData(userData) {
-    const { username, password, email } = userData;
+    const { username } = userData;
     
     if (!username || username.length < 3 || username.length > 16) {
       throw new Error('Username must be between 3 and 16 characters');
     }
     
     if (!this.isValidSteemUsername(username)) {
-      throw new Error('Username can only contain lowercase letters, numbers, and one dash');
-    }
-    
-    if (!password || password.length < 8) {
-      throw new Error('Password must be at least 8 characters long');
-    }
-    
-    if (email && !this.isValidEmail(email)) {
-      throw new Error('Please enter a valid email address');
+      throw new Error('Username can only contain lowercase letters, numbers, dots and dashes');
     }
   }
   
@@ -86,58 +80,88 @@ class RegisterService {
    * Check if username meets Steem requirements
    */
   isValidSteemUsername(username) {
-    const regex = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
-    if (!regex.test(username)) return false;
-    if (username.indexOf('--') !== -1) return false;
-    return true;
+    // Fix: Place dash at end of character class to avoid regex error
+    const regex = /^[a-z0-9.][a-z0-9.-]*[a-z0-9]$/;
+    return regex.test(username) && !username.includes('--');
   }
   
   /**
-   * Validate email format
+   * Check if account already exists on the blockchain
    */
-  isValidEmail(email) {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
+  async checkAccountExists(username) {
+    try {
+      const response = await fetch('https://api.moecki.online', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "condenser_api.get_accounts",
+          params: [[username]],
+          id: 1
+        })
+      });
+
+      const data = await response.json();
+      return data.result && data.result.length > 0;
+    } catch (error) {
+      console.error('Failed to check account existence:', error);
+      throw new Error('Failed to check account availability');
+    }
   }
   
   /**
-   * Connect to Steem account creation service
-   * This is a placeholder - real implementation depends on your approach
+   * Create Steem account
+   * @param {Object} userData - User data including username
+   * @returns {Promise<Object>} - Response from the API including keys
    */
   async createSteemAccount(userData) {
-    // In un'implementazione reale, dovresti:
+    const { username } = userData;
     
-    // 1. Generare le chiavi sicure per l'utente
-    const keys = this.generateSteemKeys(userData.username, userData.password);
+    // First check if account already exists
+    const accountExists = await this.checkAccountExists(username);
+    if (accountExists) {
+      throw new Error('This account name already exists. Please choose a different name.');
+    }
     
-    // 2. Inviare la richiesta al servizio di creazione account
-    // Questo è un esempio - l'implementazione reale dipende dal servizio scelto
-    return {
-      success: true,
-      username: userData.username,
-      keys: {
-        owner: '...',
-        active: '...',
-        posting: '...',
-        memo: '...'
-      },
-      message: 'Account created successfully!'
-    };
-  }
-  
-  /**
-   * Generate secure keys for Steem account
-   * This is a placeholder - in a real implementation you'd use steem.js
-   */
-  generateSteemKeys(username, password) {
-    // In una vera implementazione, useresti steem.auth.generateKeys
-    // Per ora restituiamo un segnaposto
-    return {
-      owner: 'generate-real-key',
-      active: 'generate-real-key',
-      posting: 'generate-real-key',
-      memo: 'generate-real-key'
-    };
+    // Call the API service to create the account
+    try {
+      console.log(`Sending request to create account: ${username}`);
+      
+      const requestBody = {
+        new_account_name: username
+      };
+      
+      console.log('Request payload:', JSON.stringify(requestBody));
+      
+      const response = await fetch(this.API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'API-Key': 'your_secret_api_key' // You should use a proper API key
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log(`Response status: ${response.status}`);
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || `Failed to create account: ${response.status}`);
+      }
+      
+      // Verify the response contains success message and keys
+      if (!responseData.keys) {
+        throw new Error(responseData.message || 'Account creation response missing keys');
+      }
+      
+      return responseData;
+    } catch (error) {
+      console.error('API error creating account:', error);
+      throw error; // Preserve the original error
+    }
   }
 }
 

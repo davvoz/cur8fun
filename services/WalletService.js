@@ -1297,35 +1297,49 @@ calculateVotingPower(account) {
 }
 
 /**
- * Fetch current STEEM and SBD prices from market APIs
+ * Fetch current STEEM and SBD prices from Binance API
  * @returns {Promise<Object>} Current prices in USD
  */
 async getCryptoPrices() {
   try {
-    // Fetch STEEM price data
-    const steemResponse = await fetch('https://api.steemit.com', {
-      method: 'POST',
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'market_history_api.get_ticker',
-        id: 1
-      }),
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // Fetch STEEM price data from Binance API
+    // Binance uses STEEMUSDT for STEEM/USD trading pair
+    const binanceResponse = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=STEEMUSDT');
     
-    if (!steemResponse.ok) throw new Error('Failed to fetch STEEM price data');
+    if (!binanceResponse.ok) {
+      throw new Error('Failed to fetch STEEM price from Binance API');
+    }
     
-    const steemData = await steemResponse.json();
+    const binanceData = await binanceResponse.json();
     
-    // Extract the latest price from the response
+    // Extract price from Binance response
     let steemPrice = 0;
     let sbdPrice = 1; // SBD is a stablecoin pegged at ~1 USD
     
-    if (steemData.result && steemData.result.latest) {
-      steemPrice = parseFloat(steemData.result.latest);
-      console.log('Current STEEM price:', steemPrice);
+    if (binanceData && binanceData.price) {
+      steemPrice = parseFloat(binanceData.price);
+      console.log('Current STEEM price from Binance:', steemPrice);
     } else {
-      console.warn('Could not extract STEEM price from API response', steemData);
+      console.warn('Could not extract STEEM price from Binance API response', binanceData);
+      
+      // Fallback to Steemit API if Binance fails to return price
+      const fallbackResponse = await fetch('https://api.steemit.com', {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'market_history_api.get_ticker',
+          id: 1
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        if (fallbackData.result && fallbackData.result.latest) {
+          steemPrice = parseFloat(fallbackData.result.latest);
+          console.log('Using fallback STEEM price:', steemPrice);
+        }
+      }
     }
     
     return {
@@ -1334,6 +1348,33 @@ async getCryptoPrices() {
     };
   } catch (error) {
     console.error('Error fetching crypto prices:', error);
+    // Try fallback to Steemit API if Binance API fails
+    try {
+      const fallbackResponse = await fetch('https://api.steemit.com', {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'market_history_api.get_ticker',
+          id: 1
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        if (fallbackData.result && fallbackData.result.latest) {
+          const steemPrice = parseFloat(fallbackData.result.latest);
+          console.log('Using fallback STEEM price after error:', steemPrice);
+          return {
+            steem: steemPrice,
+            sbd: 1
+          };
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback price fetch also failed:', fallbackError);
+    }
+    
     return {
       steem: 0,
       sbd: 1 // Default to 1 USD for SBD as it's a stablecoin

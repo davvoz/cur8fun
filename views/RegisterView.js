@@ -60,30 +60,13 @@ class RegisterView extends View {
     );
     form.appendChild(emailField);
     
-    const passwordField = this.createFormField(
-      'password', 
-      'Password', 
-      'lock', 
-      'password',
-      'Create a strong password'
-    );
-    form.appendChild(passwordField);
-    
-    const confirmPasswordField = this.createFormField(
-      'confirm-password', 
-      'Confirm Password', 
-      'lock', 
-      'password',
-      'Type your password again'
-    );
-    form.appendChild(confirmPasswordField);
-    
     // Add note about account creation
     const note = document.createElement('div');
     note.className = 'auth-note';
     note.innerHTML = `
       <p>Important: Creating a Steem account typically requires a small fee paid in STEEM cryptocurrency.</p>
-      <p>After registration, save your password securely! It cannot be recovered if lost.</p>
+      <p>A PDF with your account details and private keys will be sent to your email.</p>
+      <p><strong>Please keep this PDF in a safe place! Your keys cannot be recovered if lost.</strong></p>
     `;
     form.appendChild(note);
     
@@ -135,6 +118,16 @@ class RegisterView extends View {
     input.name = id;
     input.placeholder = placeholder;
     input.required = true;
+    
+    // Add lowercase restriction to username field
+    if (id === 'username') {
+      input.pattern = '[a-z0-9.-]+';  // Removed the escaped hyphen which was causing problems
+      input.title = 'Only lowercase letters, numbers, dots and dashes allowed';
+      input.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toLowerCase();
+      });
+    }
+    
     inputWrapper.appendChild(input);
     
     fieldContainer.appendChild(inputWrapper);
@@ -149,8 +142,6 @@ class RegisterView extends View {
     const submitButton = form.querySelector('button[type="submit"]');
     const username = form.username.value;
     const email = form.email.value;
-    const password = form.password.value;
-    const confirmPassword = form['confirm-password'].value;
     
     // Reset previous error messages
     const errorElement = form.querySelector('.auth-error');
@@ -158,44 +149,83 @@ class RegisterView extends View {
       errorElement.remove();
     }
     
-    // Validate passwords match
-    if (password !== confirmPassword) {
-      this.showError(form, 'Passwords do not match');
-      return;
-    }
-    
     try {
       // Disable button and show loading state
       submitButton.disabled = true;
       submitButton.textContent = 'Creating Account...';
       
-      // Call register service
+      // Call register service with username and email
       const result = await registerService.createAccount({
         username,
-        email,
-        password
+        email
       });
       
-      // Success! Show notification and redirect
+      // Success! Show notification
       eventEmitter.emit('notification', {
         type: 'success',
-        message: 'Account created successfully! Please save your password!'
+        message: 'Account created successfully! Please check your email for account details.'
       });
       
-      // In a real implementation, you might show the keys to the user
-      // or direct them to a page with account details
-      
-      // Redirect to login page
-      router.navigate('/login');
+      // Show success message in the form
+      this.showSuccessMessage(form, username, email);
       
     } catch (error) {
       console.error('Registration failed:', error);
       this.showError(form, error.message || 'Failed to create account');
-    } finally {
+      
       // Reset button state
       submitButton.disabled = false;
       submitButton.textContent = 'Create Account';
     }
+  }
+  
+  showSuccessMessage(form, username, email) {
+    // Hide the form
+    form.style.display = 'none';
+    
+    // Create success container
+    const successContainer = document.createElement('div');
+    successContainer.className = 'auth-success';
+    
+    // Add success message
+    const successMessage = document.createElement('div');
+    successMessage.className = 'success-message';
+    successMessage.innerHTML = `
+      <h3>Account Created Successfully!</h3>
+      <p>Your Steem account <strong>${username}</strong> has been created.</p>
+      <p>We've sent your account details and private keys to <strong>${email}</strong>.</p>
+      <p>Please check your email (including spam folder) and save the PDF in a secure location.</p>
+      <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
+    `;
+    successContainer.appendChild(successMessage);
+    
+    // Add buttons
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'success-buttons';
+    
+    // Login button
+    const loginButton = document.createElement('button');
+    loginButton.className = 'auth-button';
+    loginButton.textContent = 'Go to Login';
+    loginButton.addEventListener('click', () => {
+      router.navigate('/login');
+    });
+    buttonsContainer.appendChild(loginButton);
+    
+    // Create another account button
+    const createAnotherButton = document.createElement('button');
+    createAnotherButton.className = 'secondary-button';
+    createAnotherButton.textContent = 'Create Another Account';
+    createAnotherButton.addEventListener('click', () => {
+      // Clear the container and re-render the form
+      this.render(this.element);
+    });
+    buttonsContainer.appendChild(createAnotherButton);
+    
+    successContainer.appendChild(buttonsContainer);
+    
+    // Add to parent element
+    this.element.querySelector('.auth-container').appendChild(successContainer);
   }
   
   showError(form, message) {
