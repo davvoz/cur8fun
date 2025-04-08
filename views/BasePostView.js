@@ -8,6 +8,11 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 
 // Services
 import communityService from '../services/CommunityService.js';
+import voteService from '../services/VoteService.js';
+import authService from '../services/AuthService.js';
+
+// Controllers
+import VoteController from '../controllers/VoteController.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
@@ -35,6 +40,9 @@ class BasePostView {
       'cur8', 'photography', 'art', 'travel', 
       'food', 'music', 'gaming', 'life', 'blockchain', 'crypto'
     ];
+
+    // Create vote controller for post actions
+    this.voteController = new VoteController(this);
     
     // Initialize mobile detection and handling
     this.setupMobileResponsiveness();
@@ -842,19 +850,231 @@ class BasePostView {
     const actions = document.createElement('div');
     actions.className = 'post-actions';
     
-    const voteCount = this.getVoteCount(post);
-    const voteAction = this.createActionItem('thumb_up', voteCount);
-    voteAction.classList.add('vote-action');
+    // Vote action with interactive behavior
+    const voteAction = this.createVoteActionItem(post);
     
+    // Comments action (non interactive, just shows count)
     const commentAction = this.createActionItem('chat', post.children || 0);
     commentAction.classList.add('comment-action');
     
+    // Payout action (non interactive, just shows value)
     const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value || 0).toFixed(2));
     payoutAction.classList.add('payout-action');
     
     actions.append(voteAction, commentAction, payoutAction);
     
     return actions;
+  }
+  
+  /**
+   * Create interactive vote action
+   */
+  createVoteActionItem(post) {
+    const voteCount = this.getVoteCount(post);
+    const actionItem = document.createElement('div');
+    actionItem.className = 'action-item vote-action';
+    actionItem.dataset.author = post.author;
+    actionItem.dataset.permlink = post.permlink;
+    
+    // Add vote icon
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = 'thumb_up';
+    
+    // Add vote count as text node
+    const countSpan = document.createElement('span');
+    countSpan.className = 'vote-count';
+    countSpan.textContent = ` ${voteCount}`;
+    
+    actionItem.appendChild(icon);
+    actionItem.appendChild(countSpan);
+    
+    // Check if user is logged in to enable voting
+    const currentUser = authService.getCurrentUser();
+    
+    if (currentUser) {
+      // Make it look clickable
+      actionItem.classList.add('interactive');
+      
+      // Check vote status of this post asynchronously
+      this.checkVoteStatus(post, actionItem);
+      
+      // Add click handler that stops propagation to prevent 
+      // navigating to the post when clicking the vote button
+      actionItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.handleVoteAction(post, actionItem);
+      });
+    }
+    
+    return actionItem;
+  }
+  
+  /**
+   * Check if current user has voted on this post
+   */
+  async checkVoteStatus(post, voteActionElement) {
+    try {
+      // Check if post is already flagged as having been checked
+      if (voteActionElement.dataset.voteChecked === 'true') {
+        return;
+      }
+      
+      const userVote = await voteService.hasVoted(post.author, post.permlink);
+      
+      if (userVote) {
+        // User has voted, update UI
+        voteActionElement.classList.add('voted');
+        voteActionElement.dataset.percent = userVote.percent;
+        
+        // Add the vote percentage indicator if it doesn't exist
+        if (!voteActionElement.querySelector('.vote-percent-indicator') && userVote.percent > 0) {
+          const percentIndicator = document.createElement('span');
+          percentIndicator.className = 'vote-percent-indicator';
+          percentIndicator.textContent = `${userVote.percent / 100}%`;
+          voteActionElement.appendChild(percentIndicator);
+        }
+      }
+      
+      // Mark as checked to avoid repeated API calls
+      voteActionElement.dataset.voteChecked = 'true';
+    } catch (error) {
+      console.error('Error checking vote status:', error);
+    }
+  }
+  
+  /**
+   * Handle vote button click
+   */
+  async handleVoteAction(post, voteActionElement) {
+    // Early return if no user logged in or element is disabled
+    if (!authService.getCurrentUser() || voteActionElement.classList.contains('disabled')) {
+      return;
+    }
+    
+    // Get current vote state
+    const isVoted = voteActionElement.classList.contains('voted');
+    
+    // If already voted, show notification
+    if (isVoted) {
+      const percent = parseInt(voteActionElement.dataset.percent || 0);
+      this.voteController.showAlreadyVotedNotification(percent);
+      return;
+    }
+    
+    // Check if vote service is available
+    if (!voteService) {
+      console.error('Vote service not available');
+      return;
+    }
+    
+    // Get the current count
+    const countSpan = voteActionElement.querySelector('.vote-count');
+    const currentCount = countSpan ? parseInt(countSpan.textContent) || 0 : 0;
+    
+    // Use vote controller to show percentage selector popup
+    this.voteController.showVotePercentagePopup(voteActionElement, async (weight) => {
+      try {
+        // Disable button and show voting state
+        voteActionElement.classList.add('disabled', 'voting');
+        
+        // Original HTML to restore if needed
+        const originalHTML = voteActionElement.innerHTML;
+        voteActionElement.innerHTML = `<span class="material-icons loading">refresh</span>`;
+        
+        // Validate weight
+        if (weight === 0) {
+          throw new Error('Vote weight cannot be zero');
+        }
+        
+        // Submit vote
+        await voteService.vote({
+          author: post.author,
+          permlink: post.permlink,
+          weight: weight
+        });
+        
+        // Update UI with vote success state
+        voteActionElement.classList.remove('voting', 'disabled');
+        voteActionElement.classList.add('voted');
+        voteActionElement.innerHTML = '';
+        
+        // Add icon
+        const iconElement = document.createElement('span');
+        iconElement.className = 'material-icons';
+        iconElement.textContent = 'thumb_up_alt';
+        voteActionElement.appendChild(iconElement);
+        
+        // Add count
+        const newCountElement = document.createElement('span');
+        newCountElement.className = 'vote-count';
+        newCountElement.textContent = ` ${currentCount + 1}`;
+        voteActionElement.appendChild(newCountElement);
+        
+        // Add vote percentage indicator
+        const percentIndicator = document.createElement('span');
+        percentIndicator.className = 'vote-percent-indicator';
+        percentIndicator.textContent = `${weight / 100}%`;
+        voteActionElement.appendChild(percentIndicator);
+        
+        // Store the vote percentage in the dataset
+        voteActionElement.dataset.percent = weight;
+        
+        // Add success animation
+        this.voteController.addSuccessAnimation(voteActionElement);
+        
+        // Show success notification
+        eventEmitter.emit('notification', {
+          type: 'success',
+          message: `Your ${weight / 100}% vote was recorded successfully!`
+        });
+        
+      } catch (error) {
+        // Reset UI
+        voteActionElement.classList.remove('voting', 'disabled');
+        
+        // Handle errors
+        if (error.isCancelled) {
+          console.log('Vote was cancelled by user');
+        } else if (error.isAuthError) {
+          console.error('Authentication error:', error.message);
+          
+          // Extract error reason
+          let reason = 'Your login session has expired';
+          
+          if (error.message.includes('Posting key not available')) {
+            reason = 'Your posting key is not available';
+          } else if (error.message.includes('keychain')) {
+            reason = 'There was an issue with Steem Keychain';
+          } else if (error.message.includes('authority')) {
+            reason = 'You don\'t have the required permissions';
+          }
+          
+          // Show auth error notification
+          eventEmitter.emit('notification', {
+            type: 'error',
+            message: `Authentication failed: ${reason}. Please log in again to vote.`,
+            duration: 5000,
+            action: {
+              text: 'Login',
+              callback: () => {
+                router.navigate('/login', { 
+                  returnUrl: window.location.pathname + window.location.search,
+                  authError: true,
+                  errorReason: reason
+                });
+              }
+            }
+          });
+        } else {
+          console.error('Failed to vote:', error);
+          eventEmitter.emit('notification', {
+            type: 'error',
+            message: error.message || 'Failed to vote. Please try again.'
+          });
+        }
+      }
+    });
   }
 
   /**

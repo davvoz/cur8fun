@@ -352,6 +352,7 @@ export default class VoteController {
     });
 
     popup.querySelector('.confirm-btn').addEventListener('click', () => {
+      // Corretto: convertire il valore percentuale (0-100) in peso di voto (0-10000)
       const weight = parseInt(slider.value) * 100;
       popup.remove();
       const index = this.popups.indexOf(popup);
