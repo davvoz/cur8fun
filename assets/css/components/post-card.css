@@ -1,0 +1,63 @@
+/* Stili per la community nel post */
+.post-community {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.post-community:hover {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+
+.community-icon {
+  vertical-align: middle;
+}
+
+/* Nuovi stili per la riga superiore del post-info */
+.post-info-top-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Separatore tra autore e community */
+.post-info-separator {
+  color: var(--text-muted);
+  margin: 0 4px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* Layout esistente della post-info */
+.post-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.post-author {
+  font-weight: 500;
+}
+
+.post-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Stile dell'icona group più piccola */
+.post-community .community-icon {
+  font-size: 14px;
+  margin-right: 2px;
+}
+
+/* Stile per il layout mobile */
+@media (max-width: 767px) {
+  .post-info-top-row {
+    gap: 2px; /* Spazio leggermente minore sui dispositivi mobili */
+  }
+}

@@ -6,6 +6,9 @@ import ContentRenderer from '../components/ContentRenderer.js';
 import GridController from '../components/GridController.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 
+// Services
+import communityService from '../services/CommunityService.js';
+
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
 
@@ -379,6 +382,88 @@ class BasePostView {
   }
 
   /**
+   * Check if a tag represents a valid community
+   * @param {string} tag - Tag to check
+   * @returns {boolean} - true if it's a valid community
+   */
+  isValidCommunityTag(tag) {
+    if (!tag || typeof tag !== 'string') return false;
+    
+    // Most Hive communities have format hive-NUMBER
+    if (tag.startsWith('hive-')) {
+      // Extract the part after "hive-"
+      const communityId = tag.substring(5);
+      
+      // Valid communities generally have numeric ID
+      return /^\d+$/.test(communityId);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Extract community tag from post metadata
+   * @param {Object} post - Post object
+   * @returns {string|null} - Community tag or null if not found
+   */
+  getCommunityTag(post) {
+    if (!post) return null;
+    
+    try {
+      const metadata = this.parseMetadata(post.json_metadata);
+      
+      // 1. Check from the community property in metadata (most reliable)
+      if (metadata && metadata.community) {
+        const communityTag = metadata.community.startsWith('hive-') 
+          ? metadata.community 
+          : `hive-${metadata.community}`;
+          
+        if (this.isValidCommunityTag(communityTag)) {
+          return communityTag;
+        }
+      }
+      
+      // 2. Check for community_title in metadata (indicates a community post)
+      if (metadata && metadata.community_title) {
+        // If we have community_title but no clear ID, try to extract from another source
+        if (post.category && post.category.startsWith('hive-')) {
+          return post.category;
+        }
+      }
+      
+      // 3. Check if category is a community (some posts use this)
+      if (post.category && post.category.startsWith('hive-')) {
+        if (this.isValidCommunityTag(post.category)) {
+          return post.category;
+        }
+      }
+      
+      // 4. Check in parent_permlink as it sometimes contains the community
+      if (post.parent_permlink && post.parent_permlink.startsWith('hive-')) {
+        if (this.isValidCommunityTag(post.parent_permlink)) {
+          return post.parent_permlink;
+        }
+      }
+      
+      // 5. As a fallback, look in the tags
+      if (metadata && Array.isArray(metadata.tags)) {
+        const communityTag = metadata.tags.find(tag => 
+          tag && typeof tag === 'string' && this.isValidCommunityTag(tag)
+        );
+        
+        if (communityTag) {
+          return communityTag;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error extracting community tag:', error);
+      return null;
+    }
+  }
+
+  /**
    * Create post header with author info
    */
   createPostHeader(post) {
@@ -438,9 +523,68 @@ class BasePostView {
     const info = document.createElement('div');
     info.className = 'post-info';
     
+    // Create top row with author and community
+    const infoTopRow = document.createElement('div');
+    infoTopRow.className = 'post-info-top-row';
+    
     const author = document.createElement('div');
     author.className = 'post-author';
     author.textContent = `@${post.author}`;
+    
+    infoTopRow.appendChild(author);
+    
+    // Add community if available
+    const communityTag = this.getCommunityTag(post);
+    if (communityTag) {
+      // Try to get community title from custom_json if available
+      let communityTitle = '';
+      let communityId = communityTag.replace('hive-', '');
+      
+      try {
+        const metadata = this.parseMetadata(post.json_metadata);
+        if (metadata && metadata.community_title) {
+          communityTitle = metadata.community_title;
+        }
+      } catch (e) {
+        console.log('Could not parse community title from metadata');
+      }
+      
+      // Add separator
+      const separator = document.createElement('span');
+      separator.className = 'post-info-separator';
+      separator.textContent = '•';
+      infoTopRow.appendChild(separator);
+      
+      // Add community link
+      const community = document.createElement('div');
+      community.className = 'post-community';
+      
+      // Add icon
+      const communityIcon = document.createElement('span');
+      communityIcon.className = 'material-icons community-icon';
+      communityIcon.textContent = 'group';
+      communityIcon.style.fontSize = '14px';
+      
+      community.appendChild(communityIcon);
+      
+      // If we have a title, display it, otherwise just show the ID
+      if (communityTitle) {
+        community.appendChild(document.createTextNode(` ${communityTitle}`));
+      } else {
+        community.appendChild(document.createTextNode(` ${communityId}`));
+        
+        // Try to fetch the community name asynchronously
+        this.fetchCommunityName(community, communityId);
+      }
+      
+      // Add click handler to navigate to community
+      community.addEventListener('click', (e) => {
+        e.stopPropagation();
+        router.navigate(`/community/${communityId}`);
+      });
+      
+      infoTopRow.appendChild(community);
+    }
     
     const date = document.createElement('div');
     date.className = 'post-date';
@@ -451,10 +595,45 @@ class BasePostView {
       day: 'numeric'
     });
     
-    info.append(author, date);
+    info.appendChild(infoTopRow);
+    info.appendChild(date);
     header.append(avatarContainer, info);
     
     return header;
+  }
+
+  /**
+   * Fetch and update community name asynchronously
+   * @param {HTMLElement} communityElement - The element to update with the community name
+   * @param {string} communityId - The community ID
+   */
+  fetchCommunityName(communityElement, communityId) {
+    // Use a cached value if we have it
+    if (!this._communityCache) {
+      this._communityCache = {};
+    }
+    
+    if (this._communityCache[communityId]) {
+      communityElement.childNodes[1].textContent = ` ${this._communityCache[communityId]}`;
+      return;
+    }
+    
+    // Otherwise fetch from the API
+    communityService.findCommunityByName(`hive-${communityId}`)
+      .then(communityData => {
+        if (communityData && communityData.title) {
+          // Cache the result
+          this._communityCache[communityId] = communityData.title;
+          
+          // Update the element with the title
+          if (communityElement && communityElement.childNodes && communityElement.childNodes[1]) {
+            communityElement.childNodes[1].textContent = ` ${communityData.title}`;
+          }
+        }
+      })
+      .catch(err => {
+        console.log(`Could not fetch community info for ${communityId}`, err);
+      });
   }
 
   /**
@@ -487,7 +666,7 @@ class BasePostView {
     const { size: cardSize, layout } = this.getCardConfig();
     
     // Use different image sizes based on card size setting AND layout
-    const sizesToTry = this.getImageSizesToTry( layout);
+    const sizesToTry = this.getImageSizesToTry(layout);
     
     let currentSizeIndex = 0;
     let isLoadingPlaceholder = false;
@@ -581,7 +760,7 @@ class BasePostView {
   /**
    * Get appropriate image sizes based only on layout
    */
-  getImageSizesToTry( layout) {
+  getImageSizesToTry(layout) {
     // Simplify image sizes based only on layout type
     switch(layout) {
       case 'list':
