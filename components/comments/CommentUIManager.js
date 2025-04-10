@@ -89,23 +89,15 @@ export default class CommentUIManager {
       return;
     }
     
-    console.log(`[CommentUIManager] Rendering ${comments.length} comments`);
     
     comments.forEach((comment, index) => {
-      // Log dettagli del commento
-      console.log(`[CommentUIManager] Rendering comment ${index + 1}/${comments.length}:`, {
-        id: `${comment.author}_${comment.permlink}`,
-        author: comment.author,
-        created: comment.created,
-        votes: comment.net_votes || 0
-      });
+      
       
       // Create a post-like card for the comment
       const commentCard = this._createPostLikeCommentCard(comment);
       container.appendChild(commentCard);
     });
     
-    console.log(`[CommentUIManager] Completed rendering ${comments.length} comments`);
   }
 
   _createPostLikeCommentCard(comment) {
@@ -153,7 +145,7 @@ export default class CommentUIManager {
       <div class="card-footer">
         <div class="engagement">
           <span class="votes">
-            <i class="fa fa-thumbs-up"></i> ${comment.net_votes || 0}
+            <i class="fa fa-thumbs-up"></i> ${comment.active_votes.length || 0}
           </span>
           <span class="replies">
             <i class="fa fa-comment"></i> ${comment.children || 0}

@@ -505,7 +505,7 @@ class CommentsSection {
       
       const upvoteCount = document.createElement('span');
       upvoteCount.className = 'count';
-      upvoteCount.textContent = comment.net_votes || 0;
+      upvoteCount.textContent = comment.active_votes.length || 0;
       
       upvoteBtn.appendChild(upvoteIcon);
       upvoteBtn.appendChild(upvoteCount);
