@@ -14,7 +14,7 @@ class PostActions {
     const postActions = document.createElement('div');
     postActions.className = 'post-actions';
 
-    const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.net_votes || 0);
+    const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.active_votes.length || 0);
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
     const votesDetailsBtn = this.createActionButton('votes-details-btn', 'how_to_vote', 'Votes');
@@ -73,7 +73,7 @@ class PostActions {
     const countSpan = document.createElement('span');
     if (typeof countOrText === 'number') {
       countSpan.className = 'count';
-      countSpan.textContent = countOrText;
+      countSpan.textContent = countOrText ;
     } else {
       countSpan.textContent = countOrText;
     }
