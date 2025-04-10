@@ -1297,32 +1297,39 @@ calculateVotingPower(account) {
 }
 
 /**
- * Fetch current STEEM and SBD prices from Binance API
+ * Fetch current STEEM and SBD prices from CoinGecko API
  * @returns {Promise<Object>} Current prices in USD
  */
 async getCryptoPrices() {
   try {
-    // Fetch STEEM price data from Binance API
-    // Binance uses STEEMUSDT for STEEM/USD trading pair
-    const binanceResponse = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=STEEMUSDT');
+    // Fetch STEEM and SBD price data from CoinGecko API
+    const coingeckoResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=steem,steem-dollars&vs_currencies=usd');
     
-    if (!binanceResponse.ok) {
-      throw new Error('Failed to fetch STEEM price from Binance API');
+    if (!coingeckoResponse.ok) {
+      throw new Error('Failed to fetch prices from CoinGecko API');
     }
     
-    const binanceData = await binanceResponse.json();
+    const coingeckoData = await coingeckoResponse.json();
     
-    // Extract price from Binance response
+    // Extract prices from CoinGecko response
     let steemPrice = 0;
-    let sbdPrice = 1; // SBD is a stablecoin pegged at ~1 USD
+    let sbdPrice = 1; // Default SBD price to 1 USD (as it's a stablecoin)
     
-    if (binanceData && binanceData.price) {
-      steemPrice = parseFloat(binanceData.price);
-      console.log('Current STEEM price from Binance:', steemPrice);
-    } else {
-      console.warn('Could not extract STEEM price from Binance API response', binanceData);
+    if (coingeckoData && coingeckoData.steem && coingeckoData.steem.usd) {
+      steemPrice = parseFloat(coingeckoData.steem.usd);
+      console.log('Current STEEM price from CoinGecko:', steemPrice);
+    }
+    
+    if (coingeckoData && coingeckoData['steem-dollars'] && coingeckoData['steem-dollars'].usd) {
+      sbdPrice = parseFloat(coingeckoData['steem-dollars'].usd);
+      console.log('Current SBD price from CoinGecko:', sbdPrice);
+    }
+    
+    // If CoinGecko doesn't return price data, fallback to Steemit API
+    if (steemPrice === 0) {
+      console.warn('Could not extract STEEM price from CoinGecko API response', coingeckoData);
       
-      // Fallback to Steemit API if Binance fails to return price
+      // Fallback to Steemit API
       const fallbackResponse = await fetch('https://api.steemit.com', {
         method: 'POST',
         body: JSON.stringify({
@@ -1348,7 +1355,7 @@ async getCryptoPrices() {
     };
   } catch (error) {
     console.error('Error fetching crypto prices:', error);
-    // Try fallback to Steemit API if Binance API fails
+    // Try fallback to Steemit API if CoinGecko API fails
     try {
       const fallbackResponse = await fetch('https://api.steemit.com', {
         method: 'POST',
