@@ -256,10 +256,9 @@ class ProfileService {
         }
 
         try {
-            // This would use Steem's broadcast operations via SteemConnect or similar
-            console.log(`Following user ${username}`);
-
-            // For now we'll just simulate success
+            // Usa il metodo followUser implementato in SteemService
+            const result = await steemService.followUser(currentUser.username, username);
+            
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: `You are now following @${username}`
@@ -270,7 +269,7 @@ class ProfileService {
             console.error(`Error following ${username}:`, error);
             eventEmitter.emit('notification', {
                 type: 'error',
-                message: `Failed to follow @${username}`
+                message: `Failed to follow @${username}: ${error.message}`
             });
             throw error;
         }
@@ -282,10 +281,9 @@ class ProfileService {
         }
 
         try {
-            // This would use Steem's broadcast operations via SteemConnect or similar
-            console.log(`Unfollowing user ${username}`);
-
-            // For now we'll just simulate success
+            // Usa il metodo unfollowUser implementato in SteemService
+            const result = await steemService.unfollowUser(currentUser.username, username);
+            
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: `You have unfollowed @${username}`
@@ -296,7 +294,7 @@ class ProfileService {
             console.error(`Error unfollowing ${username}:`, error);
             eventEmitter.emit('notification', {
                 type: 'error',
-                message: `Failed to unfollow @${username}`
+                message: `Failed to unfollow @${username}: ${error.message}`
             });
             throw error;
         }
@@ -308,8 +306,8 @@ class ProfileService {
         }
 
         try {
-            //TODO: Implement proper check using Steem blockchain data
-            return Math.random() > 0.5;
+            // Utilizziamo il metodo checkIfFollowing implementato nel SteemService
+            return await steemService.checkIfFollowing(currentUser.username, username);
         } catch (error) {
             console.error(`Error checking follow status for ${username}:`, error);
             return false;
