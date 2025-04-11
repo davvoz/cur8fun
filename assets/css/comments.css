@@ -343,3 +343,306 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
+
+/* NEW ELEGANT LIST VIEW STYLES */
+
+/* Main container for comments list view */
+.comments-container.comments-list-view {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Wrapper for the list of comments */
+.comments-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  width: 100%;
+}
+
+/* Individual comment item */
+.comment-list-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color-light);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.comment-list-item:hover {
+  border-color: var(--primary-color-light);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Left side with user avatar */
+.comment-avatar {
+  flex-shrink: 0;
+}
+
+.comment-avatar img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--background-subtle);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Right side with comment content */
+.comment-list-item .comment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+
+/* Comment header with author and date */
+.comment-list-item .comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color-light);
+  padding-bottom: 8px;
+}
+
+.comment-list-item .comment-author {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--primary-color);
+}
+
+.comment-list-item .comment-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Parent post reference */
+.comment-list-item .comment-parent {
+  background-color: var(--background-subtle);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.comment-list-item .parent-icon {
+  opacity: 0.7;
+}
+
+.comment-list-item .parent-title {
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Comment body text */
+.comment-list-item .comment-body {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-color);
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+/* Comment footer with actions */
+.comment-list-item .comment-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color-light);
+}
+
+.comment-list-item .comment-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.comment-list-item .comment-actions span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.comment-list-item .comment-actions i {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* Empty state */
+.empty-comments-message {
+  text-align: center;
+  padding: 40px 20px;
+  background-color: var(--background-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.empty-comments-message h3 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+/* Markdown content styling in comments */
+.comment-list-item .markdown-content {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.comment-list-item .markdown-content p {
+  margin: 0.8em 0;
+}
+
+.comment-list-item .markdown-content h1,
+.comment-list-item .markdown-content h2,
+.comment-list-item .markdown-content h3,
+.comment-list-item .markdown-content h4,
+.comment-list-item .markdown-content h5,
+.comment-list-item .markdown-content h6 {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-heading);
+}
+
+.comment-list-item .markdown-content h1 {
+  font-size: 1.5rem;
+}
+
+.comment-list-item .markdown-content h2 {
+  font-size: 1.3rem;
+}
+
+.comment-list-item .markdown-content h3 {
+  font-size: 1.1rem;
+}
+
+.comment-list-item .markdown-content h4,
+.comment-list-item .markdown-content h5,
+.comment-list-item .markdown-content h6 {
+  font-size: 1rem;
+}
+
+.comment-list-item .markdown-content ul,
+.comment-list-item .markdown-content ol {
+  padding-left: 1.5em;
+  margin: 0.8em 0;
+}
+
+.comment-list-item .markdown-content li {
+  margin-bottom: 0.3em;
+}
+
+.comment-list-item .markdown-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.8em 0;
+  border-radius: 6px;
+  display: block;
+}
+
+.comment-list-item .markdown-content a {
+  color: var(--primary-color);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--primary-color);
+}
+
+.comment-list-item .markdown-content a:hover {
+  border-bottom: 1px solid var(--primary-color);
+}
+
+.comment-list-item .markdown-content blockquote {
+  border-left: 3px solid var(--primary-color);
+  padding: 0.5em 1em;
+  margin: 1em 0;
+  background-color: rgba(var(--primary-color-rgb), 0.05);
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+}
+
+.comment-list-item .markdown-content code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  background-color: var(--surface-alt);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: var(--accent-color);
+  border: 1px solid var(--border-color);
+}
+
+.comment-list-item .markdown-content pre {
+  background-color: var(--surface-alt);
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.comment-list-item .markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border: none;
+  font-size: 0.9em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .comment-list-item {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .comment-avatar {
+    margin-right: auto;
+  }
+  
+  .comment-avatar img {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .comment-list-item .comment-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .comment-list-item .comment-date {
+    font-size: 0.8rem;
+  }
+  
+  .comment-list-item .markdown-content img {
+    max-height: 200px;
+    object-fit: contain;
+  }
+  
+  .comment-list-item .markdown-content h1 {
+    font-size: 1.3rem;
+  }
+  
+  .comment-list-item .markdown-content h2 {
+    font-size: 1.2rem;
+  }
+  
+  .comment-list-item .markdown-content h3,
+  .comment-list-item .markdown-content h4,
+  .comment-list-item .markdown-content h5,
+  .comment-list-item .markdown-content h6 {
+    font-size: 1rem;
+  }
+}

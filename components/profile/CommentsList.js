@@ -3,7 +3,6 @@ import CommentRenderer from '../comments/CommentRenderer.js';
 import CommentLoader from '../comments/CommentLoader.js';
 import CommentUIManager from '../comments/CommentUIManager.js';
 import LoadingIndicator from '../LoadingIndicator.js';
-import GridController from '../GridController.js';
 
 export default class CommentsList extends BasePostView {
   constructor(username, useCache = false) {
@@ -32,11 +31,6 @@ export default class CommentsList extends BasePostView {
     
     // IMPORTANTE: Usa un ID univoco per il container dei commenti
     this.uniqueContainerId = `comments-container-${Math.random().toString(36).substring(2, 10)}`;
-    
-    // Crea un grid controller con un target selector specifico per questa istanza
-    this.gridController = new GridController({
-      targetSelector: `#${this.uniqueContainerId} .comments-grid-content`
-    });
   }
 
   async render(container) {
@@ -56,7 +50,6 @@ export default class CommentsList extends BasePostView {
     // Struttura DOM con classi e ID univoci
     const html = `
       <div class="comments-unique-wrapper">
-        <div class="comments-own-grid-controller"></div>
         <div id="${this.uniqueContainerId}" class="comments-main-container">
           <!-- I commenti verranno inseriti qui -->
         </div>
@@ -64,12 +57,6 @@ export default class CommentsList extends BasePostView {
     `;
     
     container.innerHTML = html;
-    
-    // Renderizza il grid controller nel suo container
-    const gridControllerContainer = container.querySelector('.comments-own-grid-controller');
-    if (gridControllerContainer && this.gridController) {
-      this.gridController.render(gridControllerContainer);
-    }
     
     // Initialize UI manager
     const commentsContainer = container.querySelector(`#${this.uniqueContainerId}`);
@@ -142,9 +129,8 @@ export default class CommentsList extends BasePostView {
       // Pulisci il container
       commentsContainer.innerHTML = '';
       
-      // Ottieni il layout corrente
-      const currentLayout = this.gridController?.settings?.layout || 'grid';
-      this._uiManager.setupLayout(currentLayout, { useCardLayout: true });
+      // Setup sempre in modalità lista
+      this._uiManager.setupLayout('list');
       
       // Se non ci sono commenti, mostra messaggio
       if (!this.allComments?.length) {
@@ -152,10 +138,9 @@ export default class CommentsList extends BasePostView {
         return;
       }
       
-      // IMPORTANTE: Crea wrapper con classe che corrisponde al targetSelector
+      // Create comments wrapper
       const commentsWrapper = document.createElement('div');
-      commentsWrapper.className = 'comments-grid-content'; // Deve corrispondere al targetSelector
-      commentsWrapper.classList.add(`grid-layout-${currentLayout}`);
+      commentsWrapper.className = 'comments-list-wrapper';
       commentsContainer.appendChild(commentsWrapper);
       
       // Renderizza i commenti
@@ -163,12 +148,6 @@ export default class CommentsList extends BasePostView {
       
       // Setup infinite scroll
       this._setupInfiniteScroll(commentsWrapper);
-      
-      // IMPORTANTE: Non cambiare il target, usa sempre il targetSelector specificato nel costruttore
-      setTimeout(() => {
-        // Applica le impostazioni senza cambiare il target
-        this.gridController.applySettings();
-      }, 300);
       
     } catch (error) {
       console.error('[CommentsList] Error rendering comments:', error);
@@ -206,12 +185,6 @@ export default class CommentsList extends BasePostView {
           
           // Renderizza nuovi commenti
           this._uiManager.renderComments(newComments, commentsWrapper);
-          
-          // IMPORTANTE: Non cambiare mai il target
-          setTimeout(() => {
-            // Riapplica solo le impostazioni
-            this.gridController.applySettings();
-          }, 300);
           
           return this._loader.hasMore();
         }
@@ -260,7 +233,7 @@ export default class CommentsList extends BasePostView {
   }
 
   refreshGridLayout() {
-    console.log("[CommentsList] Refreshing grid layout");
+    console.log("[CommentsList] Refreshing comments layout");
     
     if (!this.container) return;
     
@@ -275,22 +248,10 @@ export default class CommentsList extends BasePostView {
     this._uiManager?.cleanup();
     this.loadingIndicator?.hide();
     this.infiniteScrollLoader?.hide();
-    this.gridController?.unmount();
     
     // Pulizia completa
     this.loadingIndicator = null;
     this.infiniteScrollLoader = null;
     this._uiManager = null;
-  }
-
-  forceLayoutRefresh() {
-    if (!this.gridController || !this.container) return;
-    
-    console.log('[CommentsList] Forcing layout refresh');
-    
-    // Riapplica le impostazioni senza cambiare target
-    setTimeout(() => {
-      this.gridController.applySettings();
-    }, 300);
   }
 }

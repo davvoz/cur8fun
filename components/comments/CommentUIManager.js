@@ -1,5 +1,6 @@
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
 import LoadingIndicator from '../../components/LoadingIndicator.js';
+import ContentRenderer from '../ContentRenderer.js';
 
 export default class CommentUIManager {
   constructor(container, renderer) {
@@ -7,6 +8,15 @@ export default class CommentUIManager {
     this.renderer = renderer;
     this.infiniteScroll = null;
     this.loadingIndicator = null;
+    
+    // Inizializza ContentRenderer per il rendering markdown
+    this.contentRenderer = new ContentRenderer({
+      containerClass: 'comment-content-body',
+      imageClass: 'comment-image',
+      maxImageWidth: 600, 
+      useSteemContentRenderer: true,
+      enableYouTube: true
+    });
   }
 
   showLoadingState() {
@@ -60,25 +70,21 @@ export default class CommentUIManager {
   setupLayout(layout, options = {}) {
     if (!this.container) return;
     
-    console.log(`[CommentUIManager] Setting up layout: ${layout}, useCardLayout: ${options.useCardLayout}`);
+    // Always use list layout
+    console.log(`[CommentUIManager] Setting up elegant list layout`);
     
     this.container.innerHTML = '';
-    this.container.className = `comments-container grid-layout-${layout}`;
+    this.container.className = 'comments-container comments-list-view';
     
-    // Add additional classes for card layout if specified
-    if (options.useCardLayout) {
-      this.container.classList.add('card-layout');
-      console.log(`[CommentUIManager] Added card-layout class`);
-    }
+    // No need for card layout class anymore
   }
 
   createCommentsWrapper(layout) {
     const wrapper = document.createElement('div');
-    wrapper.className = 'comments-cards-wrapper';
-    wrapper.classList.add(`layout-${layout}`);
+    wrapper.className = 'comments-list-wrapper';
     this.container.appendChild(wrapper);
     
-    console.log(`[CommentUIManager] Created comments wrapper with layout: ${layout}`);
+    console.log(`[CommentUIManager] Created comments list wrapper`);
     
     return wrapper;
   }
@@ -89,80 +95,103 @@ export default class CommentUIManager {
       return;
     }
     
+    // Clear any existing class
+    container.className = 'comments-list-wrapper';
     
     comments.forEach((comment, index) => {
-      
-      
-      // Create a post-like card for the comment
-      const commentCard = this._createPostLikeCommentCard(comment);
-      container.appendChild(commentCard);
+      // Create a list-style comment item
+      const commentItem = this._createListStyleComment(comment);
+      container.appendChild(commentItem);
     });
-    
   }
 
-  _createPostLikeCommentCard(comment) {
-    // Create a card similar to post cards
-    const card = document.createElement('div');
-    card.className = 'post-card comment-card';
-    card.dataset.commentId = `${comment.author}_${comment.permlink}`;
-    
-    // Get the first image if any, for thumbnail
-    const imageUrl = this._getFirstImageFromContent(comment.body);
+  _createListStyleComment(comment) {
+    // Create elegant list-style comment
+    const item = document.createElement('div');
+    item.className = 'comment-list-item';
+    item.dataset.commentId = `${comment.author}_${comment.permlink}`;
     
     // Format the date
     const date = new Date(comment.created);
     const formattedDate = date.toLocaleDateString('en-US', {
       year: 'numeric', 
       month: 'short', 
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
     
-    // Extract a preview of the comment text (first 150 characters)
-    const textPreview = this._stripMarkdown(comment.body).substring(0, 150) + '...';
+    // Create the parent post info text
+    const parentInfo = comment.root_title ? 
+      `<div class="comment-parent">
+        <span class="parent-icon"><i class="fa fa-reply-all"></i></span>
+        <span class="parent-title">Re: ${comment.root_title}</span>
+      </div>` : '';
     
-    // Create the card HTML structure similar to post cards
-    let cardHTML = `
-      <div class="card-header">
-        <div class="author-info">
-          <img src="https://steemitimages.com/u/${comment.author}/avatar/small" class="avatar" alt="${comment.author}" />
-          <div class="author-details">
-            <div class="author-name">@${comment.author}</div>
-            <span class="date">${formattedDate}</span>
-          </div>
-        </div>
-      </div>`;
-      
-    // Only add thumbnail section if an image was found
-    if (imageUrl) {
-      cardHTML += `<div class="card-thumbnail" style="background-image: url('${imageUrl}')"></div>`;
-    }
-    
-    cardHTML += `
-      <div class="card-content">
-        <h3 class="comment-title">Comment on: ${comment.root_title || 'a post'}</h3>
-        <p class="comment-text">${textPreview}</p>
+    // Create avatar and header structure
+    item.innerHTML = `
+      <div class="comment-avatar">
+        <img src="https://steemitimages.com/u/${comment.author}/avatar/small" alt="${comment.author}" />
       </div>
-      <div class="card-footer">
-        <div class="engagement">
-          <span class="votes">
-            <i class="fa fa-thumbs-up"></i> ${comment.active_votes.length || 0}
-          </span>
-          <span class="replies">
-            <i class="fa fa-comment"></i> ${comment.children || 0}
-          </span>
-          <span class="payout">
-            <i class="fa fa-dollar-sign"></i> ${comment.pending_payout_value || '$0.00'}
-          </span>
+      <div class="comment-content">
+        <div class="comment-header">
+          <div class="comment-author">@${comment.author}</div>
+          <div class="comment-date">${formattedDate}</div>
+        </div>
+        ${parentInfo}
+        <div class="comment-body markdown-content">
+          <!-- Il contenuto markdown sarà inserito qui -->
+        </div>
+        <div class="comment-footer">
+          <div class="comment-actions">
+            <span class="comment-votes">
+              <i class="fa fa-arrow-up"></i> ${comment.active_votes.length || 0}
+            </span>
+            <span class="comment-replies">
+              <i class="fa fa-comment"></i> ${comment.children || 0}
+            </span>
+            <span class="comment-value">
+              <i class="fa fa-dollar-sign"></i> ${comment.pending_payout_value || '$0.00'}
+            </span>
+          </div>
         </div>
       </div>
     `;
     
-    card.innerHTML = cardHTML;
+    // Renderizza il markdown utilizzando ContentRenderer
+    try {
+      const commentBody = item.querySelector('.comment-body');
+      if (commentBody) {
+        const renderedContent = this.contentRenderer.render({
+          body: comment.body || ''
+        });
+        
+        if (renderedContent && renderedContent.container) {
+          // Svuota il div del commento prima di aggiungere il contenuto renderizzato
+          while (commentBody.firstChild) {
+            commentBody.removeChild(commentBody.firstChild);
+          }
+          
+          // Aggiungi il contenuto renderizzato
+          commentBody.appendChild(renderedContent.container);
+        } else {
+          // Fallback in caso di errore di rendering
+          commentBody.textContent = this._stripMarkdown(comment.body);
+        }
+      }
+    } catch (error) {
+      console.error('Error rendering markdown content:', error);
+      // Fallback a testo normale in caso di errore
+      const commentBody = item.querySelector('.comment-body');
+      if (commentBody) {
+        commentBody.textContent = this._stripMarkdown(comment.body);
+      }
+    }
     
-    // Add click event to the card
-    card.addEventListener('click', (e) => {
+    // Add click event to the item
+    item.addEventListener('click', (e) => {
       // Don't navigate if clicking on author link
-      if (e.target.closest('.author-name')) return;
+      if (e.target.closest('.comment-author')) return;
       
       // Get the base URL (everything before the hash) to preserve deployment path
       const baseUrl = window.location.href.split('#')[0];
@@ -170,7 +199,7 @@ export default class CommentUIManager {
       window.location.href = `${baseUrl}#/@${comment.author}/${comment.permlink}`;
     });
     
-    return card;
+    return item;
   }
 
   _getFirstImageFromContent(markdown) {
@@ -191,7 +220,9 @@ export default class CommentUIManager {
       .replace(/~~(.*?)~~/g, '$1') // Remove strikethrough
       .replace(/```[\s\S]*?```/g, '') // Remove code blocks
       .replace(/`([^`]+)`/g, '$1') // Remove inline code
-      .replace(/\n/g, ' '); // Replace newlines with spaces
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .trim()
+      .substring(0, 280) + (markdown.length > 280 ? '...' : ''); // Limit length and add ellipsis if needed
   }
 
   setupInfiniteScroll(loadMoreFn, wrapper, initialPage = 1) {
@@ -201,7 +232,7 @@ export default class CommentUIManager {
 
     console.log(`Initializing InfiniteScroll with page ${initialPage}`);
     
-    // Creiamo una funzione wrapper che chiama loadMoreFn e ritorna il risultato
+    // Create a wrapper function that calls loadMoreFn and returns the result
     const loadMoreCallback = async (page) => {
       console.log(`InfiniteScroll calling loadMore for page ${page}`);
       return await loadMoreFn(page);
@@ -212,9 +243,9 @@ export default class CommentUIManager {
       loadMore: loadMoreCallback,
       threshold: '200px',
       initialPage: initialPage,
-      loadingMessage: 'Caricamento altri commenti...',
-      endMessage: 'Nessun altro commento da caricare',
-      errorMessage: 'Errore nel caricamento dei commenti. Riprova.'
+      loadingMessage: 'Loading more comments...',
+      endMessage: 'No more comments to load',
+      errorMessage: 'Error loading comments. Please try again.'
     });
   }
 
