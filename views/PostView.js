@@ -584,6 +584,7 @@ class PostView extends View {
   updateWithNewComment(commentResult) {
     if (!commentResult || !commentResult.success) return;
 
+    // Create a new comment object with the necessary properties
     const newComment = {
       author: commentResult.author,
       permlink: commentResult.permlink,
@@ -592,23 +593,27 @@ class PostView extends View {
       body: commentResult.body || 'New comment',
       created: new Date().toISOString(),
       net_votes: 0,
+      active_votes: [],
       children: [],
       isNew: true  // Add this flag to highlight new comments
     };
 
+    // Add to our local comments array
     if (!this.comments) this.comments = [];
     this.comments.push(newComment);
 
-    // Instead of just updating the comments array, reload all comments
-    // to ensure the tree structure is properly rebuilt
+    // Instead of reloading the entire post, just update the comments section
     if (this.commentsSectionComponent) {
-      // Option 1: Refresh the entire post (more reliable but heavier)
-      this.loadPost();
-      
-      // Option 2: Just update the component with new comments array
-      // this.commentsSectionComponent.updateComments(this.comments);
+      // Use the new addNewComment method we just added to CommentsSection
+      if (typeof this.commentsSectionComponent.addNewComment === 'function') {
+        this.commentsSectionComponent.addNewComment(commentResult);
+      } else {
+        // Fallback to updating all comments (less optimal but better than full page reload)
+        this.commentsSectionComponent.updateComments(this.comments);
+      }
     }
 
+    // Update the comment count in the UI
     this.updateCommentCount();
   }
 

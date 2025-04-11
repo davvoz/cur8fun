@@ -95,17 +95,15 @@ export default class CommentController {
     this.handleNewComment();
   }
   
+  /**
+   * Handle the submission of a new comment on a post
+   * @returns {Promise<void>}
+   */
   async handleNewComment() {
     console.log('Handling new comment submission');
     
-    // Find the comment form with more robust selectors
-    const commentForm = this.view.element.querySelector('.comment-form') || 
-                        this.view.element.querySelector('form[class*="comment"]');
-    
-    if (!commentForm) {
-      console.error('Comment form not found');
-      return;
-    }
+    const commentForm = this.findCommentForm();
+    if (!commentForm) return;
     
     const textarea = commentForm.querySelector('textarea');
     if (!textarea) {
@@ -116,33 +114,82 @@ export default class CommentController {
     const commentText = textarea.value.trim();
     console.log('Comment text:', commentText ? 'Found' : 'Empty');
 
-    // Validate comment
-    if (!this.validateComment(commentText, textarea)) return;
+    // Validate comment and check login
+    if (!this.validateComment(commentText, textarea) || !this.checkLoggedIn()) {
+      return;
+    }
 
-    // Check login
-    if (!this.checkLoggedIn()) return;
+    const submitButton = this.findSubmitButton(commentForm);
+    if (!submitButton) return;
+    
+    const postInfo = this.getPostInformation(commentForm);
+    if (!postInfo.isValid) {
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Error: Cannot identify the post to comment on'
+      });
+      return;
+    }
+    
+    console.log('Commenting on post by:', postInfo.author, 'with permlink:', postInfo.permlink);
+    
+    // Set loading state
+    const originalText = submitButton.textContent;
+    this.setSubmitState(submitButton, textarea, true);
 
-    // Find submit button (more robust selector)
+    try {
+      await this.submitNewComment(postInfo, commentText, submitButton, textarea, originalText);
+    } catch (error) {
+      this.handleCommentError(error, submitButton, textarea, originalText);
+    }
+  }
+  
+  /**
+   * Find the comment form in the DOM
+   * @returns {HTMLElement|null} The comment form element or null if not found
+   */
+  findCommentForm() {
+    const commentForm = this.view.element.querySelector('.comment-form') || 
+                       this.view.element.querySelector('form[class*="comment"]');
+    
+    if (!commentForm) {
+      console.error('Comment form not found');
+    }
+    return commentForm;
+  }
+  
+  /**
+   * Find the submit button for the comment form
+   * @param {HTMLElement} commentForm - The comment form element
+   * @returns {HTMLElement|null} The submit button or null if not found
+   */
+  findSubmitButton(commentForm) {
     const submitButton = commentForm.querySelector('.submit-comment') || 
                         commentForm.querySelector('button[type="submit"]');
                         
     if (!submitButton) {
       console.error('Submit button not found');
-      return;
     }
-    
-    // Try multiple approaches to find post information
-    let postAuthor, postPermlink;
+    return submitButton;
+  }
+  
+  /**
+   * Get post author and permlink information
+   * @param {HTMLElement} commentForm - The comment form element
+   * @returns {Object} Object containing author, permlink and isValid flag
+   */
+  getPostInformation(commentForm) {
+    let postAuthor;
+    let postPermlink;
     
     // Method 1: From view.post object
-    if (this.view.post && this.view.post.author && this.view.post.permlink) {
+    if (this.view.post?.author && this.view.post?.permlink) {
       console.log('Found post info from view.post');
       postAuthor = this.view.post.author;
       postPermlink = this.view.post.permlink;
     } 
     // Method 2: From data attributes on page elements
-    else {
-      // Try to find post info from meta tags or data attributes
+    else if (!postAuthor || !postPermlink) {
       const postContainer = this.view.element.querySelector('[data-author][data-permlink]') || 
                            document.querySelector('[data-author][data-permlink]');
       
@@ -151,16 +198,17 @@ export default class CommentController {
         postAuthor = postContainer.dataset.author;
         postPermlink = postContainer.dataset.permlink;
       }
-      // Method 3: From URL path if following /@author/permlink pattern
-      else {
-        const urlPath = window.location.pathname;
-        const match = urlPath.match(/\/@([a-zA-Z0-9\-.]+)\/([a-zA-Z0-9\-]+)/);
-        
-        if (match && match.length >= 3) {
-          console.log('Found post info from URL');
-          postAuthor = match[1];
-          postPermlink = match[2];
-        }
+    }
+    
+    // Method 3: From URL path if following /@author/permlink pattern
+    if (!postAuthor || !postPermlink) {
+      const urlPath = window.location.pathname;
+      const match = urlPath.match(/\/@([a-zA-Z0-9\-.]+)\/([a-zA-Z0-9\-]+)/);
+      
+      if (match && match.length >= 3) {
+        console.log('Found post info from URL');
+        postAuthor = match[1];
+        postPermlink = match[2];
       }
     }
     
@@ -176,73 +224,130 @@ export default class CommentController {
       }
     }
     
-    // Final check if we found the post information
-    if (!postAuthor || !postPermlink) {
-      console.error('Missing post information. Author:', postAuthor, 'Permlink:', postPermlink);
-      this.view.emit('notification', {
-        type: 'error',
-        message: 'Error: Cannot identify the post to comment on'
-      });
+    return {
+      author: postAuthor,
+      permlink: postPermlink,
+      isValid: Boolean(postAuthor && postPermlink)
+    };
+  }
+  
+  /**
+   * Submit a new comment to the blockchain
+   * @param {Object} postInfo - Contains author and permlink of the parent post
+   * @param {string} commentText - The comment text
+   * @param {HTMLElement} submitButton - The submit button element
+   * @param {HTMLElement} textarea - The textarea element
+   * @param {string} originalText - Original button text
+   * @returns {Promise<void>}
+   */
+  async submitNewComment(postInfo, commentText, submitButton, textarea, originalText) {
+    const result = await commentService.createComment({
+      parentAuthor: postInfo.author,
+      parentPermlink: postInfo.permlink,
+      body: commentText,
+      metadata: {
+        app: 'cur8.fun/1.0',
+        format: 'markdown',
+        tags: this.extractTags(commentText)
+      }
+    });
+
+    // Success notification
+    this.view.emit('notification', {
+      type: 'success',
+      message: 'Your comment was posted successfully'
+    });
+
+    // Success UI state
+    this.setSuccessState(submitButton);
+
+    // Reset and update UI
+    setTimeout(() => {
+      textarea.value = '';
+      this.setSubmitState(submitButton, textarea, false, originalText);
+      submitButton.classList.remove('success');
+
+      // Add the new comment to the UI without refreshing the entire page
+      this.addNewCommentToUI(result);
+    }, 1000);
+  }
+
+  /**
+   * Adds a newly created comment to the UI without refreshing the page
+   * @param {Object} commentResult - The result from createComment API call
+   */
+  addNewCommentToUI(commentResult) {
+    if (!commentResult || !commentResult.success) {
+      console.error('Invalid comment result:', commentResult);
       return;
     }
-    
-    console.log('Commenting on post by:', postAuthor, 'with permlink:', postPermlink);
-    
-    // Set loading state
-    const originalText = submitButton.textContent;
-    this.setSubmitState(submitButton, textarea, true);
 
     try {
-      // Submit comment
-      const result = await commentService.createComment({
-        parentAuthor: postAuthor,
-        parentPermlink: postPermlink,
-        body: commentText,
-        metadata: {
-          app: 'cur8.fun/1.0',
-          format: 'markdown',
-          tags: this.extractTags(commentText)
-        }
-      });
-
-      // Success notification
-      this.view.emit('notification', {
-        type: 'success',
-        message: 'Your comment was posted successfully'
-      });
-
-      // Success UI state
-      this.setSuccessState(submitButton);
-
-      // Reset and update UI
-      setTimeout(() => {
-        textarea.value = '';
-        this.setSubmitState(submitButton, textarea, false, originalText);
-        submitButton.classList.remove('success');
-
-        // Add the new comment to the UI
-        this.view.updateWithNewComment(result);
-      }, 1000);
-    } catch (error) {
-      console.error('Error posting comment:', error);
+      console.log('Adding new comment to UI:', commentResult);
       
-      // Fix the error handling for RC errors
-      const errorMessage = this.getErrorMessage(error);
-      
-      if (error.message && error.message.includes('RC')) {
-        // Show a more prominent error dialog for RC errors
-        this.showRCErrorDialog(errorMessage);
-      } else {
-        // Regular notification for other errors
-        this.view.emit('notification', {
-          type: 'error',
-          message: errorMessage
-        });
+      // Aggiorna il modello dati nel view
+      if (this.view.comments) {
+        // Create a new comment object
+        const newComment = {
+          author: commentResult.author,
+          permlink: commentResult.permlink,
+          parent_author: this.view.post?.author || '',
+          parent_permlink: this.view.post?.permlink || '',
+          body: commentResult.body || 'New comment',
+          created: new Date().toISOString(),
+          net_votes: 0,
+          active_votes: [],
+          children: [],
+          isNew: true
+        };
+        
+        // Add to view's comments array
+        this.view.comments.push(newComment);
       }
-
-      // Reset UI
-      this.setSubmitState(submitButton, textarea, false, originalText);
+      
+      // Usa solo il metodo diretto del componente CommentsSection (quando disponibile)
+      if (this.view.commentsSectionComponent && typeof this.view.commentsSectionComponent.addNewComment === 'function') {
+        this.view.commentsSectionComponent.addNewComment(commentResult);
+      } else {
+        // Fallback al metodo updateWithNewComment della view
+        this.view.updateWithNewComment(commentResult);
+      }
+      
+      // Aggiorna il contatore dei commenti nella UI (se disponibile)
+      if (typeof this.view.updateCommentCount === 'function') {
+        this.view.updateCommentCount();
+      }
+    } catch (error) {
+      console.error('Error adding new comment to UI:', error);
     }
+  }
+  
+  /**
+   * Handle errors during comment submission
+   * @param {Error} error - The error object
+   * @param {HTMLElement} submitButton - The submit button element
+   * @param {HTMLElement} textarea - The textarea element
+   * @param {string} originalText - Original button text
+   */
+  handleCommentError(error, submitButton, textarea, originalText) {
+    console.error('Error posting comment:', error);
+    
+    // Get appropriate error message
+    const errorMessage = this.getErrorMessage(error);
+    
+    if (error.message?.includes('RC')) {
+      // Show a more prominent error dialog for RC errors
+      this.showRCErrorDialog(errorMessage);
+    } else {
+      // Regular notification for other errors
+      this.view.emit('notification', {
+        type: 'error',
+        message: errorMessage
+      });
+    }
+
+    // Reset UI
+    this.setSubmitState(submitButton, textarea, false, originalText);
   }
   
   async handleReply(parentComment, replyText) {
@@ -360,84 +465,18 @@ export default class CommentController {
       // Hide form
       replyForm.style.display = 'none';
       
-      // Create a loading indicator and show it properly
-      const commentsSection = this.view.element.querySelector('.comments-section');
-      const loadingIndicator = new LoadingIndicator('progressBar');
+      // Update the UI without refreshing the page
+      this.addNewReplyToUI(result, commentElement, parentComment);
       
-      if (commentsSection) {
-        // Simply append the loading indicator to the comments section
-        // This avoids the insertBefore error
-        commentsSection.appendChild(loadingIndicator.element);
-        loadingIndicator.updateProgress(20);
-        loadingIndicator.show(commentsSection, 'Processing your reply...');
-      }
-
-      // Store the new reply's author/permlink for highlighting later
-      const newReplyData = {
-        author: result.author,
-        permlink: result.permlink
-      };
-      
-      // Wait longer for the blockchain to process the reply
-      console.log('Waiting for blockchain to process reply...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      try {
-        loadingIndicator.updateProgress(50);
-        
-        // Force cache refresh by adding timestamp to API calls
-        await steemService.clearCache();
-        
-        loadingIndicator.updateProgress(70);
-        console.log('Reloading post with fresh data...');
-        
-        // Reload post with fresh data
-        await this.view.loadPost();
-        
-        loadingIndicator.updateProgress(100);
-        
-        // After reload, find and highlight the new comment
-        setTimeout(() => {
-          try {
-            console.log('Locating new reply in DOM:', newReplyData);
-            const newReplyElement = this.view.element.querySelector(
-              `[data-author="${newReplyData.author}"][data-permlink="${newReplyData.permlink}"]`
-            );
-            
-            if (newReplyElement) {
-              console.log('Found new reply, highlighting and scrolling');
-              // Add highlight class
-              newReplyElement.classList.add('highlight-new-reply');
-              
-              // Scroll the element into view
-              newReplyElement.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center' 
-              });
-            } else {
-              console.warn('New reply element not found in DOM after reload');
-            }
-          } catch (highlightError) {
-            console.error('Error highlighting new reply:', highlightError);
-          } finally {
-            // Hide the loading indicator
-            loadingIndicator.hide();
-          }
-        }, 500);
-        
-      } catch (reloadError) {
-        console.error('Error reloading post after reply:', reloadError);
-        loadingIndicator.hide();
-        
-        this.view.emit('notification', {
-          type: 'warning',
-          message: 'Reply was posted but there was an error updating the display'
-        });
-      }
+      // Reset the button state after a delay
+      setTimeout(() => {
+        this.setSubmitState(submitButton, textarea, false, originalText);
+        submitButton.classList.remove('success');
+      }, 1000);
     } catch (error) {
       console.error('Error posting reply:', error);
 
-      // Fix the error handling for RC errors
+      // Get appropriate error message
       const errorMessage = this.getErrorMessage(error);
       
       if (error.message && error.message.includes('RC')) {
@@ -453,6 +492,123 @@ export default class CommentController {
 
       // Reset UI
       this.setSubmitState(submitButton, textarea, false, originalText);
+    }
+  }
+
+  /**
+   * Adds a new reply to the UI without refreshing the page
+   * @param {Object} result - The result from createComment API call
+   * @param {HTMLElement} commentElement - The parent comment element
+   * @param {Object} parentComment - The parent comment data
+   */
+  addNewReplyToUI(result, commentElement, parentComment) {
+    try {
+      console.log('Adding new reply to UI:', result);
+      
+      // Check if there's already a replies container
+      let repliesContainer = commentElement.querySelector('.replies');
+      let repliesWrapper;
+      
+      if (repliesContainer) {
+        // Use existing replies wrapper
+        repliesWrapper = repliesContainer.querySelector('.replies-wrapper');
+        
+        // If replies-wrapper doesn't exist, create it
+        if (!repliesWrapper) {
+          repliesWrapper = document.createElement('div');
+          repliesWrapper.className = 'replies-wrapper';
+          
+          const threadLine = document.createElement('div');
+          threadLine.className = 'thread-line';
+          threadLine.setAttribute('aria-hidden', 'true');
+          
+          repliesContainer.appendChild(threadLine);
+          repliesContainer.appendChild(repliesWrapper);
+        }
+      } else {
+        // Create new replies container
+        repliesContainer = document.createElement('div');
+        repliesContainer.className = 'replies';
+        
+        const threadLine = document.createElement('div');
+        threadLine.className = 'thread-line';
+        threadLine.setAttribute('aria-hidden', 'true');
+        
+        repliesWrapper = document.createElement('div');
+        repliesWrapper.className = 'replies-wrapper';
+        
+        repliesContainer.appendChild(threadLine);
+        repliesContainer.appendChild(repliesWrapper);
+        commentElement.appendChild(repliesContainer);
+      }
+      
+      // Construct a new comment object
+      const newReply = {
+        author: result.author,
+        permlink: result.permlink,
+        parent_author: parentComment.author,
+        parent_permlink: parentComment.permlink,
+        body: result.body,
+        created: new Date().toISOString(),
+        net_votes: 0,
+        active_votes: [],
+        children: [],
+        depth: (parentComment.depth || 0) + 1,
+        isNew: true // Mark as new for highlighting
+      };
+      
+      // Use CommentSection to create a new comment element
+      if (this.view.commentsSectionComponent) {
+        const replyElement = this.view.commentsSectionComponent.createCommentElement(newReply);
+        repliesWrapper.appendChild(replyElement);
+        
+        // Update the replies count badge if it exists
+        const replyCountBadge = commentElement.querySelector('.replies-count');
+        if (replyCountBadge) {
+          const currentCount = parseInt(replyCountBadge.textContent) || 0;
+          const newCount = currentCount + 1;
+          replyCountBadge.textContent = `${newCount} ${newCount === 1 ? 'reply' : 'replies'}`;
+        } else {
+          // Create a new reply count badge if it doesn't exist
+          const authorContainer = commentElement.querySelector('.author-container');
+          if (authorContainer && !authorContainer.querySelector('.replies-count')) {
+            const replyCountBadge = document.createElement('span');
+            replyCountBadge.className = 'replies-count';
+            replyCountBadge.textContent = '1 reply';
+            authorContainer.appendChild(replyCountBadge);
+          }
+        }
+        
+        // Also update the parent comment object's children array
+        if (parentComment.children) {
+          parentComment.children.push(newReply);
+        } else {
+          parentComment.children = [newReply];
+        }
+      }
+      
+      // Also update the view's comments array if it exists
+      if (this.view.comments) {
+        this.view.comments.push(newReply);
+      }
+      
+      // Also update comment count in PostView if applicable
+      if (typeof this.view.updateCommentCount === 'function') {
+        this.view.updateCommentCount();
+      }
+    } catch (error) {
+      console.error('Error adding new reply to UI:', error);
+      
+      // Fallback method: simply reload the comments after a short delay
+      setTimeout(() => {
+        if (this.view.commentsSectionComponent && typeof this.view.commentsSectionComponent.quickRefreshReplies === 'function') {
+          this.view.commentsSectionComponent.quickRefreshReplies()
+            .then(() => {
+              this.view.commentsSectionComponent.renderComments();
+            })
+            .catch(err => console.error('Failed to refresh comments:', err));
+        }
+      }, 1500);
     }
   }
   

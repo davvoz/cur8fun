@@ -831,16 +831,90 @@ class CommentsSection {
       console.error('Error refreshing replies:', error);
     }
   }
-
-  unmount() {
-    // Close any open reply forms and clean up event listeners
-    if (this.activeReplyForm) {
-      this.closeReplyForm(this.activeReplyForm);
+  
+  /**
+   * Add a new comment to the UI without refreshing the entire page
+   * @param {Object} commentResult - The result from comment creation
+   */
+  addNewComment(commentResult) {
+    if (!commentResult || !commentResult.success) {
+      console.error('Invalid comment result:', commentResult);
+      return;
     }
     
-    // Clean up event listeners if necessary
-    this.element = null;
+    try {
+      console.log('Adding new comment directly to UI:', commentResult);
+      
+      // Create a new comment object with the necessary properties
+      const newComment = {
+        author: commentResult.author,
+        permlink: commentResult.permlink,
+        parent_author: this.parentPost?.author || '',
+        parent_permlink: this.parentPost?.permlink || '',
+        body: commentResult.body,
+        created: new Date().toISOString(),
+        net_votes: 0,
+        active_votes: [],
+        children: [],
+        depth: 0, // top-level comment
+        isNew: true // Mark as new for highlighting
+      };
+      
+      // Add to comments array
+      if (!this.comments) this.comments = [];
+      this.comments.push(newComment);
+      
+      // Create a proper comment element
+      const commentElement = this.createCommentElement(newComment);
+      
+      // Update the comments list container
+      if (this.commentsListContainer) {
+        // Append the new comment to the comments list
+        this.commentsListContainer.appendChild(commentElement);
+        
+        // Update the comment count in the header
+        const commentsHeader = this.element?.querySelector('h3');
+        if (commentsHeader) {
+          commentsHeader.textContent = `Comments (${this.comments.length})`;
+        }
+        
+        // Scroll to the new comment
+        setTimeout(() => {
+          commentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error adding new comment to UI:', error);
+      
+      // Fallback method: do a full refresh of comments
+      this.quickRefreshReplies().then(() => {
+        this.renderComments();
+      }).catch(err => {
+        console.error('Failed to refresh comments:', err);
+      });
+    }
+  }
+
+  unmount() {
+    // Close any open reply forms
+    if (this.activeReplyForm) {
+      try {
+        this.closeReplyForm(this.activeReplyForm, this.activeReplyBtn);
+      } catch (e) {
+        console.warn('Error closing active reply form:', e);
+      }
+    }
+    
+    // Remove all references to avoid memory leaks
+    this.comments = null;
+    this.parentPost = null;
+    this.handleReplyCallback = null;
+    this.handleVoteCallback = null;
+    this.contentRenderer = null;
     this.commentsListContainer = null;
+    this.element = null;
+    this.activeReplyForm = null;
+    this.activeReplyBtn = null;
   }
 
   // Add a diagnostic method to help troubleshoot
