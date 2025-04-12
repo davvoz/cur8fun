@@ -95,13 +95,11 @@ export default class MarkdownEditor extends Component {
     this.registerEventHandler(this.textarea, 'input', this.handleInput);
     editorContainer.appendChild(this.textarea);
     
-    // Disabilita menu contestuale su mobile ma mantiene selezione
+    // Permettiamo il menu contestuale per operazioni copia/incolla su mobile
+    // ma forniamo anche la nostra toolbar di formattazione
     this.textarea.addEventListener('contextmenu', (e) => {
-      // Verifica se è un dispositivo mobile
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        e.preventDefault();
-        return false;
-      }
+      // Non blocchiamo più il comportamento predefinito su mobile
+      // per permettere copia/incolla
     });
     
     // Gestione migliorata del tocco su mobile
