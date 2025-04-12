@@ -95,13 +95,11 @@ export default class MarkdownEditor extends Component {
     this.registerEventHandler(this.textarea, 'input', this.handleInput);
     editorContainer.appendChild(this.textarea);
     
-    // Disabilita menu contestuale su mobile ma mantiene selezione
+    // Permettiamo il menu contestuale per operazioni copia/incolla su mobile
+    // ma forniamo anche la nostra toolbar di formattazione
     this.textarea.addEventListener('contextmenu', (e) => {
-      // Verifica se è un dispositivo mobile
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        e.preventDefault();
-        return false;
-      }
+      // Non blocchiamo più il comportamento predefinito su mobile
+      // per permettere copia/incolla
     });
     
     // Gestione migliorata del tocco su mobile
@@ -458,9 +456,9 @@ export default class MarkdownEditor extends Component {
     // Calcola la posizione migliore per la toolbar
     const rect = this.textarea.getBoundingClientRect();
     
-    // In mobile potrebbe non esserci una selection range precisa,
-    // quindi posizionare sopra l'area di testo è più affidabile
-    let top = rect.top - 50; // Posiziona la toolbar sopra la textarea
+    // Modificato: In mobile posizionare SOTTO l'area di testo selezionata
+    // invece che sopra per una migliore usabilità
+    let top = rect.top + 50; // Posiziona la toolbar SOTTO la textarea
     let left = rect.left + (rect.width / 2) - 75; // Centra orizzontalmente
     
     try {
@@ -471,7 +469,8 @@ export default class MarkdownEditor extends Component {
         const selectionRect = range.getBoundingClientRect();
         
         if (selectionRect && selectionRect.top) {
-          top = selectionRect.top - 45;
+          // Posiziona SOTTO il testo selezionato invece che sopra
+          top = selectionRect.bottom + 10;
           left = selectionRect.left;
         }
       }
@@ -480,7 +479,7 @@ export default class MarkdownEditor extends Component {
     }
     
     // Assicura che la toolbar rimanga all'interno della viewport
-    top = Math.max(10, top); // Non posizionarla troppo in alto
+    top = Math.max(10, Math.min(top, window.innerHeight - 60)); // Limita verticalmente
     left = Math.max(10, Math.min(left, window.innerWidth - 150)); // Limita orizzontalmente
     
     toolbar.style.position = 'fixed'; // Use fixed position for better mobile support
