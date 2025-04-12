@@ -156,8 +156,9 @@ class VotesPopup {
   }
   
   calculateTotalVotingPower() {
+    // Change to calculate total rshares instead of percent
     return this.post.active_votes.reduce((sum, vote) => {
-      return sum + Math.abs(vote.percent);
+      return sum + parseFloat(vote.rshares || 0);
     }, 0);
   }
   
@@ -168,8 +169,9 @@ class VotesPopup {
       margin: '0'
     });
     
+    // Sort votes by rshares (voting power) rather than percent
     const sortedVotes = [...this.post.active_votes].sort((a, b) => 
-      Math.abs(b.percent) - Math.abs(a.percent)
+      parseFloat(b.rshares || 0) - parseFloat(a.rshares || 0)
     );
     
     sortedVotes.forEach(vote => {
@@ -193,7 +195,7 @@ class VotesPopup {
     });
     
     const percentage = (vote.percent / 100).toFixed(2);
-    const voteValue = this.calculateVoteValue(vote.percent, totalVotingPower, totalPayoutValue);
+    const voteValue = this.calculateVoteValue(vote.rshares, totalVotingPower, totalPayoutValue);
     const formattedValue = voteValue.toFixed(3);
     
     const voterWrapper = this.createVoterWrapper(vote.voter);
@@ -369,11 +371,12 @@ class VotesPopup {
     return summaryItem;
   }
   
-  calculateVoteValue(votePercent, totalVotingPower, totalPayoutValue) {
-    if (totalVotingPower <= 0) {
+  calculateVoteValue(rshares, totalRshares, totalPayoutValue) {
+    if (totalRshares <= 0) {
       return 0;
     }
-    return (Math.abs(votePercent) / totalVotingPower) * totalPayoutValue;
+    // Calculate vote value based on the proportion of rshares to total rshares
+    return (parseFloat(rshares) / totalRshares) * parseFloat(totalPayoutValue);
   }
   
   addHoverEffect(element) {
