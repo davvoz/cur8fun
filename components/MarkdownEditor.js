@@ -27,6 +27,7 @@ export default class MarkdownEditor extends Component {
     this.handleToolbarAction = this.handleToolbarAction.bind(this);
     this.togglePreview = this.togglePreview.bind(this);
     this.updatePreview = this.updatePreview.bind(this);
+    this.showContextMenu = this.showContextMenu.bind(this);
   }
   
   render() {
@@ -95,11 +96,17 @@ export default class MarkdownEditor extends Component {
     this.registerEventHandler(this.textarea, 'input', this.handleInput);
     editorContainer.appendChild(this.textarea);
     
-    // Permettiamo il menu contestuale per operazioni copia/incolla su mobile
-    // ma forniamo anche la nostra toolbar di formattazione
+    // Gestione del menu contestuale personalizzato
     this.textarea.addEventListener('contextmenu', (e) => {
-      // Non blocchiamo più il comportamento predefinito su mobile
-      // per permettere copia/incolla
+      // Su desktop, lasciamo il menu nativo per semplificare l'uso
+      if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        return;
+      }
+
+      // Su mobile, mostriamo il nostro menu personalizzato
+      e.preventDefault();
+      this.showContextMenu(e);
+      return false;
     });
     
     // Gestione migliorata del tocco su mobile
@@ -128,6 +135,13 @@ export default class MarkdownEditor extends Component {
     
     this.textarea.addEventListener('touchend', (e) => {
       const touchDuration = Date.now() - touchStartTime;
+      
+      // Se è un tocco lungo senza movimento, mostra il menu contestuale
+      if (touchDuration > 500 && !hasMoved) {
+        e.preventDefault();
+        this.showContextMenu(e);
+        return;
+      }
       
       // Se è un tap rapido, non fare nulla di speciale (comportamento nativo)
       if (touchDuration < 300 && !hasMoved) {
@@ -456,9 +470,9 @@ export default class MarkdownEditor extends Component {
     // Calcola la posizione migliore per la toolbar
     const rect = this.textarea.getBoundingClientRect();
     
-    // Modificato: In mobile posizionare SOTTO l'area di testo selezionata
-    // invece che sopra per una migliore usabilità
-    let top = rect.top + 50; // Posiziona la toolbar SOTTO la textarea
+    // In mobile potrebbe non esserci una selection range precisa,
+    // quindi posizionare sopra l'area di testo è più affidabile
+    let top = rect.top - 50; // Posiziona la toolbar sopra la textarea
     let left = rect.left + (rect.width / 2) - 75; // Centra orizzontalmente
     
     try {
@@ -469,8 +483,7 @@ export default class MarkdownEditor extends Component {
         const selectionRect = range.getBoundingClientRect();
         
         if (selectionRect && selectionRect.top) {
-          // Posiziona SOTTO il testo selezionato invece che sopra
-          top = selectionRect.bottom + 10;
+          top = selectionRect.top - 45;
           left = selectionRect.left;
         }
       }
@@ -479,7 +492,7 @@ export default class MarkdownEditor extends Component {
     }
     
     // Assicura che la toolbar rimanga all'interno della viewport
-    top = Math.max(10, Math.min(top, window.innerHeight - 60)); // Limita verticalmente
+    top = Math.max(10, top); // Non posizionarla troppo in alto
     left = Math.max(10, Math.min(left, window.innerWidth - 150)); // Limita orizzontalmente
     
     toolbar.style.position = 'fixed'; // Use fixed position for better mobile support
@@ -506,6 +519,248 @@ export default class MarkdownEditor extends Component {
     
     document.addEventListener('touchstart', documentTapHandler);
     setTimeout(removeToolbar, 5000);
+  }
+  
+  /**
+   * Mostra un menu contestuale personalizzato con opzioni di copia/incolla
+   * @param {Event} event - evento che ha attivato il menu
+   */
+  showContextMenu(event) {
+    // Rimuovi menu esistenti
+    const existingMenu = document.querySelector('.custom-context-menu');
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+    
+    // Crea il menu contestuale
+    const menu = document.createElement('div');
+    menu.className = 'custom-context-menu';
+    
+    // Ottieni la selezione corrente
+    const hasSelection = this.textarea.selectionStart !== this.textarea.selectionEnd;
+    const selectedText = hasSelection ? 
+      this.textarea.value.substring(this.textarea.selectionStart, this.textarea.selectionEnd) : '';
+    
+    // Crea la struttura organizzata del menu
+    const menuGroups = {
+      edit: document.createElement('div'),
+      format: document.createElement('div'),
+      advanced: document.createElement('div')
+    };
+    
+    Object.values(menuGroups).forEach(group => {
+      group.className = 'menu-group';
+      menu.appendChild(group);
+    });
+    
+    // Opzioni per l'editing - sempre visibili ma abilitate in base al contesto
+    if (hasSelection) {
+      // Azioni per il testo selezionato
+      this.addMenuItem(menuGroups.edit, 'content_cut', 'Taglia', () => {
+        navigator.clipboard.writeText(selectedText)
+          .then(() => this.insertTextAtSelection(''))
+          .catch(err => console.error('Impossibile tagliare il testo:', err));
+      });
+      
+      this.addMenuItem(menuGroups.edit, 'content_copy', 'Copia', () => {
+        navigator.clipboard.writeText(selectedText)
+          .catch(err => console.error('Impossibile copiare il testo:', err));
+      });
+      
+      this.addMenuItem(menuGroups.edit, 'delete', 'Elimina', () => {
+        this.insertTextAtSelection('');
+      });
+      
+      // Aggiungi opzioni di formattazione
+      menuGroups.format.appendChild(document.createElement('div')).className = 'menu-section-title';
+      menuGroups.format.lastChild.textContent = 'Formatta';
+      
+      this.addMenuItem(menuGroups.format, 'format_bold', 'Grassetto', () => {
+        this.handleToolbarAction('bold');
+      });
+      
+      this.addMenuItem(menuGroups.format, 'format_italic', 'Corsivo', () => {
+        this.handleToolbarAction('italic');
+      });
+      
+      this.addMenuItem(menuGroups.format, 'code', 'Codice', () => {
+        this.handleToolbarAction('code');
+      });
+      
+      this.addMenuItem(menuGroups.format, 'link', 'Link', () => {
+        this.handleToolbarAction('link');
+      });
+    } else {
+      // Opzione incolla sempre disponibile
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        this.addMenuItem(menuGroups.edit, 'content_paste', 'Incolla', () => {
+          navigator.clipboard.readText()
+            .then(text => {
+              this.insertTextAtSelection(text);
+            })
+            .catch(err => console.error('Impossibile incollare il testo:', err));
+        });
+      }
+    }
+    
+    // Aggiungi sempre l'opzione "Seleziona tutto"
+    this.addMenuItem(menuGroups.edit, 'select_all', 'Seleziona tutto', () => {
+      this.textarea.setSelectionRange(0, this.textarea.value.length);
+      this.textarea.focus();
+    });
+    
+    // Rimuovi i gruppi vuoti
+    Object.entries(menuGroups).forEach(([key, group]) => {
+      if (!group.children.length) {
+        menu.removeChild(group);
+      }
+    });
+    
+    // Ottieni le coordinate per posizionare il menu
+    let x, y;
+    
+    if (event.touches && event.touches[0]) {
+      // Evento touch
+      x = event.touches[0].clientX;
+      y = event.touches[0].clientY;
+    } else {
+      // Evento mouse
+      x = event.clientX;
+      y = event.clientY;
+    }
+    
+    // Calcola la posizione ideale: vicino al punto di tocco ma non sovrapposto
+    const offset = 15; // Leggero offset per non coprire il punto di tocco
+    y = y + offset;
+    
+    // Aggiungi il menu al DOM
+    document.body.appendChild(menu);
+    
+    // Calcola le dimensioni del menu e assicurati che rimanga nella viewport
+    const menuRect = menu.getBoundingClientRect();
+    
+    // Calcola la posizione ottimale senza uscire dallo schermo
+    if (y + menuRect.height > window.innerHeight) {
+      // Se il menu finisce fuori dallo schermo in basso, posizionalo sopra il punto di tocco
+      y = Math.max(10, y - offset * 2 - menuRect.height);
+    }
+    
+    // Evita che il menu esca dai bordi orizzontali
+    if (x + menuRect.width > window.innerWidth) {
+      x = window.innerWidth - menuRect.width - 10;
+    } else if (x < 10) {
+      x = 10;
+    }
+    
+    // Posiziona il menu
+    menu.style.position = 'fixed';
+    menu.style.top = `${y}px`;
+    menu.style.left = `${x}px`;
+    
+    // Gestione chiusura del menu
+    const closeMenu = () => {
+      if (document.body.contains(menu)) {
+        menu.classList.add('context-menu-hide');
+        setTimeout(() => {
+          if (document.body.contains(menu)) {
+            menu.remove();
+          }
+        }, 200); // Durata della transizione CSS
+      }
+      document.removeEventListener('touchstart', documentClickHandler);
+      document.removeEventListener('mousedown', documentClickHandler);
+    };
+    
+    // Chiudi il menu quando si tocca altrove
+    const documentClickHandler = (e) => {
+      if (!menu.contains(e.target)) {
+        closeMenu();
+      }
+    };
+    
+    document.addEventListener('touchstart', documentClickHandler);
+    document.addEventListener('mousedown', documentClickHandler);
+    
+    // Aggiungi classe di fade-in per animazione
+    setTimeout(() => menu.classList.add('context-menu-show'), 10);
+    
+    // Chiudi automaticamente dopo 3 secondi (se non c'è stata interazione)
+    setTimeout(() => {
+      // Controlla se un elemento del menu ha il focus o il mouse è sopra il menu
+      const hasFocus = menu.contains(document.activeElement);
+      const isHovered = menu.matches(':hover');
+      
+      if (!hasFocus && !isHovered) {
+        closeMenu();
+      }
+    }, 3000);
+  }
+  
+  /**
+   * Aggiunge un elemento al menu contestuale
+   * @param {HTMLElement} container - Elemento container del menu
+   * @param {string} icon - Icona Material
+   * @param {string} label - Testo dell'elemento
+   * @param {Function} action - Funzione da eseguire al click
+   * @param {boolean} disabled - Se l'elemento è disabilitato
+   */
+  addMenuItem(container, icon, label, action, disabled = false) {
+    const menuItem = document.createElement('div');
+    menuItem.className = `menu-item ${disabled ? 'menu-item-disabled' : ''}`;
+    menuItem.innerHTML = `
+      <span class="material-icons">${icon}</span>
+      <span>${label}</span>
+    `;
+    
+    // Aggiungi tooltip per aiutare l'utente
+    menuItem.title = label;
+    
+    if (!disabled) {
+      menuItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        action();
+        
+        // Chiudi solo questo menu, non eventuali elementi parent
+        const menu = menuItem.closest('.custom-context-menu');
+        if (menu) {
+          menu.remove();
+        }
+      });
+    }
+    
+    container.appendChild(menuItem);
+    return menuItem;
+  }
+  
+  /**
+   * Inserisce o sostituisce il testo alla posizione corrente del cursore o selezione
+   * @param {string} text - Il testo da inserire
+   */
+  insertTextAtSelection(text) {
+    const start = this.textarea.selectionStart;
+    const end = this.textarea.selectionEnd;
+    
+    // Sostituisci il testo selezionato o inserisci alla posizione del cursore
+    const beforeText = this.textarea.value.substring(0, start);
+    const afterText = this.textarea.value.substring(end);
+    this.textarea.value = beforeText + text + afterText;
+    
+    // Aggiorna il valore e notifica il cambiamento
+    this.value = this.textarea.value;
+    this.onChange(this.value);
+    
+    // Ripristina il focus
+    this.textarea.focus();
+    
+    // Posiziona il cursore dopo il testo inserito
+    const newCursorPos = start + text.length;
+    this.textarea.selectionStart = newCursorPos;
+    this.textarea.selectionEnd = newCursorPos;
+    
+    // Aggiorna la preview se attiva
+    if (this.previewMode) {
+      this.updatePreview();
+    }
   }
   
   /**
