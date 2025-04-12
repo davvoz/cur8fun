@@ -395,6 +395,7 @@
   border-left: 3px solid #0056b3; /* Adjusted darker blue */
   margin-bottom: 16px;
   gap: 12px;
+  border-radius: var(--radius-sm);
 }
 
 .draft-recovery-banner.hidden {
@@ -404,12 +405,16 @@
 .draft-recovery-icon {
   color: #0366d6;
   display: flex;
+  min-width: 24px; /* Ensure icon maintains size on small screens */
+  justify-content: center;
 }
 
 .draft-recovery-message {
   flex: 1;
   font-size: 0.9rem;
   line-height: 1.4;
+  overflow-wrap: break-word; /* Ensure text wraps nicely */
+  word-break: break-word;
 }
 
 .draft-recovery-message strong {
@@ -426,6 +431,49 @@
 .draft-recovery-actions button {
   padding: 4px 10px;
   font-size: 0.85rem;
+  white-space: nowrap; /* Prevent button text from wrapping */
+}
+
+/* Mobile responsiveness for draft recovery banner */
+@media (max-width: 576px) {
+  .draft-recovery-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  
+  .draft-recovery-icon {
+    margin-bottom: 2px;
+  }
+  
+  .draft-recovery-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 5px;
+  }
+  
+  .draft-recovery-actions button {
+    flex: 1;
+    text-align: center;
+    padding: 6px 8px;
+  }
+}
+
+/* Additional mobile optimizations for smaller screens */
+@media (max-width: 375px) {
+  .draft-recovery-banner {
+    padding: 10px 12px;
+  }
+  
+  .draft-recovery-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .draft-recovery-message {
+    font-size: 0.85rem;
+  }
 }
 
 /* Quick action buttons in editor */
