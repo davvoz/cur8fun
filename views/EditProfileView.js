@@ -122,6 +122,29 @@ class EditProfileView extends View {
         previewBtn.className = 'preview-btn';
         previewBtn.dataset.target = id;
         previewBtn.textContent = 'Preview';
+        
+        // Add file upload button for profile image and cover image
+        if (id === 'profile-image' || id === 'cover-image') {
+            const uploadContainer = document.createElement('div');
+            uploadContainer.className = 'upload-container';
+            
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.id = `${id}-file`;
+            fileInput.accept = 'image/*';
+            fileInput.className = 'file-input';
+            
+            const uploadBtn = document.createElement('button');
+            uploadBtn.type = 'button';
+            uploadBtn.className = 'upload-btn';
+            uploadBtn.textContent = 'Upload Image';
+            uploadBtn.onclick = () => fileInput.click();
+            
+            uploadContainer.appendChild(fileInput);
+            uploadContainer.appendChild(uploadBtn);
+            
+            formGroup.appendChild(uploadContainer);
+        }
 
         const preview = document.createElement('div');
         preview.className = id === 'cover-image' ? 'image-preview cover-preview' : 'image-preview';
@@ -201,6 +224,67 @@ class EditProfileView extends View {
         previewButtons.forEach(btn => {
             btn.addEventListener('click', () => this.showImagePreview(btn.dataset.target));
         });
+        
+        // Add event listeners for file uploads
+        const profileFileInput = this.container.querySelector('#profile-image-file');
+        const coverFileInput = this.container.querySelector('#cover-image-file');
+        
+        if (profileFileInput) {
+            profileFileInput.addEventListener('change', (e) => this.handleFileUpload(e, 'profile-image'));
+        }
+        
+        if (coverFileInput) {
+            coverFileInput.addEventListener('change', (e) => this.handleFileUpload(e, 'cover-image'));
+        }
+    }
+    
+    async handleFileUpload(event, targetField) {
+        const fileInput = event.target;
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: 'Please select an image file'
+            });
+            return;
+        }
+        
+        try {
+            // Show loading state
+            const previewContainer = document.getElementById(`${targetField}-preview`);
+            
+            if (targetField === 'profile-image') {
+                previewContainer.innerHTML = '<p>Uploading image...</p>';
+            } else {
+                // For cover image, show loading text
+                previewContainer.style.backgroundImage = '';
+                previewContainer.innerHTML = '<p>Uploading cover image...</p>';
+            }
+            
+            // Import the image upload service
+            const imageUploadService = (await import('../services/ImageUploadService.js')).default;
+            
+            // Upload the image
+            const imageUrl = await imageUploadService.uploadImage(file, this.username);
+            
+            // Update the input field with the new URL
+            const imageInput = document.getElementById(targetField);
+            if (imageInput && imageUrl) {
+                imageInput.value = imageUrl;
+                this.showImagePreview(targetField);
+            }
+        } catch (error) {
+            console.error(`Failed to upload ${targetField}:`, error);
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: `Failed to upload image: ${error.message || 'Unknown error'}`
+            });
+        }
     }
 
     showImagePreview(targetId) {
