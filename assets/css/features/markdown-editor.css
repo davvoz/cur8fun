@@ -240,58 +240,88 @@
   flex-direction: column;
   background: var(--background-light, #ffffff);
   border: 1px solid var(--border-color, #ddd);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  padding: 6px 0;
+  padding: 0;
   z-index: 1060;
-  min-width: 180px;
-  max-width: 240px;
+  min-width: 220px;
+  max-width: 280px;
   opacity: 0;
   transform: translateY(8px) scale(0.98);
   transition: opacity 0.2s ease, transform 0.2s ease;
   overflow: hidden;
 }
 
+/* Intestazione del menu contestuale */
+.menu-header {
+  padding: 8px 12px;
+  background-color: var(--background-lighter, #f5f5f5);
+  border-bottom: 1px solid var(--border-color, #eee);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.menu-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-heading, #333);
+  display: flex;
+  align-items: center;
+}
+
+/* Gruppi di menu con stile migliorato per la compartimentazione */
 .menu-group {
   display: flex;
   flex-direction: column;
   width: 100%;
+  padding: 4px 0;
 }
 
 .menu-group:not(:last-child) {
   border-bottom: 1px solid var(--border-color, #eee);
-  margin-bottom: 4px;
-  padding-bottom: 4px;
 }
 
+/* Titoli delle sezioni con icone */
 .menu-section-title {
-  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
   color: var(--text-secondary, #888);
-  padding: 4px 12px;
-  margin-top: 2px;
+  padding: 6px 12px;
+  margin-bottom: 2px;
   font-weight: 500;
-  text-transform: uppercase;
 }
 
+.section-icon {
+  font-size: 16px !important;
+  margin-right: 8px;
+  color: var(--primary-color, #4285f4);
+}
+
+/* Stile migliorato per gli elementi di menu */
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 9px 12px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
   user-select: none;
   font-size: 0.9rem;
+  border-radius: 6px;
+  margin: 0 4px;
 }
 
 .menu-item:hover {
   background-color: var(--background-hover, rgba(0, 0, 0, 0.04));
 }
 
-.menu-item:active {
+.menu-item:active,
+.menu-item-active {
   background-color: var(--background-active, rgba(0, 0, 0, 0.08));
 }
 
-.menu-item .material-icons {
+/* Icone degli elementi di menu */
+.menu-icon {
   font-size: 18px;
   margin-right: 12px;
   color: var(--text-secondary, #666);
@@ -299,6 +329,11 @@
   width: 24px;
   display: flex;
   justify-content: center;
+}
+
+/* Etichette degli elementi di menu */
+.menu-label {
+  flex-grow: 1;
 }
 
 .menu-item-disabled {
@@ -327,6 +362,11 @@
   border-color: var(--border-dark, #444);
 }
 
+[data-theme="dark"] .menu-header {
+  background-color: var(--background-darker, #1e1e1e);
+  border-color: var(--border-dark, #444);
+}
+
 [data-theme="dark"] .menu-group:not(:last-child) {
   border-color: var(--border-dark, #333);
 }
@@ -335,7 +375,8 @@
   background-color: var(--background-hover-dark, rgba(255, 255, 255, 0.08));
 }
 
-[data-theme="dark"] .menu-item:active {
+[data-theme="dark"] .menu-item:active,
+[data-theme="dark"] .menu-item-active {
   background-color: var(--background-active-dark, rgba(255, 255, 255, 0.12));
 }
 
@@ -350,12 +391,22 @@
     bottom: 20px !important;
     top: auto !important;
     left: 50% !important;
-    transform: translateX(-50%) !important;
+    transform: translateX(-50%); /* Centra orizzontalmente */
     width: calc(100% - 40px);
     max-width: 320px;
-    border-radius: 12px;
-    padding: 8px 0;
+    border-radius: 16px;
+    padding: 0;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  
+  .menu-header {
+    padding: 10px 16px;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+  }
+  
+  .menu-title {
+    font-size: 1rem;
   }
   
   .context-menu-show {
@@ -369,15 +420,22 @@
   .menu-item {
     padding: 12px 16px;
     font-size: 1rem;
+    margin: 0 8px;
   }
   
-  .menu-item .material-icons {
+  .menu-icon {
     font-size: 20px;
+    margin-right: 16px;
   }
   
   .menu-section-title {
-    padding: 6px 16px;
-    font-size: 0.8rem;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+  
+  /* Maggiore spaziatura tra gruppi su mobile */
+  .menu-group {
+    padding: 6px 0;
   }
 }
 

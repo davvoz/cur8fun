@@ -541,59 +541,93 @@ export default class MarkdownEditor extends Component {
     const selectedText = hasSelection ? 
       this.textarea.value.substring(this.textarea.selectionStart, this.textarea.selectionEnd) : '';
     
-    // Crea la struttura organizzata del menu
+    // Crea la struttura organizzata del menu con una migliore compartimentazione
+    const menuHeader = document.createElement('div');
+    menuHeader.className = 'menu-header';
+    menu.appendChild(menuHeader);
+    
+    // Aggiungi titolo al menu in base al contesto
+    menuHeader.innerHTML = `<div class="menu-title">${hasSelection ? 'Opzioni Testo' : 'Opzioni Editor'}</div>`;
+    
+    // Crea gruppi di menu più organizzati e funzionali
     const menuGroups = {
-      edit: document.createElement('div'),
-      format: document.createElement('div'),
-      advanced: document.createElement('div')
+      edit: {
+        element: document.createElement('div'),
+        title: 'Modifica',
+        icon: 'edit'
+      },
+      format: {
+        element: document.createElement('div'),
+        title: 'Formattazione',
+        icon: 'text_format'
+      },
+      insert: {
+        element: document.createElement('div'),
+        title: 'Inserisci',
+        icon: 'add'
+      }
     };
     
+    // Aggiungi i gruppi al menu con i rispettivi titoli e icone
     Object.values(menuGroups).forEach(group => {
-      group.className = 'menu-group';
-      menu.appendChild(group);
+      group.element.className = 'menu-group';
+      
+      // Aggiungi l'intestazione del gruppo con icona per una migliore compartimentazione
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'menu-section-title';
+      groupHeader.innerHTML = `<span class="material-icons section-icon">${group.icon}</span>${group.title}`;
+      group.element.appendChild(groupHeader);
+      
+      menu.appendChild(group.element);
     });
     
-    // Opzioni per l'editing - sempre visibili ma abilitate in base al contesto
+    // Opzioni di editing più organizzate e strutturate
     if (hasSelection) {
       // Azioni per il testo selezionato
-      this.addMenuItem(menuGroups.edit, 'content_cut', 'Taglia', () => {
+      this.addMenuItem(menuGroups.edit.element, 'content_cut', 'Taglia', () => {
         navigator.clipboard.writeText(selectedText)
           .then(() => this.insertTextAtSelection(''))
           .catch(err => console.error('Impossibile tagliare il testo:', err));
       });
       
-      this.addMenuItem(menuGroups.edit, 'content_copy', 'Copia', () => {
+      this.addMenuItem(menuGroups.edit.element, 'content_copy', 'Copia', () => {
         navigator.clipboard.writeText(selectedText)
           .catch(err => console.error('Impossibile copiare il testo:', err));
       });
       
-      this.addMenuItem(menuGroups.edit, 'delete', 'Elimina', () => {
+      this.addMenuItem(menuGroups.edit.element, 'delete', 'Elimina', () => {
         this.insertTextAtSelection('');
       });
       
-      // Aggiungi opzioni di formattazione
-      menuGroups.format.appendChild(document.createElement('div')).className = 'menu-section-title';
-      menuGroups.format.lastChild.textContent = 'Formatta';
-      
-      this.addMenuItem(menuGroups.format, 'format_bold', 'Grassetto', () => {
+      // Opzioni di formattazione migliorate con raggruppamento più visivo
+      this.addMenuItem(menuGroups.format.element, 'format_bold', 'Grassetto', () => {
         this.handleToolbarAction('bold');
       });
       
-      this.addMenuItem(menuGroups.format, 'format_italic', 'Corsivo', () => {
+      this.addMenuItem(menuGroups.format.element, 'format_italic', 'Corsivo', () => {
         this.handleToolbarAction('italic');
       });
       
-      this.addMenuItem(menuGroups.format, 'code', 'Codice', () => {
+      this.addMenuItem(menuGroups.format.element, 'code', 'Codice', () => {
         this.handleToolbarAction('code');
       });
       
-      this.addMenuItem(menuGroups.format, 'link', 'Link', () => {
+      this.addMenuItem(menuGroups.format.element, 'format_quote', 'Citazione', () => {
+        this.handleToolbarAction('quote');
+      });
+      
+      this.addMenuItem(menuGroups.insert.element, 'link', 'Link', () => {
         this.handleToolbarAction('link');
       });
+      
+      this.addMenuItem(menuGroups.insert.element, 'image', 'Immagine', () => {
+        this.showImageOptions();
+      });
+      
     } else {
       // Opzione incolla sempre disponibile
       if (navigator.clipboard && navigator.clipboard.readText) {
-        this.addMenuItem(menuGroups.edit, 'content_paste', 'Incolla', () => {
+        this.addMenuItem(menuGroups.edit.element, 'content_paste', 'Incolla', () => {
           navigator.clipboard.readText()
             .then(text => {
               this.insertTextAtSelection(text);
@@ -601,18 +635,28 @@ export default class MarkdownEditor extends Component {
             .catch(err => console.error('Impossibile incollare il testo:', err));
         });
       }
+      
+      // Aggiungi opzioni di inserimento anche quando non c'è selezione
+      this.addMenuItem(menuGroups.insert.element, 'image', 'Inserisci immagine', () => {
+        this.showImageOptions();
+      });
+      
+      this.addMenuItem(menuGroups.insert.element, 'horizontal_rule', 'Linea orizzontale', () => {
+        this.handleToolbarAction('hr');
+      });
     }
     
-    // Aggiungi sempre l'opzione "Seleziona tutto"
-    this.addMenuItem(menuGroups.edit, 'select_all', 'Seleziona tutto', () => {
+    // Aggiungi sempre l'opzione "Seleziona tutto" come ultima nel gruppo edit
+    this.addMenuItem(menuGroups.edit.element, 'select_all', 'Seleziona tutto', () => {
       this.textarea.setSelectionRange(0, this.textarea.value.length);
       this.textarea.focus();
     });
     
-    // Rimuovi i gruppi vuoti
+    // Rimuovi i gruppi vuoti per un layout più compatto
     Object.entries(menuGroups).forEach(([key, group]) => {
-      if (!group.children.length) {
-        menu.removeChild(group);
+      // Rimuovi i gruppi se hanno solo il titolo e nessun item
+      if (group.element.children.length <= 1) {
+        menu.removeChild(group.element);
       }
     });
     
@@ -629,9 +673,13 @@ export default class MarkdownEditor extends Component {
       y = event.clientY;
     }
     
-    // Calcola la posizione ideale: vicino al punto di tocco ma non sovrapposto
-    const offset = 15; // Leggero offset per non coprire il punto di tocco
-    y = y + offset;
+    // Posizionamento ottimizzato: più vicino al punto cliccato
+    // Offset ridotto per il posizionamento verticale
+    const offsetY = 10; // Ridotto da 25 a 10px per un posizionamento più vicino
+    const offsetX = 5; // Ridotto da 10 a 5px per un posizionamento più preciso
+    
+    y = y + offsetY;
+    x = x - offsetX; // Leggero spostamento a sinistra per centrare meglio
     
     // Aggiungi il menu al DOM
     document.body.appendChild(menu);
@@ -642,14 +690,21 @@ export default class MarkdownEditor extends Component {
     // Calcola la posizione ottimale senza uscire dallo schermo
     if (y + menuRect.height > window.innerHeight) {
       // Se il menu finisce fuori dallo schermo in basso, posizionalo sopra il punto di tocco
-      y = Math.max(10, y - offset * 2 - menuRect.height);
+      // con un offset ridotto per mantenerlo vicino al punto di clic
+      y = Math.max(10, event.clientY - menuRect.height - 10);
     }
     
-    // Evita che il menu esca dai bordi orizzontali
+    // Miglioramento del posizionamento orizzontale
     if (x + menuRect.width > window.innerWidth) {
-      x = window.innerWidth - menuRect.width - 10;
+      // Se esce a destra, posizionalo a sinistra del punto di click
+      x = Math.max(10, window.innerWidth - menuRect.width - 10);
     } else if (x < 10) {
       x = 10;
+    }
+    
+    // Centra meglio per le schermate piccole
+    if (window.innerWidth < 480) {
+      x = (window.innerWidth - menuRect.width) / 2;
     }
     
     // Posiziona il menu
@@ -657,7 +712,7 @@ export default class MarkdownEditor extends Component {
     menu.style.top = `${y}px`;
     menu.style.left = `${x}px`;
     
-    // Gestione chiusura del menu
+    // Gestione migliorata della chiusura del menu
     const closeMenu = () => {
       if (document.body.contains(menu)) {
         menu.classList.add('context-menu-hide');
@@ -684,16 +739,15 @@ export default class MarkdownEditor extends Component {
     // Aggiungi classe di fade-in per animazione
     setTimeout(() => menu.classList.add('context-menu-show'), 10);
     
-    // Chiudi automaticamente dopo 3 secondi (se non c'è stata interazione)
+    // Aumenta il timeout per chiusura automatica
     setTimeout(() => {
-      // Controlla se un elemento del menu ha il focus o il mouse è sopra il menu
       const hasFocus = menu.contains(document.activeElement);
       const isHovered = menu.matches(':hover');
       
       if (!hasFocus && !isHovered) {
         closeMenu();
       }
-    }, 3000);
+    }, 5000); // Aumentato a 5 secondi per dare più tempo all'utente
   }
   
   /**
@@ -707,24 +761,47 @@ export default class MarkdownEditor extends Component {
   addMenuItem(container, icon, label, action, disabled = false) {
     const menuItem = document.createElement('div');
     menuItem.className = `menu-item ${disabled ? 'menu-item-disabled' : ''}`;
+    
+    // Aggiungi un layout migliorato per gli elementi del menu
     menuItem.innerHTML = `
-      <span class="material-icons">${icon}</span>
-      <span>${label}</span>
+      <span class="material-icons menu-icon">${icon}</span>
+      <span class="menu-label">${label}</span>
     `;
     
     // Aggiungi tooltip per aiutare l'utente
     menuItem.title = label;
     
+    // Feedback visivo al tocco
+    menuItem.addEventListener('touchstart', () => {
+      menuItem.classList.add('menu-item-active');
+    });
+    
+    menuItem.addEventListener('touchend', () => {
+      menuItem.classList.remove('menu-item-active');
+    });
+    
     if (!disabled) {
       menuItem.addEventListener('click', (e) => {
         e.stopPropagation();
-        action();
         
-        // Chiudi solo questo menu, non eventuali elementi parent
-        const menu = menuItem.closest('.custom-context-menu');
-        if (menu) {
-          menu.remove();
-        }
+        // Effetto visivo di click
+        menuItem.classList.add('menu-item-active');
+        
+        // Piccolo ritardo per mostrare l'effetto visivo
+        setTimeout(() => {
+          action();
+          
+          // Chiudi solo questo menu, non eventuali elementi parent
+          const menu = menuItem.closest('.custom-context-menu');
+          if (menu) {
+            menu.classList.add('context-menu-hide');
+            setTimeout(() => {
+              if (document.body.contains(menu)) {
+                menu.remove();
+              }
+            }, 200);
+          }
+        }, 50);
       });
     }
     
