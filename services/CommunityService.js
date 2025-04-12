@@ -215,7 +215,7 @@ class CommunityService {
   }
 
   /**
-   * Iscriviti a una community usando Keychain
+   * Iscriviti a una community usando Keychain o chiave posting diretta
    * @param {string} username - Username dell'utente
    * @param {string} community - Nome della community
    * @returns {Promise<Object>} - Risultato dell'operazione
@@ -223,69 +223,73 @@ class CommunityService {
   async subscribeToCommunity(username, community) {
     await steemService.ensureLibraryLoaded();
     
-    if (!this.isKeychainAvailable()) {
-      throw new Error("Steem Keychain non è disponibile. Per favore installa l'estensione Keychain.");
+    // Ottieni l'utente corrente e determina il metodo di login
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error("Devi essere loggato per iscriverti a una community");
     }
     
-    try {
-      // Prepara operazione di subscribe
-      const operations = [
-        ['custom_json', {
-          required_auths: [],
-          required_posting_auths: [username],
-          id: 'community',
-          json: JSON.stringify([
-            'subscribe',
-            {
-              community: community
-            }
-          ])
-        }]
-      ];
-      
-      // Usa Keychain per firmare l'operazione
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestBroadcast(
-          username,
-          operations,
-          'posting',
-          (response) => {
-            if (response.success) {
-              console.log(`Iscrizione completata alla community ${community}:`, response);
-              
-              // Invalida la cache delle subscriptions
-              this.cachedUserSubscriptions.delete(username);
-              
-              // Emetti evento di iscrizione completata
-              eventEmitter.emit('community:subscribe-completed', {
-                success: true,
-                username,
-                community
-              });
-              
-              resolve(response);
-            } else {
-              console.error(`Errore nell'iscrizione alla community ${community}:`, response.error);
-              
-              // Emetti evento di errore
-              eventEmitter.emit('community:subscribe-error', {
-                error: response.error,
-                community
-              });
-              
-              reject(new Error(response.error));
-            }
+    // Prepara l'operazione di subscribe (uguale per entrambi i metodi)
+    const operations = [
+      ['custom_json', {
+        required_auths: [],
+        required_posting_auths: [username],
+        id: 'community',
+        json: JSON.stringify([
+          'subscribe',
+          {
+            community: community
           }
-        );
+        ])
+      }]
+    ];
+    
+    try {
+      let result;
+      
+      // Controlla il metodo di login dell'utente
+      if (currentUser.loginMethod === 'keychain' && this.isKeychainAvailable()) {
+        // Usa Keychain per firmare l'operazione
+        console.log(`Subscribing to ${community} using Keychain`);
+        result = await this.broadcastWithKeychain(username, operations);
+      } else {
+        // Usa la chiave posting diretta
+        console.log(`Subscribing to ${community} using posting key`);
+        const postingKey = authService.getPostingKey();
+        
+        if (!postingKey) {
+          throw new Error("Chiave posting non disponibile. Rieffettua il login.");
+        }
+        
+        result = await this.broadcastWithPostingKey(operations, postingKey);
+      }
+      
+      // Dopo una sottoscrizione riuscita, invalida la cache
+      this.cachedUserSubscriptions.delete(username);
+      
+      // Emetti evento di iscrizione completata
+      eventEmitter.emit('community:subscribe-completed', {
+        success: true,
+        username,
+        community
       });
+      
+      return result;
     } catch (error) {
-      console.error(`Errore nella preparazione dell'iscrizione alla community ${community}:`, error);
+      console.error(`Errore nell'iscrizione alla community ${community}:`, error);
+      
+      // Emetti evento di errore
+      eventEmitter.emit('community:subscribe-error', {
+        error: error.message,
+        community
+      });
+      
       throw error;
     }
   }
 
   /**
-   * Annulla iscrizione da una community usando Keychain
+   * Annulla iscrizione da una community usando Keychain o chiave posting diretta
    * @param {string} username - Username dell'utente
    * @param {string} community - Nome della community
    * @returns {Promise<Object>} - Risultato dell'operazione
@@ -293,65 +297,122 @@ class CommunityService {
   async unsubscribeFromCommunity(username, community) {
     await steemService.ensureLibraryLoaded();
     
-    if (!this.isKeychainAvailable()) {
-      throw new Error("Steem Keychain non è disponibile. Per favore installa l'estensione Keychain.");
+    // Ottieni l'utente corrente e determina il metodo di login
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error("Devi essere loggato per annullare l'iscrizione a una community");
     }
     
+    // Prepara operazione di unsubscribe (uguale per entrambi i metodi)
+    const operations = [
+      ['custom_json', {
+        required_auths: [],
+        required_posting_auths: [username],
+        id: 'community',
+        json: JSON.stringify([
+          'unsubscribe',
+          {
+            community: community
+          }
+        ])
+      }]
+    ];
+    
     try {
-      // Prepara operazione di unsubscribe
-      const operations = [
-        ['custom_json', {
-          required_auths: [],
-          required_posting_auths: [username],
-          id: 'community',
-          json: JSON.stringify([
-            'unsubscribe',
-            {
-              community: community
-            }
-          ])
-        }]
-      ];
+      let result;
       
-      // Usa Keychain per firmare l'operazione
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestBroadcast(
-          username,
-          operations,
-          'posting',
-          (response) => {
-            if (response.success) {
-              console.log(`Disiscrizione completata dalla community ${community}:`, response);
-              
-              // Invalida la cache delle subscriptions
-              this.cachedUserSubscriptions.delete(username);
-              
-              // Emetti evento di disiscrizione completata
-              eventEmitter.emit('community:unsubscribe-completed', {
-                success: true,
-                username,
-                community
-              });
-              
-              resolve(response);
+      // Controlla il metodo di login dell'utente
+      if (currentUser.loginMethod === 'keychain' && this.isKeychainAvailable()) {
+        // Usa Keychain per firmare l'operazione
+        console.log(`Unsubscribing from ${community} using Keychain`);
+        result = await this.broadcastWithKeychain(username, operations);
+      } else {
+        // Usa la chiave posting diretta
+        console.log(`Unsubscribing from ${community} using posting key`);
+        const postingKey = authService.getPostingKey();
+        
+        if (!postingKey) {
+          throw new Error("Chiave posting non disponibile. Rieffettua il login.");
+        }
+        
+        result = await this.broadcastWithPostingKey(operations, postingKey);
+      }
+      
+      // Dopo un'operazione riuscita, invalida la cache
+      this.cachedUserSubscriptions.delete(username);
+      
+      // Emetti evento di disiscrizione completata
+      eventEmitter.emit('community:unsubscribe-completed', {
+        success: true,
+        username,
+        community
+      });
+      
+      return result;
+    } catch (error) {
+      console.error(`Errore nella disiscrizione dalla community ${community}:`, error);
+      
+      // Emetti evento di errore
+      eventEmitter.emit('community:unsubscribe-error', {
+        error: error.message,
+        community
+      });
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Trasmette un'operazione usando Keychain
+   * @private
+   * @param {string} username - Username dell'utente
+   * @param {Array} operations - Operazioni da trasmettere
+   * @returns {Promise<Object>} - Risultato dell'operazione
+   */
+  broadcastWithKeychain(username, operations) {
+    return new Promise((resolve, reject) => {
+      window.steem_keychain.requestBroadcast(
+        username,
+        operations,
+        'posting',
+        (response) => {
+          if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || "Operazione Keychain fallita"));
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Trasmette un'operazione usando la chiave posting diretta
+   * @private
+   * @param {Array} operations - Operazioni da trasmettere
+   * @param {string} postingKey - Chiave posting privata
+   * @returns {Promise<Object>} - Risultato dell'operazione
+   */
+  broadcastWithPostingKey(operations, postingKey) {
+    return new Promise((resolve, reject) => {
+      try {
+        window.steem.broadcast.send(
+          { operations, extensions: [] },
+          { posting: postingKey },
+          (err, result) => {
+            if (err) {
+              console.error("Errore nella trasmissione dell'operazione:", err);
+              reject(new Error(err.message || "Operazione di trasmissione fallita"));
             } else {
-              console.error(`Errore nella disiscrizione dalla community ${community}:`, response.error);
-              
-              // Emetti evento di errore
-              eventEmitter.emit('community:unsubscribe-error', {
-                error: response.error,
-                community
-              });
-              
-              reject(new Error(response.error));
+              resolve(result);
             }
           }
         );
-      });
-    } catch (error) {
-      console.error(`Errore nella preparazione della disiscrizione dalla community ${community}:`, error);
-      throw error;
-    }
+      } catch (error) {
+        console.error("Errore nella preparazione dell'operazione:", error);
+        reject(error);
+      }
+    });
   }
 
   /**

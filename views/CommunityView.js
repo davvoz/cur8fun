@@ -341,22 +341,22 @@ class CommunityView extends BasePostView {
     
     try {
       if (this.isSubscribed) {
-        // Unsubscribe
-        await this.communityFetch('unsubscribe', {
-          username: this.currentUser.username,
-          communityName: this.community.name
-        });
+        // Unsubscribe - invoca direttamente il metodo del service invece di usare communityFetch
+        await communityService.unsubscribeFromCommunity(
+          this.currentUser.username,
+          this.community.name
+        );
         this.isSubscribed = false;
         eventEmitter.emit('notification', {
           type: 'success',
           message: 'Successfully unsubscribed from community'
         });
       } else {
-        // Subscribe
-        await this.communityFetch('subscribe', {
-          username: this.currentUser.username, 
-          communityName: this.community.name
-        });
+        // Subscribe - invoca direttamente il metodo del service invece di usare communityFetch
+        await communityService.subscribeToCommunity(
+          this.currentUser.username, 
+          this.community.name
+        );
         this.isSubscribed = true;
         eventEmitter.emit('notification', {
           type: 'success',
