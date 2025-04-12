@@ -553,15 +553,49 @@ export default class CommentController {
 
     const errorMessage = this.getErrorMessage(error);
 
+    // Check for expired posting key
+    if (error.message?.includes('Posting key not available. Please login again')) {
+      this.showPostingErrorDialog(errorMessage);
+    }
+
+    // Check for authentication errors
+    if (error.message?.includes('posting') ||
+        error.message?.includes('auth') ||
+        error.message?.includes('signature') ||
+        error.message?.includes('authority')) {
+      
+      // Show notification about need to re-login
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Your authentication has expired. Please login again.'
+      });
+
+      // Store current URL to return after login
+      const returnUrl = window.location.pathname + window.location.search;
+
+      // Reset UI before navigation
+      this.setSubmitState(submitButton, textarea, false, originalText);
+
+      // Navigate to login page with return URL
+      setTimeout(() => {
+        router.navigate('/login', { returnUrl });
+      }, 1000);
+
+      return;
+    }
+
+    // Check for RC errors
     if (error.message?.includes('RC')) {
       this.showRCErrorDialog(errorMessage);
     } else {
+      // Regular notification for other errors
       this.view.emit('notification', {
         type: 'error',
         message: errorMessage
       });
     }
 
+    // Reset UI
     this.setSubmitState(submitButton, textarea, false, originalText);
   }
 
@@ -959,8 +993,6 @@ export default class CommentController {
     // Create dialog container
     const dialog = document.createElement('div');
     dialog.className = 'rc-error-dialog';
-    dialog.style.left = '50%';
-    dialog.style.top = '50%';
 
     // Create dialog content
     const title = document.createElement('h3');
@@ -977,12 +1009,9 @@ export default class CommentController {
     messageEl.className = 'rc-error-message';
     messageEl.textContent = message;
 
-    // Add learn more link
-    const link = document.createElement('a');
-    link.className = 'rc-error-link';
-    link.href = 'https://cur8.fun/#/@jesta/steem-resource-credits-guide';
-    link.textContent = 'Learn more about Resource Credits';
-    link.target = '_blank';
+    // Create buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'rc-error-buttons';
 
     // Add close button
     const closeBtn = document.createElement('button');
@@ -1000,11 +1029,12 @@ export default class CommentController {
     overlay.addEventListener('click', closeDialog);
 
     // Add elements to dialog
+    buttonsContainer.appendChild(closeBtn);
+    
     dialog.appendChild(title);
     dialog.appendChild(iconContainer);
     dialog.appendChild(messageEl);
-    dialog.appendChild(link);
-    dialog.appendChild(closeBtn);
+    dialog.appendChild(buttonsContainer);
 
     // Add to body
     document.body.appendChild(overlay);
@@ -1021,7 +1051,7 @@ export default class CommentController {
    * Show a dialog for posting key errors
    * @param {string} message - The error message to display
    */
-  showPostingErrorDialog(message) {
+  showPostingErrorDialog() {
     // Create overlay
     const overlay = document.createElement('div');
     overlay.className = 'posting-error-overlay';
@@ -1051,13 +1081,6 @@ export default class CommentController {
     const explainEl = document.createElement('p');
     explainEl.className = 'posting-error-explanation';
     explainEl.textContent = 'Please log in again to continue posting your comment.';
-
-    // Add learn more link
-    const link = document.createElement('a');
-    link.className = 'posting-error-link';
-    link.href = 'https://cur8.fun/#/@steemitblog/keychain-a-safe-and-secure-way-to-interact-with-steem';
-    link.textContent = 'Learn more about account security';
-    link.target = '_blank';
 
     // Add login button
     const loginBtn = document.createElement('button');
@@ -1096,7 +1119,6 @@ export default class CommentController {
     dialog.appendChild(iconContainer);
     dialog.appendChild(messageEl);
     dialog.appendChild(explainEl);
-    dialog.appendChild(link);
     dialog.appendChild(loginBtn);
     dialog.appendChild(closeBtn);
 
