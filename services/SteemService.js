@@ -183,8 +183,8 @@ class SteemService {
         return this.userService.checkIfFollowing(follower, following);
     }
 
-    async updateUserProfile(username, profile) {
-        return this.userService.updateUserProfile(username, profile);
+    async updateUserProfile(username, profile, activeKey = null) {
+        return this.userService.updateUserProfile(username, profile, activeKey);
     }
 
     parseMetadata(jsonMetadata) {

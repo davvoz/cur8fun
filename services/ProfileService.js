@@ -50,7 +50,7 @@ class ProfileService {
         }
     }
 
-    async updateProfile(username, updatedFields) {
+    async updateProfile(username, updatedFields, activeKey = null) {
         try {
             console.log('ProfileService: Updating profile for', username);
             console.log('Updated fields:', updatedFields);
@@ -94,8 +94,8 @@ class ProfileService {
             
             console.log('Merged profile data to save:', mergedProfile);
             
-            // Call steemService to update the profile on the blockchain
-            const result = await steemService.updateUserProfile(username, mergedProfile);
+            // Call steemService to update the profile on the blockchain, passing the active key if provided
+            const result = await steemService.updateUserProfile(username, mergedProfile, activeKey);
             
             // Clear the cache for this user to ensure fresh data on next load
             this.clearUserCache(username);

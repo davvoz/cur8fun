@@ -357,8 +357,34 @@ class EditProfileView extends View {
         console.log('Updated profile object:', updatedProfile);
 
         try {
-            // Pass the correctly formatted profile to the profile service
-            await profileService.updateProfile(this.username, updatedProfile);
+            // Mostra un modal che offre all'utente le due opzioni:
+            // 1. Usare una chiave active direttamente
+            // 2. Usare Steem Keychain (se disponibile)
+            const authChoice = await this.showAuthChoiceModal();
+            
+            if (authChoice === 'active_key') {
+                // L'utente ha scelto di usare una chiave active
+                const activeKey = await this.promptForActiveKey();
+                if (!activeKey) {
+                    eventEmitter.emit('notification', {
+                        type: 'warning',
+                        message: 'Profile update cancelled. Active key is required.'
+                    });
+                    return;
+                }
+                
+                // Aggiorna il profilo usando la chiave fornita
+                await profileService.updateProfile(this.username, updatedProfile, activeKey);
+            } 
+            else if (authChoice === 'keychain') {
+                // L'utente ha scelto di usare Steem Keychain
+                await profileService.updateProfile(this.username, updatedProfile);
+            }
+            else {
+                // L'utente ha annullato
+                return;
+            }
+            
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: 'Profile updated successfully'
@@ -371,6 +397,246 @@ class EditProfileView extends View {
                 message: 'Failed to update profile: ' + (error.message || 'Unknown error')
             });
         }
+    }
+    
+    async showAuthChoiceModal() {
+        return new Promise((resolve) => {
+            const isKeychainAvailable = typeof window !== 'undefined' && window.steem_keychain;
+            
+            // Create modal for the auth choice
+            const modalContainer = document.createElement('div');
+            modalContainer.className = 'modal-container';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const header = document.createElement('h3');
+            header.className = 'modal-header';
+            header.textContent = 'Choose Authentication Method';
+            
+            const message = document.createElement('p');
+            message.className = 'modal-body';
+            message.innerHTML = `
+                <strong>Updating your profile requires Active authority.</strong>
+                <br><br>
+                Please select how you want to authenticate this operation:
+            `;
+            
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'auth-options';
+            
+            // Opzione 1: Inserisci Active Key
+            const keyOption = document.createElement('div');
+            keyOption.className = 'auth-option';
+            keyOption.innerHTML = `
+                <h4>Use Active Key</h4>
+                <p>Enter your active private key to sign this transaction directly.</p>
+                <p class="security-tip">⚠️ Your key will only be used to sign this transaction and will not be stored.</p>
+                <button class="modal-btn modal-btn-primary key-btn">Use Active Key</button>
+            `;
+            
+            // Opzione 2: Usa Keychain (se disponibile)
+            const keychainOption = document.createElement('div');
+            keychainOption.className = 'auth-option';
+            
+            if (isKeychainAvailable) {
+                keychainOption.innerHTML = `
+                    <h4>Use Steem Keychain</h4>
+                    <p>Sign the transaction securely using the Steem Keychain browser extension.</p>
+                    <button class="modal-btn modal-btn-success keychain-btn">Use Keychain</button>
+                `;
+            } else {
+                keychainOption.innerHTML = `
+                    <h4>Steem Keychain Not Available</h4>
+                    <p>Steem Keychain extension is not detected in your browser.</p>
+                    <a href="https://github.com/steem-monsters/steem-keychain" target="_blank" class="keychain-link">Get Steem Keychain</a>
+                `;
+            }
+            
+            // Aggiunge le opzioni al container
+            optionsContainer.appendChild(keyOption);
+            optionsContainer.appendChild(keychainOption);
+            
+            // Pulsante per chiudere/annullare
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'modal-footer';
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'modal-btn modal-btn-secondary';
+            cancelButton.textContent = 'Cancel';
+            
+            buttonContainer.appendChild(cancelButton);
+            
+            // Assembla il modal
+            modalContent.appendChild(header);
+            modalContent.appendChild(message);
+            modalContent.appendChild(optionsContainer);
+            modalContent.appendChild(buttonContainer);
+            
+            modalContainer.appendChild(modalContent);
+            document.body.appendChild(modalContainer);
+            
+            // Event listeners
+            cancelButton.onclick = () => {
+                document.body.removeChild(modalContainer);
+                resolve(null);
+            };
+            
+            const keyBtn = modalContainer.querySelector('.key-btn');
+            if (keyBtn) {
+                keyBtn.onclick = () => {
+                    document.body.removeChild(modalContainer);
+                    resolve('active_key');
+                };
+            }
+            
+            const keychainBtn = modalContainer.querySelector('.keychain-btn');
+            if (keychainBtn && isKeychainAvailable) {
+                keychainBtn.onclick = () => {
+                    document.body.removeChild(modalContainer);
+                    resolve('keychain');
+                };
+            }
+        });
+    }
+    
+    async showActiveKeyWarning() {
+        return new Promise((resolve) => {
+            // Create modal for the warning
+            const modalContainer = document.createElement('div');
+            modalContainer.className = 'modal-container';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const header = document.createElement('h3');
+            header.className = 'modal-header';
+            header.textContent = 'Active Key Required';
+            
+            const message = document.createElement('p');
+            message.className = 'modal-body';
+            message.innerHTML = `
+                <div class="banner banner-warning">
+                    <span class="banner-icon">⚠️</span>
+                    <div class="banner-content">
+                        <strong>Security Notice:</strong> Editing your profile requires your Active key. 
+                        This is a higher permission level than Posting key.
+                    </div>
+                </div>
+                <p>Since Steem Keychain is not detected, you'll need to enter your Active key manually.</p>
+                <p class="security-tip">Only enter your Active key on trusted websites and be cautious about potential phishing attempts.</p>
+            `;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'modal-footer';
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'modal-btn modal-btn-secondary';
+            cancelButton.textContent = 'Cancel';
+            
+            const continueButton = document.createElement('button');
+            continueButton.className = 'modal-btn modal-btn-primary';
+            continueButton.textContent = 'Continue';
+            
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(continueButton);
+            
+            modalContent.appendChild(header);
+            modalContent.appendChild(message);
+            modalContent.appendChild(buttonContainer);
+            
+            modalContainer.appendChild(modalContent);
+            document.body.appendChild(modalContainer);
+            
+            // Event listeners
+            cancelButton.onclick = () => {
+                document.body.removeChild(modalContainer);
+                resolve(false);
+            };
+            
+            continueButton.onclick = () => {
+                document.body.removeChild(modalContainer);
+                resolve(true);
+            };
+        });
+    }
+    
+    async promptForActiveKey() {
+        return new Promise((resolve) => {
+            // Create modal for active key input
+            const modalContainer = document.createElement('div');
+            modalContainer.className = 'modal-container';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const header = document.createElement('h3');
+            header.className = 'modal-header';
+            header.textContent = 'Enter Active Key';
+            
+            const form = document.createElement('form');
+            form.className = 'modal-body';
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                const key = keyInput.value.trim();
+                document.body.removeChild(modalContainer);
+                resolve(key);
+            };
+            
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group';
+            
+            const keyInput = document.createElement('input');
+            keyInput.type = 'password';
+            keyInput.placeholder = 'Your Active Key';
+            keyInput.required = true;
+            keyInput.className = 'key-input';
+            
+            const securityNote = document.createElement('div');
+            securityNote.className = 'banner banner-info';
+            securityNote.innerHTML = `
+                <span class="banner-icon">ℹ️</span>
+                <div class="banner-content">
+                    <strong>Security Note:</strong> Your key is never stored and is only used for this transaction.
+                </div>
+            `;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'modal-footer';
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'modal-btn modal-btn-secondary';
+            cancelButton.textContent = 'Cancel';
+            
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.className = 'modal-btn modal-btn-primary';
+            submitButton.textContent = 'Submit';
+            
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(submitButton);
+            
+            inputGroup.appendChild(keyInput);
+            form.appendChild(inputGroup);
+            form.appendChild(securityNote);
+            
+            modalContent.appendChild(header);
+            modalContent.appendChild(form);
+            modalContent.appendChild(buttonContainer);
+            
+            modalContainer.appendChild(modalContent);
+            document.body.appendChild(modalContainer);
+            
+            // Event listeners
+            cancelButton.onclick = () => {
+                document.body.removeChild(modalContainer);
+                resolve(null);
+            };
+            
+            // Focus on the input field
+            setTimeout(() => keyInput.focus(), 100);
+        });
     }
 }
 
