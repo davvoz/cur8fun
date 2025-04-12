@@ -308,23 +308,68 @@ export default class VoteController {
     const popup = document.createElement('div');
     popup.className = 'vote-percentage-popup';
     
-    popup.innerHTML = `
-      <div class="popup-header">Select Vote Percentage</div>
-      <div class="popup-content">
-        <div class="slider-container">
-          <input type="range" min="0" max="100" value="${defaultValue}" class="percentage-slider">
-          <div class="percentage-display">${defaultValue}%</div>
-          <div class="slider-labels">
-            <span>0%</span>
-            <span>100%</span>
-          </div>
-        </div>
-        <div class="popup-actions">
-          <button class="cancel-btn">Cancel</button>
-          <button class="confirm-btn">Vote</button>
-        </div>
-      </div>
-    `;
+    // Create popup header
+    const popupHeader = document.createElement('div');
+    popupHeader.className = 'popup-header';
+    popupHeader.textContent = 'Select Vote Percentage';
+    popup.appendChild(popupHeader);
+    
+    // Create popup content
+    const popupContent = document.createElement('div');
+    popupContent.className = 'popup-content';
+    
+    // Create slider container
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'slider-container';
+    
+    // Create slider input
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '1';
+    slider.max = '100';
+    slider.value = defaultValue.toString();
+    slider.className = 'percentage-slider';
+    sliderContainer.appendChild(slider);
+    
+    // Create percentage display
+    const percentageDisplay = document.createElement('div');
+    percentageDisplay.className = 'percentage-display';
+    percentageDisplay.textContent = `${defaultValue}%`;
+    sliderContainer.appendChild(percentageDisplay);
+    
+    // Create slider labels
+    const sliderLabels = document.createElement('div');
+    sliderLabels.className = 'slider-labels';
+    
+    const minLabel = document.createElement('span');
+    minLabel.textContent = '1%';
+    sliderLabels.appendChild(minLabel);
+    
+    const maxLabel = document.createElement('span');
+    maxLabel.textContent = '100%';
+    sliderLabels.appendChild(maxLabel);
+    
+    sliderContainer.appendChild(sliderLabels);
+    popupContent.appendChild(sliderContainer);
+    
+    // Create popup actions
+    const popupActions = document.createElement('div');
+    popupActions.className = 'popup-actions';
+    
+    // Create cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'cancel-btn';
+    cancelBtn.textContent = 'Cancel';
+    popupActions.appendChild(cancelBtn);
+    
+    // Create confirm button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'confirm-btn';
+    confirmBtn.textContent = 'Vote';
+    popupActions.appendChild(confirmBtn);
+    
+    popupContent.appendChild(popupActions);
+    popup.appendChild(popupContent);
 
     // Add to DOM
     document.body.appendChild(popup);
@@ -336,23 +381,20 @@ export default class VoteController {
     this.positionPopup(popup, targetElement);
 
     // Setup event handlers
-    const slider = popup.querySelector('.percentage-slider');
-    const percentageDisplay = popup.querySelector('.percentage-display');
-    
     slider.addEventListener('input', () => {
       const value = slider.value;
       percentageDisplay.textContent = `${value}%`;
       this.updatePercentageColor(percentageDisplay, value);
     });
 
-    popup.querySelector('.cancel-btn').addEventListener('click', () => {
+    cancelBtn.addEventListener('click', () => {
       popup.remove();
       const index = this.popups.indexOf(popup);
       if (index > -1) this.popups.splice(index, 1);
     });
 
-    popup.querySelector('.confirm-btn').addEventListener('click', () => {
-      // Corretto: convertire il valore percentuale (0-100) in peso di voto (0-10000)
+    confirmBtn.addEventListener('click', () => {
+      // Converte il valore percentuale (0-100) in peso di voto (0-10000)
       const weight = parseInt(slider.value) * 100;
       popup.remove();
       const index = this.popups.indexOf(popup);
