@@ -1,7 +1,19 @@
 /* Styles for comment-related dialogs and notifications */
 
-/* RC Error Dialog */
-.rc-error-dialog {
+/* Common Dialog Styles */
+.rc-error-overlay,
+.posting-error-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-modal);
+}
+
+.rc-error-dialog,
+.posting-error-dialog {
   position: fixed;
   margin: auto;
   transform: translate(-50%, -50%);
@@ -14,36 +26,42 @@
   padding: var(--space-lg);
 }
 
-.rc-error-dialog-title {
+.rc-error-dialog-title,
+.posting-error-dialog-title {
   color: var(--red, #d32f2f);
   margin-top: 0;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: var(--space-sm);
 }
 
-.rc-error-icon {
+.rc-error-icon,
+.posting-error-icon {
   text-align: center;
   margin-bottom: var(--space-md);
 }
 
-.rc-error-icon .material-icons {
+.rc-error-icon .material-icons,
+.posting-error-icon .material-icons {
   font-size: 48px;
   color: var(--red, #d32f2f);
 }
 
-.rc-error-message {
+.rc-error-message,
+.posting-error-message {
   line-height: 1.6;
   margin-bottom: var(--space-lg);
 }
 
-.rc-error-link {
+.rc-error-link,
+.posting-error-link {
   display: block;
   margin-bottom: var(--space-lg);
   color: var(--steem-color);
   text-decoration: underline;
 }
 
-.rc-error-close-btn {
+.rc-error-close-btn,
+.posting-error-close-btn {
   background: var(--steem-color);
   color: var(--text-on-primary);
   border: none;
@@ -55,18 +73,9 @@
   transition: var(--transition-normal);
 }
 
-.rc-error-close-btn:hover {
+.rc-error-close-btn:hover,
+.posting-error-close-btn:hover {
   opacity: 0.9;
-}
-
-.rc-error-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: var(--z-modal);
 }
 
 /* Loading overlay */
@@ -99,8 +108,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Highlight for new replies */
@@ -109,6 +123,13 @@
 }
 
 @keyframes highlight-fade {
-  0%, 20% { background-color: rgba(var(--steem-color-rgb, 26, 80, 153), 0.2); }
-  100% { background-color: transparent; }
+
+  0%,
+  20% {
+    background-color: rgba(var(--steem-color-rgb, 26, 80, 153), 0.2);
+  }
+
+  100% {
+    background-color: transparent;
+  }
 }
