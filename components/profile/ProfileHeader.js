@@ -275,15 +275,76 @@ export default class ProfileHeader {
     this.updateFollowButton();
   }
   
+  // Metodo per mostrare lo stato di caricamento sul pulsante follow
+  setFollowButtonLoading(isLoading) {
+    const followBtn = this.container.querySelector('.follow-btn');
+    if (!followBtn) return;
+    
+    if (isLoading) {
+      // Salva lo stato attuale di following per ripristinarlo dopo
+      followBtn.setAttribute('data-is-following', this.isFollowing);
+      
+      // Disabilita il pulsante durante il caricamento
+      followBtn.disabled = true;
+      
+      // Cambia l'icona in un'icona di caricamento
+      const icon = followBtn.querySelector('.material-icons');
+      if (icon) {
+        icon.textContent = 'sync';
+        icon.classList.add('rotating');
+      }
+      
+      // Cambia il testo in "Loading..."
+      const textNode = Array.from(followBtn.childNodes).find(node => 
+        node.nodeType === Node.TEXT_NODE
+      );
+      if (textNode) {
+        textNode.nodeValue = 'Loading...';
+      }
+      
+      // Aggiungi classe di stile per il caricamento
+      followBtn.classList.add('loading');
+    } else {
+      // Riabilita il pulsante
+      followBtn.disabled = false;
+      
+      // Rimuovi la classe di loading
+      followBtn.classList.remove('loading');
+      
+      // Il testo e l'icona verranno ripristinati da updateFollowButton()
+      this.updateFollowButton();
+    }
+  }
+  
   updateFollowButton() {
     const followBtn = this.container.querySelector('.follow-btn');
     if (!followBtn) return;
 
+    // Ottieni l'icona esistente o creane una nuova se non esiste
+    let followIcon = followBtn.querySelector('.material-icons');
+    if (!followIcon) {
+      followIcon = document.createElement('span');
+      followIcon.className = 'material-icons';
+    }
+    
+    // Imposta l'icona corretta (non più "sync")
+    followIcon.textContent = 'person_add';
+    followIcon.classList.remove('rotating');
+
+    // Svuota il contenuto del pulsante ma salva l'icona
+    followBtn.innerHTML = '';
+    
+    // Aggiungi nuovamente l'icona
+    followBtn.appendChild(followIcon);
+    
+    // Aggiungi il testo appropriato
+    const textNode = document.createTextNode(this.isFollowing ? 'Unfollow' : 'Follow');
+    followBtn.appendChild(textNode);
+
+    // Aggiorna correttamente le classi CSS per lo stile
     if (this.isFollowing) {
-      followBtn.textContent = 'Unfollow';
       followBtn.classList.add('following');
     } else {
-      followBtn.textContent = 'Follow';
       followBtn.classList.remove('following');
     }
   }

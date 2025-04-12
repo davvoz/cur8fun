@@ -452,24 +452,60 @@ class ProfileView extends View {
     }
 
     try {
-      const isFollowing = await profileService.isFollowing(this.username, this.currentUser);
+      // Mostro l'indicatore di caricamento
+      this.profileHeader.setFollowButtonLoading(true);
       
-      if (isFollowing) {
+      // Ottieni lo stato del follow prima dell'azione
+      const isCurrentlyFollowing = await profileService.isFollowing(this.username, this.currentUser);
+      console.log(`Stato follow iniziale: ${isCurrentlyFollowing ? 'following' : 'not following'}`);
+      
+      // Memorizza lo stato iniziale per riferimento
+      const previousFollowState = isCurrentlyFollowing;
+      
+      // Memorizza il nuovo stato previsto (opposto di quello precedente)
+      const newExpectedState = !previousFollowState;
+      
+      if (isCurrentlyFollowing) {
+        // Se già seguendo, smetti di seguire
         await profileService.unfollowUser(this.username, this.currentUser);
+        console.log(`Unfollow di ${this.username} completato`);
+        
+        // Aggiorna lo stato direttamente per evitare ritardi nella UI
+        this.profileHeader.updateFollowStatus(false);
       } else {
+        // Altrimenti inizia a seguire
         await profileService.followUser(this.username, this.currentUser);
+        console.log(`Follow di ${this.username} completato`);
+        
+        // Aggiorna lo stato direttamente per evitare ritardi nella UI
+        this.profileHeader.updateFollowStatus(true);
       }
 
-      // Update header with new follow status
-      await this.checkFollowStatus();
+      // Mantieni lo stato dell'UI allineato con l'azione intrapresa dall'utente
+      // anziché fare un'ulteriore verifica che potrebbe restituire dati non aggiornati
+      
+      // Importante: Impostiamo una cache locale dello stato di follow
+      // per evitare che API successive sovrascrivano lo stato dell'UI
+      if (window.eventEmitter) {
+        window.eventEmitter.emit('follow:status-cache', {
+          follower: this.currentUser.username,
+          following: this.username,
+          isFollowing: newExpectedState,
+          timestamp: Date.now()
+        });
+      }
+      
     } catch (error) {
       console.error('Error following/unfollowing:', error);
       if (window.eventEmitter) {
         window.eventEmitter.emit('notification', {
           type: 'error',
-          message: `Failed to ${isFollowing ? 'unfollow' : 'follow'} @${this.username}`
+          message: `Failed to update follow status for @${this.username}: ${error.message}`
         });
       }
+    } finally {
+      // Rimuovi l'indicatore di caricamento indipendentemente dal risultato
+      this.profileHeader.setFollowButtonLoading(false);
     }
   }
   

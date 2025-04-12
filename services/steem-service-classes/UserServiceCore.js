@@ -404,4 +404,343 @@ export default class UserServiceCore {
             });
         });
     }
+
+    /**
+     * Follow a user using Steem blockchain operations
+     * @param {string} follower - Username of the current user who wants to follow someone
+     * @param {string} following - Username of the user to follow
+     * @returns {Promise<Object>} - Result of the follow operation
+     */
+    async followUser(follower, following) {
+        await this.core.ensureLibraryLoaded();
+        
+        try {
+            // Create the custom JSON operation for following
+            const json = JSON.stringify(['follow', {
+                follower: follower,
+                following: following,
+                what: ['blog'] // 'blog' means follow, empty array means unfollow
+            }]);
+            
+            // Invertiamo l'ordine: prima controlliamo se c'è la chiave nel localStorage
+            const postingKey = this.getStoredPostingKey(follower);
+            
+            // Se l'utente ha la chiave memorizzata, usiamo quella (priorità al localStorage)
+            if (postingKey) {
+                console.log('Using stored posting key for follow operation');
+                return this.broadcastFollowOperation(follower, json, postingKey);
+            }
+            
+            // Altrimenti proviamo con Keychain se disponibile
+            if (window.steem_keychain) {
+                console.log('Using Steem Keychain for follow operation');
+                return this.broadcastFollowWithKeychain(follower, json);
+            }
+            
+            // Se nessun metodo di autenticazione è disponibile, mostriamo l'UI per guidare l'utente
+            console.log('No authentication method available, showing dialog');
+            await this.showFollowAuthRequiredModal(follower);
+            
+            // Se l'utente ha inserito una chiave nel modal, ora dovrebbe essere disponibile
+            const newPostingKey = this.getStoredPostingKey(follower);
+            if (newPostingKey) {
+                return this.broadcastFollowOperation(follower, json, newPostingKey);
+            }
+            
+            throw new Error('Posting authority required to follow users');
+        } catch (error) {
+            console.error('Error following user:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Unfollow a user using Steem blockchain operations
+     * @param {string} follower - Username of the current user who wants to unfollow someone
+     * @param {string} following - Username of the user to unfollow
+     * @returns {Promise<Object>} - Result of the unfollow operation
+     */
+    async unfollowUser(follower, following) {
+        await this.core.ensureLibraryLoaded();
+        
+        try {
+            // Create the custom JSON operation for unfollowing (empty 'what' array)
+            const json = JSON.stringify(['follow', {
+                follower: follower,
+                following: following,
+                what: [] // Empty array means unfollow
+            }]);
+            
+            // Invertiamo l'ordine: prima controlliamo se c'è la chiave nel localStorage
+            const postingKey = this.getStoredPostingKey(follower);
+            
+            // Se l'utente ha la chiave memorizzata, usiamo quella (priorità al localStorage)
+            if (postingKey) {
+                console.log('Using stored posting key for unfollow operation');
+                return this.broadcastFollowOperation(follower, json, postingKey);
+            }
+            
+            // Altrimenti proviamo con Keychain se disponibile
+            if (window.steem_keychain) {
+                console.log('Using Steem Keychain for unfollow operation');
+                return this.broadcastFollowWithKeychain(follower, json);
+            }
+            
+            // Se nessun metodo di autenticazione è disponibile, mostriamo l'UI per guidare l'utente
+            console.log('No authentication method available, showing dialog');
+            await this.showFollowAuthRequiredModal(follower);
+            
+            // Se l'utente ha inserito una chiave nel modal, ora dovrebbe essere disponibile
+            const newPostingKey = this.getStoredPostingKey(follower);
+            if (newPostingKey) {
+                return this.broadcastFollowOperation(follower, json, newPostingKey);
+            }
+            
+            throw new Error('Posting authority required to unfollow users');
+        } catch (error) {
+            console.error('Error unfollowing user:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Check if a user follows another user
+     * @param {string} follower - Username of the potential follower
+     * @param {string} following - Username of the potential followed user
+     * @returns {Promise<boolean>} - True if follower follows following
+     */
+    async checkIfFollowing(follower, following) {
+        await this.core.ensureLibraryLoaded();
+        
+        try {
+            console.log(`Checking if ${follower} follows ${following}...`);
+            
+            // Prova a bypassare la cache dell'API usando parametri unici
+            const timestamp = Date.now();
+            
+            // Get list of users that follower is following
+            const followingList = await new Promise((resolve, reject) => {
+                // Usiamo direttamente l'API con un limit basso ma sufficiente
+                // e un parametro timestamp per evitare la cache
+                this.core.steem.api.getFollowing(
+                    follower, 
+                    '', 
+                    'blog', 
+                    100, 
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error in getFollowing API call:', err);
+                            reject(err);
+                        } else {
+                            console.log(`Got ${result.length} following entries for ${follower}`);
+                            resolve(result);
+                        }
+                    },
+                    { _timestamp: timestamp } // Parametro opzionale per forzare richiesta fresh
+                );
+            });
+            
+            // Check if the 'following' user is in that list and log il risultato
+            const isFollowing = followingList.some(entry => entry.following === following);
+            console.log(`Result: ${follower} ${isFollowing ? 'follows' : 'does not follow'} ${following}`);
+            
+            return isFollowing;
+        } catch (error) {
+            console.error('Error checking follow status:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Get stored posting key for a user
+     * @private
+     */
+    getStoredPostingKey(username) {
+        return localStorage.getItem('postingKey') ||
+               localStorage.getItem(`${username}_posting_key`) ||
+               localStorage.getItem(`${username.toLowerCase()}_posting_key`) ||
+               null;
+    }
+    
+    /**
+     * Broadcast a follow operation using direct key authentication
+     * @private
+     */
+    broadcastFollowOperation(username, jsonData, postingKey) {
+        return new Promise((resolve, reject) => {
+            try {
+                // Verifica validità del JSON prima di procedere
+                let parsedJson;
+                try {
+                    parsedJson = JSON.parse(jsonData);
+                } catch (parseError) {
+                    console.error('Invalid JSON data:', parseError);
+                    return reject(new Error(`Invalid JSON format for follow operation: ${parseError.message}`));
+                }
+                
+                const operations = [
+                    ['custom_json', {
+                        required_auths: [],
+                        required_posting_auths: [username],
+                        id: 'follow',
+                        json: jsonData
+                    }]
+                ];
+                
+                console.log('Broadcasting follow operation with key:', operations);
+                
+                this.core.steem.broadcast.send(
+                    { operations, extensions: [] },
+                    { posting: postingKey },
+                    (err, result) => {
+                        if (err) {
+                            console.error('Error broadcasting follow operation:', err);
+                            reject(err);
+                        } else {
+                            console.log('Follow operation successful:', result);
+                            resolve(result);
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error('Error in broadcastFollowOperation:', error);
+                reject(new Error(`Failed to broadcast follow operation: ${error.message}`));
+            }
+        });
+    }
+    
+    /**
+     * Broadcast a follow operation using Keychain
+     * @private
+     */
+    broadcastFollowWithKeychain(username, jsonData) {
+        return new Promise((resolve, reject) => {
+            try {
+                // Verifica che jsonData sia un dato JSON valido
+                let parsedJson;
+                try {
+                    parsedJson = JSON.parse(jsonData);
+                } catch (parseError) {
+                    console.error('Invalid JSON data:', parseError);
+                    return reject(new Error(`Invalid JSON format: ${parseError.message}`));
+                }
+                
+                // Verifica la struttura del JSON
+                if (!Array.isArray(parsedJson) || parsedJson.length !== 2 || parsedJson[0] !== 'follow') {
+                    console.error('Invalid follow operation format:', parsedJson);
+                    return reject(new Error('Invalid follow operation format'));
+                }
+                
+                // Verifica i campi necessari nell'oggetto follow
+                const followObj = parsedJson[1];
+                if (!followObj.follower || !followObj.following || !Array.isArray(followObj.what)) {
+                    console.error('Missing required fields in follow operation:', followObj);
+                    return reject(new Error('Missing required fields in follow operation'));
+                }
+                
+                console.log('Sending follow operation to Keychain:', jsonData);
+                
+                if (!window.steem_keychain) {
+                    return reject(new Error('Steem Keychain not found. Please install the Steem Keychain extension.'));
+                }
+                
+                // CORREZIONE: "posting" deve essere "Posting" con la P maiuscola per Keychain
+                window.steem_keychain.requestCustomJson(
+                    username,
+                    'follow',
+                    'Posting',  // Corretto da 'posting' a 'Posting'
+                    jsonData,
+                    'Follow/Unfollow User',
+                    (response) => {
+                        console.log('Keychain response:', response);
+                        if (response.success) {
+                            resolve(response);
+                        } else {
+                            reject(new Error(response.error || 'Unknown Keychain error'));
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error('Error in broadcastFollowWithKeychain:', error);
+                reject(new Error(`Failed to broadcast follow operation: ${error.message}`));
+            }
+        });
+    }
+    
+    /**
+     * Show modal to guide user through authentication for follow actions
+     * @private
+     */
+    async showFollowAuthRequiredModal(username) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'follow-auth-modal';
+            modal.innerHTML = `
+                <div class="follow-auth-modal-content">
+                    <h3>Authentication Required</h3>
+                    <p>Following or unfollowing users requires posting authority.</p>
+                    
+                    <div class="auth-options">
+                        <h4>Options to proceed:</h4>
+                        <ol>
+                            <li>
+                                <strong>Use Steem Keychain:</strong> Install the Keychain browser extension 
+                                for secure access to your Steem account.
+                            </li>
+                            <li>
+                                <strong>Add your posting key:</strong> You can add your posting key to local storage. 
+                                <span class="warning">(Less secure - use only on trusted devices)</span>
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <div class="posting-key-input" style="display: none;">
+                        <div class="input-group">
+                            <label for="posting-key-input">Enter your posting private key:</label>
+                            <input type="password" id="posting-key-input" placeholder="5K..." />
+                            <small class="warning">Warning: Only enter your key on trusted devices and connections</small>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="save-posting-key" />
+                            <label for="save-posting-key">Save this key for future actions</label>
+                        </div>
+                        <button id="submit-posting-key">Submit Key</button>
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button id="show-key-input">Use Posting Key</button>
+                        <button id="close-modal">Close</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Add event listeners
+            document.getElementById('close-modal').addEventListener('click', () => {
+                document.body.removeChild(modal);
+                resolve();
+            });
+
+            document.getElementById('show-key-input').addEventListener('click', () => {
+                document.querySelector('.posting-key-input').style.display = 'block';
+                document.querySelector('.modal-buttons').style.display = 'none';
+            });
+
+            document.getElementById('submit-posting-key').addEventListener('click', () => {
+                const postingKey = document.getElementById('posting-key-input').value.trim();
+                const saveKey = document.getElementById('save-posting-key').checked;
+
+                if (postingKey) {
+                    if (saveKey) {
+                        localStorage.setItem(`${username}_posting_key`, postingKey);
+                    }
+                    document.body.removeChild(modal);
+                    resolve(postingKey);
+                } else {
+                    alert('Please enter your posting key');
+                }
+            });
+        });
+    }
 }

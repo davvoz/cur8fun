@@ -152,6 +152,36 @@ class SteemService {
     async getFollowing(username) {
         return this.userService.getFollowing(username);
     }
+    
+    /**
+     * Follow a user on the Steem blockchain
+     * @param {string} follower - Username of the follower
+     * @param {string} following - Username of the person to follow
+     * @returns {Promise<Object>} - Result of the operation
+     */
+    async followUser(follower, following) {
+        return this.userService.followUser(follower, following);
+    }
+    
+    /**
+     * Unfollow a user on the Steem blockchain
+     * @param {string} follower - Username of the follower
+     * @param {string} following - Username of the person to unfollow
+     * @returns {Promise<Object>} - Result of the operation
+     */
+    async unfollowUser(follower, following) {
+        return this.userService.unfollowUser(follower, following);
+    }
+    
+    /**
+     * Check if a user follows another user
+     * @param {string} follower - Username of the potential follower
+     * @param {string} following - Username of the potential followed user
+     * @returns {Promise<boolean>} - True if follower follows following
+     */
+    async checkIfFollowing(follower, following) {
+        return this.userService.checkIfFollowing(follower, following);
+    }
 
     async updateUserProfile(username, profile) {
         return this.userService.updateUserProfile(username, profile);
