@@ -16,6 +16,7 @@
 @import 'components/components.css';
 @import 'components/image-upload.css';
 @import 'components/loaders.css';
+@import 'components/modals.css'; /* Aggiunto import per gli stili dei modali e banner */
 @import 'components/post-excerpt.css';
 @import 'components/post-card.css'; /* Aggiunto import per gli stili delle card dei post */
 @import 'components/tag-selection.css';

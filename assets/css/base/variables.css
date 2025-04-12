@@ -29,6 +29,23 @@
     --text-on-primary: #ffffff; /* Text on primary color */
     --text-heading: #ffffff; /* Text for headings */
     
+    /* Modal and Banner colors */
+    --modal-background: #1a1a1a; /* Modal background */
+    --banner-success: #2ecc71; /* Success banner */
+    --banner-error: #e74c3c; /* Error banner */
+    --banner-warning: #f39c12; /* Warning banner */
+    --banner-info: #3498db; /* Info banner */
+    
+    /* Button colors */
+    --button-primary: #ff7518; /* Primary button */
+    --button-primary-hover: #ff9248; /* Primary button hover */
+    --button-secondary: #2d2d2d; /* Secondary button */
+    --button-secondary-hover: #444444; /* Secondary button hover */
+    --button-danger: #e74c3c; /* Danger/cancel button */
+    --button-danger-hover: #c0392b; /* Danger button hover */
+    --button-success: #2ecc71; /* Success/confirm button */
+    --button-success-hover: #27ae60; /* Success button hover */
+    
     /* Layout measurements */
     --nav-height: 60px;
     --side-nav-width: 240px;

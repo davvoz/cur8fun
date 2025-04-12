@@ -106,25 +106,55 @@ export default class UserServiceCore {
      * Updates a user's profile by modifying their account metadata
      * @param {string} username - The username whose profile to update
      * @param {Object} profile - The profile data to update
+     * @param {string|null} activeKey - Optional active key provided by the user
      * @returns {Promise<Object>} - The result of the update operation
      * @throws {Error} If the update fails or required authentication is missing
      */
-    async updateUserProfile(username, profile) {
+    async updateUserProfile(username, profile, activeKey = null) {
         await this.core.ensureLibraryLoaded();
+
+        console.log('🔍 DEBUG - Profile update requested:', { username, profile });
 
         // Get existing user data and prepare metadata
         const { metadata, memoKey } = await this.prepareProfileUpdate(username);
         
+        console.log('🔍 DEBUG - Existing metadata:', JSON.stringify(metadata));
+        
         // Set or update the profile property and stringify
         metadata.profile = profile;
+        
+        console.log('🔍 DEBUG - Updated metadata:', JSON.stringify(metadata));
+        
+        // Important: Ensure profile_image and other fields are correctly set at root level of profile object
+        if (profile.profile_image) {
+            console.log('🔍 DEBUG - Setting profile_image:', profile.profile_image);
+            
+            // Make sure profile is an object
+            if (typeof metadata.profile !== 'object') {
+                metadata.profile = {};
+            }
+            
+            // Ensure profile_image is properly set
+            metadata.profile.profile_image = profile.profile_image;
+        }
+        
         const jsonMetadata = JSON.stringify(metadata);
+        console.log('🔍 DEBUG - Final JSON metadata to broadcast:', jsonMetadata);
         
-        // Try updating with stored keys or Keychain
-        const activeKey = this.getStoredActiveKey(username);
-        
+        // If an active key was provided directly, use it
         if (activeKey) {
+            console.log('Using provided active key for profile update');
             return this.broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey);
+        }
+        
+        // Otherwise, try stored key or Keychain
+        const storedActiveKey = this.getStoredActiveKey(username);
+        
+        if (storedActiveKey) {
+            console.log('Using stored active key for profile update');
+            return this.broadcastProfileUpdate(username, memoKey, jsonMetadata, storedActiveKey);
         } else if (window.steem_keychain) {
+            console.log('Using Keychain for profile update');
             return this.broadcastProfileUpdateWithKeychain(username, memoKey, jsonMetadata);
         } else {
             // No active key or Keychain, show explanation to user
@@ -200,6 +230,35 @@ export default class UserServiceCore {
     broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey) {
         return new Promise((resolve, reject) => {
             try {
+                console.log('🔍 DEBUG - Broadcasting profile update with direct key auth');
+                
+                // Verifica e correggi il jsonMetadata se necessario
+                let metadata;
+                try {
+                    metadata = JSON.parse(jsonMetadata);
+                    
+                    // Assicuriamoci che esista metadata.profile
+                    if (!metadata.profile || typeof metadata.profile !== 'object') {
+                        console.warn('⚠️ Correzione: metadata.profile non è un oggetto valido');
+                        metadata.profile = {};
+                    }
+                    
+                    // Se il campo profile_image esiste direttamente in metadata, spostalo dentro profile
+                    if (metadata.profile_image && !metadata.profile.profile_image) {
+                        console.log('🔍 DEBUG - Spostando profile_image dal livello root a profile');
+                        metadata.profile.profile_image = metadata.profile_image;
+                        delete metadata.profile_image;
+                    }
+                    
+                    // Aggiorna il jsonMetadata con la versione corretta
+                    jsonMetadata = JSON.stringify(metadata);
+                    console.log('🔍 DEBUG - jsonMetadata corretto:', jsonMetadata);
+                    
+                } catch (e) {
+                    console.error('⚠️ Errore nel parsing del jsonMetadata:', e);
+                    // Continua con il jsonMetadata originale se c'è un errore
+                }
+                
                 const operations = [
                     ['account_update', {
                         account: username,
@@ -208,18 +267,23 @@ export default class UserServiceCore {
                     }]
                 ];
 
+                console.log('🔍 DEBUG - Operazioni da inviare:', JSON.stringify(operations));
+
                 this.core.steem.broadcast.send(
                     { operations, extensions: [] },
                     { active: activeKey },
                     (err, result) => {
                         if (err) {
+                            console.error('⚠️ Errore nel broadcast:', err);
                             reject(err);
                         } else {
+                            console.log('✅ Broadcast completato con successo:', result);
                             resolve(result);
                         }
                     }
                 );
             } catch (error) {
+                console.error('⚠️ Errore in broadcastProfileUpdate:', error);
                 reject(error);
             }
         });

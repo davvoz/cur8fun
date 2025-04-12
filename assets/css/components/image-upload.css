@@ -388,3 +388,101 @@
 .edit-profile-form .save-btn:hover {
   background-color: var(--primary-color-hover, #ff8c3b);
 }
+
+/* Stili per i modal dialog dell'active key */
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: var(--background-color, #fff);
+    border-radius: 8px;
+    padding: 25px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.warning-modal h3, 
+.key-input-modal h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    padding-bottom: 10px;
+}
+
+.warning-modal .security-tip {
+    display: block;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid #ffc107;
+    font-size: 14px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    background-color: var(--background-light, #f5f5f5);
+    color: var(--text-color, #333);
+    border: 1px solid var(--border-color, #ddd);
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.continue-btn, .submit-btn {
+    background-color: var(--primary-color, #ff751a);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.key-input-modal .input-group {
+    margin-bottom: 15px;
+}
+
+.key-input-modal label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.key-input-modal .key-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.key-input-modal .security-note {
+    font-size: 14px;
+    color: var(--text-secondary, #666);
+    margin-top: 10px;
+}
+
+.key-input-modal .checkbox-group {
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+}
+
+.key-input-modal .checkbox-group input {
+    margin-right: 10px;
+}
