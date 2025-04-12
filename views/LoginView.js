@@ -152,6 +152,23 @@ class LoginView {
     input.name = id;
     input.required = required;
     input.className = 'form-control';
+    
+    // For username field, enforce lowercase and add a tooltip
+    if (id === 'username') {
+      input.autocapitalize = 'none';
+      input.autocomplete = 'username';
+      input.placeholder = 'lowercase username';
+      input.title = 'Steem usernames are lowercase only';
+      
+      // Add an input event listener to convert any uppercase to lowercase
+      input.addEventListener('input', (e) => {
+        const start = e.target.selectionStart;
+        const end = e.target.selectionEnd;
+        e.target.value = e.target.value.toLowerCase();
+        // Restore cursor position
+        e.target.setSelectionRange(start, end);
+      });
+    }
 
     group.appendChild(label);
     group.appendChild(input);
