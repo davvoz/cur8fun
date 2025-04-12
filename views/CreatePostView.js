@@ -296,9 +296,6 @@ class CreatePostView extends View {
     );
     this.markdownEditor.render();
 
-    // Carica community iscritte inizialmente
-    this.loadSubscribedCommunities();
-
     // Verifica se esiste una bozza e mostra il prompt
     this.checkForDraft();
     
@@ -1028,6 +1025,15 @@ class CreatePostView extends View {
 
     if (this.isSubmitting) return;
 
+    // Debug: log dei dati del post prima della validazione
+    console.log("Post submission data:", {
+      title: this.postTitle,
+      bodyLength: this.postBody?.length || 0,
+      tags: this.tags,
+      tagCount: this.tags.length,
+      community: this.selectedCommunity?.name
+    });
+
     // Verifica dati
     if (!this.postTitle.trim()) {
       this.showError('Please enter a title for your post');
@@ -1044,8 +1050,16 @@ class CreatePostView extends View {
       return;
     }
 
+    // Validazione del numero massimo di tag con log esplicito
     if (this.tags.length > 5) {
-      this.showError('You can only add up to 5 tags');
+      console.error(`Too many tags: ${this.tags.length} tags provided, maximum is 5`);
+      this.showError('Maximum 5 tags allowed. Please remove some tags to continue.');
+      
+      // Focus sull'input dei tag per facilitare la correzione
+      const tagsInput = document.getElementById('post-tags');
+      if (tagsInput) {
+        tagsInput.focus();
+      }
       return;
     }
 
@@ -1075,6 +1089,11 @@ class CreatePostView extends View {
       if (this.selectedCommunity) {
         postData.community = this.selectedCommunity.name;
       }
+
+      console.log("Attempting to create post with data:", {
+        ...postData,
+        bodyLength: postData.body.length
+      });
 
       // Usa il servizio centralizzato per creare post
       const result = await createPostService.createPost(postData);
@@ -1151,14 +1170,32 @@ class CreatePostView extends View {
     const statusArea = document.getElementById('post-status-message');
     if (!statusArea) return;
 
-    statusArea.textContent = message;
-    statusArea.className = `status-message ${type}`;
+    // Rimuovi classi esistenti e aggiungi quelle appropriate
+    statusArea.className = `status-message ${type} visible`;
+    
+    // Aggiungi icone appropriate per migliorare la visibilità
+    let icon = '';
+    if (type === 'error') {
+      icon = '<i class="material-icons">error</i> ';
+    } else if (type === 'success') {
+      icon = '<i class="material-icons">check_circle</i> ';
+    } else if (type === 'info') {
+      icon = '<i class="material-icons">info</i> ';
+    }
+    
+    // Aggiorna il contenuto con icona
+    statusArea.innerHTML = icon + message;
 
     // Nascondi automaticamente dopo un po' se è un successo
     if (type === 'success') {
       setTimeout(() => {
         statusArea.className = 'status-message hidden';
       }, 5000);
+    } 
+    
+    // Fai scorrere in vista il messaggio di errore
+    if (type === 'error') {
+      statusArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 

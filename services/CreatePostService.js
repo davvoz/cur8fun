@@ -268,8 +268,18 @@ class CreatePostService {
     }
     
     if (tags.length > 5) {
-      throw new Error('Maximum 5 tags allowed');
+      throw new Error('Maximum 5 tags allowed. Please remove some tags to continue.');
     }
+    
+    // Validate individual tags
+    tags.forEach(tag => {
+      if (tag.length > 24) {
+        throw new Error(`Tag '${tag}' is too long. Maximum length is 24 characters.`);
+      }
+      if (!/^[a-z0-9-]+$/.test(tag)) {
+        throw new Error(`Tag '${tag}' contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed.`);
+      }
+    });
   }
   
 

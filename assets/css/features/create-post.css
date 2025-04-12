@@ -227,6 +227,50 @@
   animation: slide-in 0.3s ease;
 }
 
+.status-message {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-sm);
+  position: relative;
+  display: flex;
+  align-items: center;
+  animation: slide-in 0.3s ease;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+}
+
+.status-message.visible {
+  opacity: 1;
+  max-height: 100px;
+  margin-bottom: 15px;
+  padding: 12px 15px;
+}
+
+.status-message.error {
+  background-color: var(--error-light, #fff5f5);
+  color: var(--error-dark, #d32f2f);
+  border-left: 3px solid var(--error-dark, #d32f2f);
+}
+
+.status-message.success {
+  background-color: var(--success-light, #f0fff4);
+  color: var(--success-dark, #2e7d32);
+  border-left: 3px solid var(--success-dark, #2e7d32);
+}
+
+.status-message.info {
+  background-color: var(--info-light, #e6f7ff);
+  color: var(--info-dark, #0277bd);
+  border-left: 3px solid var(--info-dark, #0277bd);
+}
+
+.status-message .material-icons {
+  margin-right: 8px;
+  font-size: 20px;
+}
+
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
