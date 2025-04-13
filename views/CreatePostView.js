@@ -18,10 +18,13 @@ class CreatePostView extends View {
     this.markdownEditor = null;
     this.hasUnsavedChanges = false;
     
-    // Opzioni beneficiari
+    // Opzioni beneficiari - versione aggiornata con supporto multiplo
     this.includeBeneficiary = true;
-    this.customBeneficiary = null;
-    this.beneficiaryWeight = createPostService.defaultBeneficiary.weight;
+    this.beneficiaries = [{
+      account: createPostService.defaultBeneficiary.name,
+      weight: createPostService.defaultBeneficiary.weight
+    }];
+    this.totalWeight = createPostService.defaultBeneficiary.weight;
 
     // Timeout per la ricerca community
     this.searchTimeout = null;
@@ -35,6 +38,9 @@ class CreatePostView extends View {
     
     // Per gestire i suggerimenti dei beneficiari
     this.beneficiarySuggestions = [];
+    
+    // Indice del beneficiario attualmente in modifica
+    this.currentBeneficiaryIndex = -1;
   }
 
   // Aggiornamento della funzione render per un'interfaccia più compatta
@@ -285,7 +291,7 @@ class CreatePostView extends View {
     beneficiaryLabel.className = 'form-label-with-toggle';
     
     const beneficiaryLabelText = document.createElement('label');
-    beneficiaryLabelText.textContent = 'Reward Beneficiary';
+    beneficiaryLabelText.textContent = 'Reward Beneficiaries';
     beneficiaryLabelText.htmlFor = 'beneficiary-toggle';
     
     const beneficiaryToggleContainer = document.createElement('div');
@@ -313,113 +319,39 @@ class CreatePostView extends View {
     const beneficiaryContent = document.createElement('div');
     beneficiaryContent.className = 'beneficiary-content';
     beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
+
+    // Lista di beneficiari
+    const beneficiariesList = document.createElement('div');
+    beneficiariesList.className = 'beneficiaries-list';
+    beneficiariesList.id = 'beneficiaries-list';
     
-    // Beneficiary name input
-    const beneficiaryNameGroup = document.createElement('div');
-    beneficiaryNameGroup.className = 'form-group';
+    // Popola la lista con i beneficiari esistenti
+    this.renderBeneficiaryItems(beneficiariesList);
     
-    const beneficiaryNameLabel = document.createElement('label');
-    beneficiaryNameLabel.htmlFor = 'beneficiary-name';
-    beneficiaryNameLabel.textContent = 'Account Name';
+    beneficiaryContent.appendChild(beneficiariesList);
     
-    // Container per l'input e il dropdown di suggerimenti
-    const beneficiaryInputContainer = document.createElement('div');
-    beneficiaryInputContainer.className = 'beneficiary-input-container';
+    // Pulsante per aggiungere nuovo beneficiario
+    const addBeneficiaryBtn = document.createElement('button');
+    addBeneficiaryBtn.type = 'button';
+    addBeneficiaryBtn.className = 'add-beneficiary-btn';
+    addBeneficiaryBtn.id = 'add-beneficiary-btn';
+    addBeneficiaryBtn.innerHTML = '<span class="material-icons">add</span> Add Beneficiary';
+    addBeneficiaryBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
     
-    const beneficiaryNameInput = document.createElement('input');
-    beneficiaryNameInput.type = 'text';
-    beneficiaryNameInput.id = 'beneficiary-name';
-    beneficiaryNameInput.className = 'form-control';
-    beneficiaryNameInput.value = this.customBeneficiary || createPostService.defaultBeneficiary.name;
-    beneficiaryNameInput.placeholder = 'Enter beneficiary account name';
-    
-    // Container per i suggerimenti
-    const beneficiarySuggestionsContainer = document.createElement('div');
-    beneficiarySuggestionsContainer.className = 'beneficiary-suggestions';
-    beneficiarySuggestionsContainer.id = 'beneficiary-suggestions';
-    
-    beneficiaryInputContainer.appendChild(beneficiaryNameInput);
-    beneficiaryInputContainer.appendChild(beneficiarySuggestionsContainer);
-    
-    beneficiaryNameGroup.appendChild(beneficiaryNameLabel);
-    beneficiaryNameGroup.appendChild(beneficiaryInputContainer);
-    beneficiaryContent.appendChild(beneficiaryNameGroup);
-    
-    // Aggiungi listener per l'input per il beneficiario
-    beneficiaryNameInput.addEventListener('input', (e) => {
-      this.customBeneficiary = e.target.value.trim();
-      document.getElementById('current-beneficiary').textContent = this.customBeneficiary || createPostService.defaultBeneficiary.name;
-      this.hasUnsavedChanges = true;
-      
-      // Cerca utenti solo se la query ha almeno 3 caratteri
-      if (this.customBeneficiary && this.customBeneficiary.length >= 3) {
-        // Cancella il timeout precedente
-        clearTimeout(this.beneficiarySearchTimeout);
-        
-        // Imposta un nuovo timeout
-        this.beneficiarySearchTimeout = setTimeout(() => {
-          this.searchBeneficiaries(this.customBeneficiary);
-        }, 300);
-      } else {
-        // Nascondi i suggerimenti se la query è troppo corta
-        this.hideBeneficiarySuggestions();
-      }
+    addBeneficiaryBtn.addEventListener('click', () => {
+      this.showAddBeneficiaryDialog();
     });
     
-    // Focus e blur per i suggerimenti
-    beneficiaryNameInput.addEventListener('focus', () => {
-      if (this.customBeneficiary && this.customBeneficiary.length >= 3 && this.beneficiarySuggestions.length > 0) {
-        this.showBeneficiarySuggestions();
-      }
-    });
+    beneficiaryContent.appendChild(addBeneficiaryBtn);
     
-    // Gestione tasti
-    beneficiaryNameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.hideBeneficiarySuggestions();
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.navigateBeneficiarySuggestions(e.key === 'ArrowDown' ? 1 : -1);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const selected = beneficiarySuggestionsContainer.querySelector('.suggestion-item.selected');
-        if (selected) {
-          this.selectBeneficiary(selected.dataset.username);
-        }
-      }
-    });
+    // Riepilogo beneficiari (percentuale totale)
+    const beneficiarySummary = document.createElement('div');
+    beneficiarySummary.className = 'beneficiary-summary';
+    beneficiarySummary.id = 'beneficiary-summary';
     
-    // Percentage slider and display
-    const percentageGroup = document.createElement('div');
-    percentageGroup.className = 'form-group';
+    this.updateBeneficiarySummary(beneficiarySummary);
     
-    const percentageLabel = document.createElement('label');
-    percentageLabel.htmlFor = 'beneficiary-percentage';
-    percentageLabel.textContent = 'Percentage';
-    
-    const percentageValueDisplay = document.createElement('span');
-    percentageValueDisplay.id = 'percentage-value-display';
-    percentageValueDisplay.className = 'percentage-value';
-    percentageValueDisplay.textContent = `${(this.beneficiaryWeight / 100).toFixed(1)}%`;
-    
-    percentageLabel.appendChild(percentageValueDisplay);
-    
-    const sliderContainer = document.createElement('div');
-    sliderContainer.className = 'slider-container';
-    
-    const percentageInput = document.createElement('input');
-    percentageInput.type = 'range';
-    percentageInput.id = 'beneficiary-percentage';
-    percentageInput.className = 'form-range';
-    percentageInput.min = '0';
-    percentageInput.max = '5000';  // 50% max
-    percentageInput.step = '50';   // 0.5% steps
-    percentageInput.value = this.beneficiaryWeight;
-    
-    sliderContainer.appendChild(percentageInput);
-    percentageGroup.appendChild(percentageLabel);
-    percentageGroup.appendChild(sliderContainer);
-    beneficiaryContent.appendChild(percentageGroup);
+    beneficiaryContent.appendChild(beneficiarySummary);
     
     // Beneficiary info text
     const beneficiaryHelp = document.createElement('div');
@@ -433,10 +365,7 @@ class CreatePostView extends View {
     // Help text
     const helpText = document.createElement('small');
     helpText.className = 'form-text';
-    helpText.innerHTML = 
-      `This sets <strong id="current-beneficiary">${this.customBeneficiary || createPostService.defaultBeneficiary.name}</strong> as beneficiary, 
-      receiving <strong id="current-percentage">${(this.beneficiaryWeight / 100).toFixed(1)}%</strong> of 
-      the post rewards. You can modify or disable this setting.`;
+    helpText.textContent = 'Beneficiaries receive a percentage of your post rewards. You can add up to 8 beneficiaries.';
     
     beneficiaryHelp.appendChild(infoIcon);
     beneficiaryHelp.appendChild(helpText);
@@ -449,20 +378,6 @@ class CreatePostView extends View {
     beneficiaryToggle.addEventListener('change', (e) => {
       this.includeBeneficiary = e.target.checked;
       beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
-      this.hasUnsavedChanges = true;
-    });
-    
-    beneficiaryNameInput.addEventListener('input', (e) => {
-      this.customBeneficiary = e.target.value.trim();
-      document.getElementById('current-beneficiary').textContent = this.customBeneficiary || createPostService.defaultBeneficiary.name;
-      this.hasUnsavedChanges = true;
-    });
-    
-    percentageInput.addEventListener('input', (e) => {
-      this.beneficiaryWeight = parseInt(e.target.value);
-      const percentageFormatted = (this.beneficiaryWeight / 100).toFixed(1);
-      percentageValueDisplay.textContent = `${percentageFormatted}%`;
-      document.getElementById('current-percentage').textContent = `${percentageFormatted}%`;
       this.hasUnsavedChanges = true;
     });
 
@@ -1231,8 +1146,8 @@ class CreatePostView extends View {
       tags: this.tags,
       tagCount: this.tags.length,
       community: this.selectedCommunity?.name,
-      beneficiary: this.includeBeneficiary ? (this.customBeneficiary || createPostService.defaultBeneficiary.name) : 'none',
-      beneficiaryWeight: this.beneficiaryWeight / 100 + '%'
+      beneficiaries: this.includeBeneficiary ? this.beneficiaries : 'none',
+      totalBeneficiaryPercentage: this.includeBeneficiary ? (this.totalWeight / 100).toFixed(1) + '%' : '0%'
     });
 
     // Verifica dati
@@ -1264,6 +1179,14 @@ class CreatePostView extends View {
       return;
     }
 
+    // Verifica che la percentuale totale dei beneficiari non superi il limite
+    if (this.includeBeneficiary) {
+      if (!createPostService.validateBeneficiaryPercentage(this.beneficiaries)) {
+        this.showError('Total beneficiary percentage cannot exceed 90%');
+        return;
+      }
+    }
+
     // Imposta stato di invio
     this.isSubmitting = true;
     const submitBtn = document.getElementById('submit-post-btn');
@@ -1283,12 +1206,12 @@ class CreatePostView extends View {
         title: this.postTitle,
         body: this.postBody,
         tags: this.tags,
-        permlink: permlink // Passa il permlink generato
+        permlink: permlink
       };
       
       // Aggiungi la community se selezionata
       if (this.selectedCommunity) {
-        postData.community = this.selectedCommunity.name;
+        postData.community = this.selectedCommunity.name || this.selectedCommunity.id;
       }
 
       // Opzioni per i beneficiari
@@ -1296,18 +1219,9 @@ class CreatePostView extends View {
         includeBeneficiary: this.includeBeneficiary
       };
 
-      // Se è incluso un beneficiario, imposta i dettagli
-      if (this.includeBeneficiary) {
-        if (this.customBeneficiary && this.customBeneficiary.trim()) {
-          // Beneficiario personalizzato
-          options.beneficiaries = [{
-            account: this.customBeneficiary.trim(),
-            weight: this.beneficiaryWeight
-          }];
-        } else {
-          // Beneficiario predefinito ma con peso personalizzato
-          options.beneficiaryWeight = this.beneficiaryWeight;
-        }
+      // Se i beneficiari sono abilitati, passa l'array completo
+      if (this.includeBeneficiary && this.beneficiaries.length > 0) {
+        options.beneficiaries = this.beneficiaries;
       }
 
       console.log("Attempting to create post with data:", {
@@ -1321,18 +1235,11 @@ class CreatePostView extends View {
 
       // Send notification to Telegram after successful post creation
       if (result) {
-        const postUrl = `https://cur8.fun/#/@${username}/${permlink}`;
         try {
-          await fetch('https://imridd.eu.pythonanywhere.com/api/telegram/send_message_animals', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ post_url: postUrl })
-          });
-        } catch (error) {
-          console.error('Failed to notify Telegram:', error);
-          // We don't throw here as the post was created successfully
+          // Optional: implementa la notifica
+        } catch (notifyErr) {
+          console.error("Failed to send notification:", notifyErr);
+          // Non bloccare il flusso per errori di notifica
         }
       }
       
@@ -1341,8 +1248,7 @@ class CreatePostView extends View {
 
       // Reindirizza alla pagina del post dopo un breve ritardo
       setTimeout(() => {
-        // Usa router per navigare alla pagina del post
-        window.location.href = `#/@${username}/${permlink}`;
+        window.location.href = `#/post/@${username}/${permlink}`;
       }, 2000);
     } catch (error) {
       console.error('Failed to publish post:', error);
@@ -2075,6 +1981,633 @@ class CreatePostView extends View {
     
     // Assicurati che l'elemento selezionato sia visibile
     items[newIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /**
+   * Renderizza gli elementi della lista dei beneficiari
+   * @param {HTMLElement} container - Il container della lista
+   */
+  renderBeneficiaryItems(container) {
+    // Pulisci il container
+    container.innerHTML = '';
+    
+    // Se non ci sono beneficiari, mostra un messaggio
+    if (!this.beneficiaries || this.beneficiaries.length === 0) {
+      const emptyMessage = document.createElement('div');
+      emptyMessage.className = 'beneficiary-empty';
+      emptyMessage.textContent = 'No beneficiaries added';
+      container.appendChild(emptyMessage);
+      return;
+    }
+    
+    // Crea un elemento per ogni beneficiario
+    this.beneficiaries.forEach((beneficiary, index) => {
+      const item = document.createElement('div');
+      item.className = 'beneficiary-item';
+      
+      // Nome del beneficiario
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'beneficiary-name';
+      nameDiv.textContent = `@${beneficiary.account}`;
+      
+      // Slider per il peso
+      const sliderDiv = document.createElement('div');
+      sliderDiv.className = 'beneficiary-weight-slider';
+      
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = '5000';
+      slider.step = '50';
+      slider.value = beneficiary.weight;
+      slider.dataset.index = index;
+      
+      slider.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.index);
+        const weight = parseInt(e.target.value);
+        this.updateBeneficiaryWeight(idx, weight);
+      });
+      
+      sliderDiv.appendChild(slider);
+      
+      // Percentuale
+      const percentDiv = document.createElement('div');
+      percentDiv.className = 'beneficiary-percentage';
+      percentDiv.textContent = `${(beneficiary.weight / 100).toFixed(1)}%`;
+      
+      // Pulsanti di azione
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'beneficiary-actions';
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.title = 'Remove beneficiary';
+      deleteBtn.dataset.index = index;
+      deleteBtn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        this.removeBeneficiary(idx);
+      });
+      
+      const deleteIcon = document.createElement('span');
+      deleteIcon.className = 'material-icons';
+      deleteIcon.textContent = 'delete';
+      deleteBtn.appendChild(deleteIcon);
+      
+      actionsDiv.appendChild(deleteBtn);
+      
+      // Assembla l'elemento
+      item.appendChild(nameDiv);
+      item.appendChild(sliderDiv);
+      item.appendChild(percentDiv);
+      item.appendChild(actionsDiv);
+      
+      container.appendChild(item);
+    });
+  }
+
+  /**
+   * Aggiorna il peso di un beneficiario
+   * @param {number} index - L'indice del beneficiario
+   * @param {number} weight - Il nuovo peso (0-10000)
+   */
+  updateBeneficiaryWeight(index, weight) {
+    if (index < 0 || index >= this.beneficiaries.length) return;
+    
+    // Aggiorna il peso
+    this.beneficiaries[index].weight = parseInt(weight);
+    
+    // Aggiorna la visualizzazione della percentuale
+    const beneficiariesList = document.getElementById('beneficiaries-list');
+    if (beneficiariesList) {
+      const items = beneficiariesList.querySelectorAll('.beneficiary-item');
+      if (index < items.length) {
+        const percentElement = items[index].querySelector('.beneficiary-percentage');
+        if (percentElement) {
+          percentElement.textContent = `${(weight / 100).toFixed(1)}%`;
+        }
+      }
+    }
+    
+    // Calcola il peso totale
+    this.calculateTotalWeight();
+    
+    // Aggiorna il riepilogo
+    const summaryElement = document.getElementById('beneficiary-summary');
+    if (summaryElement) {
+      this.updateBeneficiarySummary(summaryElement);
+    }
+    
+    this.hasUnsavedChanges = true;
+  }
+
+  /**
+   * Calcola il peso totale dei beneficiari
+   */
+  calculateTotalWeight() {
+    this.totalWeight = this.beneficiaries.reduce((sum, ben) => sum + ben.weight, 0);
+    return this.totalWeight;
+  }
+
+  /**
+   * Aggiorna il riepilogo dei beneficiari
+   * @param {HTMLElement} container - Il container del riepilogo
+   */
+  updateBeneficiarySummary(container) {
+    container.innerHTML = '';
+    
+    // Calcola il totale
+    const totalWeight = this.calculateTotalWeight();
+    const totalPercentage = (totalWeight / 100).toFixed(1);
+    const authorPercentage = (100 - totalPercentage).toFixed(1);
+    
+    // Label
+    const label = document.createElement('div');
+    label.className = 'beneficiary-summary-label';
+    label.textContent = 'Reward Distribution';
+    
+    // Contenuto
+    const content = document.createElement('div');
+    content.className = 'beneficiary-summary-content';
+    
+    const authorPart = document.createElement('div');
+    authorPart.textContent = `Author: ${authorPercentage}%`;
+    
+    // Determina la classe per il totale in base al valore
+    let totalClass = 'total-ok';
+    if (totalWeight > 8000) {
+      totalClass = 'total-exceed';
+    } else if (totalWeight > 5000) {
+      totalClass = 'total-warning';
+    }
+    
+    const totalPart = document.createElement('div');
+    totalPart.className = `beneficiary-summary-total ${totalClass}`;
+    totalPart.textContent = `Beneficiaries: ${totalPercentage}%`;
+    
+    content.appendChild(authorPart);
+    content.appendChild(totalPart);
+    
+    container.appendChild(label);
+    container.appendChild(content);
+  }
+
+  /**
+   * Mostra il dialog per aggiungere un nuovo beneficiario
+   */
+  showAddBeneficiaryDialog() {
+    // Verifica se è stato raggiunto il limite massimo
+    if (this.beneficiaries.length >= createPostService.maxBeneficiaries) {
+      return this.showStatus(`Maximum ${createPostService.maxBeneficiaries} beneficiaries allowed`, 'error');
+    }
+    
+    // Verifica se esiste già un dialog e rimuovilo
+    const existingDialog = document.querySelector('.add-beneficiary-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+    
+    // Crea il dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'add-beneficiary-dialog';
+    
+    const dialogContent = document.createElement('div');
+    dialogContent.className = 'dialog-content';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'dialog-header';
+    
+    const title = document.createElement('h3');
+    title.textContent = 'Add Beneficiary';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-button';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<span>✕</span>';
+    
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    
+    // Body
+    const body = document.createElement('div');
+    body.className = 'dialog-body';
+    
+    // Campo per il nome del beneficiario
+    const nameGroup = document.createElement('div');
+    nameGroup.className = 'form-group';
+    
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'form-label-with-info';
+    
+    const nameText = document.createElement('label');
+    nameText.htmlFor = 'new-beneficiary-name';
+    nameText.textContent = 'Account Name';
+    
+    // Info icon with tooltip
+    const infoIcon = document.createElement('span');
+    infoIcon.className = 'material-icons info-icon';
+    infoIcon.textContent = 'info';
+    infoIcon.title = 'Enter a valid Hive account name';
+    
+    nameLabel.appendChild(nameText);
+    nameLabel.appendChild(infoIcon);
+    
+    const nameInputContainer = document.createElement('div');
+    nameInputContainer.className = 'beneficiary-input-container';
+    
+    // Add search icon inside the input
+    const inputWrapper = document.createElement('div');
+    inputWrapper.className = 'input-icon-wrapper';
+    
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'material-icons input-icon';
+    searchIcon.textContent = 'search';
+    
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.id = 'new-beneficiary-name';
+    nameInput.className = 'form-control with-icon';
+    nameInput.placeholder = 'Search by username';
+    nameInput.autocomplete = 'off';
+    
+    inputWrapper.appendChild(searchIcon);
+    inputWrapper.appendChild(nameInput);
+    
+    nameInputContainer.appendChild(inputWrapper);
+    
+    // Container per i suggerimenti con header
+    const suggestionsWrapper = document.createElement('div');
+    suggestionsWrapper.className = 'suggestions-wrapper';
+    
+    const suggestionsContainer = document.createElement('div');
+    suggestionsContainer.className = 'beneficiary-suggestions';
+    suggestionsContainer.id = 'beneficiary-suggestions';
+    
+    suggestionsWrapper.appendChild(suggestionsContainer);
+    nameInputContainer.appendChild(suggestionsWrapper);
+    
+    nameGroup.appendChild(nameLabel);
+    nameGroup.appendChild(nameInputContainer);
+    
+    // Frequently used accounts section
+    const frequentSection = document.createElement('div');
+    frequentSection.className = 'frequent-accounts-section';
+    
+    const frequentHeader = document.createElement('div');
+    frequentHeader.className = 'frequent-accounts-header';
+    frequentHeader.innerHTML = '<span class="material-icons">history</span> Recent Beneficiaries';
+    
+    const frequentList = document.createElement('div');
+    frequentList.className = 'frequent-accounts-list';
+    
+    // Aggiungiamo alcuni account frequenti (useremo account recenti in una implementazione futura)
+    const recentBeneficiaries = [
+      { name: 'micro.cur8', isDefault: true },
+      ...(this.getRecentBeneficiaries() || [])
+    ];
+    
+    recentBeneficiaries.forEach(account => {
+      if (!account.name) return;
+      
+      const accountChip = document.createElement('div');
+      accountChip.className = 'account-chip';
+      if (account.isDefault) {
+        accountChip.classList.add('default-account');
+      }
+      
+      accountChip.textContent = account.name;
+      accountChip.addEventListener('click', () => {
+        nameInput.value = account.name;
+        // Trigger input event to update UI
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      
+      frequentList.appendChild(accountChip);
+    });
+    
+    frequentSection.appendChild(frequentHeader);
+    frequentSection.appendChild(frequentList);
+    
+    nameGroup.appendChild(frequentSection);
+    
+    // Campo per la percentuale
+    const percentGroup = document.createElement('div');
+    percentGroup.className = 'form-group';
+    
+    const percentLabel = document.createElement('div');
+    percentLabel.className = 'form-label-with-info';
+    
+    const percentText = document.createElement('label');
+    percentText.htmlFor = 'new-beneficiary-percent';
+    percentText.textContent = 'Percentage';
+    
+    percentLabel.appendChild(percentText);
+    
+    // Visualizzazione migliorata dello slider
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'slider-container';
+    
+    const percentSlider = document.createElement('input');
+    percentSlider.type = 'range';
+    percentSlider.id = 'new-beneficiary-percent';
+    percentSlider.className = 'form-control range-input';
+    percentSlider.min = '0';
+    percentSlider.max = '5000';
+    percentSlider.step = '50';
+    percentSlider.value = '500'; // 5% predefinito
+    
+    const sliderMarks = document.createElement('div');
+    sliderMarks.className = 'slider-marks';
+    
+    // Aggiungiamo alcuni mark points
+    [0, 25, 50].forEach(percent => {
+      const mark = document.createElement('span');
+      mark.className = 'slider-mark';
+      mark.style.left = `${percent}%`;
+      mark.dataset.value = `${percent}%`;
+      
+      sliderMarks.appendChild(mark);
+    });
+    
+    sliderContainer.appendChild(percentSlider);
+    sliderContainer.appendChild(sliderMarks);
+    
+    // Visualizzazione percentuale
+    const percentageDisplay = document.createElement('div');
+    percentageDisplay.className = 'percentage-display';
+    
+    const percentValue = document.createElement('div');
+    percentValue.className = 'range-value';
+    percentValue.textContent = '5.0%';
+    
+    percentageDisplay.appendChild(percentValue);
+    
+    // Quick percentage presets
+    const percentPresets = document.createElement('div');
+    percentPresets.className = 'percent-presets';
+    
+    [1, 5, 10, 20, 50].forEach(percent => {
+      const preset = document.createElement('button');
+      preset.type = 'button';
+      preset.className = 'percent-preset-btn';
+      preset.textContent = `${percent}%`;
+      preset.addEventListener('click', () => {
+        percentSlider.value = percent * 100;
+        percentValue.textContent = `${percent}.0%`;
+      });
+      
+      percentPresets.appendChild(preset);
+    });
+    
+    // Update percentage value when slider changes
+    percentSlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value) / 100;
+      percentValue.textContent = `${value.toFixed(1)}%`;
+    });
+    
+    percentGroup.appendChild(percentLabel);
+    percentGroup.appendChild(sliderContainer);
+    percentGroup.appendChild(percentageDisplay);
+    percentGroup.appendChild(percentPresets);
+    
+    // Pulsanti
+    const buttons = document.createElement('div');
+    buttons.className = 'dialog-buttons';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn secondary-btn';
+    cancelBtn.textContent = 'Cancel';
+    
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn primary-btn';
+    addBtn.innerHTML = '<span class="material-icons">add</span> Add Beneficiary';
+    addBtn.disabled = true; // Inizialmente disabilitato
+    
+    buttons.appendChild(cancelBtn);
+    buttons.appendChild(addBtn);
+    
+    // Assembla il dialog
+    body.appendChild(nameGroup);
+    body.appendChild(percentGroup);
+    body.appendChild(buttons);
+    
+    dialogContent.appendChild(header);
+    dialogContent.appendChild(body);
+    
+    dialog.appendChild(dialogContent);
+    
+    // Aggiungi il dialog al DOM
+    document.body.appendChild(dialog);
+    
+    // Event handlers
+    closeBtn.addEventListener('click', () => {
+      dialog.remove();
+    });
+    
+    cancelBtn.addEventListener('click', () => {
+      dialog.remove();
+    });
+    
+    // Abilita/disabilita il pulsante in base all'input
+    nameInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      addBtn.disabled = !value;
+      
+      // Cerca utenti solo se la query ha almeno 3 caratteri
+      if (value && value.length >= 3) {
+        // Cancella il timeout precedente
+        clearTimeout(this.beneficiarySearchTimeout);
+        
+        // Imposta un nuovo timeout
+        this.beneficiarySearchTimeout = setTimeout(() => {
+          this.searchBeneficiaries(value);
+        }, 300);
+      } else {
+        this.hideBeneficiarySuggestions();
+      }
+    });
+    
+    addBtn.addEventListener('click', () => {
+      const account = nameInput.value.trim();
+      const weight = parseInt(percentSlider.value);
+      
+      if (!account) {
+        this.showDialogError('Please enter a valid account name', dialog);
+        return;
+      }
+      
+      this.addBeneficiary(account, weight, dialog);
+      
+      // Aggiungi alla lista di account recenti
+      this.saveRecentBeneficiary(account);
+    });
+    
+    // Chiudi con Escape
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        dialog.remove();
+      }
+    });
+    
+    // Click fuori per chiudere
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        dialog.remove();
+      }
+    });
+    
+    // Focus sull'input del nome
+    nameInput.focus();
+  }
+
+  /**
+   * Mostra un errore nel dialog
+   * @param {string} message - Il messaggio di errore
+   * @param {HTMLElement} dialog - Il dialog
+   */
+  showDialogError(message, dialog) {
+    // Rimuovi eventuali errori precedenti
+    const existingError = dialog.querySelector('.dialog-error');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'dialog-error';
+    errorDiv.textContent = message;
+    
+    const body = dialog.querySelector('.dialog-body');
+    if (body) {
+      body.insertBefore(errorDiv, body.firstChild);
+    }
+  }
+
+  /**
+   * Aggiunge un nuovo beneficiario
+   * @param {string} account - Il nome dell'account
+   * @param {number} weight - Il peso (0-10000)
+   * @param {HTMLElement} dialog - Il dialog da chiudere dopo l'aggiunta
+   */
+  addBeneficiary(account, weight, dialog) {
+    // Verifica se è stato raggiunto il limite massimo
+    if (this.beneficiaries.length >= createPostService.maxBeneficiaries) {
+      this.showDialogError(`Maximum ${createPostService.maxBeneficiaries} beneficiaries allowed`, dialog);
+      return;
+    }
+    
+    // Verifica se il beneficiario esiste già
+    const existingIndex = this.beneficiaries.findIndex(b => b.account.toLowerCase() === account.toLowerCase());
+    if (existingIndex !== -1) {
+      this.showDialogError('This beneficiary is already in the list', dialog);
+      return;
+    }
+    
+    // Aggiungi il beneficiario
+    this.beneficiaries.push({
+      account: account,
+      weight: weight
+    });
+    
+    // Aggiorna la UI
+    const beneficiariesList = document.getElementById('beneficiaries-list');
+    if (beneficiariesList) {
+      this.renderBeneficiaryItems(beneficiariesList);
+    }
+    
+    // Aggiorna il pulsante di aggiunta
+    const addBtn = document.getElementById('add-beneficiary-btn');
+    if (addBtn) {
+      addBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
+    }
+    
+    // Aggiorna il riepilogo
+    const summaryElement = document.getElementById('beneficiary-summary');
+    if (summaryElement) {
+      this.updateBeneficiarySummary(summaryElement);
+    }
+    
+    // Chiudi il dialog
+    if (dialog) {
+      dialog.remove();
+    }
+    
+    this.hasUnsavedChanges = true;
+  }
+
+  /**
+   * Rimuove un beneficiario
+   * @param {number} index - L'indice del beneficiario da rimuovere
+   */
+  removeBeneficiary(index) {
+    if (index < 0 || index >= this.beneficiaries.length) return;
+    
+    // Rimuovi il beneficiario
+    this.beneficiaries.splice(index, 1);
+    
+    // Aggiorna la UI
+    const beneficiariesList = document.getElementById('beneficiaries-list');
+    if (beneficiariesList) {
+      this.renderBeneficiaryItems(beneficiariesList);
+    }
+    
+    // Aggiorna il pulsante di aggiunta
+    const addBtn = document.getElementById('add-beneficiary-btn');
+    if (addBtn) {
+      addBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
+    }
+    
+    // Aggiorna il riepilogo
+    const summaryElement = document.getElementById('beneficiary-summary');
+    if (summaryElement) {
+      this.updateBeneficiarySummary(summaryElement);
+    }
+    
+    this.hasUnsavedChanges = true;
+  }
+
+  /**
+   * Salva un beneficiario nell'elenco dei beneficiari recenti
+   * @param {string} accountName - Nome dell'account da salvare
+   */
+  saveRecentBeneficiary(accountName) {
+    if (!accountName) return;
+    
+    try {
+      // Ottieni la lista corrente
+      const recents = this.getRecentBeneficiaries() || [];
+      
+      // Verifica se l'account è già presente e rimuovilo (così verrà spostato in cima)
+      const accountIndex = recents.findIndex(b => b.name.toLowerCase() === accountName.toLowerCase());
+      if (accountIndex !== -1) {
+        recents.splice(accountIndex, 1);
+      }
+      
+      // Aggiungi in cima
+      recents.unshift({ name: accountName, timestamp: new Date().toISOString() });
+      
+      // Mantieni solo gli ultimi 5
+      const limitedRecents = recents.slice(0, 5);
+      
+      // Salva in localStorage
+      localStorage.setItem('steemee_recent_beneficiaries', JSON.stringify(limitedRecents));
+    } catch (error) {
+      console.error('Failed to save recent beneficiary:', error);
+    }
+  }
+  
+  /**
+   * Ottiene la lista dei beneficiari recenti
+   * @returns {Array} - Lista dei beneficiari recenti
+   */
+  getRecentBeneficiaries() {
+    try {
+      const recentsJson = localStorage.getItem('steemee_recent_beneficiaries');
+      if (!recentsJson) return [];
+      
+      return JSON.parse(recentsJson);
+    } catch (error) {
+      console.error('Failed to get recent beneficiaries:', error);
+      return [];
+    }
   }
 }
 

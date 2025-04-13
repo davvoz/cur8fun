@@ -152,3 +152,412 @@
   box-shadow: 0 0 0 2px var(--primary-color-alpha);
   outline: none;
 }
+
+/* Nuovi stili per il supporto di beneficiari multipli */
+.beneficiaries-list {
+  margin-top: 15px;
+  border-radius: var(--radius-md, 4px);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.beneficiary-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background-color: var(--background-light);
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.2s ease;
+}
+
+.beneficiary-item:last-child {
+  border-bottom: none;
+}
+
+.beneficiary-item:hover {
+  background-color: var(--background-lighter);
+}
+
+.beneficiary-name {
+  flex: 2;
+  font-weight: 500;
+  padding: 0 10px;
+}
+
+.beneficiary-percentage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-weight: 500;
+}
+
+.beneficiary-weight-slider {
+  flex: 3;
+  margin: 0 15px;
+}
+
+.beneficiary-actions {
+  margin-left: 10px;
+}
+
+.beneficiary-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.beneficiary-actions button:hover {
+  background-color: var(--background);
+}
+
+.beneficiary-actions button span {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.beneficiary-actions button:hover span {
+  color: var(--danger-color);
+}
+
+.add-beneficiary-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--background-light);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-beneficiary-btn:hover {
+  background-color: var(--background-lighter);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.add-beneficiary-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.beneficiary-summary {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md, 4px);
+  font-size: 0.9em;
+}
+
+.beneficiary-summary-label {
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.beneficiary-summary-content {
+  display: flex;
+  justify-content: space-between;
+}
+
+.beneficiary-summary-total {
+  font-weight: 500;
+}
+
+/* Stile per la percentuale totale quando supera il limite */
+.total-exceed {
+  color: var(--danger-color);
+}
+
+.total-warning {
+  color: var(--warning-color);
+}
+
+.total-ok {
+  color: var(--success-color);
+}
+
+/* Migliora il layout per dispositivi mobili */
+@media (max-width: 767px) {
+  .beneficiary-item {
+    flex-wrap: wrap;
+  }
+  
+  .beneficiary-name {
+    flex: 100%;
+    order: 1;
+    margin-bottom: 8px;
+  }
+  
+  .beneficiary-weight-slider {
+    flex: 1;
+    order: 2;
+    margin: 0;
+  }
+  
+  .beneficiary-percentage {
+    flex: 0 0 60px;
+    order: 3;
+  }
+  
+  .beneficiary-actions {
+    order: 4;
+  }
+}
+
+/* Stili per il popup di aggiunta beneficiario */
+.add-beneficiary-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.add-beneficiary-dialog .dialog-content {
+  background-color: var(--background);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: var(--popup-box-shadow, 0 8px 24px rgba(0, 0, 0, 0.2));
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+.add-beneficiary-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.add-beneficiary-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.add-beneficiary-dialog .close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.add-beneficiary-dialog .close-button:hover {
+  background-color: var(--background-lighter);
+}
+
+.add-beneficiary-dialog .close-button span {
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.add-beneficiary-dialog .dialog-body {
+  padding: 20px;
+}
+
+.add-beneficiary-dialog .form-group {
+  margin-bottom: 20px;
+}
+
+.add-beneficiary-dialog .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.add-beneficiary-dialog .form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  background-color: var(--background-light);
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+
+.add-beneficiary-dialog .form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-alpha);
+  outline: none;
+}
+
+.add-beneficiary-dialog .range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  outline: none;
+  margin: 10px 0;
+}
+
+.add-beneficiary-dialog .range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.add-beneficiary-dialog .range-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.add-beneficiary-dialog .range-value {
+  text-align: center;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.add-beneficiary-dialog .dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.add-beneficiary-dialog .btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-md, 4px);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.add-beneficiary-dialog .primary-btn {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.add-beneficiary-dialog .primary-btn:hover {
+  background-color: var(--primary-color-dark, #0056b3);
+}
+
+.add-beneficiary-dialog .secondary-btn {
+  background-color: var(--background-light);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.add-beneficiary-dialog .secondary-btn:hover {
+  background-color: var(--background-lighter);
+}
+
+.add-beneficiary-dialog .dialog-error {
+  background-color: var(--danger-color-alpha, rgba(220, 53, 69, 0.1));
+  color: var(--danger-color, #dc3545);
+  padding: 10px;
+  border-radius: var(--radius-md, 4px);
+  margin-bottom: 15px;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Miglioramenti alla visualizzazione dell'avatar */
+.suggestion-avatar-container {
+  position: relative;
+}
+
+.suggestion-avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  background-color: var(--success-color);
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suggestion-avatar-badge span {
+  color: white;
+  font-size: 8px;
+  line-height: 1;
+}
+
+/* Miglioramenti ai suggerimenti del beneficiario */
+.user-search-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--background-lighter);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.user-search-header .material-icons {
+  font-size: 16px;
+  margin-right: 6px;
+}
+
+.user-search-footer {
+  padding: 8px 12px;
+  background-color: var(--background-lighter);
+  border-top: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.user-search-footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.user-search-footer a:hover {
+  text-decoration: underline;
+}

@@ -14,6 +14,9 @@ class CreatePostService {
       weight: 500 // 5% della ricompensa (10000 = 100%)
     };
     
+    // Limite massimo di beneficiari
+    this.maxBeneficiaries = 8; // Massimo 8 beneficiari per post
+    
     // Chiave per localStorage
     this.DRAFT_STORAGE_KEY = 'steemee_post_draft';
   }
@@ -76,7 +79,12 @@ class CreatePostService {
     if (includeBeneficiary) {
       // Se ci sono beneficiari personalizzati forniti, usali
       if (options.beneficiaries && Array.isArray(options.beneficiaries) && options.beneficiaries.length > 0) {
-        beneficiaries.push(...options.beneficiaries);
+        // Assicuriamoci di non superare il limite massimo di beneficiari
+        const validBeneficiaries = options.beneficiaries
+          .filter(b => b && b.account && b.weight > 0 && b.weight <= 10000)
+          .slice(0, this.maxBeneficiaries);
+          
+        beneficiaries.push(...validBeneficiaries);
       }
       // Altrimenti usa il beneficiario predefinito con peso personalizzato se fornito
       else {
@@ -491,6 +499,22 @@ class CreatePostService {
       console.error('Failed to calculate draft age:', error);
       return null;
     }
+  }
+
+  /**
+   * Verifica che la percentuale totale dei beneficiari non superi il limite massimo
+   * @param {Array} beneficiaries - Lista dei beneficiari
+   * @returns {boolean} - True se la percentuale totale è valida
+   */
+  validateBeneficiaryPercentage(beneficiaries) {
+    if (!Array.isArray(beneficiaries) || beneficiaries.length === 0) {
+      return true;
+    }
+    
+    const totalWeight = beneficiaries.reduce((sum, beneficiary) => sum + (beneficiary.weight || 0), 0);
+    
+    // Il peso totale non dovrebbe superare il 90% (9000) per lasciare qualcosa all'autore
+    return totalWeight <= 9000;
   }
 }
 
