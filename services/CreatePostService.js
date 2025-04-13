@@ -70,7 +70,22 @@ class CreatePostService {
     
     // Process beneficiary options
     const includeBeneficiary = options.includeBeneficiary !== false;
-    const beneficiaryWeight = options.beneficiaryWeight || this.defaultBeneficiary.weight;
+    
+    // Prepara i beneficiari
+    const beneficiaries = [];
+    if (includeBeneficiary) {
+      // Se ci sono beneficiari personalizzati forniti, usali
+      if (options.beneficiaries && Array.isArray(options.beneficiaries) && options.beneficiaries.length > 0) {
+        beneficiaries.push(...options.beneficiaries);
+      }
+      // Altrimenti usa il beneficiario predefinito con peso personalizzato se fornito
+      else {
+        beneficiaries.push({
+          account: this.defaultBeneficiary.name,
+          weight: options.beneficiaryWeight || this.defaultBeneficiary.weight
+        });
+      }
+    }
     
     // Generate permlink or use the provided one
     const permlink = customPermlink || this.generatePermlink(title);
@@ -85,15 +100,6 @@ class CreatePostService {
     
     // Prepare metadata
     const metadata = this.createPostMetadata(processedTags, community);
-    
-    // Prepare beneficiaries
-    const beneficiaries = [];
-    if (includeBeneficiary) {
-      beneficiaries.push({
-        account: this.defaultBeneficiary.name,
-        weight: beneficiaryWeight
-      });
-    }
     
     return {
       username,
