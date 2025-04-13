@@ -20,6 +20,7 @@
 @import 'components/post-excerpt.css';
 @import 'components/post-card.css'; /* Aggiunto import per gli stili delle card dei post */
 @import 'components/tag-selection.css';
+@import 'components/beneficiary-autocomplete.css'; /* Added import for beneficiary autocomplete styles */
 
 /* Feature-specific styles */
 @import 'features/animations.css';
@@ -57,6 +58,7 @@
 @import 'components/comment-dialogs.css';
 @import 'components/comments.css';
 @import 'components/auth-error-popup.css';
+
 /* Mobile search button in header */
 .mobile-search-button {
     display: none;
