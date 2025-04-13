@@ -172,10 +172,17 @@ export default class VoteController {
   }
   
   showAlreadyVotedNotification(percent) {
-    const currentPercent = percent / 100;
+    // Il valore percent può arrivare direttamente dall'API ed essere già in scala -10000 a +10000
+    // Assicuriamoci di formattarlo correttamente
+    let formattedPercent = percent;
+    if (Math.abs(percent) > 100) {
+      // Se percent è in scala -10000 a +10000, dividiamo per 100
+      formattedPercent = percent / 100;
+    }
+
     this.view.emit('notification', {
       type: 'info',
-      message: `You've already voted on this item (${currentPercent}%)`
+      message: `You've already voted on this item (${formattedPercent}%)`
     });
   }
   
