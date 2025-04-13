@@ -1,5 +1,6 @@
 import Component from '../Component.js';
 import walletService from '../../services/WalletService.js';
+import eventEmitter from '../../utils/EventEmitter.js';
 
 export default class WalletBalancesComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -31,6 +32,7 @@ export default class WalletBalancesComponent extends Component {
     
     // Binding methods
     this.loadBalanceData = this.loadBalanceData.bind(this);
+    this.handleBalancesUpdated = this.handleBalancesUpdated.bind(this);
   }
   
   render() {
@@ -43,6 +45,9 @@ export default class WalletBalancesComponent extends Component {
     
     // Initial loading state
     this.showLoadingState();
+    
+    // Register event listener for balance updates
+    eventEmitter.on('wallet:balances-updated', this.handleBalancesUpdated);
     
     this.element.appendChild(this.balanceContainer);
     this.parentElement.appendChild(this.element);
@@ -100,6 +105,15 @@ export default class WalletBalancesComponent extends Component {
       this.error = error.message || 'Failed to load wallet data';
       this.showErrorState();
     }
+  }
+  
+  /**
+   * Handler for when balances are updated through the wallet service
+   * @param {Object} updatedBalances - The newly updated balances
+   */
+  handleBalancesUpdated(updatedBalances) {
+    console.log('Balances updated, reloading component data');
+    this.loadBalanceData();
   }
   
   showLoadingState() {
@@ -259,6 +273,9 @@ export default class WalletBalancesComponent extends Component {
   }
   
   destroy() {
+    // Unregister event listener
+    eventEmitter.off('wallet:balances-updated', this.handleBalancesUpdated);
+    
     const retryButton = this.balanceContainer?.querySelector('.retry-button');
     if (retryButton) {
       retryButton.removeEventListener('click', this.loadBalanceData);

@@ -78,9 +78,15 @@ class WalletService {
   
   /**
    * Update user balances
+   * @param {number} delayMs - Optional delay in milliseconds before updating
    */
-  async updateBalances() {
+  async updateBalances(delayMs = 15000) {
     if (!this.currentUser) return;
+    
+    // Add delay if specified
+    if (delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
     
     try {
       const account = await steemService.getUser(this.currentUser);
