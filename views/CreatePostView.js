@@ -3,7 +3,7 @@ import MarkdownEditor from '../components/MarkdownEditor.js';
 import authService from '../services/AuthService.js';
 import createPostService from '../services/CreatePostService.js';
 import communityService from '../services/CommunityService.js';
-import eventEmitter from '../utils/EventEmitter.js';
+import userService from '../services/UserService.js';
 
 class CreatePostView extends View {
   constructor(params = {}) {
@@ -25,11 +25,16 @@ class CreatePostView extends View {
 
     // Timeout per la ricerca community
     this.searchTimeout = null;
+    // Timeout per la ricerca beneficiari
+    this.beneficiarySearchTimeout = null;
 
     // Reference per i gestori eventi esterni
     this.outsideClickHandler = null;
     this.keyDownHandler = null;
     this.autoSaveTimeout = null;
+    
+    // Per gestire i suggerimenti dei beneficiari
+    this.beneficiarySuggestions = [];
   }
 
   // Aggiornamento della funzione render per un'interfaccia più compatta
@@ -317,6 +322,10 @@ class CreatePostView extends View {
     beneficiaryNameLabel.htmlFor = 'beneficiary-name';
     beneficiaryNameLabel.textContent = 'Account Name';
     
+    // Container per l'input e il dropdown di suggerimenti
+    const beneficiaryInputContainer = document.createElement('div');
+    beneficiaryInputContainer.className = 'beneficiary-input-container';
+    
     const beneficiaryNameInput = document.createElement('input');
     beneficiaryNameInput.type = 'text';
     beneficiaryNameInput.id = 'beneficiary-name';
@@ -324,9 +333,61 @@ class CreatePostView extends View {
     beneficiaryNameInput.value = this.customBeneficiary || createPostService.defaultBeneficiary.name;
     beneficiaryNameInput.placeholder = 'Enter beneficiary account name';
     
+    // Container per i suggerimenti
+    const beneficiarySuggestionsContainer = document.createElement('div');
+    beneficiarySuggestionsContainer.className = 'beneficiary-suggestions';
+    beneficiarySuggestionsContainer.id = 'beneficiary-suggestions';
+    
+    beneficiaryInputContainer.appendChild(beneficiaryNameInput);
+    beneficiaryInputContainer.appendChild(beneficiarySuggestionsContainer);
+    
     beneficiaryNameGroup.appendChild(beneficiaryNameLabel);
-    beneficiaryNameGroup.appendChild(beneficiaryNameInput);
+    beneficiaryNameGroup.appendChild(beneficiaryInputContainer);
     beneficiaryContent.appendChild(beneficiaryNameGroup);
+    
+    // Aggiungi listener per l'input per il beneficiario
+    beneficiaryNameInput.addEventListener('input', (e) => {
+      this.customBeneficiary = e.target.value.trim();
+      document.getElementById('current-beneficiary').textContent = this.customBeneficiary || createPostService.defaultBeneficiary.name;
+      this.hasUnsavedChanges = true;
+      
+      // Cerca utenti solo se la query ha almeno 3 caratteri
+      if (this.customBeneficiary && this.customBeneficiary.length >= 3) {
+        // Cancella il timeout precedente
+        clearTimeout(this.beneficiarySearchTimeout);
+        
+        // Imposta un nuovo timeout
+        this.beneficiarySearchTimeout = setTimeout(() => {
+          this.searchBeneficiaries(this.customBeneficiary);
+        }, 300);
+      } else {
+        // Nascondi i suggerimenti se la query è troppo corta
+        this.hideBeneficiarySuggestions();
+      }
+    });
+    
+    // Focus e blur per i suggerimenti
+    beneficiaryNameInput.addEventListener('focus', () => {
+      if (this.customBeneficiary && this.customBeneficiary.length >= 3 && this.beneficiarySuggestions.length > 0) {
+        this.showBeneficiarySuggestions();
+      }
+    });
+    
+    // Gestione tasti
+    beneficiaryNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.hideBeneficiarySuggestions();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.navigateBeneficiarySuggestions(e.key === 'ArrowDown' ? 1 : -1);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const selected = beneficiarySuggestionsContainer.querySelector('.suggestion-item.selected');
+        if (selected) {
+          this.selectBeneficiary(selected.dataset.username);
+        }
+      }
+    });
     
     // Percentage slider and display
     const percentageGroup = document.createElement('div');
@@ -1785,6 +1846,235 @@ class CreatePostView extends View {
     }
 
     super.unmount();
+  }
+
+  /**
+   * Cerca account utenti per l'autocomplete del beneficiario
+   * @param {string} query - La query di ricerca (nome utente)
+   */
+  async searchBeneficiaries(query) {
+    try {
+      if (!query || query.length < 3) {
+        return;
+      }
+      
+      // Mostra indicatore di caricamento
+      const suggestionsContainer = document.getElementById('beneficiary-suggestions');
+      if (suggestionsContainer) {
+        suggestionsContainer.innerHTML = '<div class="loading-suggestions">Searching accounts...</div>';
+        suggestionsContainer.classList.add('active');
+      }
+      
+      // Cerca gli account attraverso il servizio utenti
+      const users = await userService.searchUsers(query, 5);
+      
+      // Aggiorna la lista interna dei suggerimenti
+      this.beneficiarySuggestions = users;
+      
+      // Mostra i suggerimenti
+      this.showBeneficiarySuggestions();
+      
+    } catch (error) {
+      console.error('Error searching for beneficiaries:', error);
+      this.hideBeneficiarySuggestions();
+    }
+  }
+  
+  /**
+   * Mostra i suggerimenti per l'autocomplete del beneficiario
+   */
+  showBeneficiarySuggestions() {
+    const container = document.getElementById('beneficiary-suggestions');
+    if (!container) return;
+    
+    // Pulisci contenuti precedenti
+    container.innerHTML = '';
+    
+    // Se non ci sono suggerimenti, mostra un messaggio appropriato
+    if (!this.beneficiarySuggestions || this.beneficiarySuggestions.length === 0) {
+      container.innerHTML = '<div class="no-suggestions">No accounts found</div>';
+      container.classList.add('active');
+      return;
+    }
+    
+    // Crea la lista di suggerimenti
+    const list = document.createElement('ul');
+    list.className = 'suggestions-list';
+    
+    this.beneficiarySuggestions.forEach((user, index) => {
+      const item = document.createElement('li');
+      item.className = 'suggestion-item';
+      item.dataset.username = user.name || user.username; // Gestisci entrambi i formati possibili
+      item.dataset.index = index;
+      
+      // Aggiungi avatar con container migliorato
+      const avatarContainer = document.createElement('div');
+      avatarContainer.className = 'suggestion-avatar-container';
+      
+      const avatar = document.createElement('img');
+      avatar.className = 'suggestion-avatar';
+      avatar.src = `https://steemitimages.com/u/${user.name || user.username}/avatar/small`;
+      avatar.onerror = () => {
+        // Se l'immagine non si carica, mostra un avatar testuale
+       
+      };
+      
+      avatarContainer.appendChild(avatar);
+      
+      // Container per le informazioni
+      const infoContainer = document.createElement('div');
+      infoContainer.className = 'suggestion-info';
+      
+      // Nome utente
+      const username = document.createElement('div');
+      username.className = 'suggestion-username';
+      username.textContent = `@${user.name || user.username}`;
+      infoContainer.appendChild(username);
+      
+      // Aggiungi descrizione se disponibile
+      if (user.about || user.profile?.about) {
+        const about = document.createElement('div');
+        about.className = 'suggestion-about';
+        about.textContent = (user.about || user.profile?.about || '').substring(0, 60);
+        if ((user.about || user.profile?.about || '').length > 60) {
+          about.textContent += '...';
+        }
+        infoContainer.appendChild(about);
+      }
+      
+      // Assembla l'elemento
+      item.appendChild(avatarContainer);
+      item.appendChild(infoContainer);
+      
+      // Aggiungi evento click
+      item.addEventListener('click', () => {
+        this.selectBeneficiary(user.name || user.username);
+      });
+      
+      list.appendChild(item);
+    });
+    
+    container.appendChild(list);
+    container.classList.add('active');
+    
+    // Imposta il gestore per i click fuori dal dropdown
+    this.setupBeneficiaryOutsideClickHandler();
+  }
+  
+  /**
+   * Nasconde i suggerimenti del beneficiario
+   */
+  hideBeneficiarySuggestions() {
+    const container = document.getElementById('beneficiary-suggestions');
+    if (container) {
+      container.classList.remove('active');
+      container.innerHTML = '';
+    }
+    
+    // Rimuovi il gestore per i click esterni
+    if (this.beneficiaryOutsideClickHandler) {
+      document.removeEventListener('click', this.beneficiaryOutsideClickHandler);
+      this.beneficiaryOutsideClickHandler = null;
+    }
+  }
+  
+  /**
+   * Imposta il gestore per click esterni ai suggerimenti beneficiari
+   */
+  setupBeneficiaryOutsideClickHandler() {
+    // Rimuovi eventuali listener precedenti
+    if (this.beneficiaryOutsideClickHandler) {
+      document.removeEventListener('click', this.beneficiaryOutsideClickHandler);
+    }
+    
+    // Timeout per evitare che il click che ha aperto il dropdown lo chiuda immediatamente
+    setTimeout(() => {
+      const suggestionsContainer = document.getElementById('beneficiary-suggestions');
+      const inputField = document.getElementById('beneficiary-name');
+      
+      // Non procedere se il dropdown non è aperto
+      if (!suggestionsContainer || !suggestionsContainer.classList.contains('active')) {
+        return;
+      }
+      
+      // Crea nuovo handler per click esterni
+      this.beneficiaryOutsideClickHandler = (e) => {
+        // Non chiudere se il click è sul container o sull'input
+        if (suggestionsContainer.contains(e.target) || 
+            (inputField && inputField.contains(e.target))) {
+          return;
+        }
+        
+        // Chiudi per i click esterni
+        this.hideBeneficiarySuggestions();
+      };
+      
+      // Aggiungi listener
+      document.addEventListener('click', this.beneficiaryOutsideClickHandler);
+    }, 100);
+  }
+  
+  /**
+   * Seleziona un beneficiario dai suggerimenti
+   * @param {string} username - Nome utente del beneficiario
+   */
+  selectBeneficiary(username) {
+    if (!username) return;
+    
+    this.customBeneficiary = username;
+    
+    // Aggiorna l'input con il nome selezionato
+    const beneficiaryInput = document.getElementById('beneficiary-name');
+    if (beneficiaryInput) {
+      beneficiaryInput.value = username;
+    }
+    
+    // Aggiorna il testo informativo
+    const currentBeneficiarySpan = document.getElementById('current-beneficiary');
+    if (currentBeneficiarySpan) {
+      currentBeneficiarySpan.textContent = username;
+    }
+    
+    // Nascondi i suggerimenti
+    this.hideBeneficiarySuggestions();
+    
+    // Marca come modificato
+    this.hasUnsavedChanges = true;
+  }
+  
+  /**
+   * Naviga tra i suggerimenti con la tastiera
+   * @param {number} direction - Direzione: 1 per giù, -1 per su
+   */
+  navigateBeneficiarySuggestions(direction) {
+    const container = document.getElementById('beneficiary-suggestions');
+    if (!container || !container.classList.contains('active')) return;
+    
+    const items = container.querySelectorAll('.suggestion-item');
+    if (!items.length) return;
+    
+    // Trova l'elemento attualmente selezionato
+    let currentIndex = -1;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].classList.contains('selected')) {
+        currentIndex = i;
+        break;
+      }
+    }
+    
+    // Calcola il nuovo indice
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = items.length - 1;
+    if (newIndex >= items.length) newIndex = 0;
+    
+    // Rimuovi la selezione attuale
+    items.forEach(item => item.classList.remove('selected'));
+    
+    // Imposta la nuova selezione
+    items[newIndex].classList.add('selected');
+    
+    // Assicurati che l'elemento selezionato sia visibile
+    items[newIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
