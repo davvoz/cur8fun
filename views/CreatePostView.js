@@ -17,6 +17,11 @@ class CreatePostView extends View {
     this.isSubmitting = false;
     this.markdownEditor = null;
     this.hasUnsavedChanges = false;
+    
+    // Opzioni beneficiari
+    this.includeBeneficiary = true;
+    this.customBeneficiary = null;
+    this.beneficiaryWeight = createPostService.defaultBeneficiary.weight;
 
     // Timeout per la ricerca community
     this.searchTimeout = null;
@@ -266,6 +271,139 @@ class CreatePostView extends View {
     tagsGroup.appendChild(tagsHelp);
 
     form.appendChild(tagsGroup);
+
+    // Beneficiary section
+    const beneficiaryGroup = document.createElement('div');
+    beneficiaryGroup.className = 'form-group beneficiary-group';
+
+    const beneficiaryLabel = document.createElement('div');
+    beneficiaryLabel.className = 'form-label-with-toggle';
+    
+    const beneficiaryLabelText = document.createElement('label');
+    beneficiaryLabelText.textContent = 'Reward Beneficiary';
+    beneficiaryLabelText.htmlFor = 'beneficiary-toggle';
+    
+    const beneficiaryToggleContainer = document.createElement('div');
+    beneficiaryToggleContainer.className = 'toggle-switch-container';
+    
+    const beneficiaryToggle = document.createElement('input');
+    beneficiaryToggle.type = 'checkbox';
+    beneficiaryToggle.id = 'beneficiary-toggle';
+    beneficiaryToggle.className = 'toggle-switch';
+    beneficiaryToggle.checked = this.includeBeneficiary;
+    
+    const toggleLabel = document.createElement('label');
+    toggleLabel.htmlFor = 'beneficiary-toggle';
+    toggleLabel.className = 'toggle-label';
+    
+    beneficiaryToggleContainer.appendChild(beneficiaryToggle);
+    beneficiaryToggleContainer.appendChild(toggleLabel);
+    
+    beneficiaryLabel.appendChild(beneficiaryLabelText);
+    beneficiaryLabel.appendChild(beneficiaryToggleContainer);
+    
+    beneficiaryGroup.appendChild(beneficiaryLabel);
+
+    // Beneficiary content container (shown/hidden based on toggle)
+    const beneficiaryContent = document.createElement('div');
+    beneficiaryContent.className = 'beneficiary-content';
+    beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
+    
+    // Beneficiary name input
+    const beneficiaryNameGroup = document.createElement('div');
+    beneficiaryNameGroup.className = 'form-group';
+    
+    const beneficiaryNameLabel = document.createElement('label');
+    beneficiaryNameLabel.htmlFor = 'beneficiary-name';
+    beneficiaryNameLabel.textContent = 'Account Name';
+    
+    const beneficiaryNameInput = document.createElement('input');
+    beneficiaryNameInput.type = 'text';
+    beneficiaryNameInput.id = 'beneficiary-name';
+    beneficiaryNameInput.className = 'form-control';
+    beneficiaryNameInput.value = this.customBeneficiary || createPostService.defaultBeneficiary.name;
+    beneficiaryNameInput.placeholder = 'Enter beneficiary account name';
+    
+    beneficiaryNameGroup.appendChild(beneficiaryNameLabel);
+    beneficiaryNameGroup.appendChild(beneficiaryNameInput);
+    beneficiaryContent.appendChild(beneficiaryNameGroup);
+    
+    // Percentage slider and display
+    const percentageGroup = document.createElement('div');
+    percentageGroup.className = 'form-group';
+    
+    const percentageLabel = document.createElement('label');
+    percentageLabel.htmlFor = 'beneficiary-percentage';
+    percentageLabel.textContent = 'Percentage';
+    
+    const percentageValueDisplay = document.createElement('span');
+    percentageValueDisplay.id = 'percentage-value-display';
+    percentageValueDisplay.className = 'percentage-value';
+    percentageValueDisplay.textContent = `${(this.beneficiaryWeight / 100).toFixed(1)}%`;
+    
+    percentageLabel.appendChild(percentageValueDisplay);
+    
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'slider-container';
+    
+    const percentageInput = document.createElement('input');
+    percentageInput.type = 'range';
+    percentageInput.id = 'beneficiary-percentage';
+    percentageInput.className = 'form-range';
+    percentageInput.min = '0';
+    percentageInput.max = '5000';  // 50% max
+    percentageInput.step = '50';   // 0.5% steps
+    percentageInput.value = this.beneficiaryWeight;
+    
+    sliderContainer.appendChild(percentageInput);
+    percentageGroup.appendChild(percentageLabel);
+    percentageGroup.appendChild(sliderContainer);
+    beneficiaryContent.appendChild(percentageGroup);
+    
+    // Beneficiary info text
+    const beneficiaryHelp = document.createElement('div');
+    beneficiaryHelp.className = 'beneficiary-help';
+    
+    // Icon for info
+    const infoIcon = document.createElement('span');
+    infoIcon.className = 'material-icons info-icon';
+    infoIcon.textContent = 'info';
+    
+    // Help text
+    const helpText = document.createElement('small');
+    helpText.className = 'form-text';
+    helpText.innerHTML = 
+      `This sets <strong id="current-beneficiary">${this.customBeneficiary || createPostService.defaultBeneficiary.name}</strong> as beneficiary, 
+      receiving <strong id="current-percentage">${(this.beneficiaryWeight / 100).toFixed(1)}%</strong> of 
+      the post rewards. You can modify or disable this setting.`;
+    
+    beneficiaryHelp.appendChild(infoIcon);
+    beneficiaryHelp.appendChild(helpText);
+    beneficiaryContent.appendChild(beneficiaryHelp);
+    
+    beneficiaryGroup.appendChild(beneficiaryContent);
+    form.appendChild(beneficiaryGroup);
+    
+    // Event handlers for beneficiary section
+    beneficiaryToggle.addEventListener('change', (e) => {
+      this.includeBeneficiary = e.target.checked;
+      beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
+      this.hasUnsavedChanges = true;
+    });
+    
+    beneficiaryNameInput.addEventListener('input', (e) => {
+      this.customBeneficiary = e.target.value.trim();
+      document.getElementById('current-beneficiary').textContent = this.customBeneficiary || createPostService.defaultBeneficiary.name;
+      this.hasUnsavedChanges = true;
+    });
+    
+    percentageInput.addEventListener('input', (e) => {
+      this.beneficiaryWeight = parseInt(e.target.value);
+      const percentageFormatted = (this.beneficiaryWeight / 100).toFixed(1);
+      percentageValueDisplay.textContent = `${percentageFormatted}%`;
+      document.getElementById('current-percentage').textContent = `${percentageFormatted}%`;
+      this.hasUnsavedChanges = true;
+    });
 
     // Submit button
     const submitBtn = document.createElement('button');
@@ -1031,7 +1169,9 @@ class CreatePostView extends View {
       bodyLength: this.postBody?.length || 0,
       tags: this.tags,
       tagCount: this.tags.length,
-      community: this.selectedCommunity?.name
+      community: this.selectedCommunity?.name,
+      beneficiary: this.includeBeneficiary ? (this.customBeneficiary || createPostService.defaultBeneficiary.name) : 'none',
+      beneficiaryWeight: this.beneficiaryWeight / 100 + '%'
     });
 
     // Verifica dati
@@ -1090,13 +1230,33 @@ class CreatePostView extends View {
         postData.community = this.selectedCommunity.name;
       }
 
+      // Opzioni per i beneficiari
+      const options = {
+        includeBeneficiary: this.includeBeneficiary
+      };
+
+      // Se è incluso un beneficiario, imposta i dettagli
+      if (this.includeBeneficiary) {
+        if (this.customBeneficiary && this.customBeneficiary.trim()) {
+          // Beneficiario personalizzato
+          options.beneficiaries = [{
+            account: this.customBeneficiary.trim(),
+            weight: this.beneficiaryWeight
+          }];
+        } else {
+          // Beneficiario predefinito ma con peso personalizzato
+          options.beneficiaryWeight = this.beneficiaryWeight;
+        }
+      }
+
       console.log("Attempting to create post with data:", {
         ...postData,
-        bodyLength: postData.body.length
+        bodyLength: postData.body.length,
+        options
       });
 
-      // Usa il servizio centralizzato per creare post
-      const result = await createPostService.createPost(postData);
+      // Usa il servizio centralizzato per creare post con le opzioni dei beneficiari
+      const result = await createPostService.createPost(postData, options);
 
       // Send notification to Telegram after successful post creation
       if (result) {
