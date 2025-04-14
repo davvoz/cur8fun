@@ -103,27 +103,7 @@ class LoginView {
         } );
     }
 
-    // Key type selection field
-    const keyTypeGroup = document.createElement('div');
-    keyTypeGroup.className = 'form-group key-type-group';
-    
-    const keyTypeLabel = document.createElement('label');
-    keyTypeLabel.textContent = 'Key Type:';
-    keyTypeGroup.appendChild(keyTypeLabel);
-    
-    const keyTypeSelection = document.createElement('div');
-    keyTypeSelection.className = 'key-type-selection';
-    
-    const postingRadio = this.createRadioButton('keyType', 'posting', 'Posting Key', true);
-    const activeRadio = this.createRadioButton('keyType', 'active', 'Active Key', false);
-    
-    keyTypeSelection.appendChild(postingRadio);
-    keyTypeSelection.appendChild(activeRadio);
-    keyTypeGroup.appendChild(keyTypeSelection);
-    
-    form.appendChild(keyTypeGroup);
-
-    const passwordGroup = this.createFormGroup('password', 'Private Key', 'password');
+    const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
     form.appendChild(passwordGroup);
     form.appendChild(this.createRememberMeGroup());
     form.appendChild(this.createButton('Login', 'submit', 'btn-primary full-width'));
@@ -133,31 +113,6 @@ class LoginView {
     registerLink.className = 'auth-link';
     registerLink.innerHTML = 'Don\'t have an account? <a href="/register">Create one here</a>';
     form.appendChild(registerLink);
-    
-    // Add warning for active key
-    const activeKeyWarning = document.createElement('div');
-    activeKeyWarning.className = 'active-key-warning';
-    activeKeyWarning.innerHTML = '<strong>Note:</strong> Use active key only when performing wallet operations. For regular browsing, posting key is safer.';
-    activeKeyWarning.style.display = 'none';
-    activeKeyWarning.style.color = '#ff7700';
-    activeKeyWarning.style.fontSize = '0.85em';
-    activeKeyWarning.style.padding = '8px 0';
-    activeKeyWarning.style.marginTop = '10px';
-    form.appendChild(activeKeyWarning);
-    
-    // Add event listener for key type radio buttons
-    form.addEventListener('change', (e) => {
-      if (e.target.name === 'keyType') {
-        const passwordLabel = passwordGroup.querySelector('label');
-        if (e.target.value === 'active') {
-          passwordLabel.textContent = 'Private Active Key';
-          activeKeyWarning.style.display = 'block';
-        } else {
-          passwordLabel.textContent = 'Private Posting Key';
-          activeKeyWarning.style.display = 'none';
-        }
-      }
-    });
 
     passwordSection.appendChild(form);
     loginContainer.appendChild(passwordSection);
@@ -181,27 +136,6 @@ class LoginView {
     headingContainer.appendChild(heading);
 
     return headingContainer;
-  }
-  
-  createRadioButton(name, value, labelText, checked = false) {
-    const container = document.createElement('div');
-    container.className = 'radio-option';
-    
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.id = `${name}-${value}`;
-    input.name = name;
-    input.value = value;
-    input.checked = checked;
-    
-    const label = document.createElement('label');
-    label.htmlFor = `${name}-${value}`;
-    label.textContent = labelText;
-    
-    container.appendChild(input);
-    container.appendChild(label);
-    
-    return container;
   }
 
   createFormGroup(id, labelText, type, required = true) {
@@ -356,9 +290,6 @@ class LoginView {
     const privateKey = passwordInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
 
-    // Get selected key type
-    const keyType = loginForm.querySelector('input[name="keyType"]:checked').value;
-
     if (!username || !privateKey) {
       this.showError(messageEl, 'Please enter both username and private key');
       return;
@@ -368,15 +299,15 @@ class LoginView {
       // First clear any previous error styling
       this.clearErrorStyles();
       
-      await authService.login(username, privateKey, remember, keyType);
+      await authService.login(username, privateKey, remember);
       this.handleLoginSuccess(username);
     } catch (error) {
       console.error('Login error:', error);
       
       // Add error styling to the password field for key-related errors
-      if (error.message.includes('Invalid key')) {
+      if (error.message.includes('Invalid posting key')) {
         passwordInput.classList.add('input-error');
-        this.showError(messageEl, `The private ${keyType} key you entered appears to be invalid. Please check and try again.`);
+        this.showError(messageEl, `The private key you entered appears to be invalid. Please check and try again.`);
       } else if (error.message.includes('Account not found')) {
         loginForm.username.classList.add('input-error');
         this.showError(messageEl, `Account "${username}" was not found. Please check your username.`);
@@ -385,10 +316,10 @@ class LoginView {
       }
 
       // Show a hint for common key errors
-      if (error.message.includes('Invalid key format')) {
+      if (error.message.includes('Invalid posting key format')) {
         const hintEl = document.createElement('div');
         hintEl.className = 'login-hint';
-        hintEl.innerHTML = 'Hint: Steem keys are typically 51 characters long and start with "5" or "P".';
+        hintEl.innerHTML = 'Hint: Steem posting keys are typically 51 characters long and start with "5" or "P".';
         
         // Insert after the message element
         if (messageEl.nextSibling) {
@@ -407,9 +338,6 @@ class LoginView {
 
     const username = usernameInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
-    
-    // Get selected key type for Keychain - will use the most appropriate level
-    const keyType = loginForm.querySelector('input[name="keyType"]:checked').value;
 
     if (!username) {
       usernameInput.classList.add('input-error');
@@ -420,7 +348,7 @@ class LoginView {
     this.clearErrorStyles();
     
     try {
-      await authService.loginWithKeychain(username, remember, keyType);
+      await authService.loginWithKeychain(username, remember);
       this.handleLoginSuccess(username);
     } catch (error) {
       if (error.message.includes('Account not found')) {

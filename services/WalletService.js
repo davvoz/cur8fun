@@ -498,158 +498,49 @@ class WalletService {
   }
 
   /**
-   * Power up STEEM to STEEM POWER using Steem Keychain or private key
+   * Power up STEEM to STEEM POWER using Steem Keychain
    * @param {string} amount - Amount to power up with 3 decimal places
    * @returns {Promise} Promise resolving to response object
    */
   powerUp(amount) {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       try {
-        const user = authService.getCurrentUser();
-        const username = user?.username;
+        const username = authService.getCurrentUser()?.username;
         
         if (!username) {
           return reject(new Error('User not logged in'));
         }
         
-        console.log('PowerUp: Login method detected:', user.loginMethod);
+        if (!window.steem_keychain) {
+          return reject(new Error('Steem Keychain not available'));
+        }
         
-        // Format the amount properly
-        const formattedAmount = parseFloat(amount).toFixed(3) + ' STEEM';
-        
-        // Prepare the operation
+        // Steem Keychain uses "transfer_to_vesting" operation
         const operations = [
           ["transfer_to_vesting", {
             from: username,
             to: username, // Self power-up
-            amount: formattedAmount
+            amount: `${amount} STEEM` // Format must be "0.000 STEEM"
           }]
         ];
         
-        // Prima verifichiamo se l'utente ha fatto login con chiave privata
-        debugger
-        if (user.loginMethod === 'privateKey') {
-          // Usa la chiave privata dal localStorage
-          try {
-            console.log('PowerUp: Using private key authentication');
+        window.steem_keychain.requestBroadcast(
+          username,      // Username
+          operations,    // Operations array
+          "Active",      // Key type required
+          (response) => {
+            console.log('Power up response:', response);
             
-            // Carica la libreria Steem
-            const steem = await steemService.ensureLibraryLoaded();
-            
-            // Ottieni la chiave attiva dallo storage
-            const activeKey = authService.getActiveKey();
-            console.log('PowerUp: Active key available:', activeKey ? 'YES' : 'NO');
-            
-            if (!activeKey) {
-              throw new Error('Active key not available. Please login with active key permissions.');
+            if (response.success) {
+              resolve({ success: true });
+            } else {
+              resolve({ 
+                success: false, 
+                message: response.message || 'Unknown error' 
+              });
             }
-            
-            // Effettua il broadcast della transazione usando la chiave privata
-            steem.broadcast.send(
-              { operations: operations, extensions: [] },
-              { active: activeKey },
-              (err, result) => {
-                if (err) {
-                  console.error('Power up error (private key):', err);
-                  resolve({
-                    success: false,
-                    message: err.message || 'Transaction failed'
-                  });
-                } else {
-                  console.log('Power up successful (private key):', result);
-                  resolve({ 
-                    success: true,
-                    result: result
-                  });
-                  
-                  // Aggiornamento dei saldi dopo transazione riuscita
-                  setTimeout(() => this.updateBalances(), 3000);
-                  
-                  // Notifica di successo
-                  eventEmitter.emit('notification', {
-                    type: 'success',
-                    message: `Successfully powered up ${parseFloat(amount).toFixed(3)} STEEM`
-                  });
-                }
-              }
-            );
-          } catch (error) {
-            console.error('Error broadcasting with private key:', error);
-            reject(error);
           }
-        }
-        // Se l'utente ha fatto login con Keychain e Keychain è disponibile
-        else if (user.loginMethod === 'keychain' && window.steem_keychain) {
-          console.log('PowerUp: Using Keychain authentication');
-          
-          // Usa Keychain
-          window.steem_keychain.requestBroadcast(
-            username,
-            operations,
-            "Active",
-            (response) => {
-              console.log('Power up response (Keychain):', response);
-              
-              if (response.success) {
-                resolve({ success: true });
-                
-                // Notifica di successo
-                eventEmitter.emit('notification', {
-                  type: 'success',
-                  message: `Successfully powered up ${parseFloat(amount).toFixed(3)} STEEM`
-                });
-                
-                // Aggiorna i saldi dopo l'operazione riuscita
-                setTimeout(() => this.updateBalances(), 3000);
-              } else {
-                resolve({ 
-                  success: false, 
-                  message: response.message || 'Unknown error' 
-                });
-              }
-            }
-          );
-        } else if (user.loginMethod === 'steemlogin') {
-          // Gestione metodo SteemLogin
-          console.log('PowerUp: SteemLogin not yet supported for power up');
-          reject(new Error('SteemLogin power up is not implemented yet'));
-        } else {
-          // Fallback: tentiamo di usare chiave privata se disponibile
-          const activeKey = authService.getActiveKey();
-          if (activeKey) {
-            console.log('PowerUp: Fallback to private key');
-            
-            // Carica la libreria Steem
-            const steem = await steemService.ensureLibraryLoaded();
-            
-            // Effettua il broadcast della transazione usando la chiave privata
-            steem.broadcast.send(
-              { operations: operations, extensions: [] },
-              { active: activeKey },
-              (err, result) => {
-                if (err) {
-                  console.error('Power up error (fallback):', err);
-                  resolve({
-                    success: false,
-                    message: err.message || 'Transaction failed'
-                  });
-                } else {
-                  console.log('Power up successful (fallback):', result);
-                  resolve({ 
-                    success: true,
-                    result: result
-                  });
-                  
-                  // Aggiornamento dei saldi dopo transazione riuscita
-                  setTimeout(() => this.updateBalances(), 3000);
-                }
-              }
-            );
-          } else {
-            console.error('PowerUp: No suitable authentication method available');
-            reject(new Error('No suitable authentication method available. Please login with active key or Keychain.'));
-          }
-        }
+        );
       } catch (error) {
         console.error('Power up error:', error);
         reject(error);

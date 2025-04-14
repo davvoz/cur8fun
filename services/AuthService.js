@@ -52,11 +52,8 @@ class AuthService {
 
     /**
      * Authenticate a user using SteemKeychain
-     * @param {string} username - Username
-     * @param {boolean} remember - Whether to remember the user
-     * @param {string} keyType - Type of key to check ('posting' or 'active')
      */
-    async loginWithKeychain(username, remember = true, keyType = 'posting') {
+    async loginWithKeychain(username, remember = true) {
         try {
             if (!this.isKeychainInstalled()) {
                 throw new Error('Steem Keychain extension is not installed');
@@ -66,13 +63,10 @@ class AuthService {
             return new Promise((resolve, reject) => {
                 const message = `Login to the app: ${new Date().toISOString()}`;
                 
-                // Use the appropriate authority level
-                const authority = keyType === 'active' ? 'Active' : 'Posting';
-                
                 window.steem_keychain.requestSignBuffer(
                     username,
                     message,
-                    authority,
+                    'Posting',
                     async (response) => {
                         if (response.success) {
                             try {
@@ -85,8 +79,7 @@ class AuthService {
                                     isAuthenticated: true,
                                     profile: userProfile?.profile || {},
                                     timestamp: Date.now(),
-                                    loginMethod: 'keychain',
-                                    keyType: keyType // Store key type for permission checks
+                                    loginMethod: 'keychain'
                                 };
 
                                 // Save to memory
@@ -118,15 +111,11 @@ class AuthService {
 
     /**
      * Authenticate a user with their username and private key
-     * @param {string} username - Steem username
-     * @param {string} privateKey - Private key (posting or active)
-     * @param {boolean} remember - Whether to remember user credentials
-     * @param {string} keyType - Type of key ('posting' or 'active')
      */
-    async login(username, privateKey, remember = true, keyType = 'posting') {
+    async login(username, privateKey, remember = true) {
         try {
-            // Verify the key is valid for the specified type
-            await this.verifyKey(username, privateKey, keyType);
+            // Verifica della validità della chiave posting
+            await this.verifyPostingKey(username, privateKey);
             
             // Get user profile information
             const userProfile = await steemService.getProfile(username);
@@ -137,8 +126,7 @@ class AuthService {
                 isAuthenticated: true,
                 profile: userProfile?.profile || {},
                 timestamp: Date.now(),
-                loginMethod: 'privateKey',
-                keyType: keyType // Store key type for permission checks
+                loginMethod: 'privateKey'
             };
 
             // Save to memory
@@ -148,8 +136,8 @@ class AuthService {
             if (remember) {
                 localStorage.setItem('currentUser', JSON.stringify(user));
                 
-                // Store the key securely
-                this.securelyStoreKey(username, privateKey, keyType, remember);
+                // Salva la chiave posting in localStorage (con encryption se possibile)
+                this.securelyStorePostingKey(username, privateKey, remember);
             }
             
             // Emit auth changed event
@@ -163,23 +151,23 @@ class AuthService {
     }
 
     /**
-     * Verifies that a key is valid for the specified key type
+     * Verifica che una chiave posting sia valida
      * @param {string} username - Username Steem
-     * @param {string} privateKey - Key to verify
-     * @param {string} keyType - Type of key ('posting' or 'active')
+     * @param {string} postingKey - Chiave posting da verificare
      */
-    async verifyKey(username, privateKey, keyType = 'posting') {
+    async verifyPostingKey(username, postingKey) {
         await steemService.ensureLibraryLoaded();
         
         try {
-            // Verify key format
-            const isWif = window.steem.auth.isWif(privateKey);
+            // Verifica che la chiave sia del formato corretto
+            const isPubkey = window.steem.auth.isPubkey(postingKey);
+            const isWif = window.steem.auth.isWif(postingKey);
             
             if (!isWif) {
-                throw new Error('Invalid key format');
+                throw new Error('Invalid posting key format');
             }
             
-            // Get account to verify the key matches
+            // Ottieni l'account per verificare che la chiave corrisponda
             const accounts = await new Promise((resolve, reject) => {
                 window.steem.api.getAccounts([username], (err, result) => {
                     if (err) reject(err);
@@ -192,131 +180,45 @@ class AuthService {
             }
             
             const account = accounts[0];
-            const publicWif = window.steem.auth.wifToPublic(privateKey);
+            const publicWif = window.steem.auth.wifToPublic(postingKey);
             
-            // Determine which authority to check based on keyType
-            let keyAuth;
-            if (keyType === 'active') {
-                keyAuth = account.active.key_auths;
-            } else {
-                keyAuth = account.posting.key_auths;
-            }
-            
-            // Check if the provided key matches any of the authorized keys
-            const isValid = keyAuth.some(auth => auth[0] === publicWif);
+            // Verifica che la chiave pubblica derivata dalla posting key sia una delle chiavi autorizzate
+            const postingAuth = account.posting.key_auths;
+            const isValid = postingAuth.some(auth => auth[0] === publicWif);
             
             if (!isValid) {
-                throw new Error(`Invalid ${keyType} key for this account`);
+                throw new Error('Invalid posting key for this account');
             }
             
             return true;
         } catch (error) {
-            console.error(`Error verifying ${keyType} key:`, error);
-            throw new Error(error.message || `Invalid ${keyType} key`);
+            console.error('Error verifying posting key:', error);
+            throw new Error('Invalid posting key');
         }
     }
 
     /**
-     * Store key securely (as securely as possible in a web context)
-     * @param {string} username - Username
-     * @param {string} key - Private key
-     * @param {string} keyType - Type of key ('posting' or 'active')
-     * @param {boolean} remember - Whether to store long-term
+     * Store posting key securely (as securely as possible in a web context)
      */
-    securelyStoreKey(username, key, keyType = 'posting', remember = true) {
+    securelyStorePostingKey(username, postingKey, remember = true) {
+        // In una versione più sicura, potresti usare Web Crypto API per la crittografia
+        // Ma per semplicità in questo esempio usiamo localStorage con un'avvertenza
+        
         if (remember) {
             try {
-                // Store the key with key type indicator
-                localStorage.setItem(`${username}_${keyType}_key`, key);
+                // Utilizza una chiave semplice per questo esempio educativo
+                // In produzione, dovresti implementare una soluzione più robusta
+                localStorage.setItem(`${username}_posting_key`, postingKey);
                 
-                // Add expiry timestamp (24 hours)
+                // Aggiungi un timestamp di scadenza (24 ore)
                 const expiry = Date.now() + (24 * 60 * 60 * 1000);
-                localStorage.setItem(`${username}_${keyType}_key_expiry`, expiry.toString());
+                localStorage.setItem(`${username}_posting_key_expiry`, expiry.toString());
                 
-                console.info(`${keyType} key stored for mobile operations`);
+                console.info('Posting key stored for mobile operations');
             } catch (error) {
-                console.error(`Failed to store ${keyType} key:`, error);
+                console.error('Failed to store posting key:', error);
             }
         }
-    }
-
-    /**
-     * Get the specified key for the current user
-     * @param {string} keyType - Type of key to retrieve ('posting' or 'active')
-     * @returns {string|null} The private key or null if not available
-     */
-    getKey(keyType = 'posting') {
-        const user = this.getCurrentUser();
-        
-        if (!user) {
-            console.log(`getKey: No logged in user found`);
-            return null;
-        }
-        
-        console.log(`getKey: Processing for user ${user.username} with login method ${user.loginMethod}`);
-        
-        // For Keychain users
-        if (user.loginMethod === 'keychain') {
-            console.log(`getKey: User is using Keychain, no stored key needed`);
-            return null; // Keychain will handle the operation
-        }
-        
-        // For direct key login
-        try {
-            const keyExpiry = localStorage.getItem(`${user.username}_${keyType}_key_expiry`);
-            console.log(`getKey: ${keyType} key expiry timestamp: ${keyExpiry}`);
-            
-            // Check expiry
-            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
-                console.log(`getKey: Stored ${keyType} key is expired, removing it`);
-                // Key expired, remove it
-                localStorage.removeItem(`${user.username}_${keyType}_key`);
-                localStorage.removeItem(`${user.username}_${keyType}_key_expiry`);
-                return null;
-            }
-            
-            const key = localStorage.getItem(`${user.username}_${keyType}_key`);
-            console.log(`getKey: ${keyType} key ${key ? 'found' : 'not found'} for user ${user.username}`);
-            return key;
-        } catch (error) {
-            console.error(`getKey: Error retrieving ${keyType} key:`, error);
-            return null;
-        }
-    }
-    
-    /**
-     * Get the posting key for the current user (legacy method for compatibility)
-     */
-    getPostingKey() {
-        return this.getKey('posting');
-    }
-    
-    /**
-     * Get the active key for the current user
-     */
-    getActiveKey() {
-        return this.getKey('active');
-    }
-    
-    /**
-     * Check if the current user has a valid active key available
-     * @returns {boolean} True if active key is available
-     */
-    hasActiveKeyAccess() {
-        const user = this.getCurrentUser();
-        if (!user) return false;
-        
-        // User explicitly logged in with active key
-        if (user.keyType === 'active') return true;
-        
-        // Check if we have a stored active key
-        const activeKey = this.getActiveKey();
-        if (activeKey) return true;
-        
-        // For Keychain users, we'll need to request later
-        if (user.loginMethod === 'keychain') return true;
-        
-        return false;
     }
 
     /**
@@ -326,29 +228,27 @@ class AuthService {
         try {
             const user = this.getCurrentUser();
             if (user) {
-                // If SteemLogin, clear token
+                // Se è un login con steemlogin, pulisci anche il token
                 if (user.loginMethod === 'steemlogin') {
                     console.log('Clearing SteemLogin token');
                     sessionStorage.removeItem('steemLoginToken');
                     localStorage.removeItem(`${user.username}_steemlogin_token`);
                 } else if (user.loginMethod === 'privateKey') {
-                    // Clear stored private keys
+                    // Pulisci chiave privata salvata
                     localStorage.removeItem(`${user.username}_posting_key`);
                     localStorage.removeItem(`${user.username}_posting_key_expiry`);
-                    localStorage.removeItem(`${user.username}_active_key`);
-                    localStorage.removeItem(`${user.username}_active_key_expiry`);
                 }
             }
             
-            // Clear general auth state
+            // Pulisci stato auth generale
             console.log('Logging out user');
             this.currentUser = null;
             localStorage.removeItem('currentUser');
             
-            // Emit event to update UI
+            // Emetti evento per aggiornare l'UI
             eventEmitter.emit('auth:changed', { user: null });
             
-            // Notify user
+            // Notifica all'utente
             eventEmitter.emit('notification', {
                 type: 'info',
                 message: 'You have been logged out'
@@ -357,6 +257,58 @@ class AuthService {
             console.log('Logout completed successfully');
         } catch (error) {
             console.error('Error during logout:', error);
+        }
+    }
+
+    /**
+     * Check if the user is authenticated
+     */
+    isAuthenticated() {
+        return !!this.getCurrentUser();
+    }
+
+    /**
+     * Get the posting key for the current user
+     * Note: For security, this should be improved in production
+     * Ideally, keys should not be stored in localStorage
+     */
+    getPostingKey() {
+        console.log('getPostingKey: Attempting to retrieve posting key');
+        const user = this.getCurrentUser();
+        
+        if (!user) {
+            console.log('getPostingKey: No logged in user found');
+            return null;
+        }
+        
+        console.log(`getPostingKey: Processing for user ${user.username} with login method ${user.loginMethod}`);
+        
+        // Per utenti Keychain
+        if (user.loginMethod === 'keychain') {
+            console.log('getPostingKey: User is using Keychain, no stored key needed');
+            return null; // Keychain gestirà l'operazione 
+        }
+        
+        // Per login con chiave diretta
+        try {
+            const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+            console.log(`getPostingKey: Key expiry timestamp: ${keyExpiry}`);
+            
+            // Verifica scadenza
+            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+                console.log('getPostingKey: Stored key is expired, removing it');
+                // Chiave scaduta, rimuovila
+                localStorage.removeItem(`${user.username}_posting_key`);
+                localStorage.removeItem(`${user.username}_posting_key_expiry`);
+                return null;
+            }
+            
+            const key = localStorage.getItem(`${user.username}_posting_key`);
+            console.log(`getPostingKey: Key ${key ? 'found' : 'not found'} for user ${user.username}`);
+            return key;
+        } catch (error) {
+            console.error('getPostingKey: Error retrieving posting key:', error);
+            return null;
         }
     }
 
@@ -661,6 +613,8 @@ class AuthService {
         return null;
     }
 
+    // Aggiungi questi nuovi metodi di gestione token
+
     /**
      * Memorizza il token in modo sicuro con data di scadenza
      * @param {string} token - Token da memorizzare
@@ -689,6 +643,8 @@ class AuthService {
             console.error('Error storing token:', error);
         }
     }
+
+    // Aggiungi questo metodo per verificare la validità del token SteemLogin
 
     /**
      * Verifica che il token SteemLogin corrente sia valido

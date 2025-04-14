@@ -16,9 +16,6 @@ class WalletView extends View {
     
     // Track components for lifecycle management
     this.components = [];
-    
-    // Track if active key is available
-    this.hasActiveKey = false;
   }
   
   async render(element) {
@@ -30,9 +27,6 @@ class WalletView extends View {
       this.renderLoginPrompt();
       return this.element;
     }
-    
-    // Check for active key
-    this.hasActiveKey = authService.hasActiveKeyAccess();
     
     // Clear container
     while (this.element.firstChild) {
@@ -56,26 +50,6 @@ class WalletView extends View {
     pageHeader.appendChild(subheading);
     
     walletContainer.appendChild(pageHeader);
-    
-    // Display active key status notification
-    if (!this.hasActiveKey) {
-      const activeKeyNotice = document.createElement('div');
-      activeKeyNotice.className = 'active-key-notice alert alert-warning';
-      activeKeyNotice.innerHTML = `
-        <strong>Limited functionality:</strong> You're currently logged in with a posting key. 
-        Some wallet operations require an active key. 
-        <a href="/login?returnUrl=/wallet" class="active-key-login">Login with active key</a> 
-        to access all features.
-      `;
-      walletContainer.appendChild(activeKeyNotice);
-    } else {
-      const activeKeyConfirm = document.createElement('div');
-      activeKeyConfirm.className = 'active-key-confirm alert alert-success';
-      activeKeyConfirm.innerHTML = `
-        <strong>Full access:</strong> Active key is available. You can perform all wallet operations.
-      `;
-      walletContainer.appendChild(activeKeyConfirm);
-    }
     
     // Create component containers
     const balancesContainer = document.createElement('div');
@@ -120,18 +94,10 @@ class WalletView extends View {
     loginRequired.appendChild(message);
     
     const loginButton = document.createElement('a');
-    loginButton.href = '/login?returnUrl=/wallet';
+    loginButton.href = '/login';
     loginButton.className = 'btn btn-primary';
     loginButton.textContent = 'Login Now';
     loginRequired.appendChild(loginButton);
-    
-    // Add a note about active key requirement
-    const activeKeyNote = document.createElement('p');
-    activeKeyNote.className = 'active-key-note';
-    activeKeyNote.innerHTML = '<strong>Note:</strong> To perform wallet transactions, login with your active key.';
-    activeKeyNote.style.marginTop = '15px';
-    activeKeyNote.style.fontSize = '0.9em';
-    loginRequired.appendChild(activeKeyNote);
     
     this.element.appendChild(loginRequired);
   }
@@ -144,8 +110,7 @@ class WalletView extends View {
     const balancesContainer = this.element.querySelector('#wallet-balances-container');
     if (balancesContainer) {
       const balancesComponent = new WalletBalancesComponent(balancesContainer, {
-        username: this.currentUser,
-        hasActiveKey: this.hasActiveKey
+        username: this.currentUser
       });
       balancesComponent.render();
       this.components.push(balancesComponent);
@@ -165,8 +130,7 @@ class WalletView extends View {
     const tabsContainer = this.element.querySelector('#wallet-tabs-container');
     if (tabsContainer) {
       const tabsComponent = new WalletTabsComponent(tabsContainer, {
-        username: this.currentUser,
-        hasActiveKey: this.hasActiveKey
+        username: this.currentUser
       });
       tabsComponent.render();
       this.components.push(tabsComponent);
