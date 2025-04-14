@@ -1248,7 +1248,7 @@ class CreatePostView extends View {
 
       // Reindirizza alla pagina del post dopo un breve ritardo
       setTimeout(() => {
-        window.location.href = `#/post/@${username}/${permlink}`;
+        window.location.href = `#/@${username}/${permlink}`;
       }, 2000);
     } catch (error) {
       console.error('Failed to publish post:', error);
