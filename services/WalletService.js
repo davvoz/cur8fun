@@ -261,26 +261,47 @@ class WalletService {
   
   /**
    * Delegate STEEM POWER to another account
+   * @param {string} delegatee - Username to delegate to
+   * @param {string|number} amount - Amount of SP to delegate
+   * @returns {Promise<Object>} Response object with success status
    */
   async delegateSteemPower(delegatee, amount) {
     if (!this.currentUser) throw new Error('Not logged in');
     
     try {
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestDelegation(
-          this.currentUser,
-          delegatee,
-          parseFloat(amount).toFixed(3),
-          'SP',
-          function(response) {
-            if (response.success) {
-              resolve(response);
-            } else {
-              reject(new Error(response.message || 'Delegation failed'));
+      // Convert SP amount to VESTS (required for delegation operation)
+      const vests = await this.steemToVests(amount);
+      
+      // Create the delegation operation
+      const delegateOp = [
+        'delegate_vesting_shares', 
+        {
+          delegator: this.currentUser,
+          delegatee: delegatee,
+          vesting_shares: `${parseFloat(vests).toFixed(6)} VESTS`
+        }
+      ];
+      
+      // Define keychain method as fallback
+      const keychainMethod = () => {
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestDelegation(
+            this.currentUser,
+            delegatee,
+            parseFloat(amount).toFixed(3),
+            'SP', // Use SP notation for keychain
+            function(response) {
+              if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.message || 'Delegation failed'));
+              }
             }
-          }
-        );
-      });
+          );
+        });
+      };
+      
+      return this._broadcastOperation([delegateOp], 'active', keychainMethod);
     } catch (error) {
       console.error('Error delegating STEEM POWER:', error);
       throw error;
@@ -336,25 +357,44 @@ class WalletService {
 
   /**
    * Power down STEEM POWER
+   * @param {string|number} amount - Amount to power down
+   * @returns {Promise<Object>} Response object with success status
    */
   async powerDown(amount) {
     if (!this.currentUser) throw new Error('Not logged in');
     
     try {
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestPowerDown(
-          this.currentUser,
-          this.currentUser,
-          parseFloat(amount).toFixed(3),
-          function(response) {
-            if (response.success) {
-              resolve(response);
-            } else {
-              reject(new Error(response.message || 'Power down failed'));
+      // Convert SP amount to VESTS (required for withdraw_vesting operation)
+      const vests = await this.steemToVests(amount);
+      
+      // Create the power down operation
+      const powerDownOp = [
+        'withdraw_vesting', 
+        {
+          account: this.currentUser,
+          vesting_shares: `${parseFloat(vests).toFixed(6)} VESTS`
+        }
+      ];
+      
+      // Define keychain method as fallback
+      const keychainMethod = () => {
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestPowerDown(
+            this.currentUser,
+            this.currentUser,
+            parseFloat(amount).toFixed(3),
+            function(response) {
+              if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.message || 'Power down failed'));
+              }
             }
-          }
-        );
-      });
+          );
+        });
+      };
+      
+      return this._broadcastOperation([powerDownOp], 'active', keychainMethod);
     } catch (error) {
       console.error('Error powering down STEEM:', error);
       throw error;
@@ -444,6 +484,7 @@ class WalletService {
 
   /**
    * Claim rewards (STEEM, STEEM POWER, SBD)
+   * @returns {Promise<Object>} Response object with success status and rewards claimed
    */
   async claimRewards() {
     if (!this.currentUser) throw new Error('Not logged in');
@@ -464,39 +505,60 @@ class WalletService {
         throw new Error('No rewards to claim');
       }
       
-      // Use requestBroadcast with the claim_reward_balance operation
-      return new Promise((resolve, reject) => {
-        const operations = [
-          ["claim_reward_balance", {
-            account: this.currentUser,
-            reward_steem: rewardSteem,
-            reward_sbd: rewardSBD,
-            reward_vests: rewardVests
-          }]
-        ];
-        
-        window.steem_keychain.requestBroadcast(
-          this.currentUser,
-          operations,
-          "Active", // The key type needed for claiming rewards
-          function(response) {
-            console.log('Claim rewards response:', response);
-            
-            if (response.success) {
-              resolve({ 
-                success: true,
-                rewards: {
-                  steem: rewardSteem.split(' ')[0],
-                  sbd: rewardSBD.split(' ')[0],
-                  vests: rewardVests.split(' ')[0]
-                }
-              });
-            } else {
-              reject(new Error(response.message || 'Claim rewards failed'));
+      // Create the claim reward operation
+      const claimRewardOp = [
+        "claim_reward_balance", 
+        {
+          account: this.currentUser,
+          reward_steem: rewardSteem,
+          reward_sbd: rewardSBD,
+          reward_vests: rewardVests
+        }
+      ];
+      
+      // Define keychain method as fallback
+      const keychainMethod = () => {
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestBroadcast(
+            this.currentUser,
+            [claimRewardOp],
+            "posting", // The key type needed for claiming rewards (posting is sufficient)
+            function(response) {
+              console.log('Claim rewards response:', response);
+              
+              if (response.success) {
+                resolve({ 
+                  success: true,
+                  rewards: {
+                    steem: rewardSteem.split(' ')[0],
+                    sbd: rewardSBD.split(' ')[0],
+                    vests: rewardVests.split(' ')[0]
+                  }
+                });
+              } else {
+                reject(new Error(response.message || 'Claim rewards failed'));
+              }
             }
-          }
-        );
-      });
+          );
+        });
+      };
+      
+      // Use the _broadcastOperation method with posting key (sufficient for claim_reward_balance)
+      const response = await this._broadcastOperation([claimRewardOp], 'posting', keychainMethod);
+      
+      // If successful, add reward information to the response
+      if (response.success) {
+        response.rewards = {
+          steem: rewardSteem.split(' ')[0],
+          sbd: rewardSBD.split(' ')[0],
+          vests: rewardVests.split(' ')[0]
+        };
+      }
+      
+      // Update balances after claiming
+      this.updateBalances(1000); // Short delay before updating
+      
+      return response;
     } catch (error) {
       console.error('Error claiming rewards:', error);
       throw error;
@@ -533,236 +595,7 @@ class WalletService {
       return { steem: '0.000', sbd: '0.000', vest: '0.000', sp: '0.000' };
     }
   }
-
-  /**
-   * Power up STEEM to STEEM POWER using Steem Keychain
-   * @param {string} amount - Amount to power up with 3 decimal places
-   * @returns {Promise} Promise resolving to response object
-   */
-  powerUp(amount) {
-    return new Promise((resolve, reject) => {
-      try {
-        const username = authService.getCurrentUser()?.username;
-        
-        if (!username) {
-          return reject(new Error('User not logged in'));
-        }
-        
-        if (!window.steem_keychain) {
-          return reject(new Error('Steem Keychain not available'));
-        }
-        
-        // Steem Keychain uses "transfer_to_vesting" operation
-        const operations = [
-          ["transfer_to_vesting", {
-            from: username,
-            to: username, // Self power-up
-            amount: `${amount} STEEM` // Format must be "0.000 STEEM"
-          }]
-        ];
-        
-        window.steem_keychain.requestBroadcast(
-          username,      // Username
-          operations,    // Operations array
-          "Active",      // Key type required
-          (response) => {
-            console.log('Power up response:', response);
-            
-            if (response.success) {
-              resolve({ success: true });
-            } else {
-              resolve({ 
-                success: false, 
-                message: response.message || 'Unknown error' 
-              });
-            }
-          }
-        );
-      } catch (error) {
-        console.error('Power up error:', error);
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Power down SP to STEEM using Steem Keychain
-   * @param {string} amount - Amount to power down with 3 decimal places
-   * @returns {Promise} Promise resolving to response object
-   */
-  powerDown(amount) {
-    return new Promise((resolve, reject) => {
-      try {
-        const username = authService.getCurrentUser()?.username;
-        
-        if (!username) {
-          return reject(new Error('User not logged in'));
-        }
-        
-        if (!window.steem_keychain) {
-          return reject(new Error('Steem Keychain not available'));
-        }
-
-        // Convert to vests first (required for withdraw_vesting operation)
-        this.steemToVests(amount)
-          .then(vests => {
-            // Steem Keychain uses "withdraw_vesting" operation
-            const operations = [
-              ["withdraw_vesting", {
-                account: username,
-                vesting_shares: `${vests} VESTS` // Format must be "0.000000 VESTS"
-              }]
-            ];
-            
-            window.steem_keychain.requestBroadcast(
-              username,      // Username
-              operations,    // Operations array
-              "Active",      // Key type required
-              (response) => {
-                console.log('Power down response:', response);
-                
-                if (response.success) {
-                  resolve({ success: true });
-                } else {
-                  resolve({ 
-                    success: false, 
-                    message: response.message || 'Unknown error' 
-                  });
-                }
-              }
-            );
-          })
-          .catch(error => {
-            console.error('Error converting SP to VESTS:', error);
-            reject(error);
-          });
-      } catch (error) {
-        console.error('Power down error:', error);
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Cancel an active power down using Steem Keychain
-   * @returns {Promise} Promise resolving to response object
-   */
-  cancelPowerDown() {
-    return new Promise((resolve, reject) => {
-      try {
-        const username = authService.getCurrentUser()?.username;
-        
-        if (!username) {
-          return reject(new Error('User not logged in'));
-        }
-        
-        if (!window.steem_keychain) {
-          return reject(new Error('Steem Keychain not available'));
-        }
-        
-        // To cancel power down, set vesting_shares to 0
-        const operations = [
-          ["withdraw_vesting", {
-            account: username,
-            vesting_shares: "0.000000 VESTS" // Zero vests to cancel power down
-          }]
-        ];
-        
-        window.steem_keychain.requestBroadcast(
-          username,      // Username
-          operations,    // Operations array
-          "Active",      // Key type required
-          (response) => {
-            console.log('Cancel power down response:', response);
-            
-            if (response.success) {
-              resolve({ success: true });
-            } else {
-              resolve({ 
-                success: false, 
-                message: response.message || 'Unknown error' 
-              });
-            }
-          }
-        );
-      } catch (error) {
-        console.error('Cancel power down error:', error);
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Get power down information for current user
-   * @returns {Promise} Promise resolving to power down info object
-   */
-  async getPowerDownInfo() {
-    try {
-      const username = authService.getCurrentUser()?.username;
-      
-      if (!username) {
-        throw new Error('User not logged in');
-      }
-      
-      // Get account information
-      const account = await new Promise((resolve, reject) => {
-        window.steem.api.getAccounts([username], (err, accounts) => {
-          if (err) reject(err);
-          else if (accounts && accounts.length > 0) resolve(accounts[0]);
-          else reject(new Error('Account not found'));
-        });
-      });
-      
-      // Check if powering down
-      const isPoweringDown = parseFloat(account.vesting_withdraw_rate) > 0.000001;
-      
-      if (!isPoweringDown) {
-        return {
-          isPoweringDown: false,
-          weeklyRate: '0.000',
-          nextPowerDown: null,
-          remainingWeeks: 0
-        };
-      }
-      
-      // Calculate weekly rate
-      const weeklyRate = await this.vestsToSteem(account.vesting_withdraw_rate.split(' ')[0]);
-      
-      // Calculate next power down time
-      const nextPowerDown = new Date(account.next_vesting_withdrawal + 'Z');
-      
-      // Calculate remaining weeks - using 4 weeks as the total duration
-      // and limiting the maximum displayed remaining weeks to 4
-      let remainingWeeks = 0;
-      if (parseFloat(account.to_withdraw) > 0) {
-        const withdrawRate = parseFloat(account.vesting_withdraw_rate);
-        if (withdrawRate > 0) {
-          remainingWeeks = Math.min(
-            Math.ceil(parseFloat(account.to_withdraw) / withdrawRate), 
-            4 // Maximum of 4 weeks
-          );
-        }
-      }
-      
-      // Format the weekly rate to 3 decimal places for display
-      const formattedWeeklyRate = parseFloat(weeklyRate).toFixed(3);
-      
-      return {
-        isPoweringDown: true,
-        weeklyRate: formattedWeeklyRate,
-        nextPowerDown,
-        remainingWeeks
-      };
-      
-    } catch (error) {
-      console.error('Error getting power down info:', error);
-      return {
-        isPoweringDown: false,
-        error: error.message
-      };
-    }
-  }
-
+  
   /**
    * Calculate Annual Percentage Rate (APR) based on weekly rewards and vesting shares
    * @param {number} totalWeeklyRewards - Total weekly rewards in STEEM
