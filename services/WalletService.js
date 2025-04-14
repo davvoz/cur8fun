@@ -168,27 +168,49 @@ class WalletService {
   
   /**
    * Transfer STEEM to another account
+   * @param {string} recipient - Recipient username
+   * @param {string|number} amount - Amount to transfer
+   * @param {string} memo - Optional memo
+   * @returns {Promise<Object>} Response object with success status
    */
   async transferSteem(recipient, amount, memo = '') {
     if (!this.currentUser) throw new Error('Not logged in');
     
     try {
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestTransfer(
-          this.currentUser,
-          recipient,
-          parseFloat(amount).toFixed(3),
-          memo,
-          'STEEM',
-          function(response) {
-            if (response.success) {
-              resolve(response);
-            } else {
-              reject(new Error(response.message || 'Transfer failed'));
+      const formattedAmount = `${parseFloat(amount).toFixed(3)} STEEM`;
+      
+      // Create the transfer operation
+      const transferOp = [
+        'transfer', 
+        {
+          from: this.currentUser,
+          to: recipient,
+          amount: formattedAmount,
+          memo: memo
+        }
+      ];
+      
+      // Define keychain method as fallback
+      const keychainMethod = () => {
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestTransfer(
+            this.currentUser,
+            recipient,
+            parseFloat(amount).toFixed(3),
+            memo,
+            'STEEM',
+            function(response) {
+              if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.message || 'Transfer failed'));
+              }
             }
-          }
-        );
-      });
+          );
+        });
+      };
+      
+      return this._broadcastOperation([transferOp], 'active', keychainMethod);
     } catch (error) {
       console.error('Error transferring STEEM:', error);
       throw error;
@@ -202,20 +224,35 @@ class WalletService {
     if (!this.currentUser) throw new Error('Not logged in');
     
     try {
-      return new Promise((resolve, reject) => {
-        window.steem_keychain.requestPowerUp(
-          this.currentUser,
-          this.currentUser,
-          parseFloat(amount).toFixed(3),
-          function(response) {
-            if (response.success) {
-              resolve(response);
-            } else {
-              reject(new Error(response.message || 'Power up failed'));
+      // Create the power up operation
+      const powerUpOp = [
+        'transfer_to_vesting', 
+        {
+          from: this.currentUser,
+          to: this.currentUser,
+          amount: `${parseFloat(amount).toFixed(3)} STEEM`
+        }
+      ];
+      
+      // Define keychain method as fallback
+      const keychainMethod = () => {
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestPowerUp(
+            this.currentUser,
+            this.currentUser,
+            parseFloat(amount).toFixed(3),
+            function(response) {
+              if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.message || 'Power up failed'));
+              }
             }
-          }
-        );
-      });
+          );
+        });
+      };
+      
+      return this._broadcastOperation([powerUpOp], 'active', keychainMethod);
     } catch (error) {
       console.error('Error powering up STEEM:', error);
       throw error;
@@ -1467,6 +1504,87 @@ async getUserBalances(username) {
     };
   } catch (error) {
     console.error('Error fetching user balances:', error);
+    throw error;
+  }
+}
+
+/**
+ * Broadcast a transaction with appropriate authentication method
+ * @private
+ * @param {Array} operations - Array of operations to broadcast
+ * @param {string} requiredKey - Key type required ('posting' or 'active')
+ * @param {Function} keychainMethod - Keychain method to use as fallback
+ * @returns {Promise<Object>} Result of the operation
+ */
+async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = null) {
+  if (!this.currentUser) throw new Error('Not logged in');
+  debugger
+  try {
+    // Get the appropriate key based on the required key type
+    let privateKey = null;
+    if (requiredKey === 'active') {
+      privateKey = authService.getActiveKey();
+    } else if (requiredKey === 'posting') {
+      privateKey = authService.getPostingKey();
+    }
+    
+    // Check if we have the required private key available
+    if (privateKey) {
+      console.log(`Using direct broadcast with ${requiredKey} key`);
+      
+      // Load steem library
+      const steem = await steemService.ensureLibraryLoaded();
+      
+      return new Promise((resolve, reject) => {
+        // Prepare key object for broadcast
+        const keys = {};
+        keys[requiredKey] = privateKey;
+        
+        // Broadcast with private key
+        steem.broadcast.send(
+          { operations, extensions: [] },
+          keys,
+          (err, result) => {
+            if (err) {
+              console.error('Broadcast error:', err);
+              reject(new Error(err.message || 'Operation failed'));
+            } else {
+              resolve({
+                success: true,
+                result: result,
+                operation: operations[0][0]
+              });
+            }
+          }
+        );
+      });
+    } else {
+      // No private key available, fall back to Keychain method
+      console.log(`No ${requiredKey} key available, using Keychain for operation`);
+      
+      if (!keychainMethod) {
+        // Use generic requestBroadcast if no specific keychain method provided
+        return new Promise((resolve, reject) => {
+          window.steem_keychain.requestBroadcast(
+            this.currentUser,
+            operations,
+            requiredKey,
+            (response) => {
+              if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.message || 'Operation failed'));
+              }
+            }
+          );
+        });
+      } else {
+        // Use the specific keychain method provided
+        return keychainMethod();
+      }
+    }
+  } catch (error) {
+    console.error('Error broadcasting operation:', error);
     throw error;
   }
 }

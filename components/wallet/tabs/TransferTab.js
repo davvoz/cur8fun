@@ -247,12 +247,6 @@ export default class TransferTab extends Component {
       return;
     }
     
-    // Check if Keychain is installed
-    if (typeof window.steem_keychain === 'undefined') {
-      this.showMessage('Steem Keychain extension is not installed. Please install it to use this feature.', false);
-      return;
-    }
-    
     // Check if user is logged in
     if (!this.currentUser) {
       this.showMessage('You must be logged in to make transfers', false);
@@ -265,41 +259,37 @@ export default class TransferTab extends Component {
       submitButton.disabled = true;
       submitButton.textContent = 'Processing...';
       
-      // Execute transfer through Steem Keychain
-      window.steem_keychain.requestTransfer(
-        this.currentUser,  // From (current user)
-        to,                // To (recipient)
-        amount,            // Amount (formatted with 3 decimals)
-        memo,              // Memo (can be empty)
-        currency,          // Currency (STEEM or SBD)
-        (response) => {    // Callback
-          if (response.success) {
-            this.showMessage(`Successfully transferred ${amount} ${currency} to @${to}`, true);
-            this.element.querySelector('#transfer-form').reset();
-            
-            // Update balances
-            walletService.updateBalances();
-            
-            // Emit event so other components can update
-            eventEmitter.emit('wallet:transfer-completed', {
-              from: this.currentUser,
-              to,
-              amount,
-              currency
-            });
-          } else {
-            this.showMessage(`Transfer failed: ${response.message || 'Unknown error'}`, false);
-          }
-          
-          // Reset button state
-          submitButton.disabled = false;
-          submitButton.textContent = 'Send Transfer';
-        }
-      );
+      // Use wallet service for transfer instead of direct Keychain call
+      let response;
+      if (currency === 'STEEM') {
+        response = await walletService.transferSteem(to, amount, memo);
+      } else if (currency === 'SBD') {
+        response = await walletService.transferSBD(to, amount, memo);
+      } else {
+        throw new Error('Invalid currency');
+      }
+      
+      if (response.success) {
+        this.showMessage(`Successfully transferred ${amount} ${currency} to @${to}`, true);
+        this.element.querySelector('#transfer-form').reset();
+        
+        // Update balances
+        walletService.updateBalances();
+        
+        // Emit event so other components can update
+        eventEmitter.emit('wallet:transfer-completed', {
+          from: this.currentUser,
+          to,
+          amount,
+          currency
+        });
+      } else {
+        this.showMessage(`Transfer failed: ${response.message || 'Unknown error'}`, false);
+      }
     } catch (error) {
       console.error('Transfer error:', error);
       this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
-      
+    } finally {
       // Reset button state
       const submitButton = this.element.querySelector('button[type="submit"]');
       submitButton.disabled = false;
