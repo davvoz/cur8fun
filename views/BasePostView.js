@@ -928,12 +928,12 @@ class BasePostView {
         voteActionElement.dataset.percent = userVote.percent;
         
         // Add the vote percentage indicator if it doesn't exist
-        // if (!voteActionElement.querySelector('.vote-percent-indicator') && userVote.percent > 0) {
-        //   const percentIndicator = document.createElement('span');
-        //   percentIndicator.className = 'vote-percent-indicator';
-        //   percentIndicator.textContent = `${userVote.percent / 100}%`;
-        //   voteActionElement.appendChild(percentIndicator);
-        // }
+        if (!voteActionElement.querySelector('.vote-percent-indicator') && userVote.percent > 0) {
+          const percentIndicator = document.createElement('span');
+          percentIndicator.className = 'vote-percent-indicator';
+          percentIndicator.textContent = `${userVote.percent / 100}%`;
+          voteActionElement.appendChild(percentIndicator);
+        }
       }
       
       // Mark as checked to avoid repeated API calls
