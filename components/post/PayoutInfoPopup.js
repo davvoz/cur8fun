@@ -9,15 +9,30 @@ class PayoutInfoPopup {
     this.popup = null;
     this.isMobile = window.innerWidth < 768;
     
+    // Determine if the post has already been paid
+    this.hasBeenPaid = this.checkIfPaid();
+    
     // Bind methods
     this.close = this.close.bind(this);
     this.escKeyHandler = this.escKeyHandler.bind(this);
   }
   
   /**
-   * Get total pending payout
+   * Check if the post has already been paid
    */
-  getPendingPayout() {
+  checkIfPaid() {
+    const pending = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
+    const total = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
+    const curator = parseFloat(this.post.curator_payout_value?.split(' ')[0] || 0);
+    
+    // If total_payout_value or curator_payout_value are > 0, the post has been paid
+    return (total > 0 || curator > 0);
+  }
+  
+  /**
+   * Get total payout (pending or completed)
+   */
+  getTotalPayout() {
     const pending = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
     const total = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
     const curator = parseFloat(this.post.curator_payout_value?.split(' ')[0] || 0);
@@ -90,64 +105,100 @@ class PayoutInfoPopup {
   
   /**
    * Get SBD, STEEM and SP breakdown
-   * Analizza e mostra i valori esattamente come su Steemit
+   * Analyze and display values exactly as on Steemit
    */
   getPayoutBreakdown() {
-    // Alcuni post potrebbero avere proprietà personalizzate, esaminiamo il contenuto
-    console.log('Post data for breakdown:', this.post);
-    
-    // Cerchiamo valori esatti nel post se disponibili
-    const sbdValue = this.post.sbd_value || this.post.sbd_payout || 0;
-    const steemValue = this.post.steem_value || this.post.steem_payout || 0;
-    const spValue = this.post.sp_value || this.post.sp_payout || 0;
-    
-    // Se troviamo valori specifici nel post, li usiamo
-    if (sbdValue > 0 || steemValue > 0 || spValue > 0) {
+    // If it's an already paid post, try to use actual values from the completed payout
+    if (this.hasBeenPaid) {
+      // For already paid posts, first check specific properties
+      if (this.post.payout_details) {
+        return {
+          sbd: parseFloat(this.post.payout_details.sbd_payout || 0).toFixed(2),
+          steem: parseFloat(this.post.payout_details.steem_payout || 0).toFixed(2),
+          sp: parseFloat(this.post.payout_details.sp_payout || 0).toFixed(2)
+        };
+      }
+      
+      // If there are no specific details, calculate based on standard values
+      const totalPayout = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
+      const curatorPayout = parseFloat(this.post.curator_payout_value?.split(' ')[0] || 0);
+      const authorPayout = totalPayout - curatorPayout;
+      
+      // Typically on STEEM, completed payouts are split between author and curators
+      // with the author's payout split 50/50 between liquid and SP
       return {
-        sbd: parseFloat(sbdValue).toFixed(2),
-        steem: parseFloat(steemValue).toFixed(2),
-        sp: parseFloat(spValue).toFixed(2)
+        sbd: "0.00",  // Typically 0 in current Steem settings
+        steem: authorPayout.toFixed(2),
+        sp: authorPayout.toFixed(2)
       };
     }
     
-    // Altrimenti usiamo direttamente i valori forniti dall'esempio
-    // Questi valori dovrebbero essere passati al costruttore del popup quando viene creato
-    // o recuperati da una API/cache specifica
+    // For pending payouts
+    const pendingPayout = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
     
-    // Se hai accesso diretto ai valori esatti da mostrare:
-    if (this.post.exact_breakdown) {
+    // Look for specific details in the post
+    // If there are special metadata for the breakdown, use them
+    if (this.post.breakdown) {
       return {
-        sbd: parseFloat(this.post.exact_breakdown.sbd || 0).toFixed(2),
-        steem: parseFloat(this.post.exact_breakdown.steem || 0).toFixed(2),
-        sp: parseFloat(this.post.exact_breakdown.sp || 0).toFixed(2)
+        sbd: parseFloat(this.post.breakdown.sbd || 0).toFixed(2),
+        steem: parseFloat(this.post.breakdown.steem || 0).toFixed(2),
+        sp: parseFloat(this.post.breakdown.sp || 0).toFixed(2)
       };
     }
     
-    // Ultima risorsa: usa i valori hardcoded dall'esempio
-    // Questo è un fallback temporaneo che dovresti sostituire con valori dinamici reali
+    // Otherwise use the standard split
     return {
-      sbd: "0.00",
-      steem: "24.09",
-      sp: "24.09"
+      sbd: "0.00", 
+      steem: pendingPayout.toFixed(2),
+      sp: pendingPayout.toFixed(2)
     };
   }
   
   /**
-   * Calculate days until payout
+   * Calculate days until payout or get payout date if already paid
    */
-  getDaysUntilPayout() {
-    if (!this.post.created) return 'Soon';
-    
-    const created = new Date(this.post.created + 'Z');
-    const payoutTime = new Date(created.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days after creation
+  getPayoutInfo() {
+    if (this.hasBeenPaid) {
+      if (this.post.cashout_time) {
+        // If we have the actual payout date
+        const payoutDate = new Date(this.post.cashout_time + 'Z');
+        return {
+          isPaid: true,
+          date: payoutDate.toLocaleDateString(),
+          daysAgo: this.getDaysSince(payoutDate)
+        };
+      }
+      return {
+        isPaid: true,
+        date: 'Completed',
+        daysAgo: null
+      };
+    } else {
+      // For pending payouts
+      if (!this.post.created) return { isPaid: false, daysLeft: 'Soon' };
+      
+      const created = new Date(this.post.created + 'Z');
+      const payoutTime = new Date(created.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days after creation
+      const now = new Date();
+      
+      // Calculate the difference in days
+      const diffTime = payoutTime - now;
+      if (diffTime <= 0) return { isPaid: false, daysLeft: 'Processing' };
+      
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return { isPaid: false, daysLeft: diffDays };
+    }
+  }
+  
+  /**
+   * Calculate days since a date
+   */
+  getDaysSince(date) {
     const now = new Date();
+    const diffTime = now - date;
+    if (diffTime <= 0) return 0;
     
-    // Calculate difference in days
-    const diffTime = payoutTime - now;
-    if (diffTime <= 0) return 'Processing';
-    
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   }
   
   /**
@@ -155,11 +206,13 @@ class PayoutInfoPopup {
    */
   getBeneficiaryPayouts() {
     const beneficiaries = this.post.beneficiaries || [];
-    const pending = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
+    const totalPayout = this.hasBeenPaid ? 
+      parseFloat(this.post.total_payout_value?.split(' ')[0] || 0) :
+      parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
     
     return beneficiaries.map(b => {
       const percentage = b.weight / 10000;
-      const payout = (pending * percentage).toFixed(2);
+      const payout = (totalPayout * percentage).toFixed(2);
       return {
         account: b.account,
         percentage: (percentage * 100).toFixed(1),
@@ -270,90 +323,151 @@ class PayoutInfoPopup {
     section.className = 'payout-section';
     
     // Main payout info
-    const pendingPayout = this.getPendingPayout();
-    const daysUntilPayout = this.getDaysUntilPayout();
+    const totalPayout = this.getTotalPayout();
+    const payoutInfo = this.getPayoutInfo();
     
     const mainPayoutInfo = document.createElement('div');
     mainPayoutInfo.className = 'main-payout-info';
     
-    const payoutLabel = document.createElement('div');
-    payoutLabel.className = 'payout-label';
-    payoutLabel.textContent = 'Pagamento in attesa';
-    
-    const payoutValue = document.createElement('div');
-    payoutValue.className = 'payout-value';
-    payoutValue.textContent = `$${pendingPayout}`;
-    
-    mainPayoutInfo.appendChild(payoutLabel);
-    mainPayoutInfo.appendChild(payoutValue);
-    
-    // Add payout date info
-    const payoutDateInfo = document.createElement('div');
-    payoutDateInfo.className = 'payout-date-info';
-    payoutDateInfo.textContent = `Payout tra ${daysUntilPayout} ${daysUntilPayout === 1 ? 'giorno' : 'giorni'}`;
-    mainPayoutInfo.appendChild(payoutDateInfo);
+    if (this.hasBeenPaid) {
+      // For already paid posts, show a different format
+      const payoutLabel = document.createElement('div');
+      payoutLabel.className = 'payout-label';
+      payoutLabel.textContent = 'Previous payout of';
+      
+      const payoutValue = document.createElement('div');
+      payoutValue.className = 'payout-value';
+      payoutValue.textContent = `${totalPayout} $`;
+      
+      mainPayoutInfo.appendChild(payoutLabel);
+      mainPayoutInfo.appendChild(payoutValue);
+      
+      // Create list for author and curators
+      const payoutList = document.createElement('div');
+      payoutList.className = 'payout-distribution-list';
+      
+      // Author row
+      const authorRow = document.createElement('div');
+      authorRow.className = 'payout-distribution-item';
+      
+      const authorBullet = document.createElement('span');
+      authorBullet.textContent = '- ';
+      authorRow.appendChild(authorBullet);
+      
+      const authorLabel = document.createElement('span');
+      authorLabel.textContent = 'Author ';
+      authorRow.appendChild(authorLabel);
+      
+      const authorValue = document.createElement('span');
+      authorValue.className = 'distribution-value';
+      authorValue.textContent = `${this.getAuthorPayout()} $`;
+      authorRow.appendChild(authorValue);
+      
+      payoutList.appendChild(authorRow);
+      
+      // Curator row
+      const curatorRow = document.createElement('div');
+      curatorRow.className = 'payout-distribution-item';
+      
+      const curatorBullet = document.createElement('span');
+      curatorBullet.textContent = '- ';
+      curatorRow.appendChild(curatorBullet);
+      
+      const curatorLabel = document.createElement('span');
+      curatorLabel.textContent = 'Curators ';
+      curatorRow.appendChild(curatorLabel);
+      
+      const curatorValue = document.createElement('span');
+      curatorValue.className = 'distribution-value';
+      curatorValue.textContent = `${this.getCuratorPayout()} $`;
+      curatorRow.appendChild(curatorValue);
+      
+      payoutList.appendChild(curatorRow);
+      
+      mainPayoutInfo.appendChild(payoutList);
+    } else {
+      // For pending payouts, keep the original format
+      const payoutLabel = document.createElement('div');
+      payoutLabel.className = 'payout-label';
+      payoutLabel.textContent = 'Pending Payout';
+      
+      const payoutValue = document.createElement('div');
+      payoutValue.className = 'payout-value';
+      payoutValue.textContent = `$${totalPayout}`;
+      
+      mainPayoutInfo.appendChild(payoutLabel);
+      mainPayoutInfo.appendChild(payoutValue);
+      
+      // Add payout date info
+      const payoutDateInfo = document.createElement('div');
+      payoutDateInfo.className = 'payout-date-info';
+      payoutDateInfo.textContent = `Payout in ${payoutInfo.daysLeft} ${payoutInfo.daysLeft === 1 ? 'day' : 'days'}`;
+      mainPayoutInfo.appendChild(payoutDateInfo);
+    }
     
     section.appendChild(mainPayoutInfo);
     
-    // Breakdown title
-    const breakdownTitle = document.createElement('h3');
-    breakdownTitle.textContent = 'Breakdown:';
-    section.appendChild(breakdownTitle);
-    
-    // Create breakdown table for currency distribution
-    const currencyBreakdown = this.getPayoutBreakdown();
-    const currencyTable = document.createElement('div');
-    currencyTable.className = 'payout-breakdown-table currency-breakdown';
-    
-    // SBD Row
-    const sbdRow = document.createElement('div');
-    sbdRow.className = 'payout-row';
-    
-    const sbdLabel = document.createElement('div');
-    sbdLabel.className = 'payout-item-label';
-    sbdLabel.textContent = 'SBD';
-    
-    const sbdValue = document.createElement('div');
-    sbdValue.className = 'payout-item-value';
-    sbdValue.textContent = `${currencyBreakdown.sbd} SBD`;
-    
-    sbdRow.appendChild(sbdLabel);
-    sbdRow.appendChild(sbdValue);
-    currencyTable.appendChild(sbdRow);
-    
-    // STEEM Row
-    const steemRow = document.createElement('div');
-    steemRow.className = 'payout-row';
-    
-    const steemLabel = document.createElement('div');
-    steemLabel.className = 'payout-item-label';
-    steemLabel.textContent = 'STEEM';
-    
-    const steemValue = document.createElement('div');
-    steemValue.className = 'payout-item-value';
-    steemValue.textContent = `${currencyBreakdown.steem} STEEM`;
-    
-    steemRow.appendChild(steemLabel);
-    steemRow.appendChild(steemValue);
-    currencyTable.appendChild(steemRow);
-    
-    // SP Row
-    const spRow = document.createElement('div');
-    spRow.className = 'payout-row';
-    
-    const spLabel = document.createElement('div');
-    spLabel.className = 'payout-item-label';
-    spLabel.textContent = 'SP';
-    
-    const spValue = document.createElement('div');
-    spValue.className = 'payout-item-value';
-    spValue.textContent = `${currencyBreakdown.sp} SP`;
-    
-    spRow.appendChild(spLabel);
-    spRow.appendChild(spValue);
-    currencyTable.appendChild(spRow);
-    
-    section.appendChild(currencyTable);
+    // Breakdown title (only for pending payouts)
+    if (!this.hasBeenPaid) {
+      const breakdownTitle = document.createElement('h3');
+      breakdownTitle.textContent = 'Breakdown:';
+      section.appendChild(breakdownTitle);
+      
+      // Create breakdown table for currency distribution
+      const currencyBreakdown = this.getPayoutBreakdown();
+      const currencyTable = document.createElement('div');
+      currencyTable.className = 'payout-breakdown-table currency-breakdown';
+      
+      // SBD Row
+      const sbdRow = document.createElement('div');
+      sbdRow.className = 'payout-row';
+      
+      const sbdLabel = document.createElement('div');
+      sbdLabel.className = 'payout-item-label';
+      sbdLabel.textContent = 'SBD';
+      
+      const sbdValue = document.createElement('div');
+      sbdValue.className = 'payout-item-value';
+      sbdValue.textContent = `${currencyBreakdown.sbd} SBD`;
+      
+      sbdRow.appendChild(sbdLabel);
+      sbdRow.appendChild(sbdValue);
+      currencyTable.appendChild(sbdRow);
+      
+      // STEEM Row
+      const steemRow = document.createElement('div');
+      steemRow.className = 'payout-row';
+      
+      const steemLabel = document.createElement('div');
+      steemLabel.className = 'payout-item-label';
+      steemLabel.textContent = 'STEEM';
+      
+      const steemValue = document.createElement('div');
+      steemValue.className = 'payout-item-value';
+      steemValue.textContent = `${currencyBreakdown.steem} STEEM`;
+      
+      steemRow.appendChild(steemLabel);
+      steemRow.appendChild(steemValue);
+      currencyTable.appendChild(steemRow);
+      
+      // SP Row
+      const spRow = document.createElement('div');
+      spRow.className = 'payout-row';
+      
+      const spLabel = document.createElement('div');
+      spLabel.className = 'payout-item-label';
+      spLabel.textContent = 'SP';
+      
+      const spValue = document.createElement('div');
+      spValue.className = 'payout-item-value';
+      spValue.textContent = `${currencyBreakdown.sp} SP`;
+      
+      spRow.appendChild(spLabel);
+      spRow.appendChild(spValue);
+      currencyTable.appendChild(spRow);
+      
+      section.appendChild(currencyTable);
+    }
     
     return section;
   }
