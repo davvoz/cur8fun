@@ -1,0 +1,149 @@
+/* Payout popup styles */
+.payout-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--background);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 9999;
+  width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  font-family: var(--font-family);
+}
+
+@media (max-width: 767px) {
+  .payout-popup {
+    width: 95%;
+  }
+}
+
+.payout-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payout-popup-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-heading);
+}
+
+.payout-popup-header .close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payout-popup-content {
+  padding: var(--space-md);
+}
+
+.payout-section {
+  margin-bottom: var(--space-lg);
+}
+
+.main-payout-info {
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
+.payout-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-xs);
+}
+
+.payout-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--secondary-color);
+}
+
+.payout-section h3 {
+  font-size: 1.1rem;
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-sm);
+  color: var(--text-heading);
+}
+
+.payout-breakdown-table,
+.beneficiary-table {
+  background-color: var(--background-light);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+}
+
+.payout-row,
+.beneficiary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payout-row:last-child,
+.beneficiary-row:last-child {
+  border-bottom: none;
+}
+
+.payout-item-label,
+.beneficiary-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.payout-item-value,
+.beneficiary-value {
+  font-weight: 500;
+}
+
+.payout-explanation {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.payout-explanation p {
+  margin: 0.5em 0;
+  line-height: 1.5;
+}
+
+.payout-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+/* Make payout info clickable */
+.payout-info {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.payout-info:hover {
+  color: var(--primary-color);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .payout-popup-content {
+  color: var(--text-color);
+}

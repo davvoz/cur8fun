@@ -1,4 +1,5 @@
 import VotesPopup from './VotesPopup.js';
+import PayoutInfoPopup from './PayoutInfoPopup.js';
 
 class PostActions {
   constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, canEdit = false) {
@@ -8,6 +9,9 @@ class PostActions {
     this.shareCallback = shareCallback;
     this.editCallback = editCallback; 
     this.canEdit = canEdit; // Store whether current user can edit this post
+    
+    // Bind methods
+    this.handlePayoutClick = this.handlePayoutClick.bind(this);
   }
 
   render() {
@@ -22,7 +26,8 @@ class PostActions {
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
     payoutInfo.textContent = `$${this.getPendingPayout(this.post)}`;
-
+    payoutInfo.addEventListener('click', this.handlePayoutClick); // Aggiungo l'event listener per il payout
+    
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
     postActions.appendChild(shareBtn);
@@ -59,6 +64,14 @@ class PostActions {
     });
 
     return postActions;
+  }
+
+  // Nuovo handler per il click sul payout info
+  handlePayoutClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const payoutPopup = new PayoutInfoPopup(this.post);
+    payoutPopup.show();
   }
 
   createActionButton(className, icon, countOrText) {

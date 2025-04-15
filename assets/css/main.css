@@ -21,6 +21,7 @@
 @import 'components/post-card.css'; /* Aggiunto import per gli stili delle card dei post */
 @import 'components/tag-selection.css';
 @import 'components/beneficiary-autocomplete.css'; /* Added import for beneficiary autocomplete styles */
+@import 'components/payout-popup.css'; /* Aggiunto import per gli stili del popup dei payout */
 
 /* Feature-specific styles */
 @import 'features/animations.css';
