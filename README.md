@@ -165,6 +165,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 <p align="center">
-  Built with ❤️ for the Steem community since 2023
+  Built with ❤️ for the Steem community since 2025
 </p>
 
