@@ -90,18 +90,18 @@ class PayoutInfoPopup {
   
   /**
    * Get SBD, STEEM and SP breakdown
-   * Analizza e mostra i valori esattamente come su Steemit
+   * Analyzes and displays the values exactly as on Steemit
    */
   getPayoutBreakdown() {
-    // Alcuni post potrebbero avere proprietà personalizzate, esaminiamo il contenuto
+    // Some posts might have custom properties, let's examine the content
     console.log('Post data for breakdown:', this.post);
     
-    // Cerchiamo valori esatti nel post se disponibili
+    // Look for exact values in the post if available
     const sbdValue = this.post.sbd_value || this.post.sbd_payout || 0;
     const steemValue = this.post.steem_value || this.post.steem_payout || 0;
     const spValue = this.post.sp_value || this.post.sp_payout || 0;
     
-    // Se troviamo valori specifici nel post, li usiamo
+    // If we find specific values in the post, we use them
     if (sbdValue > 0 || steemValue > 0 || spValue > 0) {
       return {
         sbd: parseFloat(sbdValue).toFixed(2),
@@ -110,11 +110,11 @@ class PayoutInfoPopup {
       };
     }
     
-    // Altrimenti usiamo direttamente i valori forniti dall'esempio
-    // Questi valori dovrebbero essere passati al costruttore del popup quando viene creato
-    // o recuperati da una API/cache specifica
+    // Otherwise we use the values provided in the example
+    // These values should be passed to the popup constructor when it's created
+    // or retrieved from a specific API/cache
     
-    // Se hai accesso diretto ai valori esatti da mostrare:
+    // If you have direct access to the exact values to display:
     if (this.post.exact_breakdown) {
       return {
         sbd: parseFloat(this.post.exact_breakdown.sbd || 0).toFixed(2),
@@ -123,8 +123,8 @@ class PayoutInfoPopup {
       };
     }
     
-    // Ultima risorsa: usa i valori hardcoded dall'esempio
-    // Questo è un fallback temporaneo che dovresti sostituire con valori dinamici reali
+    // Last resort: use hardcoded values from the example
+    // This is a temporary fallback that should be replaced with real dynamic values
     return {
       sbd: "0.00",
       steem: "24.09",
@@ -141,6 +141,11 @@ class PayoutInfoPopup {
     const created = new Date(this.post.created + 'Z');
     const payoutTime = new Date(created.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days after creation
     const now = new Date();
+    
+    // If the post has been paid out
+    if (this.isPostPaidOut()) {
+      return 'Completed';
+    }
     
     // Calculate difference in days
     const diffTime = payoutTime - now;
@@ -166,6 +171,30 @@ class PayoutInfoPopup {
         payout
       };
     });
+  }
+  
+  /**
+   * Check if the post has already been paid out
+   */
+  isPostPaidOut() {
+    // Check if pending payout is zero and total payout has value
+    const pending = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
+    const total = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
+    const curator = parseFloat(this.post.curator_payout_value?.split(' ')[0] || 0);
+    
+    // If there's no pending payout but there is a total/curator payout, the post has been paid out
+    return pending <= 0 && (total > 0 || curator > 0);
+  }
+  
+  /**
+   * Get payout status for display
+   */
+  getPayoutStatus() {
+    if (this.isPostPaidOut()) {
+      return 'Paid Out';
+    } else {
+      return 'Pending Payout';
+    }
   }
   
   /**
@@ -272,13 +301,15 @@ class PayoutInfoPopup {
     // Main payout info
     const pendingPayout = this.getPendingPayout();
     const daysUntilPayout = this.getDaysUntilPayout();
+    const payoutStatus = this.getPayoutStatus();
+    const isPaidOut = this.isPostPaidOut();
     
     const mainPayoutInfo = document.createElement('div');
     mainPayoutInfo.className = 'main-payout-info';
     
     const payoutLabel = document.createElement('div');
     payoutLabel.className = 'payout-label';
-    payoutLabel.textContent = 'Pagamento in attesa';
+    payoutLabel.textContent = payoutStatus;
     
     const payoutValue = document.createElement('div');
     payoutValue.className = 'payout-value';
@@ -290,7 +321,15 @@ class PayoutInfoPopup {
     // Add payout date info
     const payoutDateInfo = document.createElement('div');
     payoutDateInfo.className = 'payout-date-info';
-    payoutDateInfo.textContent = `Payout tra ${daysUntilPayout} ${daysUntilPayout === 1 ? 'giorno' : 'giorni'}`;
+    
+    if (isPaidOut) {
+      payoutDateInfo.textContent = 'Payout has been completed';
+    } else if (daysUntilPayout === 'Processing') {
+      payoutDateInfo.textContent = 'Processing payout';
+    } else {
+      payoutDateInfo.textContent = `Payout in ${daysUntilPayout} ${daysUntilPayout === 1 ? 'day' : 'days'}`;
+    }
+    
     mainPayoutInfo.appendChild(payoutDateInfo);
     
     section.appendChild(mainPayoutInfo);
