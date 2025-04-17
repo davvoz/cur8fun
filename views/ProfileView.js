@@ -31,8 +31,12 @@ class ProfileView extends View {
     // Get components from cache or create new ones
     this.initializeComponentsFromCache();
     
-    // Get cached tab if available
-    this.currentTab = ProfileTabs.activeTabCache[this.username] || 'posts';
+    // Check if we're coming from a non-profile page
+    const isDirectNavigation = this.isDirectNavigation();
+    
+    // Get cached tab if available, but default to 'posts' when coming from non-profile pages
+    this.currentTab = (isDirectNavigation || !ProfileTabs.activeTabCache[this.username]) ? 
+                      'posts' : ProfileTabs.activeTabCache[this.username];
     
     // Caching state
     this.postsLoaded = !!componentCache.posts[this.username];
@@ -40,6 +44,24 @@ class ProfileView extends View {
     this.postsContainer = null;
     this.commentsContainer = null;
     this.walletHistoryComponent = null;
+  }
+
+  // Helper to determine if we're navigating directly to profile
+  isDirectNavigation() {
+    // Check if we came from another page (like the home)
+    const referrer = document.referrer;
+    
+    // If no referrer or different origin, consider it direct navigation
+    if (!referrer || new URL(referrer).origin !== window.location.origin) {
+      return true;
+    }
+    
+    // Check if the previous page was not a profile page
+    const referrerPath = new URL(referrer).pathname;
+    const isFromProfilePage = referrerPath.includes('/@');
+    
+    // Return true if we're NOT coming from another profile page
+    return !isFromProfilePage;
   }
 
   initializeComponentsFromCache() {

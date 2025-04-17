@@ -3,11 +3,18 @@ export default class ProfileTabs {
   static activeTabCache = {};
   
   constructor(onTabChange) {
-    // Check cache for this user if available in constructor params
+    // Extract username from URL
     const username = this.extractUsername();
-    this.currentTab = username && ProfileTabs.activeTabCache[username] 
+    
+    // Use URL parameters to check if we're navigating directly
+    // This helps determine if we should use cache or reset to 'posts'
+    const isDirectNavigation = this.isDirectNavigation();
+    
+    // Reset to 'posts' when coming from home or other non-profile page
+    this.currentTab = (username && ProfileTabs.activeTabCache[username] && !isDirectNavigation) 
                      ? ProfileTabs.activeTabCache[username] 
                      : 'posts';
+                     
     this.onTabChange = onTabChange;
     this.container = null;
     this.username = username;
@@ -22,6 +29,25 @@ export default class ProfileTabs {
   extractUsername() {
     const match = window.location.pathname.match(/\/@([^/]+)/);
     return match ? match[1] : null;
+  }
+  
+  // Helper to determine if we're navigating directly to profile
+  isDirectNavigation() {
+    // Check if we came from another page (like the home)
+    // This is a heuristic - if we have a referrer that's not a profile page
+    const referrer = document.referrer;
+    
+    // If no referrer or different origin, consider it direct navigation
+    if (!referrer || new URL(referrer).origin !== window.location.origin) {
+      return true;
+    }
+    
+    // Check if the previous page was not a profile page
+    const referrerPath = new URL(referrer).pathname;
+    const isFromProfilePage = referrerPath.includes('/@');
+    
+    // Return true if we're NOT coming from another profile page
+    return !isFromProfilePage;
   }
   
   render(container) {
