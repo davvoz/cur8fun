@@ -4,6 +4,7 @@ import walletService from '../services/WalletService.js';
 import WalletBalancesComponent from '../components/wallet/WalletBalancesComponent.js';
 import WalletResourcesComponent from '../components/wallet/WalletResourcesComponent.js';
 import WalletTabsComponent from '../components/wallet/WalletTabsComponent.js';
+import WalletRewardsComponent from '../components/wallet/actions/WalletRewardsComponent.js';
 
 /**
  * Wallet view with component-based architecture
@@ -50,6 +51,11 @@ class WalletView extends View {
     pageHeader.appendChild(subheading);
     
     walletContainer.appendChild(pageHeader);
+    
+    // Create rewards component container
+    const rewardsContainer = document.createElement('div');
+    rewardsContainer.id = 'wallet-rewards-container';
+    walletContainer.appendChild(rewardsContainer);
     
     // Create component containers
     const balancesContainer = document.createElement('div');
@@ -106,6 +112,14 @@ class WalletView extends View {
    * Initialize and render all wallet components
    */
   initializeComponents() {
+    // Initialize rewards component
+    const rewardsContainer = this.element.querySelector('#wallet-rewards-container');
+    if (rewardsContainer) {
+      const rewardsComponent = new WalletRewardsComponent(rewardsContainer);
+      rewardsComponent.render();
+      this.components.push(rewardsComponent);
+    }
+    
     // Initialize balance component
     const balancesContainer = this.element.querySelector('#wallet-balances-container');
     if (balancesContainer) {

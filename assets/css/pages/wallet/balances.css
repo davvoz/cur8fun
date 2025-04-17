@@ -79,56 +79,6 @@
   margin-bottom: var(--space-md);
 }
 
-.rewards-indicator {
-  cursor: pointer;
-  background-color: var(--success-light);
-  color: var(--success-color);
-  border-radius: var(--radius-full);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s, background-color 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  position: relative;
-}
-
-.rewards-indicator::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  background-color: var(--error-color);
-  border-radius: 50%;
-  border: 2px solid var(--background);
-}
-
-.rewards-indicator:hover {
-  transform: scale(1.1);
-  background-color: var(--success-color);
-  color: white;
-}
-
-.rewards-indicator.loading {
-  background-color: var(--background-lighter);
-  color: var(--text-muted);
-}
-
-.rewards-indicator .material-icons {
-  font-size: 1.5rem;
-}
-
-.rewards-indicator .material-icons.spin {
-  animation: spin 1.5s linear infinite;
-}
-
-.rewards-indicator.hidden {
-  display: none;
-}
-
 /* Horizontal balances layout */
 .balance-cards-row {
   display: flex;

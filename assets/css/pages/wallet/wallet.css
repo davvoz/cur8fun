@@ -14,6 +14,7 @@
 @import './power.css';
 @import './transactions.css';
 @import './curation.css';
+@import './rewards.css'; /* Added rewards component styles */
 
 /* Note: This file serves as an entry point for all wallet styles.
    Individual components should be modified in their respective files. */

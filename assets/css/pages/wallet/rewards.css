@@ -1,0 +1,155 @@
+/* Rewards component styling */
+.wallet-rewards-component {
+  display: flex;
+  justify-content: flex-end; /* Allineato a destra */
+  margin: var(--space-md) 0;
+  position: relative;
+}
+
+.wallet-rewards-component.hidden {
+  display: none; /* Nasconde completamente il componente */
+}
+
+.rewards-claim-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px; /* Dimensione fissa per renderlo circolare */
+  height: 50px; /* Dimensione fissa per renderlo circolare */
+  background-color: var(--background-lighter, #2d2d2d);
+  color: var(--secondary-color, #2ecc71);
+  border: none;
+  border-radius: 50%; /* Forma circolare */
+  padding: 0; /* Rimuove padding */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.rewards-claim-button:hover {
+  background-color: var(--secondary-color, #2ecc71);
+  color: var(--text-on-primary, #ffffff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.rewards-claim-button.has-rewards {
+  background-color: var(--background-lighter, #2d2d2d);
+  box-shadow: 0 0 0 2px var(--secondary-color, #2ecc71);
+}
+
+.rewards-button-text {
+  display: none; /* Nascondi il testo del pulsante */
+}
+
+.rewards-claim-button.loading {
+  background-color: var(--background-lighter, #2d2d2d);
+  cursor: wait;
+  transform: none;
+}
+
+.rewards-claim-button .material-icons {
+  font-size: 1.5rem; /* Icona più grande */
+}
+
+/* Badge per indicare rewards disponibili */
+.rewards-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--button-danger, #e74c3c);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--background-color, #121212);
+}
+
+/* Tooltip styling */
+.rewards-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0; /* Allineato a destra invece che al centro */
+  transform: none; /* Rimuovi transform per l'allineamento a destra */
+  width: 200px;
+  background-color: var(--background-light, #1e1e1e);
+  border-radius: var(--radius-sm, 4px);
+  box-shadow: var(--popup-box-shadow, 0 6px 24px rgba(0,0,0,0.25));
+  border: 1px solid var(--border-color, #333333);
+  padding: var(--space-sm);
+  z-index: 5;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.rewards-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 15px; /* Posiziona la freccia a destra */
+  transform: none;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--border-color, #333333);
+}
+
+.rewards-tooltip::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 15px; /* Posiziona la freccia a destra */
+  transform: none;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--background-light, #1e1e1e);
+}
+
+.rewards-claim-button:hover .rewards-tooltip {
+  display: block;
+  opacity: 1;
+}
+
+.rewards-tooltip-header {
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-heading, #ffffff);
+}
+
+.rewards-tooltip-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rewards-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: var(--space-xs) 0;
+}
+
+.rewards-tooltip-label {
+  color: var(--text-secondary, #a0a0a0);
+}
+
+.rewards-tooltip-value {
+  font-weight: 500;
+  color: var(--secondary-color, #2ecc71);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rewards-claim-button {
+    width: 45px; /* Leggermente più piccolo su mobile */
+    height: 45px; /* Leggermente più piccolo su mobile */
+  }
+}
