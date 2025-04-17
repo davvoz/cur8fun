@@ -186,23 +186,7 @@ export default class ProfileHeader {
       followBtn.addEventListener('click', () => this.onFollowAction());
       actions.appendChild(followBtn);
 
-      // Add message button
-      const messageBtn = document.createElement('button');
-      messageBtn.className = 'message-btn';
-
-      const msgIcon = document.createElement('span');
-      msgIcon.className = 'material-icons';
-      msgIcon.textContent = 'chat';
-
-      messageBtn.appendChild(msgIcon);
-      messageBtn.appendChild(document.createTextNode('Message'));
-
-      messageBtn.addEventListener('click', () => {
-        // Handle message functionality
-        console.log('Message button clicked');
-      });
-
-      actions.appendChild(messageBtn);
+      
     } else if (this.currentUser && this.currentUser.username === this.profile.username) {
       // Add edit profile button for own profile
       const editBtn = document.createElement('button');
