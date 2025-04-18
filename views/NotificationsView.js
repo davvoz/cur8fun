@@ -70,21 +70,50 @@ class NotificationsView {
             const loadAllDiv = document.createElement('div');
             loadAllDiv.className = 'load-all-buttons';
             loadAllDiv.style.margin = '20px 0';
-            loadAllDiv.innerHTML = `
-                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 10px;">
-                    Per vedere <strong>TUTTI</strong> gli upvote storici:
-                </p>
-                <div style="display: flex; justify-content: center; gap: 20px;">
-                    <button class="load-all-btn primary">
-                        <span class="material-icons">history</span>
-                        Carica TUTTI gli upvote (COMPLETO)
-                    </button>
-                </div>
-            `;
             
-            loadAllDiv.querySelector('.load-all-btn').addEventListener('click', () => {
+            // Create description paragraph
+            const descriptionP = document.createElement('p');
+            descriptionP.style.textAlign = 'center';
+            descriptionP.style.color = 'var(--text-secondary)';
+            descriptionP.style.marginBottom = '10px';
+            descriptionP.textContent = 'Per vedere ';
+            
+            // Add strong element inside paragraph
+            const strongText = document.createElement('strong');
+            strongText.textContent = 'TUTTI';
+            descriptionP.appendChild(strongText);
+            
+            // Add the rest of the text
+            descriptionP.appendChild(document.createTextNode(' gli upvote storici:'));
+            
+            // Create button container
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.justifyContent = 'center';
+            buttonContainer.style.gap = '20px';
+            
+            // Create load all button
+            const loadAllBtn = document.createElement('button');
+            loadAllBtn.className = 'load-all-btn primary';
+            
+            // Create icon for button
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'material-icons';
+            iconSpan.textContent = 'history';
+            loadAllBtn.appendChild(iconSpan);
+            
+            // Add button text
+            loadAllBtn.appendChild(document.createTextNode(' Carica TUTTI gli upvote (COMPLETO)'));
+            
+            // Add click event listener to the button
+            loadAllBtn.addEventListener('click', () => {
                 this.loadAllHistoricalUpvotes();
             });
+            
+            // Assemble the components
+            buttonContainer.appendChild(loadAllBtn);
+            loadAllDiv.appendChild(descriptionP);
+            loadAllDiv.appendChild(buttonContainer);
             
             this.container.insertBefore(loadAllDiv, this.notificationsContainer);
         }
@@ -344,8 +373,11 @@ class NotificationsView {
     }
     
     createNotificationElement(notification) {
+        // Usa il metodo isNotificationRead del servizio per determinare lo stato di lettura
+        const isRead = notificationsService.isNotificationRead(notification);
+        
         const element = document.createElement('div');
-        element.className = `notification ${notification.isRead ? 'read' : 'unread'} ${notification.type}`;
+        element.className = `notification ${isRead ? 'read' : 'unread'} ${notification.type}`;
         
         // Different templates based on notification type
         let contentHtml = '';
@@ -410,7 +442,7 @@ class NotificationsView {
                 <div class="notification-text">${contentHtml}</div>
                 <div class="notification-time">${timeAgo}</div>
             </div>
-            ${!notification.isRead ? '<div class="unread-indicator"></div>' : ''}
+            ${!isRead ? '<div class="unread-indicator"></div>' : ''}
         `;
         
         // Add click handler to mark as read

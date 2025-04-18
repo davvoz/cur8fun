@@ -14,6 +14,69 @@ class NotificationsService {
         this.unreadCount = 0;
         this.allNotificationsCache = null;
         this.debugMode = true; // Attiva debugging esteso
+        
+        // Initialize read status tracking from localStorage
+        this.readNotificationsMap = this.loadReadStatusFromStorage();
+        
+        // Preload notifications on application start
+        this.preloadNotifications();
+    }
+    
+    /**
+     * Loads the read status of notifications from localStorage
+     * @returns {Map} Map of notification IDs that have been read
+     */
+    loadReadStatusFromStorage() {
+        const map = new Map();
+        try {
+            const savedData = localStorage.getItem('steemee_read_notifications');
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                if (Array.isArray(parsedData)) {
+                    parsedData.forEach(id => map.set(id, true));
+                }
+                console.log(`📋 Caricato stato di lettura per ${map.size} notifiche dal localStorage`);
+            }
+        } catch (error) {
+            console.error('Errore nel caricamento dello stato di lettura delle notifiche:', error);
+        }
+        return map;
+    }
+    
+    /**
+     * Saves the read status of notifications to localStorage
+     */
+    saveReadStatusToStorage() {
+        try {
+            const readIds = Array.from(this.readNotificationsMap.keys());
+            localStorage.setItem('steemee_read_notifications', JSON.stringify(readIds));
+            console.log(`💾 Salvato stato di lettura per ${readIds.length} notifiche nel localStorage`);
+        } catch (error) {
+            console.error('Errore nel salvataggio dello stato di lettura delle notifiche:', error);
+        }
+    }
+    
+    /**
+     * Preloads notifications in background at application start
+     */
+    async preloadNotifications() {
+        console.log('🔄 Precaricamento notifiche in background...');
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) {
+            console.log('❌ Nessun utente loggato, precaricamento notifiche annullato');
+            return;
+        }
+        
+        try {
+            // Carica le notifiche in background, impostando forceRefresh a false per usare la cache se disponibile
+            const result = await this.getNotifications(TYPES.ALL, 1, 30, false);
+            console.log(`✅ Precaricamento completato: ${result.notifications.length} notifiche`);
+            
+            // Aggiorna il conteggio non lette
+            this.updateUnreadCount();
+        } catch (error) {
+            console.error('Errore nel precaricamento delle notifiche:', error);
+        }
     }
 
     /**
@@ -32,8 +95,11 @@ class NotificationsService {
         const cachedData = this.getCachedNotifications(cacheKey);
         
         if (cachedData && cachedData.notifications) {
-            // Count unread notifications
-            this.unreadCount = cachedData.notifications.filter(n => !n.isRead).length;
+            // Count unread notifications using the readNotificationsMap
+            this.unreadCount = cachedData.notifications.filter(notification => {
+                const notificationId = this.generateNotificationId(notification, true);
+                return !this.readNotificationsMap.has(notificationId);
+            }).length;
         }
         
         // Emit event for the badge to update
@@ -52,18 +118,33 @@ class NotificationsService {
      * Mark a notification as read
      */
     async markAsRead(notification) {
-        if (!notification || notification.isRead) return;
+        if (!notification) return;
         
-        // Set as read
+        // Get the ID for storage
+        const notificationId = this.generateNotificationId(notification, true);
+        
+        // Mark as read in memory and localStorage
+        this.readNotificationsMap.set(notificationId, true);
+        this.saveReadStatusToStorage();
+        
+        // Set notification as read in model
         notification.isRead = true;
         
         // Update count
         this.updateUnreadCount();
         
-        // In a real app, this would also persist to the server
-        console.log(`Marked notification as read: ${this.generateNotificationId(notification, true)}`);
+        console.log(`✓ Notifica segnata come letta: ${notificationId}`);
         
         return notification;
+    }
+    
+    /**
+     * Check if a notification has been read
+     */
+    isNotificationRead(notification) {
+        if (!notification) return false;
+        const notificationId = this.generateNotificationId(notification, true);
+        return this.readNotificationsMap.has(notificationId);
     }
     
     /**
@@ -77,20 +158,25 @@ class NotificationsService {
         const cachedData = this.getCachedNotifications(cacheKey);
         
         if (cachedData && cachedData.notifications) {
-            // Mark all as read
-            cachedData.notifications.forEach(n => {
-                n.isRead = true;
+            // Mark all as read in memory and localStorage
+            cachedData.notifications.forEach(notification => {
+                const notificationId = this.generateNotificationId(notification, true);
+                this.readNotificationsMap.set(notificationId, true);
+                notification.isRead = true;
             });
             
             // Update cache
             this.setCachedNotifications(cacheKey, cachedData);
+            
+            // Save to localStorage
+            this.saveReadStatusToStorage();
             
             // Update count
             this.unreadCount = 0;
             eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
         }
         
-        console.log(`Marked all notifications as read for ${currentUser.username}`);
+        console.log(`✓ Tutte le notifiche segnate come lette per ${currentUser.username}`);
     }
 
     /**
