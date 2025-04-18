@@ -422,6 +422,11 @@ class PostView extends View {
   async renderCommunityBadge(community) {
     if (!community) return null;
     
+    // Check if this is a valid community with a numeric ID
+    if (!this.isValidCommunityTag(community)) {
+      return null; // Return null to completely hide the community section
+    }
+    
     const baseDisplayName = this.getCommunityBaseDisplayName(community);
     const communitySlug = community.replace(/^hive-/, '');
     const container = this.createCommunityContainerStructure(baseDisplayName);
