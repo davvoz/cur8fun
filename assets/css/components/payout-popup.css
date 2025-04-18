@@ -87,9 +87,13 @@
 .payout-row,
 .beneficiary-row {
   display: flex;
-  justify-content: space-between;
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--border-color);
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
 .payout-row:last-child,

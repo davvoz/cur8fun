@@ -175,10 +175,28 @@ class PayoutInfoPopup {
    */
   getBeneficiaryPayouts() {
     const beneficiaries = this.post.beneficiaries || [];
-    const pending = parseFloat(this.post.pending_payout_value?.split(' ')[0] || 0);
 
+    // Se il post è stato pagato, il beneficiario prende il totale pagato moltiplicato per il suo peso
+    if (this.isPostPaidOut()) {
+      // Per i post pagati, consideriamo l'importo totale author + curator
+      const authorPayout = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
+      
+      return beneficiaries.map(b => {
+        const percentage = b.weight / 10000;
+        // Il beneficiario riceve la sua percentuale del totale
+        const payout = (authorPayout * percentage).toFixed(2);
+        return {
+          account: b.account,
+          percentage: (percentage * 100).toFixed(1),
+          payout
+        };
+      });
+    }
+    // Per i post in pending payout, calcoliamo il payout atteso
+    const pending = this.getPendingPayout() / 2;
     return beneficiaries.map(b => {
       const percentage = b.weight / 10000;
+      // Per i post in pending, calcoliamo lo stesso modo dei post pagati
       const payout = (pending * percentage).toFixed(2);
       return {
         account: b.account,
@@ -463,7 +481,7 @@ class PayoutInfoPopup {
       row.className = 'beneficiary-row';
 
       const nameLabel = document.createElement('div');
-      nameLabel.className = 'beneficiary-name';
+      nameLabel.className = 'beneficiary-nameop';
 
       const icon = document.createElement('span');
       icon.className = 'material-icons';
