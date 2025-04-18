@@ -167,12 +167,59 @@ class NavigationManager {
       navItem.classList.add('center-button');
     }
     
+    // Add basic icon and label
     navItem.innerHTML = `
       <span class="material-icons">${item.icon}</span>
       <span class="${type === 'bottom' ? 'bottom-nav-label' : 'label'}">${item.label}</span>
     `;
     
+    // Add notification badge for notifications item
+    if (item.id === 'notifications') {
+      navItem.classList.add('notification-icon');
+      
+      // Create badge for unread count
+      const badge = document.createElement('span');
+      badge.className = 'notification-badge';
+      badge.id = type === 'bottom' ? 'mobile-notification-badge' : 'notification-unread-badge';
+      navItem.appendChild(badge);
+      
+      // Import at runtime to avoid circular dependencies
+      import('../services/NotificationsService.js').then(module => {
+        const notificationsService = module.default;
+        
+        // Initial badge update
+        const unreadCount = notificationsService.getUnreadCount();
+        this.updateNotificationBadge(badge, unreadCount);
+        
+        // Listen for updates to the unread count
+        eventEmitter.on('notifications:unread_count_updated', (count) => {
+          this.updateNotificationBadge(badge, count);
+        });
+      });
+    }
+    
     return navItem;
+  }
+  
+  /**
+   * Updates the notification badge count and visibility
+   */
+  updateNotificationBadge(badge, count) {
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.classList.add('visible');
+      
+      // Add animation class to draw attention
+      badge.classList.add('pulse');
+      
+      // Remove animation class after animation completes
+      setTimeout(() => {
+        badge.classList.remove('pulse');
+      }, 1000);
+    } else {
+      badge.textContent = '';
+      badge.classList.remove('visible');
+    }
   }
   
   toggleMobileMenu(force) {

@@ -17,6 +17,83 @@ class NotificationsService {
     }
 
     /**
+     * Updates the unread count based on notifications data
+     */
+    updateUnreadCount() {
+        // Get current user
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) {
+            this.unreadCount = 0;
+            return 0;
+        }
+        
+        // Get all notifications from cache if available
+        const cacheKey = `${currentUser.username}_ALL_NOTIFICATIONS`;
+        const cachedData = this.getCachedNotifications(cacheKey);
+        
+        if (cachedData && cachedData.notifications) {
+            // Count unread notifications
+            this.unreadCount = cachedData.notifications.filter(n => !n.isRead).length;
+        }
+        
+        // Emit event for the badge to update
+        eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
+        return this.unreadCount;
+    }
+    
+    /**
+     * Gets the current unread count
+     */
+    getUnreadCount() {
+        return this.unreadCount;
+    }
+
+    /**
+     * Mark a notification as read
+     */
+    async markAsRead(notification) {
+        if (!notification || notification.isRead) return;
+        
+        // Set as read
+        notification.isRead = true;
+        
+        // Update count
+        this.updateUnreadCount();
+        
+        // In a real app, this would also persist to the server
+        console.log(`Marked notification as read: ${this.generateNotificationId(notification, true)}`);
+        
+        return notification;
+    }
+    
+    /**
+     * Mark all notifications as read
+     */
+    async markAllAsRead() {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) return;
+        
+        const cacheKey = `${currentUser.username}_ALL_NOTIFICATIONS`;
+        const cachedData = this.getCachedNotifications(cacheKey);
+        
+        if (cachedData && cachedData.notifications) {
+            // Mark all as read
+            cachedData.notifications.forEach(n => {
+                n.isRead = true;
+            });
+            
+            // Update cache
+            this.setCachedNotifications(cacheKey, cachedData);
+            
+            // Update count
+            this.unreadCount = 0;
+            eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
+        }
+        
+        console.log(`Marked all notifications as read for ${currentUser.username}`);
+    }
+
+    /**
      * Fetches notifications for the current user
      */
     async getNotifications(type = TYPES.ALL, page = 1, limit = 20, forceRefresh = false) {

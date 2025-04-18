@@ -106,6 +106,9 @@ class NotificationsView {
             this.setupInfiniteScroll();
             console.log("Infinite scroll configurato dopo il caricamento iniziale");
         }, 300);
+
+        // Update unread count after rendering
+        await this.afterRender();
     }
     
     setupEventListeners() {
@@ -122,11 +125,18 @@ class NotificationsView {
         const markReadBtn = this.container.querySelector('.mark-read-btn');
         if (markReadBtn) {
             markReadBtn.addEventListener('click', () => {
-                alert('Feature not implemented yet!');
+                // Mark all notifications as read
+                this.markAllAsRead();
             });
         }
-        
-        
+    }
+    
+    // When the notifications view is rendered, update the unread count
+    async afterRender() {
+        // Wait for notifications to load, then update the unread count
+        setTimeout(() => {
+            notificationsService.updateUnreadCount();
+        }, 500);
     }
     
     async changeFilter(filter) {

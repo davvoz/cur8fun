@@ -139,6 +139,60 @@
     box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
 }
 
+/* Notification Badge Styles */
+.notification-icon {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: var(--secondary-color);
+  color: white;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transform: translate(40%, -20%);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.notification-badge.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Pulse animation for the badge */
+.notification-badge.pulse {
+  animation: badgePulse 1s cubic-bezier(0.455, 0.030, 0.515, 0.955) both;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: translate(40%, -20%) scale(1);
+  }
+  50% {
+    transform: translate(40%, -20%) scale(1.2);
+  }
+}
+
+/* Special mobile styling for notification badge */
+@media (max-width: 768px) {
+  .bottom-nav-item .notification-badge {
+    right: 10px;
+    top: 10px;
+  }
+}
+
 /* Mobile Navigation Styles */
 .bottom-navigation {
   display: none; /* Default hidden */

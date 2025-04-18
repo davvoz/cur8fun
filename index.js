@@ -5,6 +5,7 @@ import NavigationManager from './utils/NavigationManager.js';
 
 // Services
 import authService from './services/AuthService.js';
+import notificationsService from './services/NotificationsService.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
@@ -178,14 +179,50 @@ function createCreatePostButton() {
 function createNotificationsButton() {
   const link = document.createElement('a');
   link.href = '/notifications';
-  link.className = 'nav-icon';
+  link.className = 'nav-icon notification-icon';
   
   const icon = document.createElement('span');
   icon.className = 'material-icons';
   icon.textContent = 'notifications';
   link.appendChild(icon);
   
+  // Add badge for unread count
+  const badge = document.createElement('span');
+  badge.className = 'notification-badge';
+  badge.id = 'notification-unread-badge';
+  link.appendChild(badge);
+  
+  // Check current unread count and update badge
+  const unreadCount = notificationsService.getUnreadCount();
+  updateNotificationBadge(badge, unreadCount);
+  
+  // Listen for updates to the unread count
+  eventEmitter.on('notifications:unread_count_updated', (count) => {
+    updateNotificationBadge(badge, count);
+  });
+  
   return link;
+}
+
+/**
+ * Updates the notification badge count and visibility
+ */
+function updateNotificationBadge(badge, count) {
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.classList.add('visible');
+    
+    // Add animation class to draw attention
+    badge.classList.add('pulse');
+    
+    // Remove animation class after animation completes
+    setTimeout(() => {
+      badge.classList.remove('pulse');
+    }, 1000);
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('visible');
+  }
 }
 
 function createUserMenu(user) {
