@@ -198,6 +198,21 @@ class LoginView {
     label.htmlFor = `${name}-${value}`;
     label.textContent = labelText;
     
+    // Migliore descrizione per ciascun tipo di chiave
+    const description = document.createElement('span');
+    description.className = 'key-type-description';
+    
+    if (value === 'posting') {
+      description.textContent = 'For general browsing, posting and voting';
+      description.style.color = '#449944'; // Verde per indicare opzione sicura
+    } else if (value === 'active') {
+      description.textContent = 'Required for wallet operations';
+      description.style.color = '#ff7700'; // Arancione per indicare maggiore cautela
+    }
+    
+    label.appendChild(document.createElement('br'));
+    label.appendChild(description);
+    
     container.appendChild(input);
     container.appendChild(label);
     

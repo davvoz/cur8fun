@@ -34,3 +34,116 @@
 .form-control {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
+
+/* Radio button per tipo di chiave - Layout migliorato */
+.key-type-group {
+  margin-bottom: 20px;
+}
+
+.key-type-group label:first-child {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.key-type-selection {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+/* Box style per le opzioni radio */
+.radio-option {
+  position: relative;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  flex: 1;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.radio-option:hover {
+  border-color: #bbbbbb;
+  background-color: #fafafa;
+}
+
+/* Posizionamento radio button nell'angolo */
+.radio-option input[type="radio"] {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  margin: 0;
+}
+
+/* Stile per le etichette */
+.radio-option label {
+  display: block;
+  padding-left: 26px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* Stile specifico per l'opzione selezionata */
+.radio-option input[type="radio"]:checked + label {
+  color: var(--primary-color, #1a5099);
+}
+
+.radio-option:has(input[type="radio"]:checked) {
+  border-color: var(--primary-color, #1a5099);
+  background-color: rgba(26, 80, 153, 0.05);
+  box-shadow: 0 0 0 1px rgba(26, 80, 153, 0.2);
+}
+
+/* Stile per le descrizioni di ogni tipo di chiave */
+.key-type-description {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+/* Visual indicator per le opzioni */
+.radio-option:has(input[value="posting"]:checked) {
+  border-left: 5px solid #449944;
+}
+
+.radio-option:has(input[value="active"]:checked) {
+  border-left: 5px solid #ff7700;
+}
+
+/* Aggiunge icone per le opzioni (uso ::before per non interferire con la struttura) */
+.radio-option label[for="keyType-posting"]::before {
+  content: "🔐";
+  margin-right: 8px;
+  font-size: 1.1em;
+}
+
+.radio-option label[for="keyType-active"]::before {
+  content: "⚙️";
+  margin-right: 8px;
+  font-size: 1.1em;
+}
+
+/* Avviso per active key */
+.active-key-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background-color: rgba(255, 119, 0, 0.1);
+  border-left: 4px solid #ff7700;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Adattamento per schermi piccoli */
+@media (max-width: 576px) {
+  .key-type-selection {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
