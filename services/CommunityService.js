@@ -18,6 +18,17 @@ class CommunityService {
     this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
     this.pendingRequests = new Map();
     this.isLoadingAllCommunities = false;
+    
+    // Chiavi per localStorage
+    this.localStorageKeys = {
+      communities: 'steemee_cached_communities',
+      version: 'steemee_communities_version'
+    };
+    this.localStorageCacheExpiry = 24 * 60 * 60 * 1000; // 24 ore
+    this.cacheVersion = 1; // Incrementa questo quando cambi la struttura dei dati
+    
+    // Carica immediatamente da localStorage se disponibile
+    this.loadCachedCommunitiesFromStorage();
   }
 
   /**
@@ -83,25 +94,38 @@ class CommunityService {
    * Get list of all communities (usa API imridd)
    */
   async listCommunities() {
+    // Se c'è già una richiesta in corso, attendi che sia completata
     if (this.isLoadingAllCommunities) {
       // Wait for the ongoing request to complete
       while (this.isLoadingAllCommunities) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // If we now have cached data, use it
+      // Se ora abbiamo i dati in cache, usali
       if (this.cachedCommunities) {
+        console.log('Returning cached communities after waiting for ongoing request');
         return this.cachedCommunities;
       }
     }
     
+    // Se abbiamo già i dati in memoria, usali (provenienti da localStorage all'avvio o da richiesta precedente)
+    if (this.cachedCommunities) {
+      console.log('Returning cached communities from memory');
+      return this.cachedCommunities;
+    }
+    
+    // Blocca altre richieste parallele
     this.isLoadingAllCommunities = true;
     
     try {
+      console.log('Fetching all communities from API');
       const communities = await this.sendRequest('/communities', 'GET');
       
       // Cache the results
       this.cachedCommunities = communities;
+      
+      // Salva in localStorage per uso futuro
+      this.saveCachedCommunitiesToStorage(communities);
       
       return communities;
     } catch (error) {
@@ -876,6 +900,50 @@ class CommunityService {
           if (spinner) spinner.remove();
         }
         break;
+    }
+  }
+
+  /**
+   * Carica le community memorizzate in localStorage
+   */
+  loadCachedCommunitiesFromStorage() {
+    try {
+      const cachedData = localStorage.getItem(this.localStorageKeys.communities);
+      const cachedVersion = localStorage.getItem(this.localStorageKeys.version);
+      
+      if (cachedData && cachedVersion && parseInt(cachedVersion, 10) === this.cacheVersion) {
+        const parsedData = JSON.parse(cachedData);
+        
+        if (parsedData.timestamp && (Date.now() - parsedData.timestamp) < this.localStorageCacheExpiry) {
+          console.log('Loaded communities from localStorage');
+          this.cachedCommunities = parsedData.communities;
+        } else {
+          console.log('Cached communities expired, clearing localStorage');
+          localStorage.removeItem(this.localStorageKeys.communities);
+          localStorage.removeItem(this.localStorageKeys.version);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached communities from localStorage:', error);
+    }
+  }
+
+  /**
+   * Salva le community in localStorage
+   * @param {Array} communities - Array di community da salvare
+   */
+  saveCachedCommunitiesToStorage(communities) {
+    try {
+      const dataToCache = {
+        communities,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem(this.localStorageKeys.communities, JSON.stringify(dataToCache));
+      localStorage.setItem(this.localStorageKeys.version, this.cacheVersion.toString());
+      console.log('Saved communities to localStorage');
+    } catch (error) {
+      console.error('Error saving communities to localStorage:', error);
     }
   }
 }

@@ -6,6 +6,7 @@ import NavigationManager from './utils/NavigationManager.js';
 // Services
 import authService from './services/AuthService.js';
 import notificationsService from './services/NotificationsService.js';
+import communityService from './services/CommunityService.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
@@ -272,6 +273,14 @@ function handleLogout(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Precarichiamo le community in background per velocizzare l'esperienza utente
+  console.log('Preloading communities data...');
+  communityService.listCommunities().then(communities => {
+    console.log(`Successfully preloaded ${communities.length} communities`);
+  }).catch(error => {
+    console.warn('Failed to preload communities:', error);
+  });
+  
   initApp();
 });
 
