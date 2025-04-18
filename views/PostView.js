@@ -422,16 +422,28 @@ class PostView extends View {
   async renderCommunityBadge(community) {
     if (!community) return null;
     
-    // Check if this is a valid community with a numeric ID
-    if (!this.isValidCommunityTag(community)) {
-      return null; // Return null to completely hide the community section
-    }
-    
     const baseDisplayName = this.getCommunityBaseDisplayName(community);
     const communitySlug = community.replace(/^hive-/, '');
     const container = this.createCommunityContainerStructure(baseDisplayName);
     
     const { communityContainer, communityIcon, communityInfo, loadingSpinner } = container;
+    
+    // Check if this is a valid community with a numeric ID
+    if (!this.isValidCommunityTag(community)) {
+      // Per non-valid communities, display as "blog" instead of hiding
+      this.clearElement(communityInfo);
+      
+      const blogLabel = document.createElement('div');
+      blogLabel.className = 'community-title';
+      blogLabel.textContent = 'blog';
+      
+      communityInfo.appendChild(blogLabel);
+      
+      // Use blog icon instead of group
+      communityIcon.textContent = 'rss_feed';
+      
+      return communityContainer;
+    }
     
     try {
       // Show loading state
