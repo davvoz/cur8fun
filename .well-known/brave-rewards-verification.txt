@@ -1,4 +1,4 @@
 This is a Brave Creators publisher verification file.
 
 Domain: cur8.fun
-Token: 7eaf00bd95a3b588f6f5c2e129e79c68b23c2c26462b9e2c7fbafba1f6c4e4f3
+Token: b5c43da24eb1f67995d33e58734ecd9d8c51120849ddcdfbda9a2cc040ed24ea
