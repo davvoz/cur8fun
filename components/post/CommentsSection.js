@@ -47,6 +47,9 @@ class CommentsSection {
     this.element = null;
     this.commentsListContainer = null;
     this.activeReplyForm = null; // Track the currently active reply form
+    this.collapsedComments = new Set(); // Track collapsed comment threads
+    this.commentsToShow = 20; // Initial number of comments to show
+    this.commentsIncrement = 20; // How many more comments to load when "show more" is clicked
     
     // Ensure inert property is supported
     ensureInertSupport();
@@ -288,13 +291,70 @@ class CommentsSection {
     this.commentsListContainer.style.flexDirection = 'column';
     this.commentsListContainer.style.gap = '20px';
 
+    // Count total number of root comments
+    const totalRootComments = commentTree.length;
+    
+    // Render only a subset of comments initially if there are many
+    const commentsToRender = totalRootComments > this.commentsToShow 
+      ? commentTree.slice(0, this.commentsToShow) 
+      : commentTree;
+
     // Render the comment tree
-    commentTree.forEach(comment => {
+    commentsToRender.forEach(comment => {
       const commentElement = this.createCommentElement(comment);
       this.commentsListContainer.appendChild(commentElement);
     });
 
-    console.log('Comments rendered:', commentTree.length, 'root comments');
+    // Add "Show More" button if needed
+    if (totalRootComments > this.commentsToShow) {
+      const showMoreContainer = document.createElement('div');
+      showMoreContainer.className = 'show-more-comments';
+      
+      const showMoreButton = document.createElement('button');
+      showMoreButton.className = 'show-more-btn';
+      showMoreButton.textContent = `Show More Comments (${totalRootComments - this.commentsToShow} remaining)`;
+      
+      showMoreButton.addEventListener('click', () => this.loadMoreComments(commentTree));
+      
+      showMoreContainer.appendChild(showMoreButton);
+      this.commentsListContainer.appendChild(showMoreContainer);
+    }
+
+    console.log('Comments rendered:', commentsToRender.length, 'of', totalRootComments, 'root comments');
+  }
+
+  // Add a method to load more comments when the "Show More" button is clicked
+  loadMoreComments(commentTree) {
+    // Calculate the current count and the next batch
+    const currentCount = this.commentsToShow;
+    this.commentsToShow += this.commentsIncrement;
+    
+    // Get the next batch of comments
+    const nextBatch = commentTree.slice(currentCount, this.commentsToShow);
+    
+    // Find the show more button
+    const showMoreContainer = this.commentsListContainer.querySelector('.show-more-comments');
+    
+    // Insert the new comments before the "Show More" button
+    if (showMoreContainer) {
+      nextBatch.forEach(comment => {
+        const commentElement = this.createCommentElement(comment);
+        this.commentsListContainer.insertBefore(commentElement, showMoreContainer);
+      });
+      
+      // Update or remove the "Show More" button
+      const remaining = commentTree.length - this.commentsToShow;
+      if (remaining <= 0) {
+        // No more comments to load, remove the button
+        this.commentsListContainer.removeChild(showMoreContainer);
+      } else {
+        // Update the button text to reflect the new count
+        const showMoreButton = showMoreContainer.querySelector('.show-more-btn');
+        if (showMoreButton) {
+          showMoreButton.textContent = `Show More Comments (${remaining} remaining)`;
+        }
+      }
+    }
   }
 
   // Questa funzione deve essere completamente modificata per garantire la corretta gestione della profondità
@@ -632,6 +692,31 @@ class CommentsSection {
           new Date(a.created) - new Date(b.created)
         );
 
+        // Create collapse/expand button if there are many replies
+        if (sortedReplies.length > 5) {
+          const collapseBtn = document.createElement('button');
+          collapseBtn.className = 'collapse-replies-btn';
+          
+          const isCollapsed = this.collapsedComments.has(`${comment.author}/${comment.permlink}`);
+          
+          collapseBtn.innerHTML = `
+            <span class="material-icons">${isCollapsed ? 'expand_more' : 'expand_less'}</span>
+            <span class="collapse-text">${isCollapsed ? 'Show' : 'Hide'} ${sortedReplies.length} ${sortedReplies.length === 1 ? 'reply' : 'replies'}</span>
+          `;
+          
+          collapseBtn.addEventListener('click', () => {
+            this.toggleRepliesCollapse(comment, repliesWrapper, collapseBtn);
+          });
+          
+          // Add the collapse button before the replies
+          repliesContainer.insertBefore(collapseBtn, repliesWrapper);
+          
+          // If it's already collapsed, hide the replies
+          if (isCollapsed) {
+            repliesWrapper.style.display = 'none';
+          }
+        }
+
         // Add child comments with incremented depth
         sortedReplies.forEach(reply => {
           const replyElement = this.createCommentElement(reply, commentDepth + 1);
@@ -649,6 +734,52 @@ class CommentsSection {
       errorElement.className = 'comment-error';
       errorElement.textContent = `Error displaying comment`;
       return errorElement;
+    }
+  }
+  
+  // Toggle collapse/expand for replies
+  toggleRepliesCollapse(comment, repliesWrapper, collapseBtn) {
+    const commentKey = `${comment.author}/${comment.permlink}`;
+    const isCurrentlyCollapsed = this.collapsedComments.has(commentKey);
+    
+    // Toggle the collapsed state
+    if (isCurrentlyCollapsed) {
+      this.collapsedComments.delete(commentKey);
+      repliesWrapper.style.display = 'block';
+      collapseBtn.innerHTML = `
+        <span class="material-icons">expand_less</span>
+        <span class="collapse-text">Hide ${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}</span>
+      `;
+      
+      // Animate the expansion
+      repliesWrapper.style.maxHeight = '0';
+      setTimeout(() => {
+        repliesWrapper.style.maxHeight = `${repliesWrapper.scrollHeight}px`;
+      }, 10);
+      
+      // Remove the animation properties after it completes
+      setTimeout(() => {
+        repliesWrapper.style.maxHeight = '';
+      }, 300);
+    } else {
+      this.collapsedComments.add(commentKey);
+      
+      // Animate the collapse
+      repliesWrapper.style.maxHeight = `${repliesWrapper.scrollHeight}px`;
+      setTimeout(() => {
+        repliesWrapper.style.maxHeight = '0';
+      }, 10);
+      
+      // Hide after animation completes
+      setTimeout(() => {
+        repliesWrapper.style.display = 'none';
+        repliesWrapper.style.maxHeight = '';
+      }, 300);
+      
+      collapseBtn.innerHTML = `
+        <span class="material-icons">expand_more</span>
+        <span class="collapse-text">Show ${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}</span>
+      `;
     }
   }
   
@@ -915,6 +1046,7 @@ class CommentsSection {
     this.element = null;
     this.activeReplyForm = null;
     this.activeReplyBtn = null;
+    this.collapsedComments = null;
   }
 
   // Add a diagnostic method to help troubleshoot
