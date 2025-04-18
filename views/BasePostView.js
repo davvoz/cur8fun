@@ -926,14 +926,6 @@ class BasePostView {
         // User has voted, update UI
         voteActionElement.classList.add('voted');
         voteActionElement.dataset.percent = userVote.percent;
-        
-        // Add the vote percentage indicator if it doesn't exist
-        if (!voteActionElement.querySelector('.vote-percent-indicator') && userVote.percent > 0) {
-          const percentIndicator = document.createElement('span');
-          percentIndicator.className = 'vote-percent-indicator';
-          percentIndicator.textContent = `${userVote.percent / 100}%`;
-          voteActionElement.appendChild(percentIndicator);
-        }
       }
       
       // Mark as checked to avoid repeated API calls
@@ -1010,12 +1002,6 @@ class BasePostView {
         newCountElement.className = 'vote-count';
         newCountElement.textContent = ` ${currentCount + 1}`;
         voteActionElement.appendChild(newCountElement);
-        
-        // Add vote percentage indicator
-        const percentIndicator = document.createElement('span');
-        percentIndicator.className = 'vote-percent-indicator';
-        percentIndicator.textContent = `${weight / 100}%`;
-        voteActionElement.appendChild(percentIndicator);
         
         // Store the vote percentage in the dataset
         voteActionElement.dataset.percent = weight;
