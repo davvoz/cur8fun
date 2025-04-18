@@ -76,6 +76,11 @@ class ContentRenderer {
       try {
         const renderedHTML = this.steemRenderer.render(body);
         container.innerHTML = renderedHTML;
+        
+        // Process YouTube iframes for better responsiveness
+        if (mergedOptions.enableYouTube) {
+          this.processYouTubeEmbeds(container);
+        }
       } catch (error) {
         console.error('Error rendering content with SteemContentRenderer:', error);
         container.innerHTML = '<p>Error rendering content. Please try again later.</p>';
@@ -110,6 +115,80 @@ class ContentRenderer {
       images,
       title: data.title || ''
     };
+  }
+  
+  /**
+   * Process YouTube iframes to make them responsive
+   * @param {HTMLElement} container - Container with rendered content
+   */
+  processYouTubeEmbeds(container) {
+    if (!container) return;
+    
+    // Find all iframes in the content
+    const iframes = container.querySelectorAll('iframe');
+    
+    iframes.forEach(iframe => {
+      // Check if it's a YouTube embed
+      const src = iframe.getAttribute('src') || '';
+      if (src.includes('youtube.com') || src.includes('youtu.be')) {
+        // Create a responsive container for the iframe
+        const wrapper = document.createElement('div');
+        wrapper.className = 'youtube-embed-container';
+        
+        // Clone iframe to prevent reference issues
+        const iframeClone = iframe.cloneNode(true);
+        
+        // Ensure iframe has proper attributes for responsiveness
+        iframeClone.setAttribute('width', '100%');
+        iframeClone.setAttribute('height', '100%');
+        iframeClone.setAttribute('frameborder', '0');
+        iframeClone.setAttribute('allowfullscreen', 'true');
+        
+        // Remove fixed dimensions that might prevent responsiveness
+        iframeClone.removeAttribute('style');
+        
+        // Add YouTube parameters for better mobile experience
+        const currentSrc = iframeClone.getAttribute('src');
+        if (currentSrc) {
+          const updatedSrc = this.addYoutubeParams(currentSrc);
+          iframeClone.setAttribute('src', updatedSrc);
+        }
+        
+        // Replace the original iframe with our responsive version
+        wrapper.appendChild(iframeClone);
+        iframe.parentNode.replaceChild(wrapper, iframe);
+      }
+    });
+  }
+  
+  /**
+   * Add parameters to YouTube URLs for better mobile experience
+   * @param {string} url - Original YouTube embed URL
+   * @returns {string} Enhanced YouTube embed URL
+   */
+  addYoutubeParams(url) {
+    // Parse the URL to add or modify parameters
+    try {
+      // Convert youtube.com URLs to youtube-nocookie.com for privacy and to prevent redirects
+      let modifiedUrl = url;
+      if (modifiedUrl.includes('youtube.com')) {
+        modifiedUrl = modifiedUrl.replace('youtube.com', 'youtube-nocookie.com');
+      }
+      
+      const urlObj = new URL(modifiedUrl);
+      
+      // Add parameters to prevent redirects and improve mobile experience
+      urlObj.searchParams.set('playsinline', '1');
+      urlObj.searchParams.set('rel', '0');
+      urlObj.searchParams.set('enablejsapi', '1');
+      urlObj.searchParams.set('origin', window.location.origin);
+      
+      return urlObj.toString();
+    } catch (e) {
+      // If URL parsing fails, return the original URL
+      console.warn('Failed to parse YouTube URL:', e);
+      return url;
+    }
   }
   
   /**

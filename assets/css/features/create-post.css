@@ -212,6 +212,38 @@
   color: var(--text-secondary);
 }
 
+/* Responsive YouTube embeds for preview */
+.preview-body .youtube-embed-container,
+.markdown-preview .youtube-embed-container {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin: var(--space-md) auto;
+  border-radius: var(--radius-md);
+}
+
+.preview-body .youtube-embed-container iframe,
+.markdown-preview .youtube-embed-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+/* Adjust aspect ratio on very small screens for better viewing */
+@media (max-width: 480px) {
+  .preview-body .youtube-embed-container,
+  .markdown-preview .youtube-embed-container {
+    padding-bottom: 75%; /* Slightly taller on mobile */
+  }
+}
+
 /* Status messages */
 .status-container {
   margin-bottom: var(--space-md);

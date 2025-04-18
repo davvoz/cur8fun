@@ -526,8 +526,7 @@
 /* YouTube Embed Styling */
 .youtube-embed-container {
   position: relative;
-  padding-bottom: 56.25%;
-  /* 16:9 aspect ratio */
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
   height: 0;
   overflow: hidden;
   max-width: 100%;
@@ -556,8 +555,18 @@
 /* Make sure videos are responsive on small screens */
 @media (max-width: 600px) {
   .youtube-embed-container {
-    padding-bottom: 75%;
-    /* Slightly taller on mobile */
+    padding-bottom: 68%; /* Slightly taller on mobile */
+    margin: var(--space-md) 0;
+    width: 100%;
+  }
+}
+
+/* Very small screens need different aspect ratio */
+@media (max-width: 480px) {
+  .youtube-embed-container {
+    padding-bottom: 75%; /* Even taller on very small screens */
+    margin: var(--space-sm) 0;
+    border-radius: var(--radius-sm);
   }
 }
 
