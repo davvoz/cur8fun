@@ -277,14 +277,7 @@
   }
 }
 
-.vote-percent-indicator {
-  font-size: 0.7rem;
-  background-color: var(--primary-color);
-  color: var(--text-on-primary);
-  border-radius: var(--radius-pill);
-  padding: 0 var(--space-xs);
-  margin-left: var(--space-xs);
-}
+
 
 /* ---------- Nested Replies System ---------- */
 /* Container for replies */
