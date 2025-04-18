@@ -237,15 +237,17 @@ export default class ResourceMetersComponent extends Component {
    * Helper method to update meter color based on value
    */
   updateMeterColor(element, value) {
+    // Remove existing classes
     element.classList.remove('low', 'medium', 'high');
     
-    if (value < 30) {
-      element.classList.add('low');
-    } else if (value < 70) {
-      element.classList.add('medium');
-    } else {
-      element.classList.add('high');
-    }
+    // Calculate a smooth gradient from red to green based on percentage
+    // Red at 0%, yellow at 50%, green at 100%
+    const hue = Math.floor((value / 100) * 120); // 0 is red, 120 is green in HSL
+    const saturation = 90;
+    const lightness = 45;
+    
+    // Set dynamic background color based on percentage
+    element.style.backgroundColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
   
   /**
