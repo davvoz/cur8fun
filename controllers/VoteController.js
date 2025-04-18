@@ -17,17 +17,6 @@ export default class VoteController {
     // Check if user is logged in
     if (!this.checkLoggedIn()) return;
 
-    // Check if already voted
-    try {
-      const existingVote = await voteService.hasVoted(post.author, post.permlink);
-      if (existingVote) {
-        this.showAlreadyVotedNotification(existingVote.percent);
-        return;
-      }
-    } catch (error) {
-      console.log('Error checking vote status:', error);
-    }
-
     // Show vote percentage selector
     this.showVotePercentagePopup(upvoteBtn, async (weight) => {
       try {
@@ -180,10 +169,7 @@ export default class VoteController {
       formattedPercent = percent / 100;
     }
 
-    this.view.emit('notification', {
-      type: 'info',
-      message: `You've already voted on this item (${formattedPercent}%)`
-    });
+
   }
   
   setVotingState(button, isVoting, weight) {
