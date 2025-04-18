@@ -64,6 +64,13 @@
   font-size: 1rem;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background-color: var(--background-lighter);
+  color: var(--text-color);
+}
+
+.communities-list-view .communities-search input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .communities-list-view .communities-search input:focus {
