@@ -92,10 +92,12 @@ class CommunityService {
 
   /**
    * Get list of all communities (usa API imridd)
+   * Ottimizzato per caricare i dati una sola volta
    */
   async listCommunities() {
     // Se c'è già una richiesta in corso, attendi che sia completata
     if (this.isLoadingAllCommunities) {
+      console.log('Waiting for ongoing communities request to complete...');
       // Wait for the ongoing request to complete
       while (this.isLoadingAllCommunities) {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -121,13 +123,39 @@ class CommunityService {
       console.log('Fetching all communities from API');
       const communities = await this.sendRequest('/communities', 'GET');
       
-      // Cache the results
-      this.cachedCommunities = communities;
+      if (!communities || !Array.isArray(communities)) {
+        console.error('Invalid communities data received:', communities);
+        throw new Error('Invalid communities data received');
+      }
+      
+      console.log(`Loaded ${communities.length} communities from API`);
+      
+      // Pre-process communities to normalize data and improve search performance
+      const processedCommunities = communities.map(community => {
+        // Ensure consistent property names and types
+        return {
+          ...community,
+          name: community.name || '',
+          title: community.title || this.formatCommunityTitle(community.name || ''),
+          about: community.about || '',
+          subscribers: community.subscribers || 0,
+          is_nsfw: !!community.is_nsfw,
+          // Index per ricerche più veloci
+          _searchIndex: [
+            (community.name || '').toLowerCase(),
+            (community.title || '').toLowerCase(),
+            (community.about || '').toLowerCase()
+          ].join(' ')
+        };
+      });
+      
+      // Cache the processed results
+      this.cachedCommunities = processedCommunities;
       
       // Salva in localStorage per uso futuro
-      this.saveCachedCommunitiesToStorage(communities);
+      this.saveCachedCommunitiesToStorage(processedCommunities);
       
-      return communities;
+      return processedCommunities;
     } catch (error) {
       console.error('Error fetching all communities:', error);
       throw error;

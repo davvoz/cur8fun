@@ -103,6 +103,7 @@ class CommunityView extends BasePostView {
     try {
       console.log(`Fetching details for community ${this.communityId}`);
       
+      // Use the optimized communityFetch method that takes advantage of cached data
       const result = await this.communityFetch('details', { communityId: this.communityId });
       
       if (!result) {
@@ -113,10 +114,11 @@ class CommunityView extends BasePostView {
       
       this.community = result;
       
-      // Check if user is subscribed
+      // Check if user is subscribed - only if logged in
       if (this.currentUser) {
         try {
-          const subscriptions = await this.communityFetch('subscriptions', { username: this.currentUser.username });
+          // Get subscribed communities from the optimized cache
+          const subscriptions = await communityService.getSubscribedCommunities(this.currentUser.username, true);
           
           // Normalize community names for comparison
           const normalizedCommunityName = this.community.name.replace(/^hive-/, '');
@@ -124,7 +126,7 @@ class CommunityView extends BasePostView {
             ? this.community.name 
             : `hive-${this.community.name}`;
           
-          // Check subscriptions
+          // Check subscriptions more efficiently
           this.isSubscribed = subscriptions.some(sub => {
             if (typeof sub === 'string') {
               return sub === normalizedCommunityName || sub === communityFullName;

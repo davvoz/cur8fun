@@ -156,12 +156,28 @@ class CommunitiesListView {
 
   async loadCommunities() {
     try {
+      // Load communities with a single API call
+      console.log('Loading all communities in CommunitiesListView');
       this.communities = await communityService.listCommunities();
+      
+      // Store all communities in the filteredCommunities array initially
       this.filteredCommunities = [...this.communities];
+      
+      // Sort by subscriber count once immediately after loading
       this.sortCommunities();
+      
+      // Extract relevant category tags during initial load for better performance
+      this.communities.forEach(community => {
+        // Pre-compute and cache tags to avoid recalculating during filtering
+        if (!community._cachedTags) {
+          community._cachedTags = this.getCommunityTags(community);
+        }
+      });
       
       // Also update the featured section with top communities
       this.updateFeaturedCommunities();
+      
+      return this.communities;
     } catch (error) {
       console.error('Error loading communities:', error);
       throw error;
@@ -274,6 +290,12 @@ class CommunitiesListView {
     // Filter by search query
     if (this.searchQuery) {
       filtered = filtered.filter(community => {
+        // Use the precomputed search index if available
+        if (community._searchIndex) {
+          return community._searchIndex.includes(this.searchQuery);
+        }
+        
+        // Fallback to traditional filtering if _searchIndex doesn't exist
         const title = (community.title || '').toLowerCase();
         const name = (community.name || '').toLowerCase();
         const about = (community.about || '').toLowerCase();
@@ -287,6 +309,12 @@ class CommunitiesListView {
     // Filter by category
     if (this.activeCategory !== 'all') {
       filtered = filtered.filter(community => {
+        // Use precomputed tags if available
+        if (community._cachedTags) {
+          return community._cachedTags.includes(this.activeCategory);
+        }
+        
+        // Get tags on demand if not precomputed
         const tags = this.getCommunityTags(community);
         return tags.includes(this.activeCategory);
       });
@@ -296,7 +324,12 @@ class CommunitiesListView {
     
     // Sort and re-render communities
     this.sortCommunities();
-    this.renderCommunities(this.viewContainer.querySelector('.communities-content'));
+    
+    // Optimize rendering by only updating the content container
+    const contentEl = this.viewContainer.querySelector('.communities-content');
+    if (contentEl) {
+      this.renderCommunities(contentEl);
+    }
     
     // Also update featured section
     this.updateFeaturedCommunities();
