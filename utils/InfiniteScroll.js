@@ -147,8 +147,8 @@ export default class InfiniteScroll {
    * @param {number} page - Pagina da caricare
    * @returns {Promise<boolean>} - Restituisce true se ci sono più pagine da caricare
    */
-  async loadMore(page) {
-    if (!this.options.loadMore) return false;
+  async forceLoadPage(page) {
+    if (!this.loadMore) return false;
     
     try {
         console.log(`Triggering load more for page ${page}`);
@@ -156,8 +156,8 @@ export default class InfiniteScroll {
         // Store currentPage before calling loadMore to avoid duplicate calls
         this.currentPage = page;
         
-        // Call loadMore and get the result
-        const hasMore = await this.options.loadMore(page);
+        // Call loadMore callback and get the result
+        const hasMore = await this.loadMore(page);
         
         // Update current page only if we have more to load, otherwise keep as is
         if (!hasMore) {
@@ -167,7 +167,7 @@ export default class InfiniteScroll {
         
         return hasMore;
     } catch (error) {
-        console.error(`Error in loadMore (page ${page}):`, error);
+        console.error(`Error in forceLoadPage (page ${page}):`, error);
         return false;
     }
   }
