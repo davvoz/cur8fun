@@ -299,7 +299,8 @@ class TransactionHistoryService {
    */
   createExplorerLink(transaction, data) {
     if (data.author && data.permlink) {
-      return `https://cur8.fun/#/@${data.author}/${data.permlink}`;
+      // Use internal application routing instead of full URL
+      return `/#/@${data.author}/${data.permlink}`;
     }
     return `https://steemblockexplorer.com/tx/${transaction.trx_id || transaction.id}`;
   }
