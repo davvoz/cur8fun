@@ -1,0 +1,317 @@
+/* 
+ * VOTE SYSTEM STYLING
+ * Centralized styles for all vote-related UI elements
+ */
+
+/* ---------- General vote buttons ---------- */
+.action-btn.upvote-btn,
+.action-item.vote-action {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* Voted state - Green color scheme */
+.action-btn.upvote-btn.voted,
+.action-item.vote-action.voted {
+  color: var(--secondary-color);
+  background-color: rgba(46, 204, 113, 0.08);
+}
+
+.action-btn.upvote-btn.voted .material-icons,
+.action-item.vote-action.voted .material-icons,
+.comment-actions .upvote-btn.voted .material-icons {
+  color: var(--secondary-color);
+}
+
+/* Hover effect enhancement for voted buttons */
+.action-btn.upvote-btn.voted:hover,
+.action-item.vote-action.voted:hover {
+  background-color: rgba(46, 204, 113, 0.15);
+  color: var(--secondary-color);
+}
+
+/* Regular state hover effect */
+.action-btn.upvote-btn:hover {
+  color: var(--secondary-color);
+}
+
+/* ---------- Vote percentage indicator - IMPROVED ---------- */
+/* Base styles for vote percentage indicator */
+.vote-percent-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 6px;
+  position: absolute;
+  top: -12px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+/* Default style for unvoted state */
+.action-btn.upvote-btn:not(.voted) .vote-percent-indicator,
+.action-item.vote-action:not(.voted) .vote-percent-indicator {
+  background-color: var(--text-secondary);
+  color: var(--text-on-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0.8;
+}
+
+/* Voted style - Use the preferred semi-transparent green color */
+.action-btn.upvote-btn.voted .vote-percent-indicator,
+.action-item.vote-action.voted .vote-percent-indicator {
+  background-color: rgba(46, 204, 113, 0.15);
+  color: var(--secondary-color);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  opacity: 1;
+  font-weight: 700;
+}
+
+/* Hover effects */
+.action-btn.upvote-btn:hover .vote-percent-indicator,
+.action-item.vote-action:hover .vote-percent-indicator {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+}
+
+/* Different percentage ranges might have different visual treatments */
+.vote-percent-indicator.high {
+  background: linear-gradient(to right, var(--secondary-color), var(--secondary-light));
+}
+
+.vote-percent-indicator.max {
+  background: linear-gradient(to right, var(--secondary-dark), var(--secondary-color));
+  font-weight: 700;
+}
+
+/* ---------- Vote Animations ---------- */
+@keyframes votePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.vote-success-animation {
+  animation: votePulse 0.5s ease;
+}
+
+.vote-percent-indicator.vote-success-animation {
+  animation: votePulse 0.7s ease;
+}
+
+/* Loading state for vote buttons */
+.action-btn.voting .material-icons.loading,
+.action-item.vote-action.voting .material-icons.loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ---------- Vote Badge Status ---------- */
+.vote-status-badge {
+  font-size: 0.7rem;
+  margin-left: 4px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: var(--secondary-color);
+  color: var(--text-on-primary);
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.vote-status-badge.visible {
+  opacity: 1;
+}
+
+/* ---------- Vote Popup Styles ---------- */
+.vote-percentage-popup {
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  width: 250px;
+  padding: var(--space-md);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.popup-header {
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-heading);
+  text-align: center;
+}
+
+.popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.slider-container {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs) 0;
+}
+
+.percentage-slider {
+  width: 100%;
+  margin: var(--space-sm) 0;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 5px;
+  background: var(--background);
+  outline: none;
+}
+
+.percentage-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--secondary-color);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.percentage-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--secondary-color);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  border: none;
+}
+
+.percentage-slider::-webkit-slider-thumb:hover {
+  background: var(--secondary-dark);
+  transform: scale(1.1);
+}
+
+.percentage-display {
+  text-align: center;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--secondary-color);
+  margin: var(--space-xs) 0;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.cancel-btn {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--text);
+  cursor: pointer;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: var(--background-hover);
+}
+
+.confirm-btn {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary-color);
+  color: white;
+  cursor: pointer;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.confirm-btn:hover {
+  background-color: var(--secondary-dark);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Mobile Adaptations ---------- */
+@media (max-width: 480px) {
+  .vote-percentage-popup {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+    padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .percentage-slider {
+    height: 8px; /* Più alto per mobile */
+  }
+
+  .percentage-slider::-webkit-slider-thumb,
+  .percentage-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .popup-actions {
+    margin-top: var(--space-md);
+  }
+
+  .cancel-btn, .confirm-btn {
+    padding: var(--space-md);
+  }
+}
+
+/* ---------- Print Styles ---------- */
+@media print {
+  .vote-percent-indicator,
+  .action-btn.upvote-btn,
+  .vote-percentage-popup {
+    display: none;
+  }
+}
+
+/* ---------- High Contrast Mode ---------- */
+@media (forced-colors: active) {
+  .action-btn.voted {
+    border: 1px solid CanvasText;
+  }
+  
+  .vote-percent-indicator {
+    border: 2px solid CanvasText;
+  }
+}

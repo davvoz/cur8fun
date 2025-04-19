@@ -126,10 +126,6 @@
   margin-right: var(--space-xs);
 }
 
-.action-btn.upvote-btn:hover {
-  color: var(--secondary-color);
-}
-
 .action-btn.small {
   font-size: 0.9rem;
   padding: var(--space-xs) var(--space-sm);
@@ -265,8 +261,6 @@
   font-style: italic;
 }
 
-
-
 /* 404 Error Styling */
 .not-found-error {
   display: flex;
@@ -337,8 +331,6 @@
   font-weight: 500;
 }
 
-
-
 /* Special handling for large content images */
 .content-images-container {
   margin: var(--space-lg) 0;
@@ -364,10 +356,8 @@
   transform: scale(1.01);
 }
 
-
 /* Specific handling for very large images */
 @media (min-width: 769px) {
-
   img[width="1000"],
   img[width="1200"],
   img[width="1280"],
@@ -387,7 +377,6 @@
     margin: var(--space-lg) auto;
   }
 }
-
 
 /* Featured Image Styling */
 .featured-image-container {
@@ -446,7 +435,6 @@
     font-size: 1.8rem;
   }
 
-
   .error-code {
     font-size: 4rem;
   }
@@ -470,8 +458,6 @@
     width: 100%;
     margin-top: var(--space-sm);
   }
-  
-
   
   /* Handle specific large images that might have inline width/height */
   img[width], 
@@ -568,245 +554,6 @@
     margin: var(--space-sm) 0;
     border-radius: var(--radius-sm);
   }
-}
-
-/* Stili per il popup di selezione percentuale voto */
-
-.vote-percentage-popup {
-  background-color: var(--background-lighter);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  width: 250px;
-  padding: var(--space-md);
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.popup-header {
-  font-weight: 600;
-  margin-bottom: var(--space-sm);
-  color: var(--text-heading);
-  text-align: center;
-}
-
-.popup-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.slider-container {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-xs) 0;
-}
-
-.percentage-slider {
-  width: 100%;
-  margin: var(--space-sm) 0;
-  -webkit-appearance: none;
-  height: 6px;
-  border-radius: 5px;
-  background: var(--background);
-  outline: none;
-}
-
-.percentage-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.percentage-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  cursor: pointer;
-  transition: background 0.2s;
-  border: none;
-}
-
-.percentage-slider::-webkit-slider-thumb:hover {
-  background: var(--primary-color-dark);
-  transform: scale(1.1);
-}
-
-.percentage-display {
-  text-align: center;
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--primary-color);
-  margin: var(--space-xs) 0;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.popup-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.cancel-btn {
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--background);
-  color: var(--text);
-  cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
-}
-
-.cancel-btn:hover {
-  background-color: var(--background-hover);
-}
-
-.confirm-btn {
-  padding: var(--space-sm) var (--space-md);
-  border: none;
-  border-radius: var(--radius-sm);
-  background-color: var(--primary-color);
-  color: white;
-  cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
-}
-
-.confirm-btn:hover {
-  background-color: var(--primary-color-dark);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Adattamento per dispositivi mobili */
-@media (max-width: 480px) {
-  .vote-percentage-popup {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-top-left-radius: var(--radius-lg);
-    border-top-right-radius: var(--radius-lg);
-    padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    animation: slideUp 0.3s ease-out;
-  }
-
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-
-  .percentage-slider {
-    height: 8px; /* Più alto per mobile */
-  }
-
-  .percentage-slider::-webkit-slider-thumb,
-  .percentage-slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-  }
-
-  .popup-actions {
-    margin-top: var(--space-md);
-  }
-
-  .cancel-btn, .confirm-btn {
-    padding: var(--space-md);
-  }
-}
-
-/* Aggiungi questi stili alla fine del file */
-
-/* Stile migliorato per pulsanti di voto */
-.action-btn.upvote-btn {
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-/* Stato votato per pulsante principale */
-.action-btn.upvote-btn.voted {
-  color: var(--success-color, #28a745);
-  background-color: rgba(40, 167, 69, 0.08);
-}
-
-.action-btn.upvote-btn.voted .material-icons {
-  color: var(--success-color, #28a745);
-}
-
-/* Indicazione percentuale di voto */
-.vote-percent-indicator {
-  display: inline-block;
-  font-size: 0.7rem;
-  background-color: var(--success-color, #28a745);
-  color: white;
-  border-radius: 10px;
-  padding: 1px 6px;
-  position: absolute;
-  top: -8px;
-  right: -5px;
-  opacity: 0.9;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-/* Stato votato per pulsanti di commenti */
-.comment-actions .upvote-btn.voted {
-  color: var(--success-color, #28a745);
-}
-
-.comment-actions .upvote-btn.voted .material-icons {
-  color: var(--success-color, #28a745);
-}
-
-/* Animazione per il voto completato */
-@keyframes votePulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
-
-.vote-success-animation {
-  animation: votePulse 0.5s ease;
-}
-
-/* Badge di stato del voto */
-.vote-status-badge {
-  font-size: 0.7rem;
-  margin-left: 4px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  background-color: var(--success-color, #28a745);
-  color: white;
-  vertical-align: middle;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.vote-status-badge.visible {
-  opacity: 1;
-}
-
-/* Potenzia visibilità pulsante votato anche su hover */
-.action-btn.upvote-btn.voted:hover {
-  background-color: rgba(40, 167, 69, 0.15);
-  color: var(--success-color, #28a745);
 }
 
 /* Aggiungi questo CSS al file di stile dei post */
@@ -940,46 +687,5 @@
   }
 }
 
-/* Post list vote indicators */
-.action-item.vote-action {
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.action-item.vote-action.voted {
-  color: var(--success-color, #28a745);
-}
-
-.action-item.vote-action.voted .material-icons {
-  color: var(--success-color, #28a745);
-}
-
-.action-item.vote-action .vote-percent-indicator {
-  display: inline-block;
-  font-size: 0.7rem;
-  background-color: var(--success-color, #28a745);
-  color: white;
-  border-radius: 10px;
-  padding: 1px 6px;
-  position: absolute;
-  top: -8px;
-  right: -5px;
-  opacity: 0.9;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-/* Loading state for vote buttons in list view */
-.action-item.vote-action.voting .material-icons.loading {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Add success animation to vote actions in list */
-.action-item.vote-action.vote-success-animation {
-  animation: votePulse 0.5s ease;
-}
+/* Gli stili relativi al voto sono stati spostati in features/vote.css */
 

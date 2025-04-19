@@ -28,6 +28,7 @@
 @import 'features/create-post.css';
 @import 'features/markdown-editor.css';
 @import 'features/markdown.css';
+@import 'features/vote.css'; /* Aggiunto import per gli stili centralizzati dei voti */
 @import 'features/post.css';
 @import 'features/profile.css';
 

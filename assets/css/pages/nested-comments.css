@@ -326,10 +326,6 @@
   }
 }
   
-.action-btn.voted {
-  color: var(--primary-color);
-}
-  
 @media (min-width: 768px) {
   .action-btn {
     font-size: 0.9rem;
@@ -337,17 +333,7 @@
   }
 }
 
-/* Vote percentage indicator */
-.vote-percent-indicator {
-  background-color: var(--primary-color);
-  color: white;
-  font-size: 0.65rem;
-  padding: 1px 4px;
-  border-radius: 8px;
-  position: absolute;
-  top: -5px;
-  right: -5px;
-}
+/* Gli stili relativi al voto sono stati spostati in features/vote.css */
 
 /* ---------- Nested Replies System ---------- */
 /* Container for replies */
