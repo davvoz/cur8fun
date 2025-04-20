@@ -14,6 +14,7 @@
 @import 'components/auth.css';
 @import 'components/cards.css';
 @import 'components/components.css';
+@import 'components/filters.css'; /* Aggiunto import per gli stili centralizzati dei filtri */
 @import 'components/image-upload.css';
 @import 'components/loaders.css';
 @import 'components/modals.css'; /* Aggiunto import per gli stili dei modali e banner */
