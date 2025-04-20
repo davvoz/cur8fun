@@ -30,12 +30,16 @@ export default class InfiniteScroll {
       this.observerTarget.remove();
     }
     
-    // Create and add new observer target
+    // Create and add new observer target with more visible styling
     this.observerTarget = document.createElement('div');
     this.observerTarget.className = 'observer-target';
-    this.observerTarget.style.height = '20px';
+    this.observerTarget.id = `infinite-scroll-target-${Date.now()}`;
+    this.observerTarget.style.height = '30px';
     this.observerTarget.style.width = '100%';
     this.observerTarget.style.margin = '20px 0';
+    this.observerTarget.style.position = 'relative';
+    this.observerTarget.style.zIndex = '1';
+    this.observerTarget.dataset.purpose = 'infinite-scroll-observer';
     this.container.appendChild(this.observerTarget);
     
     console.log('Observer target added to container:', this.observerTarget);
@@ -45,22 +49,22 @@ export default class InfiniteScroll {
       this.observer.disconnect();
     }
 
-    // Create new intersection observer
+    // Create new intersection observer with better thresholds
     this.observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !this.isLoading && this.hasMore) {
-          console.log('Observer target is intersecting, loading more items');
+          console.log('Observer target is intersecting, loading more items. Intersection ratio:', entries[0].intersectionRatio);
           this.loadNextPage();
         }
       },
       { 
         rootMargin: this.threshold,
-        threshold: 0.1 
+        threshold: [0, 0.1, 0.5, 1.0] 
       }
     );
 
     this.observer.observe(this.observerTarget);
-    console.log('IntersectionObserver started observing target');
+    console.log('IntersectionObserver started observing target with ID:', this.observerTarget.id);
   }
 
   async loadNextPage() {

@@ -3,6 +3,8 @@ import authService from '../../../services/AuthService.js';
 import { formatDate } from '../../../utils/DateUtils.js';
 import transactionHistoryService from '../../../services/TransactionHistoryService.js';
 import filterService from '../../../services/FilterService.js';
+import InfiniteScroll from '../../../utils/InfiniteScroll.js';
+import LoadingIndicator from '../../LoadingIndicator.js';
 
 export default class TransactionHistoryTab extends Component {
   constructor(parentElement, options = {}) {
@@ -25,6 +27,8 @@ export default class TransactionHistoryTab extends Component {
       }
     };
     this.limit = 50; // Inizia con 50 transazioni
+    this.page = 1; // Per l'infinite scroll
+    this.hasMoreTransactions = true; // Flag per controllare se ci sono altre transazioni
     
     // Aggiungi contatori per i tipi di transazioni
     this.typeCounts = {};
@@ -36,6 +40,10 @@ export default class TransactionHistoryTab extends Component {
     this.filterContainer = null;
     this.resultsCounter = null;
     this.dateRangePicker = null;
+    
+    // Riferimenti per l'infinite scroll
+    this.infiniteScroll = null;
+    this.infiniteScrollLoader = null;
     
     // Abilita il debug per il filterService se necessario
     if (options.debug) {
@@ -50,6 +58,7 @@ export default class TransactionHistoryTab extends Component {
     this.toggleAllFiltersOfType = this.toggleAllFiltersOfType.bind(this);
     this.handleDateRangeChange = this.handleDateRangeChange.bind(this);
     this.resetDateRange = this.resetDateRange.bind(this);
+    this.setupInfiniteScroll = this.setupInfiniteScroll.bind(this);
   }
   
   render() {
@@ -70,13 +79,14 @@ export default class TransactionHistoryTab extends Component {
     
     // Salva riferimenti agli elementi DOM che dovranno essere aggiornati
     this.transactionListElement = this.element.querySelector('#transaction-list');
-    this.loadMoreButton = this.element.querySelector('#load-more');
     
-    // Aggiungi event listeners
-    this.setupEventListeners();
-    
-    // Carica le transazioni
+    // Carica le transazioni e configura l'infinite scroll
     this.loadTransactions();
+    
+    // Configura l'infinite scroll dopo che le transazioni iniziali sono caricate
+    setTimeout(() => {
+      this.setupInfiniteScroll();
+    }, 500);
     
     return this.element;
   }
@@ -337,18 +347,6 @@ export default class TransactionHistoryTab extends Component {
     
     transactionList.appendChild(loadingState);
     container.appendChild(transactionList);
-    
-    // Azioni per le transazioni (load more)
-    const actionsContainer = document.createElement('div');
-    actionsContainer.className = 'transaction-actions';
-    
-    const loadMoreButton = document.createElement('button');
-    loadMoreButton.id = 'load-more';
-    loadMoreButton.className = 'btn primary-btn';
-    loadMoreButton.textContent = 'Load More';
-    
-    actionsContainer.appendChild(loadMoreButton);
-    container.appendChild(actionsContainer);
     
     return container;
   }
@@ -734,8 +732,17 @@ export default class TransactionHistoryTab extends Component {
   }
 
   destroy() {
+    // Distruggi l'InfiniteScroll se esiste
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    if (this.infiniteScrollLoader) {
+      this.infiniteScrollLoader = null;
+    }
+    
     this.transactionListElement = null;
-    this.loadMoreButton = null;
     this.filterCheckboxes = {};
     this.dateRangePicker = null;
     
@@ -892,5 +899,172 @@ export default class TransactionHistoryTab extends Component {
     };
     
     return iconMap[type] || 'help_outline';
+  }
+
+  /**
+   * Configura l'infinite scroll per caricare automaticamente più transazioni
+   */
+  setupInfiniteScroll() {
+    // Se il container delle transazioni non esiste, esci
+    if (!this.transactionListElement) {
+      console.warn('Nessun container delle transazioni trovato per configurare l\'infinite scroll');
+      return;
+    }
+    
+    console.log('Configurazione dell\'infinite scroll per la cronologia delle transazioni');
+    
+    // Crea un indicatore di caricamento dedicato per l'infinite scroll
+    if (!this.infiniteScrollLoader) {
+      this.infiniteScrollLoader = new LoadingIndicator('progressBar');
+    }
+    
+    // Distruggi eventuali infinite scroll esistenti
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Assicurati che il transactionListElement abbia una dimensione sufficiente per avere uno scrolling
+    if (this.transactionListElement && this.transactionListElement.style) {
+      // Stili migliorati per garantire che il container supporti lo scrolling
+      this.transactionListElement.style.minHeight = '400px';
+      this.transactionListElement.style.height = '70vh';  // Imposta un'altezza fissa come percentuale della viewport
+      this.transactionListElement.style.maxHeight = '1000px';
+      this.transactionListElement.style.overflowY = 'auto';
+      this.transactionListElement.style.position = 'relative';
+      this.transactionListElement.style.paddingBottom = '50px';  // Spazio alla fine per permettere lo scrolling
+    }
+    
+    // Debug element visibility
+    console.log('Container dimensions:', {
+      clientHeight: this.transactionListElement.clientHeight,
+      scrollHeight: this.transactionListElement.scrollHeight,
+      offsetHeight: this.transactionListElement.offsetHeight
+    });
+    
+    // Configura l'infinite scroll con threshold più aggressivo
+    this.infiniteScroll = new InfiniteScroll({
+      container: this.transactionListElement,
+      loadMore: async (page) => {
+        try {
+          console.log(`Caricamento altre transazioni, pagina ${page}`);
+          
+          // Mostra indicatore di caricamento
+          this.infiniteScrollLoader.show(this.transactionListElement);
+          
+          // Se siamo in modalità di caricamento, non fare nulla
+          if (this.isLoading) {
+            this.infiniteScrollLoader.hide();
+            return true;
+          }
+          
+          this.isLoading = true;
+          
+          // Ottieni l'ID dell'ultima transazione per fare una richiesta da un punto specifico
+          let from = -1;
+          if (this.allTransactions.length > 0) {
+            from = this.allTransactions[this.allTransactions.length - 1].id - 1;
+          }
+          
+          // Carica transazioni aggiuntive (50 alla volta)
+          const rawTransactions = await transactionHistoryService.getUserTransactionHistory(this.username, 50, from);
+          
+          if (rawTransactions && Array.isArray(rawTransactions)) {
+            let formattedTransactions = [];
+            for (const tx of rawTransactions) {
+              const formattedTx = await transactionHistoryService.formatTransaction(tx, this.username);
+              formattedTransactions.push(formattedTx);
+            }
+            
+            // Mantieni i filtri correnti mentre aggiungiamo nuove transazioni
+            const currentFilters = { ...this.filters };
+            
+            // Aggiungi solo transazioni uniche
+            if (formattedTransactions.length > 0) {
+              const existingIds = new Set(this.allTransactions.map(tx => tx.id));
+              const uniqueNewTransactions = formattedTransactions.filter(tx => !existingIds.has(tx.id));
+              
+              if (uniqueNewTransactions.length > 0) {
+                console.log(`Aggiunte ${uniqueNewTransactions.length} nuove transazioni al dataset`);
+                this.allTransactions = [...this.allTransactions, ...uniqueNewTransactions];
+                
+                // Aggiorna i filtri con i nuovi tipi di transazioni
+                this.extractTransactionTypes(currentFilters);
+                this.updateFilterUI(true);
+                
+                // Filtra e ordina le transazioni
+                const filteredTransactions = transactionHistoryService.filterTransactions(
+                  this.allTransactions,
+                  this.filters,
+                  this.username
+                );
+                
+                // Aggiorna il contatore dei risultati
+                if (this.resultsCounter) {
+                  this.resultsCounter.textContent = `Showing ${filteredTransactions.length} of ${this.allTransactions.length} transactions`;
+                }
+                
+                // Renderizza le nuove transazioni
+                this.renderTransactions();
+                
+                // Verifica se ci sono altre transazioni da caricare
+                const hasMore = rawTransactions.length >= 50;
+                this.hasMoreTransactions = hasMore;
+                console.log(`Caricate ${uniqueNewTransactions.length} nuove transazioni, altre disponibili: ${hasMore}`);
+                
+                this.infiniteScrollLoader.hide();
+                this.isLoading = false;
+                return hasMore;
+              }
+            }
+            
+            console.log('Nessuna nuova transazione unica trovata');
+            this.infiniteScrollLoader.hide();
+            this.isLoading = false;
+            return false;
+          }
+          
+          // Se arriviamo qui, non ci sono altre transazioni
+          console.log('Nessuna nuova transazione trovata');
+          this.hasMoreTransactions = false;
+          this.infiniteScrollLoader.hide();
+          this.isLoading = false;
+          return false;
+          
+        } catch (error) {
+          console.error('Errore durante il caricamento di altre transazioni:', error);
+          this.infiniteScrollLoader.hide();
+          this.isLoading = false;
+          return false;
+        }
+      },
+      threshold: '600px', // Aumentato il threshold per iniziare a caricare molto prima
+      initialPage: this.page,
+      loadingMessage: 'Caricamento altre transazioni...',
+      endMessage: 'Hai visualizzato tutte le transazioni',
+      errorMessage: 'Errore nel caricamento delle transazioni. Riprova.'
+    });
+    
+    console.log('Infinite scroll configurato per la cronologia delle transazioni');
+    
+    // Forza un primo check
+    setTimeout(() => {
+      if (this.infiniteScroll && !this.isLoading) {
+        console.log('Verifico se è necessario caricare più contenuti...');
+        const target = document.getElementById(this.infiniteScroll.observerTarget?.id);
+        if (target) {
+          const rect = target.getBoundingClientRect();
+          console.log('Observer target position:', rect);
+          
+          // Se il target è già visibile, forza il caricamento della pagina successiva
+          if (rect.top < window.innerHeight) {
+            console.log('Observer target già visibile, carico automaticamente più contenuti');
+            this.infiniteScroll.loadNextPage();
+          }
+        }
+      }
+    }, 1000);
+    
+    return this.infiniteScroll;
   }
 }

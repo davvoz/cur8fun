@@ -6,6 +6,8 @@ import transactionHistoryService from '../../services/TransactionHistoryService.
 import filterService from '../../services/FilterService.js';
 import WalletResourcesComponent from '../wallet/WalletResourcesComponent.js';
 import WalletBalancesComponent from '../wallet/WalletBalancesComponent.js';
+import InfiniteScroll from '../../utils/InfiniteScroll.js';
+import LoadingIndicator from '../LoadingIndicator.js';
 
 export default class ProfileWalletHistory extends Component {
   constructor(username) {
@@ -14,10 +16,13 @@ export default class ProfileWalletHistory extends Component {
     this.isLoading = false;
     this.allTransactions = [];
     this.limit = 30;
+    this.page = 1;
+    this.hasMoreTransactions = true;
     this.transactionList = null;
-    this.loadMoreButton = null;
     this.balancesComponent = null;
     this.resourcesComponent = null;
+    this.infiniteScroll = null;
+    this.infiniteScrollLoader = null;
     
     // Struttura per i filtri, simile a TransactionHistoryTab
     this.transactionTypes = new Set();
@@ -48,6 +53,7 @@ export default class ProfileWalletHistory extends Component {
     this.updateFilters = this.updateFilters.bind(this);
     this.handleDateRangeChange = this.handleDateRangeChange.bind(this);
     this.resetDateRange = this.resetDateRange.bind(this);
+    this.setupInfiniteScroll = this.setupInfiniteScroll.bind(this);
   }
   
   render(container) {
@@ -338,13 +344,7 @@ export default class ProfileWalletHistory extends Component {
     this.transactionList.className = 'transaction-list';
     walletHistoryContainer.appendChild(this.transactionList);
     
-    // Pulsante "Load More"
-    this.loadMoreButton = document.createElement('button');
-    this.loadMoreButton.className = 'load-more-btn';
-    this.loadMoreButton.textContent = 'Load More Transactions';
-    this.loadMoreButton.addEventListener('click', this.loadMoreTransactions);
-    this.loadMoreButton.style.display = 'none'; // Nascosto fino a quando non servono più transazioni
-    walletHistoryContainer.appendChild(this.loadMoreButton);
+    // Non è più necessario un pulsante "Load More" - è stato rimosso perché ora utilizziamo InfiniteScroll
     
     // Aggiungi al container
     container.appendChild(walletHistoryContainer);
@@ -400,12 +400,11 @@ export default class ProfileWalletHistory extends Component {
         // Renderizza le transazioni
         await this.renderTransactions();
         
-        // Mostra il pulsante "Load More" se ci sono più transazioni
-        if (transactions.length >= this.limit) {
-          this.loadMoreButton.style.display = 'block';
-        } else {
-          this.loadMoreButton.style.display = 'none';
-        }
+        // Imposta se ci sono più transazioni da caricare
+        this.hasMoreTransactions = transactions.length >= this.limit;
+        
+        // Configura InfiniteScroll dopo il rendering iniziale
+        this.setupInfiniteScroll();
       } else {
         // Mostra messaggio se non ci sono transazioni
         this.showEmptyState();
@@ -701,9 +700,21 @@ export default class ProfileWalletHistory extends Component {
   
   /**
    * Aggiorna l'interfaccia dei filtri
+   * @param {boolean} preserveState - Se preservare lo stato corrente delle checkbox
    */
-  updateFilterUI() {
+  updateFilterUI(preserveState = false) {
     if (!this.filterContainer) return;
+    
+    // Se preserveState è true, salva lo stato corrente delle checkbox
+    const currentState = {};
+    if (preserveState) {
+      Array.from(this.transactionTypes).forEach(type => {
+        const checkboxId = `profile-filter-${type}`;
+        if (this.filterCheckboxes[checkboxId]) {
+          currentState[type] = this.filterCheckboxes[checkboxId].checked;
+        }
+      });
+    }
     
     // Rimuovi i filtri esistenti per ricrearli
     while (this.filterContainer.firstChild) {
@@ -723,7 +734,15 @@ export default class ProfileWalletHistory extends Component {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = `profile-filter-${type}`;
-      checkbox.checked = this.filters.types[type] !== false;
+      
+      // Imposta lo stato della checkbox: se preserviamo lo stato e abbiamo un valore salvato, usa quello
+      if (preserveState && type in currentState) {
+        checkbox.checked = currentState[type];
+      } else {
+        // Altrimenti usa il valore dai filtri o default a true
+        checkbox.checked = this.filters.types[type] !== false;
+      }
+      
       checkbox.dataset.filterType = 'type';
       checkbox.dataset.type = type; // Memorizza il tipo per riferimento facile
       
@@ -915,12 +934,188 @@ export default class ProfileWalletHistory extends Component {
   }
 
   /**
+   * Configura l'infinite scroll per caricare automaticamente più transazioni
+   */
+  setupInfiniteScroll() {
+    // Se il container delle transazioni non esiste, esci
+    if (!this.transactionList) {
+      console.warn('Nessun container delle transazioni trovato per configurare l\'infinite scroll');
+      return;
+    }
+    
+    console.log('Configurazione dell\'infinite scroll per la cronologia delle transazioni');
+    
+    // Crea un indicatore di caricamento dedicato per l'infinite scroll
+    if (!this.infiniteScrollLoader) {
+      this.infiniteScrollLoader = new LoadingIndicator('progressBar');
+    }
+    
+    // Distruggi eventuali infinite scroll esistenti
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Assicurati che il transactionList abbia una dimensione sufficiente per avere uno scrolling
+    if (this.transactionList && this.transactionList.style) {
+      this.transactionList.style.minHeight = '200px';
+      this.transactionList.style.overflowY = 'auto';
+    }
+    
+    // Crea un target esplicito per l'observer che sarà posizionato alla fine della lista
+    const observerTarget = document.createElement('div');
+    observerTarget.className = 'observer-target';
+    observerTarget.style.height = '20px';
+    observerTarget.style.width = '100%';
+    observerTarget.style.margin = '20px 0';
+    observerTarget.style.backgroundColor = 'transparent';
+    observerTarget.setAttribute('id', 'transaction-observer-target');
+    
+    // Aggiungi il target alla fine della lista delle transazioni
+    this.transactionList.appendChild(observerTarget);
+    
+    // Configura l'infinite scroll
+    this.infiniteScroll = new InfiniteScroll({
+      container: this.transactionList,
+      loadMore: async (page) => {
+        try {
+          console.log(`Caricamento altre transazioni, pagina ${page}`);
+          
+          // Mostra indicatore di caricamento
+          this.infiniteScrollLoader.show(this.transactionList);
+          
+          // Calcola il nuovo limite basandosi sulla pagina
+          this.limit = page * 30;
+          
+          // Se siamo in modalità di caricamento, non fare nulla
+          if (this.isLoading) {
+            this.infiniteScrollLoader.hide();
+            return true;
+          }
+          
+          this.isLoading = true;
+          
+          // Ottieni l'ID dell'ultima transazione per fare una richiesta da un punto specifico
+          let from = -1;
+          if (this.allTransactions.length > 0) {
+            from = this.allTransactions[this.allTransactions.length - 1].id - 1;
+          }
+          
+          // Carica transazioni aggiuntive
+          const transactions = await transactionHistoryService.getUserTransactionHistory(this.username, 30, from);
+          
+          // Verifica se abbiamo ricevuto transazioni
+          if (Array.isArray(transactions) && transactions.length > 0) {
+            const existingIds = new Set(this.allTransactions.map(tx => tx.id));
+            const newTransactions = [];
+            
+            // Processa e aggiungi le nuove transazioni
+            for (const tx of transactions) {
+              const formattedTx = await transactionHistoryService.formatTransaction(tx, this.username);
+              if (!existingIds.has(formattedTx.id)) {
+                newTransactions.push(formattedTx);
+              }
+            }
+            
+            if (newTransactions.length > 0) {
+              // Aggiungi le nuove transazioni all'insieme esistente
+              this.allTransactions.push(...newTransactions);
+              
+              // Aggiorna i filtri con i nuovi tipi di transazioni
+              this.extractTransactionTypes();
+              this.updateFilterUI(true); // Preserva gli stati delle checkbox
+              
+              // Filtra e ordina tutte le transazioni
+              const filteredTransactions = transactionHistoryService.filterTransactions(
+                this.allTransactions,
+                this.filters,
+                this.username
+              );
+              
+              // Aggiorna il contatore dei risultati
+              if (this.resultsCounter) {
+                this.resultsCounter.textContent = `Showing ${filteredTransactions.length} of ${this.allTransactions.length} transactions`;
+              }
+              
+              // Ordina le transazioni
+              const sortedTransactions = transactionHistoryService.sortTransactions(newTransactions);
+              
+              // Ottieni l'elemento della lista o creane uno nuovo
+              let transactionListElement = this.transactionList.querySelector('ul.transaction-list');
+              if (!transactionListElement) {
+                transactionListElement = document.createElement('ul');
+                transactionListElement.className = 'transaction-list';
+                this.transactionList.appendChild(transactionListElement);
+              }
+              
+              // Aggiungi le nuove transazioni alla lista
+              for (const tx of sortedTransactions) {
+                const txElement = this.createTransactionItem(tx);
+                transactionListElement.appendChild(txElement);
+              }
+              
+              // Riposiziona l'elemento target dell'observer alla fine della lista
+              const observerTarget = document.getElementById('transaction-observer-target');
+              if (observerTarget && observerTarget.parentNode) {
+                this.transactionList.appendChild(observerTarget);
+              }
+              
+              // Nascondi l'indicatore di caricamento
+              this.infiniteScrollLoader.hide();
+              
+              // Indica se ci sono altre transazioni da caricare
+              const hasMoreTransactions = transactions.length >= 30;
+              console.log(`Caricate ${newTransactions.length} nuove transazioni, altre disponibili: ${hasMoreTransactions}`);
+              this.hasMoreTransactions = hasMoreTransactions;
+              
+              this.isLoading = false;
+              return hasMoreTransactions;
+            } else {
+              console.log('Nessuna nuova transazione trovata');
+              this.hasMoreTransactions = false;
+              this.infiniteScrollLoader.hide();
+              this.isLoading = false;
+              return false;
+            }
+          } else {
+            console.log('Nessuna transazione aggiuntiva trovata');
+            this.hasMoreTransactions = false;
+            this.infiniteScrollLoader.hide();
+            this.isLoading = false;
+            return false;
+          }
+        } catch (error) {
+          console.error('Errore durante il caricamento di altre transazioni:', error);
+          this.infiniteScrollLoader.hide();
+          this.isLoading = false;
+          return false;
+        }
+      },
+      threshold: '400px', // Aumentato il threshold per iniziare a caricare prima
+      initialPage: this.page,
+      loadingMessage: 'Caricamento altre transazioni...',
+      endMessage: 'Hai visualizzato tutte le transazioni',
+      errorMessage: 'Errore nel caricamento delle transazioni. Riprova.'
+    });
+    
+    console.log('Infinite scroll configurato per la cronologia delle transazioni');
+    return this.infiniteScroll;
+  }
+
+  /**
    * Pulisce le risorse quando il componente viene rimosso
    */
   unmount() {
-    // Rimuovi gli event listeners
-    if (this.loadMoreButton) {
-      this.loadMoreButton.removeEventListener('click', this.loadMoreTransactions);
+    // Distruggi l'infiniteScroll se esiste
+    if (this.infiniteScroll) {
+      console.log('Distruzione dell\'infinite scroll');
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    
+    // Distruggi l'indicatore di caricamento
+    if (this.infiniteScrollLoader) {
+      this.infiniteScrollLoader = null;
     }
     
     // Pulisci i listener dei filtri
@@ -951,7 +1146,6 @@ export default class ProfileWalletHistory extends Component {
     // Pulisci i riferimenti DOM
     this.container = null;
     this.transactionList = null;
-    this.loadMoreButton = null;
     this.filterContainer = null;
     this.filterCheckboxes = {};
     this.resultsCounter = null;
