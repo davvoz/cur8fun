@@ -2,6 +2,7 @@ import Component from '../../Component.js';
 import authService from '../../../services/AuthService.js';
 import { formatDate } from '../../../utils/DateUtils.js';
 import transactionHistoryService from '../../../services/TransactionHistoryService.js';
+import filterService from '../../../services/FilterService.js';
 
 export default class TransactionHistoryTab extends Component {
   constructor(parentElement, options = {}) {
@@ -30,6 +31,11 @@ export default class TransactionHistoryTab extends Component {
     this.filterCheckboxes = {};
     this.filterContainer = null;
     this.resultsCounter = null;
+    
+    // Abilita il debug per il filterService se necessario
+    if (options.debug) {
+      filterService.setDebug(true);
+    }
     
     // Binding dei metodi
     this.handleApplyFilters = this.handleApplyFilters.bind(this);

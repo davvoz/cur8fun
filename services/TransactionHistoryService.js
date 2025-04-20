@@ -1,5 +1,6 @@
 import steemService from './SteemService.js';
 import walletService from './WalletService.js';
+import filterService from './FilterService.js';
 import { formatDate } from '../utils/DateUtils.js';
 
 class TransactionHistoryService {
@@ -306,107 +307,31 @@ class TransactionHistoryService {
   }
 
   /**
-   * Filtra le transazioni in base ai tipi e direzione specificati
+   * Filtra le transazioni usando il FilterService centralizzato
    * @param {Array} transactions - Array di transazioni da filtrare
    * @param {Object} filters - Oggetto con i filtri da applicare
    * @param {string} currentUsername - Username dell'utente corrente
    * @returns {Array} - Transazioni filtrate
    */
   filterTransactions(transactions, filters, currentUsername = null) {
-    if (!transactions || !Array.isArray(transactions)) return [];
+    // Crea il contesto da passare al filterService
+    const context = {
+      username: currentUsername,
+      isActionBy: this.isActionBy.bind(this),
+      isActionOn: this.isActionOn.bind(this)
+    };
     
-    // Se non ci sono filtri, restituisci tutte le transazioni
-    if (!filters) return transactions;
-    
-    console.log(`Filtering ${transactions.length} transactions with:`, 
-                JSON.stringify(filters, null, 2));
-    
-    return transactions.filter(tx => {
-      // Ottieni il tipo di transazione
-      let type, data, isActionByUser, isActionOnUser;
-      
-      // Per array di transazioni già elaborate (formato oggetto)
-      if (!Array.isArray(tx)) {
-        type = tx.type;
-        data = tx.data;
-        isActionByUser = tx.isActionByUser;
-        isActionOnUser = tx.isActionOnUser;
-      } 
-      // Per array [id, txData] dalla API di Steem (formato grezzo)
-      else {
-        const [id, txData] = tx;
-        type = txData.op[0];
-        data = txData.op[1];
-        // Calcola dinamicamente se l'azione è dell'utente o sull'utente
-        isActionByUser = currentUsername ? this.isActionBy(type, data, currentUsername) : false;
-        isActionOnUser = currentUsername ? this.isActionOn(type, data, currentUsername) : false;
-      }
-      
-      // 1. Filtra per tipo di transazione - usa filtro dinamico
-      if (filters.types && Object.keys(filters.types).length > 0) {
-        // Se il tipo esiste nei filtri, usa quel valore
-        if (filters.types[type] !== undefined) {
-          if (!filters.types[type]) return false;
-        }
-        // Controlla se tutti i tipi sono disattivati
-        const allTypesDisabled = Object.values(filters.types).every(value => !value);
-        if (allTypesDisabled) return false;
-      }
-      
-      // 2. Filtra per direzione (in/out)
-      if (filters.direction && currentUsername) {
-        const dirByUser = filters.direction.byUser;
-        const dirOnUser = filters.direction.onUser;
-        
-        // Se entrambe le direzioni sono disattivate, nascondi tutto
-        if (!dirByUser && !dirOnUser) {
-          return false;
-        }
-        
-        // Casi speciali dove l'utente è sia mittente che destinatario
-        const isSelfTransaction = isActionByUser && isActionOnUser;
-        
-        // Se è una transazione su sé stesso, mostra se almeno una direzione è attiva
-        if (isSelfTransaction) {
-          return dirByUser || dirOnUser;
-        }
-        
-        // Altrimenti filtra per direzione
-        if (isActionByUser && !dirByUser) return false;
-        if (isActionOnUser && !dirOnUser) return false;
-        
-        // Se non è né by né on user, non dovrebbe essere mostrato
-        if (!isActionByUser && !isActionOnUser) return false;
-      }
-      
-      // La transazione ha passato tutti i filtri
-      return true;
-    });
+    return filterService.filterTransactions(transactions, filters, context);
   }
 
   /**
-   * Ordina le transazioni per timestamp, dalla più recente alla più vecchia
+   * Ordina le transazioni usando il FilterService centralizzato
+   * @param {Array} transactions - Array di transazioni da ordinare
+   * @param {string} direction - Direzione di ordinamento ('asc' o 'desc')
+   * @returns {Array} - Transazioni ordinate
    */
   sortTransactions(transactions, direction = 'desc') {
-    if (!transactions || !Array.isArray(transactions)) return [];
-    
-    return [...transactions].sort((a, b) => {
-      let timestampA, timestampB;
-      
-      if (Array.isArray(a)) {
-        timestampA = new Date(a[1].timestamp + 'Z').getTime();
-      } else {
-        timestampA = new Date(a.timestamp + 'Z').getTime();
-      }
-      
-      if (Array.isArray(b)) {
-        timestampB = new Date(b[1].timestamp + 'Z').getTime();
-      } else {
-        timestampB = new Date(b.timestamp + 'Z').getTime();
-      }
-      
-      return direction === 'desc' ? timestampB - timestampA : timestampA - timestampB;
-    });
+    return filterService.sortTransactions(transactions, direction);
   }
 }
 
