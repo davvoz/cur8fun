@@ -4,6 +4,7 @@ import communityService from '../services/CommunityService.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class CommunitiesListView {
   constructor() {
@@ -17,6 +18,9 @@ class CommunitiesListView {
     this.subscribedCommunities = new Set();
     this.pendingSubscriptions = new Set();
     this.activeCategory = 'all';
+    this.infiniteScroll = null;
+    this.itemsPerPage = 12; // Number of communities to load per page
+    this.currentPage = 1;
     
     // Define common categories
     this.categories = [
@@ -67,6 +71,9 @@ class CommunitiesListView {
       
       // Render communities list
       this.renderCommunities(contentContainer);
+      
+      // Initialize infinite scroll
+      this.initializeInfiniteScroll(contentContainer);
     } catch (error) {
       console.error('Error loading communities:', error);
       this.showError(contentContainer, 'Failed to load communities. Please try again later.');
@@ -467,14 +474,19 @@ class CommunitiesListView {
     
     const communitiesGrid = document.createElement('div');
     communitiesGrid.className = 'communities-grid';
+    container.appendChild(communitiesGrid);
     
-    // Render each community card
-    this.filteredCommunities.forEach(community => {
+    // Reset the current page for infinite scroll
+    this.currentPage = 1;
+
+    // We'll only append the initial batch of communities
+    // The rest will be loaded by the infinite scroll
+    const initialBatch = this.filteredCommunities.slice(0, this.itemsPerPage);
+    
+    initialBatch.forEach(community => {
       const communityCard = this.createCommunityCard(community);
       communitiesGrid.appendChild(communityCard);
     });
-    
-    container.appendChild(communitiesGrid);
   }
 
   /**
@@ -708,12 +720,64 @@ class CommunitiesListView {
     }
   }
 
+  initializeInfiniteScroll(contentContainer) {
+    // Clean up any existing infinite scroll
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+    }
+
+    // Create a dedicated container for the communities grid
+    const communitiesGrid = contentContainer.querySelector('.communities-grid');
+    if (!communitiesGrid) return;
+
+    this.infiniteScroll = new InfiniteScroll({
+      container: communitiesGrid,
+      loadMore: async (page) => {
+        console.log(`Loading communities page ${page}`);
+        
+        // Calculate pagination indices
+        const startIndex = (page - 1) * this.itemsPerPage;
+        const endIndex = page * this.itemsPerPage;
+        
+        // Check if we have more items to show
+        if (startIndex >= this.filteredCommunities.length) {
+          return false; // No more communities to load
+        }
+        
+        // Get the next batch of communities
+        const nextBatch = this.filteredCommunities.slice(startIndex, endIndex);
+        
+        // Render the next batch of communities
+        nextBatch.forEach(community => {
+          const communityCard = this.createCommunityCard(community);
+          communitiesGrid.appendChild(communityCard);
+        });
+        
+        // Return true if there are more communities to load
+        return endIndex < this.filteredCommunities.length;
+      },
+      threshold: '200px',
+      initialPage: this.currentPage,
+      loadingMessage: 'Loading more communities...',
+      endMessage: 'No more communities to discover',
+      errorMessage: 'Error loading communities. Please try again.'
+    });
+    
+    console.log('Infinite scroll initialized for communities list');
+  }
+
   onBeforeUnmount() {
     // Clean up event listeners
     eventEmitter.off('auth:changed', this.handleAuthChanged.bind(this));
     
     // Clear any pending operations
     this.pendingSubscriptions.clear();
+    
+    // Destroy infinite scroll instance
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
   }
 }
 
