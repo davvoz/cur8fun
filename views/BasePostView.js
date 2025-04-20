@@ -947,10 +947,12 @@ class BasePostView {
     // Get current vote state
     const isVoted = voteActionElement.classList.contains('voted');
     
-    // If already voted, show notification
+    // If already voted, mostra il popup per modificare il voto invece di mostrare solo la notifica
     if (isVoted) {
+      // Ottieni il valore percentuale attuale del voto dall'elemento o dall'API
       const percent = parseInt(voteActionElement.dataset.percent || 0);
-      this.voteController.showAlreadyVotedNotification(percent);
+      // Usa il metodo handleVoteModification per permettere la modifica del voto
+      this.voteController.handleVoteModification(voteActionElement);
       return;
     }
     
@@ -1005,6 +1007,12 @@ class BasePostView {
         
         // Store the vote percentage in the dataset
         voteActionElement.dataset.percent = weight;
+        
+        // Add percentage indicator
+        const percentIndicator = document.createElement('span');
+        percentIndicator.className = 'vote-percent-indicator';
+        percentIndicator.textContent = `${weight / 100}%`;
+        voteActionElement.appendChild(percentIndicator);
         
         // Add success animation
         this.voteController.addSuccessAnimation(voteActionElement);

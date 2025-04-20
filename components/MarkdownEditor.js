@@ -427,6 +427,7 @@ export default class MarkdownEditor extends Component {
     // Crea un dialog semplice
     const modal = document.createElement('div');
     modal.className = 'image-upload-modal';
+    modal.style.opacity = '0'; // Start with opacity 0 for smooth transition
     
     modal.innerHTML = `
       <div class="modal-content">
@@ -447,32 +448,75 @@ export default class MarkdownEditor extends Component {
       </div>
     `;
     
+    // Store the current scroll position
+    const scrollY = window.scrollY;
+    
+    // Add to DOM
     document.body.appendChild(modal);
+    
+    // Aggiungi solo la classe modal-open al body - nessuno stile inline
+    document.body.classList.add('modal-open');
+    
+    // Trigger a reflow and then fade in the dialog
+    setTimeout(() => {
+      modal.style.opacity = '1';
+      modal.style.transition = 'opacity 0.2s ease-in-out';
+    }, 10);
     
     // Gestisci chiusura
     const closeButton = modal.querySelector('.close-button');
-    closeButton.addEventListener('click', () => {
-      modal.remove();
-    });
+    const closeModal = () => {
+      // Fade out animation
+      modal.style.opacity = '0';
+      
+      // Wait for animation to complete before removing
+      setTimeout(() => {
+        if (document.body.contains(modal)) {
+          modal.remove();
+        }
+        
+        // Restore body styles
+        const scrollY = parseInt(document.body.style.top || '0') * -1;
+        document.body.style.overflow = '';
+        // Rimuovo il riferimento a paddingRight che non è più impostato all'apertura
+        document.body.style.top = '';
+        document.body.classList.remove('modal-open');
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      }, 200);
+    };
+    
+    closeButton.addEventListener('click', closeModal);
     
     // Click esterno
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
-        modal.remove();
+        closeModal();
       }
     });
+    
+    // Handle ESC key
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', handleEscKey);
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscKey);
     
     // Gestisci opzione upload
     const uploadOption = modal.querySelector('#option-upload');
     uploadOption.addEventListener('click', () => {
-      modal.remove();
+      closeModal();
       this.handleImageUpload();
     });
     
     // Gestisci opzione URL
     const urlOption = modal.querySelector('#option-url');
     urlOption.addEventListener('click', () => {
-      modal.remove();
+      closeModal();
       this.handleImageURL();
     });
   }

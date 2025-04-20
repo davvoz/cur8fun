@@ -1350,7 +1350,7 @@ class CreatePostView extends View {
    */
   showImageUploadDialog() {
     // Controlla se esiste già un dialogo aperto e rimuovilo
-    const existingDialogs = document.querySelectorAll('.modal-overlay, .modal-dialog');
+    const existingDialogs = document.querySelectorAll('.modal-overlay, .image-upload-modal');
     if (existingDialogs.length > 0) {
       existingDialogs.forEach(dialog => dialog.remove());
       console.log('Removed existing dialog to prevent duplication');
@@ -1363,7 +1363,7 @@ class CreatePostView extends View {
 
     // Crea il dialog principale con le classi standardizzate
     const dialog = document.createElement('div');
-    dialog.className = 'modal-dialog';
+    dialog.className = 'image-upload-modal modal-dialog';
     
     // Crea il contenuto del modal
     const modalContent = document.createElement('div');
@@ -1387,31 +1387,16 @@ class CreatePostView extends View {
     
     // Tabs container
     const tabsContainer = document.createElement('div');
-    tabsContainer.style.display = 'flex';
-    tabsContainer.style.borderBottom = '1px solid var(--border-color, #eee)';
+    tabsContainer.className = 'modal-tabs';
     
     const urlTabBtn = document.createElement('button');
     urlTabBtn.id = 'url-tab-btn';
-    urlTabBtn.style.flex = '1';
-    urlTabBtn.style.padding = '10px 0';
-    urlTabBtn.style.background = 'none';
-    urlTabBtn.style.border = 'none';
-    urlTabBtn.style.borderBottom = '2px solid var(--primary-color, #ff751a)';
-    urlTabBtn.style.cursor = 'pointer';
-    urlTabBtn.style.fontWeight = '500';
-    urlTabBtn.style.color = 'var(--primary-color, #ff751a)';
+    urlTabBtn.className = 'tab-btn active';
     urlTabBtn.textContent = 'URL';
     
     const uploadTabBtn = document.createElement('button');
     uploadTabBtn.id = 'upload-tab-btn';
-    uploadTabBtn.style.flex = '1';
-    uploadTabBtn.style.padding = '10px 0';
-    uploadTabBtn.style.background = 'none';
-    uploadTabBtn.style.border = 'none';
-    uploadTabBtn.style.borderBottom = '2px solid transparent';
-    uploadTabBtn.style.cursor = 'pointer';
-    uploadTabBtn.style.fontWeight = '500';
-    uploadTabBtn.style.color = 'var(--text-secondary, #666)';
+    uploadTabBtn.className = 'tab-btn';
     uploadTabBtn.textContent = 'Upload';
     
     tabsContainer.appendChild(urlTabBtn);
@@ -1425,52 +1410,40 @@ class CreatePostView extends View {
     // Tab URL
     const urlTab = document.createElement('div');
     urlTab.id = 'url-tab';
-    urlTab.style.display = 'block';
+    urlTab.className = 'tab-content active';
     
     // URL Form Group
     const urlFormGroup = document.createElement('div');
-    urlFormGroup.style.marginBottom = '15px';
+    urlFormGroup.className = 'form-group';
     
     const urlLabel = document.createElement('label');
     urlLabel.setAttribute('for', 'image-url');
     urlLabel.textContent = 'Image URL:';
-    urlLabel.style.display = 'block';
-    urlLabel.style.marginBottom = '5px';
-    urlLabel.style.fontWeight = '500';
+    urlLabel.className = 'form-label';
     
     const urlInput = document.createElement('input');
     urlInput.type = 'text';
     urlInput.id = 'image-url';
+    urlInput.className = 'form-control';
     urlInput.placeholder = 'https://example.com/image.jpg';
-    urlInput.style.width = '100%';
-    urlInput.style.padding = '8px 12px';
-    urlInput.style.border = '1px solid var(--border-color, #ddd)';
-    urlInput.style.borderRadius = '4px';
-    urlInput.style.backgroundColor = 'var(--background-light, #f5f5f5)';
     
     urlFormGroup.appendChild(urlLabel);
     urlFormGroup.appendChild(urlInput);
     
     // Alt Text Form Group
     const altFormGroup = document.createElement('div');
-    altFormGroup.style.marginBottom = '20px';
+    altFormGroup.className = 'form-group';
     
     const altLabel = document.createElement('label');
     altLabel.setAttribute('for', 'image-alt');
     altLabel.textContent = 'Alt text:';
-    altLabel.style.display = 'block';
-    altLabel.style.marginBottom = '5px';
-    altLabel.style.fontWeight = '500';
+    altLabel.className = 'form-label';
     
     const altInput = document.createElement('input');
     altInput.type = 'text';
     altInput.id = 'image-alt';
+    altInput.className = 'form-control';
     altInput.placeholder = 'Image description';
-    altInput.style.width = '100%';
-    altInput.style.padding = '8px 12px';
-    altInput.style.border = '1px solid var(--border-color, #ddd)';
-    altInput.style.borderRadius = '4px';
-    altInput.style.backgroundColor = 'var(--background-light, #f5f5f5)';
     
     altFormGroup.appendChild(altLabel);
     altFormGroup.appendChild(altInput);
@@ -1478,14 +1451,8 @@ class CreatePostView extends View {
     // Insert URL Button
     const insertUrlBtn = document.createElement('button');
     insertUrlBtn.id = 'insert-url-btn';
+    insertUrlBtn.className = 'btn primary-btn';
     insertUrlBtn.textContent = 'Insert Image';
-    insertUrlBtn.style.backgroundColor = 'var(--primary-color, #ff751a)';
-    insertUrlBtn.style.color = 'white';
-    insertUrlBtn.style.border = 'none';
-    insertUrlBtn.style.borderRadius = '4px';
-    insertUrlBtn.style.padding = '8px 16px';
-    insertUrlBtn.style.cursor = 'pointer';
-    insertUrlBtn.style.fontWeight = '500';
     
     urlTab.appendChild(urlFormGroup);
     urlTab.appendChild(altFormGroup);
@@ -1494,38 +1461,28 @@ class CreatePostView extends View {
     // Tab Upload
     const uploadTab = document.createElement('div');
     uploadTab.id = 'upload-tab';
-    uploadTab.style.display = 'none';
+    uploadTab.className = 'tab-content';
     
     // Drop Zone
     const dropZone = document.createElement('div');
     dropZone.id = 'dropZone';
-    dropZone.style.border = '2px dashed var(--border-color, #ddd)';
-    dropZone.style.borderRadius = '8px';
-    dropZone.style.padding = '30px 20px';
-    dropZone.style.textAlign = 'center';
-    dropZone.style.cursor = 'pointer';
-    dropZone.style.transition = 'all 0.3s ease';
+    dropZone.className = 'drop-zone';
     
     const dropIcon = document.createElement('div');
-    dropIcon.style.marginBottom = '10px';
+    dropIcon.className = 'drop-icon';
     
     const iconSpan = document.createElement('span');
     iconSpan.className = 'material-icons';
     iconSpan.textContent = 'cloud_upload';
-    iconSpan.style.fontSize = '48px';
-    iconSpan.style.color = 'var(--text-secondary, #666)';
     dropIcon.appendChild(iconSpan);
     
     const dropText = document.createElement('p');
+    dropText.className = 'drop-text';
     dropText.textContent = 'Drag & drop an image here or click to select';
-    dropText.style.margin = '10px 0';
-    dropText.style.fontWeight = '500';
     
     const dropInfo = document.createElement('p');
+    dropInfo.className = 'drop-info';
     dropInfo.textContent = 'Maximum size: 15MB';
-    dropInfo.style.fontSize = '13px';
-    dropInfo.style.color = 'var(--text-secondary, #666)';
-    dropInfo.style.margin = '5px 0 0 0';
     
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -1541,30 +1498,20 @@ class CreatePostView extends View {
     // Upload Status
     const uploadStatus = document.createElement('div');
     uploadStatus.id = 'upload-status';
-    uploadStatus.style.marginTop = '15px';
-    uploadStatus.style.padding = '10px';
-    uploadStatus.style.borderRadius = '4px';
-    uploadStatus.style.textAlign = 'center';
+    uploadStatus.className = 'upload-status';
     uploadStatus.style.display = 'none';
     
     // Spinner
     const spinner = document.createElement('div');
     spinner.id = 'spinner';
+    spinner.className = 'upload-spinner';
     spinner.style.display = 'none';
-    spinner.style.alignItems = 'center';
-    spinner.style.justifyContent = 'center';
-    spinner.style.marginTop = '15px';
     
     const spinnerEl = document.createElement('div');
-    spinnerEl.style.width = '24px';
-    spinnerEl.style.height = '24px';
-    spinnerEl.style.border = '3px solid rgba(255, 117, 24, 0.2)';
-    spinnerEl.style.borderTop = '3px solid var(--primary-color, #ff751a)';
-    spinnerEl.style.borderRadius = '50%';
-    spinnerEl.style.marginRight = '10px';
-    spinnerEl.style.animation = 'spin 1s linear infinite';
+    spinnerEl.className = 'spinner-circle';
     
     const spinnerText = document.createElement('span');
+    spinnerText.className = 'spinner-text';
     spinnerText.textContent = 'Uploading...';
     
     spinner.appendChild(spinnerEl);
@@ -1579,21 +1526,20 @@ class CreatePostView extends View {
     modalBody.appendChild(uploadTab);
     modalContent.appendChild(modalBody);
     
+    // Footer del modal
+    const modalFooter = document.createElement('div');
+    modalFooter.className = 'modal-footer';
+    
+    const cancelFooterBtn = document.createElement('button');
+    cancelFooterBtn.className = 'btn secondary-btn';
+    cancelFooterBtn.textContent = 'Cancel';
+    cancelFooterBtn.addEventListener('click', closeDialog);
+    
+    modalFooter.appendChild(cancelFooterBtn);
+    modalContent.appendChild(modalFooter);
+    
     // Aggiungi il contenuto al dialog
     dialog.appendChild(modalContent);
-    
-    // Aggiungi keyframe animation per spin se non esiste già
-    if (!document.getElementById('spin-keyframes')) {
-      const style = document.createElement('style');
-      style.id = 'spin-keyframes';
-      style.textContent = `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
     
     // Aggiungi dialog e overlay al DOM
     document.body.appendChild(overlay);
@@ -1602,35 +1548,26 @@ class CreatePostView extends View {
     // Salva la posizione di scorrimento corrente
     const scrollY = window.scrollY;
     
-    // Aggiungi la classe modal-open al body ma non sovrascrivere lo stile direttamente
+    // Aggiungi la classe modal-open al body
     document.body.classList.add('modal-open');
     document.body.style.top = `-${scrollY}px`;
     
-    // Mostra con animazione
-    setTimeout(() => {
-      overlay.style.opacity = '1';
-      dialog.style.opacity = '1';
-    }, 10);
-    
     // Event handler per la chiusura
-    const closeDialog = () => {
-      overlay.style.opacity = '0';
-      dialog.style.opacity = '0';
+    function closeDialog() {
+      overlay.classList.add('closing');
+      dialog.classList.add('closing');
       
       setTimeout(() => {
-        // Rimuovi dialog e overlay
-        if (document.body.contains(overlay)) overlay.remove();
-        if (document.body.contains(dialog)) dialog.remove();
-        
-        // Rimuovi la classe modal-open dal body
+        document.body.removeChild(overlay);
+        document.body.removeChild(dialog);
         document.body.classList.remove('modal-open');
-        
-        // Ripristina la posizione di scorrimento
-        const scrollY = parseInt(document.body.style.top || '0') * -1;
         document.body.style.top = '';
         window.scrollTo(0, scrollY);
+        
+        // Rimuovi event listener
+        document.removeEventListener('keydown', handleEscKey);
       }, 200);
-    };
+    }
     
     // Aggiungi event listener di chiusura
     closeBtn.addEventListener('click', closeDialog);
@@ -1640,28 +1577,23 @@ class CreatePostView extends View {
     const handleEscKey = (e) => {
       if (e.key === 'Escape') {
         closeDialog();
-        document.removeEventListener('keydown', handleEscKey);
       }
     };
     document.addEventListener('keydown', handleEscKey);
     
     // Cambio tab
     urlTabBtn.addEventListener('click', () => {
-      urlTab.style.display = 'block';
-      uploadTab.style.display = 'none';
-      urlTabBtn.style.borderBottomColor = 'var(--primary-color, #ff751a)';
-      urlTabBtn.style.color = 'var(--primary-color, #ff751a)';
-      uploadTabBtn.style.borderBottomColor = 'transparent';
-      uploadTabBtn.style.color = 'var(--text-secondary, #666)';
+      urlTab.classList.add('active');
+      uploadTab.classList.remove('active');
+      urlTabBtn.classList.add('active');
+      uploadTabBtn.classList.remove('active');
     });
     
     uploadTabBtn.addEventListener('click', () => {
-      urlTab.style.display = 'none';
-      uploadTab.style.display = 'block';
-      uploadTabBtn.style.borderBottomColor = 'var(--primary-color, #ff751a)';
-      uploadTabBtn.style.color = 'var(--primary-color, #ff751a)';
-      urlTabBtn.style.borderBottomColor = 'transparent';
-      urlTabBtn.style.color = 'var(--text-secondary, #666)';
+      urlTab.classList.remove('active');
+      uploadTab.classList.add('active');
+      uploadTabBtn.classList.add('active');
+      urlTabBtn.classList.remove('active');
     });
     
     // Inserimento immagine da URL
@@ -1672,25 +1604,25 @@ class CreatePostView extends View {
       if (url) {
         this.insertImageToEditor(`![${alt}](${url})`);
         closeDialog();
+      } else {
+        urlInput.classList.add('error');
+        setTimeout(() => urlInput.classList.remove('error'), 1000);
       }
     });
     
     // Gestione drop zone
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropZone.style.borderColor = 'var(--primary-color, #ff751a)';
-      dropZone.style.backgroundColor = 'rgba(255, 117, 24, 0.05)';
+      dropZone.classList.add('active');
     });
     
     dropZone.addEventListener('dragleave', () => {
-      dropZone.style.borderColor = 'var(--border-color, #ddd)';
-      dropZone.style.backgroundColor = 'transparent';
+      dropZone.classList.remove('active');
     });
     
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropZone.style.borderColor = 'var(--border-color, #ddd)';
-      dropZone.style.backgroundColor = 'transparent';
+      dropZone.classList.remove('active');
       
       const file = e.dataTransfer.files[0];
       if (file && file.type.startsWith('image/')) {
