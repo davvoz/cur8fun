@@ -42,6 +42,13 @@
   animation: scaleIn 0.2s ease;
 }
 
+/* Ottimizza lo spazio nel modal */
+.image-upload-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: fit-content;
+}
+
 /* Header del modal */
 .image-upload-dialog .dialog-header,
 .image-upload-modal .modal-header {
@@ -114,6 +121,7 @@
 /* Contenuto dei tab */
 .modal-body {
   padding: 20px;
+  padding-bottom: 10px;
 }
 
 .tab-content {
@@ -123,6 +131,11 @@
 
 .tab-content.active {
   display: block;
+}
+
+/* Rimuove il margine dall'ultimo elemento in qualsiasi contenuto tab */
+.tab-content > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Form groups */
@@ -264,9 +277,14 @@
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  padding: 15px 20px;
+  padding: 12px 20px;
   border-top: 1px solid var(--border-color);
   gap: 10px;
+}
+
+/* Nasconde il footer quando non contiene pulsanti */
+.modal-footer:empty {
+  display: none;
 }
 
 /* Pulsanti */
