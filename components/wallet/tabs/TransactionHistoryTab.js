@@ -18,6 +18,10 @@ export default class TransactionHistoryTab extends Component {
       direction: {
         byUser: true,
         onUser: true
+      },
+      dateRange: {
+        startDate: null,
+        endDate: null
       }
     };
     this.limit = 50; // Inizia con 50 transazioni
@@ -31,6 +35,7 @@ export default class TransactionHistoryTab extends Component {
     this.filterCheckboxes = {};
     this.filterContainer = null;
     this.resultsCounter = null;
+    this.dateRangePicker = null;
     
     // Abilita il debug per il filterService se necessario
     if (options.debug) {
@@ -43,6 +48,8 @@ export default class TransactionHistoryTab extends Component {
     this.updateFilterUI = this.updateFilterUI.bind(this);
     this.handleFilterChange = this.handleFilterChange.bind(this);
     this.toggleAllFiltersOfType = this.toggleAllFiltersOfType.bind(this);
+    this.handleDateRangeChange = this.handleDateRangeChange.bind(this);
+    this.resetDateRange = this.resetDateRange.bind(this);
   }
   
   render() {
@@ -95,6 +102,82 @@ export default class TransactionHistoryTab extends Component {
     
     const filterOptions = document.createElement('div');
     filterOptions.className = 'filter-options';
+    
+    // Aggiungi il selettore dell'intervallo di date
+    const dateRangeGroup = document.createElement('div');
+    dateRangeGroup.className = 'filter-group date-range-group';
+    
+    const dateRangeHeader = document.createElement('div');
+    dateRangeHeader.className = 'filter-group-header';
+    
+    const dateRangeTitle = document.createElement('span');
+    dateRangeTitle.textContent = 'Date Range';
+    dateRangeHeader.appendChild(dateRangeTitle);
+    
+    // Pulsante reset per date
+    const resetDatesButton = document.createElement('button');
+    resetDatesButton.className = 'filter-select-btn';
+    resetDatesButton.textContent = 'Reset Dates';
+    resetDatesButton.addEventListener('click', this.resetDateRange);
+    
+    const dateButtonsContainer = document.createElement('div');
+    dateButtonsContainer.className = 'filter-select-actions';
+    dateButtonsContainer.appendChild(resetDatesButton);
+    dateRangeHeader.appendChild(dateButtonsContainer);
+    
+    dateRangeGroup.appendChild(dateRangeHeader);
+    
+    // Selettori di data
+    const dateInputsContainer = document.createElement('div');
+    dateInputsContainer.className = 'date-inputs-container';
+    
+    // Selettore data di inizio
+    const startDateContainer = document.createElement('div');
+    startDateContainer.className = 'date-input-group';
+    
+    const startDateLabel = document.createElement('label');
+    startDateLabel.setAttribute('for', 'start-date');
+    startDateLabel.textContent = 'From:';
+    
+    const startDateInput = document.createElement('input');
+    startDateInput.type = 'date';
+    startDateInput.id = 'start-date';
+    startDateInput.className = 'date-picker';
+    startDateInput.valueAsDate = null; // Nessuna data di default
+    
+    startDateInput.addEventListener('change', this.handleDateRangeChange);
+    
+    startDateContainer.appendChild(startDateLabel);
+    startDateContainer.appendChild(startDateInput);
+    
+    // Selettore data di fine
+    const endDateContainer = document.createElement('div');
+    endDateContainer.className = 'date-input-group';
+    
+    const endDateLabel = document.createElement('label');
+    endDateLabel.setAttribute('for', 'end-date');
+    endDateLabel.textContent = 'To:';
+    
+    const endDateInput = document.createElement('input');
+    endDateInput.type = 'date';
+    endDateInput.id = 'end-date';
+    endDateInput.className = 'date-picker';
+    endDateInput.valueAsDate = null; // Nessuna data di default
+    
+    endDateInput.addEventListener('change', this.handleDateRangeChange);
+    
+    endDateContainer.appendChild(endDateLabel);
+    endDateContainer.appendChild(endDateInput);
+    
+    // Salva i riferimenti ai selettori di data
+    this.dateRangePicker = {
+      startDate: startDateInput,
+      endDate: endDateInput
+    };
+    
+    dateInputsContainer.appendChild(startDateContainer);
+    dateInputsContainer.appendChild(endDateContainer);
+    dateRangeGroup.appendChild(dateInputsContainer);
     
     // Gruppo filtri per tipo (vuoto inizialmente, sarà popolato dinamicamente)
     const typeFilterGroup = document.createElement('div');
@@ -222,6 +305,7 @@ export default class TransactionHistoryTab extends Component {
     directionFilterGroup.appendChild(dirFiltersContainer);
     
     // Assembla i filtri
+    filterOptions.appendChild(dateRangeGroup);
     filterOptions.appendChild(typeFilterGroup);
     filterOptions.appendChild(directionFilterGroup);
     filterOptions.appendChild(resultsCounter);
@@ -274,20 +358,11 @@ export default class TransactionHistoryTab extends Component {
     if (this.loadMoreButton) {
       this.registerEventHandler(this.loadMoreButton, 'click', this.handleLoadMore);
     }
-    
-    // Note: non abbiamo più bisogno del pulsante apply filters perché i filtri
-    // si applicano automaticamente al cambio delle checkbox
   }
   
   handleApplyFilters() {
-    // Prima di applicare i filtri, salva lo stato corrente 
-    // di tutte le checkbox nel this.filters
     this.updateFilters();
-    
-    // Log dei filtri applicati
     console.log('Applying filters:', JSON.stringify(this.filters, null, 2));
-    
-    // Renderizza le transazioni con i nuovi filtri
     this.renderTransactions();
   }
   
@@ -296,7 +371,6 @@ export default class TransactionHistoryTab extends Component {
     this.loadTransactions();
   }
   
-  // Nuovo metodo per gestire il cambio di un filtro
   handleFilterChange(event) {
     const checkbox = event.target;
     const type = checkbox.dataset.type;
@@ -304,7 +378,6 @@ export default class TransactionHistoryTab extends Component {
     
     console.log(`Filter changed: ${type} = ${isChecked}`);
     
-    // Aggiorna direttamente lo stato del filtro
     if (type && checkbox.dataset.filterType === 'type') {
       this.filters.types[type] = isChecked;
     }
@@ -313,14 +386,12 @@ export default class TransactionHistoryTab extends Component {
     this.renderTransactions();
   }
   
-  // Nuovo metodo per selezionare/deselezionare tutti i filtri di un tipo
   toggleAllFiltersOfType(event) {
     const action = event.currentTarget.dataset.action;
     const filterType = event.currentTarget.dataset.filterType;
     const shouldCheck = action === 'select';
     
     if (filterType === 'type') {
-      // Seleziona/deseleziona tutti i tipi di transazione
       this.transactionTypes.forEach(type => {
         const checkboxId = `filter-${type}`;
         if (this.filterCheckboxes[checkboxId]) {
@@ -328,7 +399,6 @@ export default class TransactionHistoryTab extends Component {
         }
       });
     } else if (filterType === 'direction') {
-      // Seleziona/deseleziona tutte le direzioni
       ['filter-by', 'filter-on'].forEach(id => {
         if (this.filterCheckboxes[id]) {
           this.filterCheckboxes[id].checked = shouldCheck;
@@ -336,20 +406,46 @@ export default class TransactionHistoryTab extends Component {
       });
     }
     
-    // Aggiorna i filtri e renderizza
     this.updateFilters();
     this.renderTransactions();
   }
   
+  handleDateRangeChange() {
+    const startDateValue = this.dateRangePicker.startDate.value;
+    const endDateValue = this.dateRangePicker.endDate.value;
+    
+    this.filters.dateRange.startDate = startDateValue || null;
+    this.filters.dateRange.endDate = endDateValue || null;
+    
+    if (startDateValue || endDateValue) {
+      console.log(`Date range filter applied: ${startDateValue || 'any'} to ${endDateValue || 'any'}`);
+    } else {
+      console.log('Date range filter cleared');
+    }
+    
+    this.renderTransactions();
+  }
+  
+  resetDateRange() {
+    if (this.dateRangePicker) {
+      this.dateRangePicker.startDate.value = '';
+      this.dateRangePicker.endDate.value = '';
+    }
+    
+    this.filters.dateRange = {
+      startDate: null,
+      endDate: null
+    };
+    
+    this.renderTransactions();
+  }
+  
   updateFilters() {
-    // Aggiorna i filtri di direzione
     this.filters.direction = {
       byUser: this.filterCheckboxes['filter-by']?.checked ?? true,
       onUser: this.filterCheckboxes['filter-on']?.checked ?? true
     };
     
-    // Aggiorna i filtri di tipo SOLO se la checkbox esiste
-    // Altrimenti, mantieni lo stato esistente
     Array.from(this.transactionTypes).forEach(type => {
       const checkboxId = `filter-${type}`;
       if (this.filterCheckboxes[checkboxId]) {
@@ -363,18 +459,15 @@ export default class TransactionHistoryTab extends Component {
     
     this.isLoading = true;
     
-    // Mostra stato di caricamento
     if (this.allTransactions.length === 0) {
       this.showLoadingState();
     } else if (this.loadMoreButton) {
       this.loadMoreButton.disabled = true;
       
-      // Rimuovi il testo esistente
       while (this.loadMoreButton.firstChild) {
         this.loadMoreButton.removeChild(this.loadMoreButton.firstChild);
       }
       
-      // Aggiungi icona di caricamento e testo
       const loadingIcon = document.createElement('span');
       loadingIcon.className = 'material-icons loading-icon';
       loadingIcon.textContent = 'hourglass_top';
@@ -384,41 +477,32 @@ export default class TransactionHistoryTab extends Component {
     }
     
     try {
-      // Usa il from=-1 per ottenere le transazioni più recenti
-      // Se abbiamo già alcune transazioni, usa l'ultima come punto di partenza
       let from = -1;
       if (this.allTransactions.length > 0) {
         from = this.allTransactions[this.allTransactions.length - 1].id - 1;
       }
       
-      // Recupera la cronologia dell'account usando il servizio
       const rawTransactions = await transactionHistoryService.getUserTransactionHistory(this.username, this.limit, from);
       
       if (rawTransactions && Array.isArray(rawTransactions)) {
-        // Processa e formatta le transazioni
         let formattedTransactions = [];
         for (const tx of rawTransactions) {
           const formattedTx = await transactionHistoryService.formatTransaction(tx, this.username);
           formattedTransactions.push(formattedTx);
         }
         
-        // IMPORTANTE: Salva i filtri correnti prima di aggiornare i dati
         const currentFilters = { ...this.filters };
         
-        // Aggiungi le nuove transazioni invece di sovrascrivere tutto l'array
-        // Se è il primo caricamento, sostituisci l'array, altrimenti aggiungi
         if (this.allTransactions.length === 0) {
           this.allTransactions = formattedTransactions;
         } else {
-          // Evita duplicati confrontando gli ID delle transazioni
           const existingIds = new Set(this.allTransactions.map(tx => tx.id));
           const uniqueNewTransactions = formattedTransactions.filter(tx => !existingIds.has(tx.id));
           this.allTransactions = [...this.allTransactions, ...uniqueNewTransactions];
         }
         
-        // Estrai i tipi di transazione e aggiorna i filtri
         this.extractTransactionTypes(currentFilters);
-        this.updateFilterUI(true); // passa true per mantenere lo stato dei filtri
+        this.updateFilterUI(true);
         
         this.renderTransactions();
       }
@@ -435,49 +519,34 @@ export default class TransactionHistoryTab extends Component {
   }
   
   extractTransactionTypes(currentFilters = {}) {
-    // Salva i filtri correnti
     const existingFilters = { ...this.filters.types };
     
-    // Reset dei conteggi o inizializzazione se è il primo caricamento
     if (!this.typeCounts) this.typeCounts = {};
     
-    // Set di ID già contati per evitare duplicazioni nel conteggio
     const countedIds = new Set();
     
-    // Per ogni transazione
     for (const tx of this.allTransactions) {
-      // Evita di contare due volte la stessa transazione
       if (countedIds.has(tx.id)) continue;
       countedIds.add(tx.id);
       
-      // Determina il tipo di transazione
       const txType = tx.type || 'other';
       
-      // Aggiungi al set di tipi
       this.transactionTypes.add(txType);
       
-      // Aggiorna il conteggio per questo tipo
       this.typeCounts[txType] = (this.typeCounts[txType] || 0) + 1;
     }
     
-    // Aggiorna i filtri mantenendo lo stato esistente
     const newFilters = {};
     for (const type of this.transactionTypes) {
-      // Se il filtro esisteva già, mantieni il suo stato
       if (existingFilters.hasOwnProperty(type)) {
         newFilters[type] = existingFilters[type];
-      } 
-      // Se era nell'oggetto currentFilters (stato precedente salvato), usa quello
-      else if (currentFilters.types && currentFilters.types.hasOwnProperty(type)) {
+      } else if (currentFilters.types && currentFilters.types.hasOwnProperty(type)) {
         newFilters[type] = currentFilters.types[type];
-      }
-      // Altrimenti imposta a true per default
-      else {
+      } else {
         newFilters[type] = true;
       }
     }
     
-    // Aggiorna i filtri con i valori aggiornati
     this.filters.types = newFilters;
     
     if (this.debug) {
@@ -489,14 +558,11 @@ export default class TransactionHistoryTab extends Component {
   updateFilterUI(preserveState = false) {
     if (!this.filterContainer) return;
     
-    // Salva lo stato corrente delle checkbox per tipo e checkbox ID
     const savedTypeStates = {};
     
     if (preserveState) {
-      // Crea una mappatura tipo -> stato checkbox
       Object.keys(this.filterCheckboxes).forEach(id => {
         if (id.startsWith('filter-') && this.filterCheckboxes[id]) {
-          // Estrai il tipo dalla checkbox ID (filter-transfer -> transfer)
           const type = id.replace('filter-', '');
           savedTypeStates[type] = this.filterCheckboxes[id].checked;
         }
@@ -505,15 +571,12 @@ export default class TransactionHistoryTab extends Component {
       console.log('Preserving filter states:', savedTypeStates);
     }
     
-    // Rimuovi i filtri esistenti per ricrearli
     while (this.filterContainer.firstChild) {
       this.filterContainer.removeChild(this.filterContainer.firstChild);
     }
     
-    // Ordina i tipi alfabeticamente per una UI coerente
     const sortedTypes = Array.from(this.transactionTypes).sort();
     
-    // Ricrea le checkbox per ogni tipo di transazione
     sortedTypes.forEach(type => {
       const filterItem = document.createElement('div');
       filterItem.className = 'filter-item';
@@ -524,41 +587,33 @@ export default class TransactionHistoryTab extends Component {
       checkbox.type = 'checkbox';
       checkbox.id = `filter-${type}`;
       
-      // Determina lo stato corretto della checkbox
       let isChecked;
       
       if (preserveState && savedTypeStates[type] !== undefined) {
-        // Usa lo stato salvato se disponibile
         isChecked = savedTypeStates[type];
       } else {
-        // Altrimenti usa lo stato dal filtro o default a true
         isChecked = this.filters.types[type] !== false;
       }
       
       checkbox.checked = isChecked;
       checkbox.dataset.filterType = 'type';
-      checkbox.dataset.type = type; // Memorizza il tipo per riferimento facile
+      checkbox.dataset.type = type;
       
-      // Aggiungi event listener
       this.registerEventHandler(checkbox, 'change', this.handleFilterChange);
       
-      // Salva riferimento alla checkbox
       this.filterCheckboxes[`filter-${type}`] = checkbox;
       
       label.appendChild(checkbox);
       
-      // Icona corrispondente al tipo
       const icon = document.createElement('span');
       icon.className = 'material-icons filter-icon';
       icon.textContent = this.getIconForType(type);
       label.appendChild(icon);
       
-      // Formatta il nome del tipo
       const displayName = document.createElement('span');
       displayName.textContent = `${type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')}`;
       label.appendChild(displayName);
       
-      // Aggiungi conteggio con controllo di validità
       const count = document.createElement('span');
       count.className = 'filter-count';
       count.textContent = this.typeCounts[type] || 0;
@@ -574,10 +629,8 @@ export default class TransactionHistoryTab extends Component {
     
     console.log('Rendering transactions with filters:', JSON.stringify(this.filters));
     
-    // Aggiorna i filtri
     this.updateFilters();
     
-    // Filtra le transazioni - aggiungi timestamp performance
     const startTime = performance.now();
     const filteredTransactions = transactionHistoryService.filterTransactions(
       this.allTransactions, 
@@ -588,7 +641,6 @@ export default class TransactionHistoryTab extends Component {
     
     console.log(`Filtered ${filteredTransactions.length} of ${this.allTransactions.length} transactions in ${(endTime - startTime).toFixed(2)}ms`);
     
-    // Aggiorna il conteggio dei risultati
     if (this.resultsCounter) {
       this.resultsCounter.textContent = `Showing ${filteredTransactions.length} of ${this.allTransactions.length} transactions`;
     }
@@ -598,19 +650,15 @@ export default class TransactionHistoryTab extends Component {
       return;
     }
     
-    // Ordina le transazioni
     const sortedTransactions = transactionHistoryService.sortTransactions(filteredTransactions);
     
-    // Rimuovi contenuti esistenti
     while (this.transactionListElement.firstChild) {
       this.transactionListElement.removeChild(this.transactionListElement.firstChild);
     }
     
-    // Crea lista transazioni
     const transactionListElement = document.createElement('ul');
     transactionListElement.className = 'transaction-list';
     
-    // Aggiungi ogni transazione alla lista
     for (const tx of sortedTransactions) {
       const transactionItem = this.createTransactionItem(tx);
       transactionListElement.appendChild(transactionItem);
@@ -620,15 +668,12 @@ export default class TransactionHistoryTab extends Component {
   }
   
   createTransactionItem(tx) {
-    // Crea l'elemento della transazione
     const listItem = document.createElement('li');
     listItem.className = 'transaction-item';
     
-    // Determina se è un'azione dell'utente o verso l'utente
     const isActionByUser = tx.isActionByUser;
     const isActionOnUser = tx.isActionOnUser;
     
-    // Crea l'icona della transazione
     const iconElement = document.createElement('div');
     iconElement.className = `transaction-icon ${tx.iconClass}`;
     
@@ -639,17 +684,14 @@ export default class TransactionHistoryTab extends Component {
     iconElement.appendChild(iconText);
     listItem.appendChild(iconElement);
     
-    // Crea i dettagli della transazione
     const detailsElement = document.createElement('div');
     detailsElement.className = 'transaction-details';
     
-    // Titolo della transazione
     const titleElement = document.createElement('div');
     titleElement.className = 'transaction-title';
     titleElement.textContent = tx.title;
     detailsElement.appendChild(titleElement);
     
-    // Metadati della transazione
     const metaElement = document.createElement('div');
     metaElement.className = 'transaction-meta';
     
@@ -663,16 +705,13 @@ export default class TransactionHistoryTab extends Component {
     memoElement.textContent = tx.description;
     metaElement.appendChild(memoElement);
     
-    // Aggiungi metaElement a detailsElement
     detailsElement.appendChild(metaElement);
     
-    // Aggiungi indicatore direzione (in/out)
     const directionElement = document.createElement('div');
     directionElement.className = `transaction-direction ${isActionByUser ? 'outgoing' : 'incoming'}`;
     directionElement.textContent = isActionByUser ? 'Out' : 'In';
     detailsElement.appendChild(directionElement);
     
-    // Aggiungi link all'explorer
     const linkElement = document.createElement('a');
     linkElement.className = 'transaction-link';
     linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
@@ -689,34 +728,27 @@ export default class TransactionHistoryTab extends Component {
     
     detailsElement.appendChild(linkElement);
     
-    // Aggiungi detailsElement all'elemento principale
     listItem.appendChild(detailsElement);
     
     return listItem;
   }
 
   destroy() {
-    // Rimuovi i riferimenti agli elementi DOM
     this.transactionListElement = null;
     this.loadMoreButton = null;
     this.filterCheckboxes = {};
+    this.dateRangePicker = null;
     
-    // Chiama il metodo destroy della classe genitore
     super.destroy();
   }
 
-  /**
-   * Mostra lo stato di caricamento
-   */
   showLoadingState() {
     if (!this.transactionListElement) return;
     
-    // Pulisci l'elemento
     while (this.transactionListElement.firstChild) {
       this.transactionListElement.removeChild(this.transactionListElement.firstChild);
     }
     
-    // Crea e aggiungi l'elemento di caricamento
     const loadingState = document.createElement('div');
     loadingState.className = 'loading-state';
     
@@ -732,19 +764,13 @@ export default class TransactionHistoryTab extends Component {
     this.transactionListElement.appendChild(loadingState);
   }
 
-  /**
-   * Mostra lo stato di errore
-   * @param {string} errorMessage - Messaggio di errore da mostrare
-   */
   showErrorState(errorMessage) {
     if (!this.transactionListElement) return;
     
-    // Pulisci l'elemento
     while (this.transactionListElement.firstChild) {
       this.transactionListElement.removeChild(this.transactionListElement.firstChild);
     }
     
-    // Crea e aggiungi l'elemento di errore
     const errorState = document.createElement('div');
     errorState.className = 'error-state';
     
@@ -768,18 +794,13 @@ export default class TransactionHistoryTab extends Component {
     this.transactionListElement.appendChild(errorState);
   }
 
-  /**
-   * Mostra lo stato vuoto quando non ci sono transazioni da mostrare
-   */
   showEmptyState() {
     if (!this.transactionListElement) return;
     
-    // Pulisci l'elemento
     while (this.transactionListElement.firstChild) {
       this.transactionListElement.removeChild(this.transactionListElement.firstChild);
     }
     
-    // Crea e aggiungi l'elemento di stato vuoto
     const emptyState = document.createElement('div');
     emptyState.className = 'empty-state';
     
@@ -790,16 +811,19 @@ export default class TransactionHistoryTab extends Component {
     
     const emptyText = document.createElement('span');
     
-    // Determina se è vuoto perché non ci sono transazioni o perché i filtri non mostrano nulla
     if (this.allTransactions.length > 0) {
-      emptyText.textContent = 'No transactions match your current filters.';
+      const hasDateFilter = this.filters.dateRange.startDate || this.filters.dateRange.endDate;
       
-      // Aggiungi un pulsante per resettare i filtri
+      if (hasDateFilter) {
+        emptyText.textContent = 'No transactions match your current filters. Try changing the date range.';
+      } else {
+        emptyText.textContent = 'No transactions match your current filters.';
+      }
+      
       const resetButton = document.createElement('button');
       resetButton.className = 'btn secondary-btn';
-      resetButton.textContent = 'Reset Filters';
+      resetButton.textContent = 'Reset All Filters';
       this.registerEventHandler(resetButton, 'click', () => {
-        // Ripristina tutti i filtri a true
         this.transactionTypes.forEach(type => {
           const checkboxId = `filter-${type}`;
           if (this.filterCheckboxes[checkboxId]) {
@@ -807,7 +831,6 @@ export default class TransactionHistoryTab extends Component {
           }
         });
         
-        // Ripristina anche i filtri di direzione
         if (this.filterCheckboxes['filter-by']) {
           this.filterCheckboxes['filter-by'].checked = true;
         }
@@ -815,7 +838,8 @@ export default class TransactionHistoryTab extends Component {
           this.filterCheckboxes['filter-on'].checked = true;
         }
         
-        // Aggiorna i filtri e renderizza di nuovo
+        this.resetDateRange();
+        
         this.updateFilters();
         this.renderTransactions();
       });
@@ -830,13 +854,7 @@ export default class TransactionHistoryTab extends Component {
     this.transactionListElement.appendChild(emptyState);
   }
 
-  /**
-   * Ottiene l'icona appropriata per il tipo di transazione
-   * @param {string} type - Il tipo di transazione
-   * @returns {string} - Il nome dell'icona Material Icons da utilizzare
-   */
   getIconForType(type) {
-    // Mappa dei tipi di transazione alle icone
     const iconMap = {
       transfer: 'swap_horiz',
       claim_reward: 'card_giftcard',

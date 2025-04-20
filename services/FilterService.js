@@ -14,7 +14,7 @@ class FilterService {
   /**
    * Filtra le transazioni in base ai tipi e direzione specificati
    * @param {Array} transactions - Array di transazioni da filtrare
-   * @param {Object} filters - Oggetto con i filtri da applicare { types: {}, direction: {} }
+   * @param {Object} filters - Oggetto con i filtri da applicare { types: {}, direction: {}, dateRange: {} }
    * @param {Object} context - Contesto aggiuntivo per il filtraggio (es. username, funzioni helper)
    * @returns {Array} - Transazioni filtrate
    */
@@ -33,7 +33,7 @@ class FilterService {
     
     return transactions.filter(tx => {
       // Ottieni il tipo di transazione
-      let type, data, isActionByUser, isActionOnUser;
+      let type, data, isActionByUser, isActionOnUser, timestamp;
       
       // Per array di transazioni già elaborate (formato oggetto)
       if (!Array.isArray(tx)) {
@@ -41,12 +41,14 @@ class FilterService {
         data = tx.data;
         isActionByUser = tx.isActionByUser;
         isActionOnUser = tx.isActionOnUser;
+        timestamp = tx.timestamp;
       } 
       // Per array [id, txData] dalla API di Steem (formato grezzo)
       else {
         const [id, txData] = tx;
         type = txData.op[0];
         data = txData.op[1];
+        timestamp = txData.timestamp;
         
         // Calcola dinamicamente se l'azione è dell'utente o sull'utente
         if (username && isActionBy && isActionOn) {
@@ -90,6 +92,25 @@ class FilterService {
         
         // Se non è né by né on user, non dovrebbe essere mostrato
         if (!isActionByUser && !isActionOnUser) return false;
+      }
+      
+      // 3. Filtra per intervallo di date
+      if (filters.dateRange) {
+        const txDate = new Date(timestamp + 'Z');
+        
+        // Filtra per data di inizio
+        if (filters.dateRange.startDate) {
+          const startDate = new Date(filters.dateRange.startDate);
+          if (txDate < startDate) return false;
+        }
+        
+        // Filtra per data di fine
+        if (filters.dateRange.endDate) {
+          const endDate = new Date(filters.dateRange.endDate);
+          // Imposta la fine della giornata (23:59:59)
+          endDate.setHours(23, 59, 59, 999);
+          if (txDate > endDate) return false;
+        }
       }
       
       // La transazione ha passato tutti i filtri
