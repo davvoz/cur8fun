@@ -196,8 +196,8 @@ class BasePostView {
 
     console.log(`Rendering ${uniquePostsToRender.length} unique posts`);
     
-    // Show no posts message if needed
-    if (uniquePostsToRender.length === 0 && this.posts.length === 0) {
+    // Show no posts message only if we're not currently loading AND there are no posts
+    if (uniquePostsToRender.length === 0 && this.posts.length === 0 && !this.loading) {
       this.renderNoPostsMessage(postsContainer);
       return;
     }
