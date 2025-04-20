@@ -1,6 +1,5 @@
 import View from './View.js';
 import authService from '../services/AuthService.js';
-import walletService from '../services/WalletService.js';
 import WalletBalancesComponent from '../components/wallet/WalletBalancesComponent.js';
 import WalletResourcesComponent from '../components/wallet/WalletResourcesComponent.js';
 import WalletTabsComponent from '../components/wallet/WalletTabsComponent.js';
