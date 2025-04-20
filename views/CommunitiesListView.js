@@ -4,7 +4,6 @@ import communityService from '../services/CommunityService.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
-import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class CommunitiesListView {
   constructor() {
@@ -18,9 +17,6 @@ class CommunitiesListView {
     this.subscribedCommunities = new Set();
     this.pendingSubscriptions = new Set();
     this.activeCategory = 'all';
-    this.infiniteScroll = null;
-    this.pageSize = 20; // Number of communities to load per page
-    this.currentPage = 1;
     
     // Define common categories
     this.categories = [
@@ -71,9 +67,6 @@ class CommunitiesListView {
       
       // Render communities list
       this.renderCommunities(contentContainer);
-      
-      // Initialize infinite scroll
-      this.initializeInfiniteScroll(contentContainer);
     } catch (error) {
       console.error('Error loading communities:', error);
       this.showError(contentContainer, 'Failed to load communities. Please try again later.');
@@ -475,19 +468,13 @@ class CommunitiesListView {
     const communitiesGrid = document.createElement('div');
     communitiesGrid.className = 'communities-grid';
     
-    // Inizialmente mostriamo solo la prima pagina di community
-    const firstPageCommunities = this.filteredCommunities.slice(0, this.pageSize);
-    
     // Render each community card
-    firstPageCommunities.forEach(community => {
+    this.filteredCommunities.forEach(community => {
       const communityCard = this.createCommunityCard(community);
       communitiesGrid.appendChild(communityCard);
     });
     
     container.appendChild(communitiesGrid);
-    
-    // Inizializza l'infinite scroll dopo aver mostrato la prima pagina
-    this.initializeInfiniteScroll(container, communitiesGrid);
   }
 
   /**
@@ -721,76 +708,12 @@ class CommunitiesListView {
     }
   }
 
-  initializeInfiniteScroll(contentContainer, communitiesGrid) {
-    if (this.infiniteScroll) {
-      this.infiniteScroll.destroy();
-    }
-    
-    if (!communitiesGrid) {
-      communitiesGrid = contentContainer.querySelector('.communities-grid');
-    }
-    
-    if (!communitiesGrid) return;
-    
-    this.infiniteScroll = new InfiniteScroll({
-      container: communitiesGrid,
-      loadMore: async (page) => {
-        if (this.isLoading) return false;
-        
-        this.isLoading = true;
-        console.log(`Loading page ${page} of communities`);
-        
-        try {
-          // Calculate starting index for pagination
-          const startIndex = (page - 1) * this.pageSize;
-          const endIndex = startIndex + this.pageSize;
-          
-          // Se abbiamo già filtrato le community, utilizziamo la lista filtrata
-          const sourceCommunities = this.filteredCommunities;
-          
-          // Verifica se ci sono altre community da mostrare
-          if (startIndex < sourceCommunities.length) {
-            // Recupera il prossimo batch di community
-            const newCommunitiesToShow = sourceCommunities.slice(startIndex, endIndex);
-            
-            if (newCommunitiesToShow.length > 0) {
-              newCommunitiesToShow.forEach(community => {
-                const communityCard = this.createCommunityCard(community);
-                communitiesGrid.appendChild(communityCard);
-              });
-              
-              return newCommunitiesToShow.length === this.pageSize && 
-                     endIndex < sourceCommunities.length;
-            }
-          }
-          
-          return false; // No more items
-        } catch (error) {
-          console.error('Error loading more communities:', error);
-          return false;
-        } finally {
-          this.isLoading = false;
-        }
-      },
-      threshold: '200px',
-      initialPage: 1,
-      loadingMessage: 'Caricamento altre community...',
-      endMessage: 'Non ci sono altre community da mostrare'
-    });
-  }
-
   onBeforeUnmount() {
     // Clean up event listeners
     eventEmitter.off('auth:changed', this.handleAuthChanged.bind(this));
     
     // Clear any pending operations
     this.pendingSubscriptions.clear();
-    
-    // Destroy infinite scroll instance
-    if (this.infiniteScroll) {
-      this.infiniteScroll.destroy();
-      this.infiniteScroll = null;
-    }
   }
 }
 

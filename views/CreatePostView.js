@@ -1349,349 +1349,353 @@ class CreatePostView extends View {
    * Mostra il dialog per l'upload o inserimento di immagini
    */
   showImageUploadDialog() {
-    // Controlla se esiste già un dialogo aperto e rimuovilo
-    const existingDialogs = document.querySelectorAll('.modal-overlay, .image-upload-modal');
-    if (existingDialogs.length > 0) {
-      existingDialogs.forEach(dialog => dialog.remove());
-      console.log('Removed existing dialog to prevent duplication');
-      return;
+    // Verifica se esiste già un dialog e rimuovilo
+    const existingDialog = document.querySelector('.image-upload-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
     }
 
-    // Crea l'overlay di sfondo utilizzando le classi standardizzate
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    // Crea il dialog principale con le classi standardizzate
+    // Crea elementi principali del dialog con DOM puro
     const dialog = document.createElement('div');
-    dialog.className = 'image-upload-modal modal-dialog';
-    
-    // Crea il contenuto del modal
-    const modalContent = document.createElement('div');
-    modalContent.className = 'modal-content';
-    
-    // Header con titolo e pulsante di chiusura
+    dialog.className = 'image-upload-dialog';
+
+    const dialogContent = document.createElement('div');
+    dialogContent.className = 'dialog-content';
+
+    // Header del dialog
     const header = document.createElement('div');
-    header.className = 'modal-header';
-    
+    header.className = 'dialog-header';
+
     const title = document.createElement('h3');
     title.textContent = 'Insert Image';
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-button';
     closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '&times;';
-    
+
+    const closeIcon = document.createElement('span');
+    closeIcon.textContent = '✕';
+    closeBtn.appendChild(closeIcon);
+
     header.appendChild(title);
     header.appendChild(closeBtn);
-    modalContent.appendChild(header);
-    
-    // Tabs container
+
+    // Tabs
     const tabsContainer = document.createElement('div');
-    tabsContainer.className = 'modal-tabs';
-    
+    tabsContainer.className = 'dialog-tabs';
+
     const urlTabBtn = document.createElement('button');
-    urlTabBtn.id = 'url-tab-btn';
-    urlTabBtn.className = 'tab-btn active';
+    urlTabBtn.className = 'img-tab-button img-active';
+    urlTabBtn.dataset.tab = 'url';
     urlTabBtn.textContent = 'URL';
-    
+
     const uploadTabBtn = document.createElement('button');
-    uploadTabBtn.id = 'upload-tab-btn';
-    uploadTabBtn.className = 'tab-btn';
+    uploadTabBtn.className = 'img-tab-button';
+    uploadTabBtn.dataset.tab = 'upload';
     uploadTabBtn.textContent = 'Upload';
-    
+
     tabsContainer.appendChild(urlTabBtn);
     tabsContainer.appendChild(uploadTabBtn);
-    modalContent.appendChild(tabsContainer);
-    
-    // Body del modal
-    const modalBody = document.createElement('div');
-    modalBody.className = 'modal-body';
-    
+
+    // Corpo del dialog
+    const dialogBody = document.createElement('div');
+    dialogBody.className = 'dialog-body';
+
     // Tab URL
     const urlTab = document.createElement('div');
+    urlTab.className = 'img-tab-content img-active';
     urlTab.id = 'url-tab';
-    urlTab.className = 'tab-content active';
-    
+
     // URL Form Group
     const urlFormGroup = document.createElement('div');
     urlFormGroup.className = 'form-group';
-    
+
     const urlLabel = document.createElement('label');
     urlLabel.setAttribute('for', 'image-url');
     urlLabel.textContent = 'Image URL:';
-    urlLabel.className = 'form-label';
-    
+
     const urlInput = document.createElement('input');
     urlInput.type = 'text';
     urlInput.id = 'image-url';
-    urlInput.className = 'form-control';
     urlInput.placeholder = 'https://example.com/image.jpg';
-    
+
     urlFormGroup.appendChild(urlLabel);
     urlFormGroup.appendChild(urlInput);
-    
+
     // Alt Text Form Group
     const altFormGroup = document.createElement('div');
     altFormGroup.className = 'form-group';
-    
+
     const altLabel = document.createElement('label');
     altLabel.setAttribute('for', 'image-alt');
     altLabel.textContent = 'Alt text:';
-    altLabel.className = 'form-label';
-    
+
     const altInput = document.createElement('input');
     altInput.type = 'text';
     altInput.id = 'image-alt';
-    altInput.className = 'form-control';
     altInput.placeholder = 'Image description';
-    
+
     altFormGroup.appendChild(altLabel);
     altFormGroup.appendChild(altInput);
-    
+
     // Insert URL Button
     const insertUrlBtn = document.createElement('button');
-    insertUrlBtn.id = 'insert-url-btn';
     insertUrlBtn.className = 'btn primary-btn';
+    insertUrlBtn.id = 'insert-url-btn';
     insertUrlBtn.textContent = 'Insert Image';
-    
+
     urlTab.appendChild(urlFormGroup);
     urlTab.appendChild(altFormGroup);
     urlTab.appendChild(insertUrlBtn);
-    
+
     // Tab Upload
     const uploadTab = document.createElement('div');
+    uploadTab.className = 'img-tab-content';
     uploadTab.id = 'upload-tab';
-    uploadTab.className = 'tab-content';
-    
+
     // Drop Zone
     const dropZone = document.createElement('div');
     dropZone.id = 'dropZone';
     dropZone.className = 'drop-zone';
-    
+
     const dropIcon = document.createElement('div');
     dropIcon.className = 'drop-icon';
-    
+
     const iconSpan = document.createElement('span');
     iconSpan.className = 'material-icons';
     iconSpan.textContent = 'cloud_upload';
     dropIcon.appendChild(iconSpan);
-    
+
     const dropText = document.createElement('p');
-    dropText.className = 'drop-text';
     dropText.textContent = 'Drag & drop an image here or click to select';
-    
+
     const dropInfo = document.createElement('p');
-    dropInfo.className = 'drop-info';
+    dropInfo.className = 'drop-zone-info';
     dropInfo.textContent = 'Maximum size: 15MB';
-    
+
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.id = 'fileInput';
     fileInput.accept = 'image/*';
     fileInput.style.display = 'none';
-    
+
     dropZone.appendChild(dropIcon);
     dropZone.appendChild(dropText);
     dropZone.appendChild(dropInfo);
     dropZone.appendChild(fileInput);
-    
+
     // Upload Status
     const uploadStatus = document.createElement('div');
     uploadStatus.id = 'upload-status';
-    uploadStatus.className = 'upload-status';
-    uploadStatus.style.display = 'none';
-    
+    uploadStatus.className = 'upload-status hidden';
+
     // Spinner
     const spinner = document.createElement('div');
     spinner.id = 'spinner';
-    spinner.className = 'upload-spinner';
-    spinner.style.display = 'none';
-    
+    spinner.className = 'spinner-container hide';
+
     const spinnerEl = document.createElement('div');
-    spinnerEl.className = 'spinner-circle';
-    
+    spinnerEl.className = 'spinner';
+
     const spinnerText = document.createElement('span');
-    spinnerText.className = 'spinner-text';
     spinnerText.textContent = 'Uploading...';
-    
+
     spinner.appendChild(spinnerEl);
     spinner.appendChild(spinnerText);
-    
+
     uploadTab.appendChild(dropZone);
     uploadTab.appendChild(uploadStatus);
     uploadTab.appendChild(spinner);
-    
-    // Assembla il modal body
-    modalBody.appendChild(urlTab);
-    modalBody.appendChild(uploadTab);
-    modalContent.appendChild(modalBody);
-    
-    // Footer del modal
-    const modalFooter = document.createElement('div');
-    modalFooter.className = 'modal-footer';
-    
-    const cancelFooterBtn = document.createElement('button');
-    cancelFooterBtn.className = 'btn secondary-btn';
-    cancelFooterBtn.textContent = 'Cancel';
-    cancelFooterBtn.addEventListener('click', closeDialog);
-    
-    modalFooter.appendChild(cancelFooterBtn);
-    modalContent.appendChild(modalFooter);
-    
-    // Aggiungi il contenuto al dialog
-    dialog.appendChild(modalContent);
-    
-    // Aggiungi dialog e overlay al DOM
-    document.body.appendChild(overlay);
+
+    // Assembla il dialog
+    dialogBody.appendChild(urlTab);
+    dialogBody.appendChild(uploadTab);
+
+    dialogContent.appendChild(header);
+    dialogContent.appendChild(tabsContainer);
+    dialogContent.appendChild(dialogBody);
+
+    dialog.appendChild(dialogContent);
+
+    // Aggiungi il dialog al DOM
     document.body.appendChild(dialog);
-    
-    // Salva la posizione di scorrimento corrente
-    const scrollY = window.scrollY;
-    
-    // Aggiungi la classe modal-open al body
-    document.body.classList.add('modal-open');
-    document.body.style.top = `-${scrollY}px`;
-    
-    // Event handler per la chiusura
-    function closeDialog() {
-      overlay.classList.add('closing');
-      dialog.classList.add('closing');
-      
-      setTimeout(() => {
-        document.body.removeChild(overlay);
-        document.body.removeChild(dialog);
-        document.body.classList.remove('modal-open');
-        document.body.style.top = '';
-        window.scrollTo(0, scrollY);
-        
-        // Rimuovi event listener
-        document.removeEventListener('keydown', handleEscKey);
-      }, 200);
-    }
-    
-    // Aggiungi event listener di chiusura
-    closeBtn.addEventListener('click', closeDialog);
-    overlay.addEventListener('click', closeDialog);
-    
-    // Gestione tasto ESC
-    const handleEscKey = (e) => {
-      if (e.key === 'Escape') {
-        closeDialog();
-      }
-    };
-    document.addEventListener('keydown', handleEscKey);
-    
+
+    // Event handlers
+    // Chiusura
+    closeBtn.addEventListener('click', () => {
+      dialog.remove();
+    });
+
     // Cambio tab
-    urlTabBtn.addEventListener('click', () => {
-      urlTab.classList.add('active');
-      uploadTab.classList.remove('active');
-      urlTabBtn.classList.add('active');
-      uploadTabBtn.classList.remove('active');
-    });
-    
-    uploadTabBtn.addEventListener('click', () => {
-      urlTab.classList.remove('active');
-      uploadTab.classList.add('active');
-      uploadTabBtn.classList.add('active');
-      urlTabBtn.classList.remove('active');
-    });
-    
-    // Inserimento immagine da URL
+    urlTabBtn.addEventListener('click', () => this.switchDialogTab(dialog, 'url'));
+    uploadTabBtn.addEventListener('click', () => this.switchDialogTab(dialog, 'upload'));
+
+    // Inserimento da URL
     insertUrlBtn.addEventListener('click', () => {
       const url = urlInput.value.trim();
       const alt = altInput.value.trim() || 'Image';
-      
+
       if (url) {
         this.insertImageToEditor(`![${alt}](${url})`);
-        closeDialog();
-      } else {
-        urlInput.classList.add('error');
-        setTimeout(() => urlInput.classList.remove('error'), 1000);
+        dialog.remove();
       }
     });
-    
-    // Gestione drop zone
+
+    // Inizializza funzionalità di upload
+    this.initializeImageUpload(dialog);
+  }
+
+  /**
+   * Cambia il tab attivo nel dialog
+   */
+  switchDialogTab(dialog, tabId) {
+    // Deseleziona tutti i tab e nasconde tutti i contenuti
+    const tabButtons = dialog.querySelectorAll('.img-tab-button');
+    tabButtons.forEach(btn => btn.classList.remove('img-active'));
+
+    const tabContents = dialog.querySelectorAll('.img-tab-content');
+    tabContents.forEach(content => content.classList.remove('img-active'));
+
+    // Attiva il tab selezionato
+    const selectedButton = dialog.querySelector(`.img-tab-button[data-tab="${tabId}"]`);
+    if (selectedButton) {
+      selectedButton.classList.add('img-active');
+    }
+
+    const selectedContent = dialog.querySelector(`#${tabId}-tab`);
+    if (selectedContent) {
+      selectedContent.classList.add('img-active');
+    }
+  }
+
+  /**
+   * Inizializza la funzionalità di upload immagini
+   */
+  initializeImageUpload(dialog) {
+    if (!dialog) return;
+
+    const dropZone = dialog.querySelector('#dropZone');
+    const fileInput = dialog.querySelector('#fileInput');
+    const spinner = dialog.querySelector('#spinner');
+    const uploadStatus = dialog.querySelector('#upload-status');
+
+    if (!dropZone || !fileInput) return;
+
+    const MAX_FILE_SIZE_MB = 15;
+
+    // Gestione click sulla drop zone
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Gestione drag over
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropZone.classList.add('active');
+      dropZone.classList.add('drag-over');
     });
-    
+
+    // Gestione drag leave
     dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('active');
+      dropZone.classList.remove('drag-over');
     });
-    
+
+    // Gestione drop
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropZone.classList.remove('active');
-      
+      dropZone.classList.remove('drag-over');
+
       const file = e.dataTransfer.files[0];
       if (file && file.type.startsWith('image/')) {
-        this.handleUpload(file, spinner, uploadStatus, closeDialog);
+        this.uploadImage(file, spinner, uploadStatus, dialog);
       }
     });
-    
-    dropZone.addEventListener('click', () => fileInput.click());
-    
+
+    // Gestione selezione file
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file && file.type.startsWith('image/')) {
-        this.handleUpload(file, spinner, uploadStatus, closeDialog);
+        this.uploadImage(file, spinner, uploadStatus, dialog);
       }
     });
   }
 
   /**
-   * Gestisce l'upload dell'immagine
+   * Verifica la dimensione del file
    */
-  async handleUpload(file, spinner, statusEl, closeDialog) {
-    // Verifica dimensione file
-    if (file.size > 15 * 1024 * 1024) {
-      statusEl.textContent = 'File too large. Maximum size is 15MB.';
-      statusEl.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
-      statusEl.style.color = '#dc3545';
-      statusEl.style.display = 'block';
-      return;
+  isFileSizeValid(file, maxSizeMB = 15) {
+    const fileSizeInMB = file.size / (1024 * 1024);
+    return fileSizeInMB <= maxSizeMB;
+  }
+
+  /**
+   * Mostra un messaggio di stato per l'upload
+   */
+  showUploadStatus(message, type, statusEl) {
+    if (!statusEl) return;
+
+    // Rimuovi tutte le classi di tipo
+    statusEl.classList.remove('error', 'success', 'info', 'hidden');
+
+    // Imposta il messaggio
+    statusEl.textContent = message;
+
+    // Aggiungi la classe appropriata
+    statusEl.classList.add(type);
+
+    // Nascondi automaticamente dopo un po'
+    if (type === 'success') {
+      setTimeout(() => {
+        statusEl.classList.add('hidden');
+      }, 5000);
     }
+  }
 
+  /**
+   * Esegue l'upload dell'immagine
+   */
+  async uploadImage(file, spinner, statusEl, dialog) {
     try {
-      // Mostra stato upload
-      spinner.style.display = 'flex';
-      statusEl.textContent = 'Uploading image...';
-      statusEl.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
-      statusEl.style.color = '#0d6efd';
-      statusEl.style.display = 'block';
-
-      // Importa servizio upload
-      const ImageUploadService = await import('../services/ImageUploadService.js')
-        .then(module => module.default);
-
-      if (!this.user) {
-        statusEl.textContent = 'You must be logged in to upload images';
-        statusEl.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
-        statusEl.style.color = '#dc3545';
+      // Controlla la dimensione del file
+      if (!this.isFileSizeValid(file)) {
+        this.showUploadStatus(`File too large. Maximum size is 15MB.`, 'error', statusEl);
         return;
       }
 
-      // Upload immagine
+      // Mostra spinner e stato caricamento
+      if (spinner) spinner.classList.remove('hide');
+      this.showUploadStatus('Uploading image...', 'info', statusEl);
+
+      // Importa il servizio di upload immagini
+      const ImageUploadService = await import('../services/ImageUploadService.js')
+        .then(module => module.default)
+        .catch(err => {
+          throw new Error('Could not load image upload service: ' + err.message);
+        });
+
+      if (!this.user) {
+        this.showUploadStatus('You must be logged in to upload images', 'error', statusEl);
+        return;
+      }
+
+      // Carica l'immagine usando il servizio
       const imageUrl = await ImageUploadService.uploadImage(file, this.user.username);
-      
-      // Inserisci nell'editor
+
+      // Inserisci l'immagine nell'editor
       this.insertImageToEditor(`![Image](${imageUrl})`);
-      
-      // Mostra successo
-      statusEl.textContent = 'Image uploaded successfully!';
-      statusEl.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-      statusEl.style.color = '#28a745';
-      
-      // Chiudi dialog dopo breve ritardo
-      setTimeout(closeDialog, 1000);
+
+      // Mostra messaggio di successo
+      this.showUploadStatus('Image uploaded successfully!', 'success', statusEl);
+
+      // Chiudi il dialog dopo un breve ritardo
+      setTimeout(() => {
+        if (dialog && document.body.contains(dialog)) {
+          dialog.remove();
+        }
+      }, 1500);
     } catch (error) {
       console.error('Upload failed:', error);
-      statusEl.textContent = `Upload failed: ${error.message}`;
-      statusEl.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
-      statusEl.style.color = '#dc3545';
+      this.showUploadStatus(`Upload failed: ${error.message}`, 'error', statusEl);
     } finally {
-      spinner.style.display = 'none';
+      // Nascondi spinner
+      if (spinner) spinner.classList.add('hide');
     }
   }
 

@@ -392,69 +392,17 @@ export default class MarkdownEditor extends Component {
   }
   
   /**
-   * Mostra opzioni semplici per l'inserimento di immagini
-   */
-  async showImageOptions() {
-    try {
-      // Importa il componente ImageUploader
-      const ImageUploader = await import('./ImageUploader.js')
-        .then(module => module.default);
-      
-      // Mostra il selettore immagini
-      const result = await ImageUploader.showImageSelector({
-        allowURL: true,
-        allowUpload: true
-      });
-      
-      // Gestisci il risultato in base al tipo
-      if (result.type === 'url') {
-        this.insertMarkdown(`![Image](${result.url})`);
-      } else if (result.type === 'file') {
-        await this.uploadImage(result.file);
-      }
-    } catch (error) {
-      // L'utente ha cancellato o c'è stato un errore
-      console.log('Image selection cancelled or error:', error);
-    }
-  }
-  
-  /**
-   * Gestisce l'upload di un'immagine
-   */
-  async uploadImage(file) {
-    try {
-      this.showUploadStatus('Uploading image...', 'info');
-      
-      // Importa i servizi necessari
-      const imageUploadService = await import('../services/ImageUploadService.js')
-        .then(module => module.default);
-      
-      const authService = await import('../services/AuthService.js')
-        .then(module => module.default);
-      
-      const user = authService.getCurrentUser();
-      if (!user) {
-        this.showUploadStatus('You must be logged in to upload images', 'error');
-        return;
-      }
-      
-      // Esegui upload
-      const imageUrl = await imageUploadService.uploadImage(file, user.username);
-      
-      // Inserisci l'immagine nell'editor
-      this.insertMarkdown(`![Image](${imageUrl})`);
-      
-      this.showUploadStatus('Image uploaded successfully!', 'success');
-    } catch (error) {
-      console.error('Image upload failed:', error);
-      this.showUploadStatus(`Upload failed: ${error.message}`, 'error');
-    }
-  }
-  
-  /**
    * Gestisce il caricamento e l'inserimento di immagini nell'editor
    */
   setupImageUpload() {
+    // Aggiungi un input file nascosto all'editor
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    fileInput.id = 'markdown-image-upload';
+    this.element.appendChild(fileInput);
+    
     // Trova il pulsante immagine nella toolbar
     const imageButton = this.element.querySelector('[data-action="image"]');
     if (imageButton) {
@@ -465,9 +413,126 @@ export default class MarkdownEditor extends Component {
       // Aggiungi il nuovo listener
       newImageButton.addEventListener('click', (e) => {
         e.preventDefault();
+        
+        // Mostra dialog semplice con opzioni
         this.showImageOptions();
       });
     }
+  }
+  
+  /**
+   * Mostra opzioni semplici per l'inserimento di immagini
+   */
+  showImageOptions() {
+    // Crea un dialog semplice
+    const modal = document.createElement('div');
+    modal.className = 'image-upload-modal';
+    
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add Image</h3>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="image-option" id="option-upload">
+            <span class="material-icons">cloud_upload</span>
+            <span>Upload Image</span>
+          </div>
+          <div class="image-option" id="option-url">
+            <span class="material-icons">link</span>
+            <span>Add Image URL</span>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Gestisci chiusura
+    const closeButton = modal.querySelector('.close-button');
+    closeButton.addEventListener('click', () => {
+      modal.remove();
+    });
+    
+    // Click esterno
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+    
+    // Gestisci opzione upload
+    const uploadOption = modal.querySelector('#option-upload');
+    uploadOption.addEventListener('click', () => {
+      modal.remove();
+      this.handleImageUpload();
+    });
+    
+    // Gestisci opzione URL
+    const urlOption = modal.querySelector('#option-url');
+    urlOption.addEventListener('click', () => {
+      modal.remove();
+      this.handleImageURL();
+    });
+  }
+  
+  /**
+   * Gestisce l'inserimento dell'immagine tramite URL
+   */
+  handleImageURL() {
+    const url = prompt('Enter image URL:');
+    if (url) {
+      this.insertMarkdown(`![Image](${url})`);
+    }
+  }
+  
+  /**
+   * Gestisce l'upload di un'immagine
+   */
+  async handleImageUpload() {
+    const fileInput = document.getElementById('markdown-image-upload');
+    
+    // Quando il file viene selezionato
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      try {
+        this.showUploadStatus('Uploading image...', 'info');
+        
+        // Importa il servizio di upload
+        const imageUploadService = await import('../services/ImageUploadService.js')
+          .then(module => module.default);
+        
+        // Importa il servizio di autenticazione
+        const authService = await import('../services/AuthService.js')
+          .then(module => module.default);
+        
+        const user = authService.getCurrentUser();
+        if (!user) {
+          this.showUploadStatus('You must be logged in to upload images', 'error');
+          return;
+        }
+        
+        // Esegui upload
+        const imageUrl = await imageUploadService.uploadImage(file, user.username);
+        
+        // Inserisci l'immagine nell'editor
+        this.insertMarkdown(`![Image](${imageUrl})`);
+        
+        this.showUploadStatus('Image uploaded successfully!', 'success');
+      } catch (error) {
+        console.error('Image upload failed:', error);
+        this.showUploadStatus(`Upload failed: ${error.message}`, 'error');
+      } finally {
+        // Reset input
+        fileInput.value = '';
+      }
+    };
+    
+    // Apri il selettore file
+    fileInput.click();
   }
   
   /**

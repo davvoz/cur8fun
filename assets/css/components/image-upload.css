@@ -25,13 +25,10 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(2px);
-  animation: fadeIn 0.2s ease-out;
 }
 
 /* IMPORTANTE: Aggiungiamo prefissi specifici a tutti i selettori per evitare conflitti */
-.image-upload-dialog .dialog-content,
-.image-upload-modal .modal-content {
+.image-upload-dialog .dialog-content {
   background-color: var(--background-color);
   border-radius: var(--radius-lg);
   width: 90%;
@@ -39,18 +36,24 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  animation: scaleIn 0.2s ease;
 }
 
-/* Ottimizza lo spazio nel modal */
 .image-upload-modal .modal-content {
-  display: flex;
-  flex-direction: column;
-  max-height: max-content;
+  background-color: var(--background-color);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* Header del modal */
-.image-upload-dialog .dialog-header,
+.image-upload-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
 .image-upload-modal .modal-header {
   display: flex;
   justify-content: space-between;
@@ -63,11 +66,8 @@
 .image-upload-modal .modal-header h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
-  color: var(--text-heading);
 }
 
-/* Pulsante di chiusura */
 .image-upload-dialog .close-button,
 .image-upload-modal .close-button {
   background: none;
@@ -75,194 +75,165 @@
   font-size: 24px;
   cursor: pointer;
   color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
 }
 
 .image-upload-dialog .close-button:hover,
 .image-upload-modal .close-button:hover {
-  background-color: var(--background-light);
   color: var(--text-color);
 }
 
-/* Tab di navigazione */
-.modal-tabs {
+/* Modifica importante: prefisso per i tab */
+.image-upload-dialog .dialog-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color);
 }
 
-.tab-btn {
+/* Modifica cruciale: rinomina le classi dei tab per evitare conflitti */
+.image-upload-dialog .img-tab-button {
   flex: 1;
-  padding: 12px 0;
+  padding: 10px 0;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
   font-weight: 500;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
 }
 
-.tab-btn:hover {
-  background-color: var(--background-light);
-  color: var(--text-color);
-}
-
-.tab-btn.active {
+.image-upload-dialog .img-tab-button.img-active {
   border-bottom-color: var(--primary-color);
   color: var(--primary-color);
 }
 
-/* Contenuto dei tab */
-.modal-body {
-  padding: 15px 20px;
+.image-upload-dialog .dialog-body,
+.image-upload-modal .modal-body {
+  padding: 20px;
 }
 
-.tab-content {
+/* Modifica cruciale: rinomina la classe dei contenuti tab */
+.image-upload-dialog .img-tab-content {
   display: none;
-  animation: fadeIn 0.3s ease;
 }
 
-.tab-content.active {
+.image-upload-dialog .img-tab-content.img-active {
   display: block;
 }
 
-/* Rimuovi il margine dall'ultimo elemento in ogni contenuto */
-.modal-body > *:last-child {
-  margin-bottom: 0;
-}
-
-/* Rimuove il margine dall'ultimo elemento in qualsiasi contenuto tab */
-.tab-content > *:last-child {
-  margin-bottom: 0;
-}
-
-/* Form groups */
-.form-group {
+.image-upload-dialog .form-group {
   margin-bottom: 15px;
 }
 
-.form-group label {
+.image-upload-dialog .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   font-weight: 500;
 }
 
-.form-group input {
+.image-upload-dialog .form-group input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background-color: var(--background-light);
-  font-size: 14px;
 }
 
-.form-group input:focus {
-  border-color: var(--primary-color);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 117, 24, 0.2);
-}
-
-/* Input con errore */
-.form-group input.error {
-  border-color: #dc3545;
-  animation: shake 0.3s ease-in-out;
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
-}
-
-/* Drop zone */
-.drop-zone {
+.image-upload-dialog .drop-zone {
   border: 2px dashed var(--border-color);
   border-radius: var(--radius-md);
   padding: 30px 20px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-bottom: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
 }
 
-.drop-zone:hover {
+.image-upload-dialog .drop-zone:hover {
   background-color: var(--background-light);
-  border-color: var(--text-secondary);
 }
 
-.drop-zone.active {
+.image-upload-dialog .drop-zone.drag-over {
   border-color: var(--primary-color);
   background-color: rgba(255, 117, 24, 0.05);
 }
 
-.drop-icon {
-  margin-bottom: 15px;
+.image-upload-dialog .drop-icon {
+  margin-bottom: 10px;
 }
 
-.drop-icon .material-icons {
+.image-upload-dialog .drop-icon .material-icons {
   font-size: 48px;
   color: var(--text-secondary);
 }
 
-.drop-text {
-  margin: 0 0 10px 0;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.drop-info {
-  margin: 0;
+.image-upload-dialog .drop-zone-info {
   font-size: 13px;
   color: var(--text-secondary);
+  margin-top: 10px;
 }
 
-/* Upload status */
-.upload-status {
+.image-upload-dialog .upload-status {
   margin-top: 15px;
-  padding: 10px 15px;
+  padding: 10px;
   border-radius: var(--radius-sm);
   text-align: center;
-  font-size: 14px;
-  animation: fadeIn 0.3s ease;
 }
 
 .upload-status.error {
   background-color: rgba(220, 53, 69, 0.1);
   color: #dc3545;
-  border-left: 3px solid #dc3545;
 }
 
 .upload-status.success {
   background-color: rgba(40, 167, 69, 0.1);
   color: #28a745;
-  border-left: 3px solid #28a745;
 }
 
 .upload-status.info {
   background-color: rgba(0, 123, 255, 0.1);
   color: #0d6efd;
-  border-left: 3px solid #0d6efd;
 }
 
-/* Upload spinner */
-.upload-spinner {
+.upload-status.hidden {
+  display: none;
+}
+
+.upload-status-message {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  z-index: 1001;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+}
+
+.upload-status-message.info {
+  background-color: rgba(0, 123, 255, 0.2);
+  color: #0d6efd;
+}
+
+.upload-status-message.success {
+  background-color: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+
+.upload-status-message.error {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.image-upload-dialog .spinner-container {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 15px;
 }
 
-.spinner-circle {
+.image-upload-dialog .spinner-container.hide {
+  display: none;
+}
+
+.image-upload-dialog .spinner-container .spinner {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 117, 24, 0.2);
@@ -272,85 +243,18 @@
   margin-right: 10px;
 }
 
-.spinner-text {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-/* Footer del modal */
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 20px;
-  border-top: 1px solid var(--border-color);
-  gap: 10px;
-}
-
-/* Nasconde il footer quando non contiene pulsanti */
-.modal-footer:empty {
-  display: none;
-}
-
-/* Pulsanti */
-.btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  border: none;
-  transition: background-color 0.2s, transform 0.1s;
-  font-size: 14px;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn:active {
-  transform: translateY(0);
-}
-
-.primary-btn {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.primary-btn:hover {
-  background-color: var(--primary-color-hover, #ff8c3b);
-}
-
-.secondary-btn {
-  background-color: var(--background-light);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.secondary-btn:hover {
-  background-color: var(--background-lighter);
-}
-
-/* Option item */
 .image-option {
   display: flex;
   align-items: center;
-  padding: 12px 15px;
+  padding: 15px;
   border-radius: 6px;
   cursor: pointer;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   transition: background-color 0.2s;
-}
-
-.image-option:last-child {
-  margin-bottom: 0;
 }
 
 .image-option:hover {
   background-color: var(--background-light);
-  transform: translateY(-1px);
-}
-
-.image-option:active {
-  transform: translateY(0);
 }
 
 .image-option .material-icons {
@@ -359,20 +263,9 @@
   color: var(--primary-color);
 }
 
-/* Animazioni */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
 }
 
 @keyframes slideIn {
@@ -386,38 +279,7 @@
   }
 }
 
-/* Stili per modal closing */
-.modal-overlay.closing,
-.image-upload-modal.closing {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.modal-dialog.closing {
-  transform: scale(0.95);
-  opacity: 0;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-/* Stili per mobile */
-@media (max-width: 768px) {
-  .image-upload-modal .modal-content {
-    width: 95%;
-    max-height: 95vh;
-  }
-  
-  .form-group label,
-  .form-group input,
-  .btn {
-    font-size: 16px; /* Testo più grande per mobile */
-  }
-  
-  .drop-zone {
-    padding: 20px 15px;
-  }
-}
-
-/* Profile image upload styles remain unchanged */
+/* Profile image upload */
 .upload-container {
   margin-top: 10px;
   margin-bottom: 15px;
@@ -433,6 +295,9 @@
   border: none;
   border-radius: var(--radius-sm, 4px);
   padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
 }
 
 .upload-btn:hover {
@@ -441,8 +306,183 @@
 
 .image-input-group {
   display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .image-preview {
   margin-top: 10px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color, #e0e0e0);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-light, #f5f5f5);
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-preview {
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+  background-position: center;
+  background-size: cover;
+}
+
+/* Form styling improvements */
+.edit-profile-form .form-group {
+  margin-bottom: 20px;
+}
+
+.edit-profile-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.edit-profile-form input[type="text"],
+.edit-profile-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--background-light, #f5f5f5);
+}
+
+.edit-profile-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.edit-profile-form .preview-btn {
+  background-color: var(--secondary-color, #6c757d);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.edit-profile-form .save-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 20px;
+  width: 100%;
+  transition: background-color 0.3s;
+}
+
+.edit-profile-form .save-btn:hover {
+  background-color: var(--primary-color-hover, #ff8c3b);
+}
+
+/* Stili per i modal dialog dell'active key */
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: var(--background-color, #fff);
+    border-radius: 8px;
+    padding: 25px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.warning-modal h3, 
+.key-input-modal h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    padding-bottom: 10px;
+}
+
+.warning-modal .security-tip {
+    display: block;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid #ffc107;
+    font-size: 14px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    background-color: var(--background-light, #f5f5f5);
+    color: var(--text-color, #333);
+    border: 1px solid var(--border-color, #ddd);
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.continue-btn, .submit-btn {
+    background-color: var(--primary-color, #ff751a);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.key-input-modal .input-group {
+    margin-bottom: 15px;
+}
+
+.key-input-modal label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.key-input-modal .key-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.key-input-modal .security-note {
+    font-size: 14px;
+    color: var(--text-secondary, #666);
+    margin-top: 10px;
+}
+
+.key-input-modal .checkbox-group {
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+}
+
+.key-input-modal .checkbox-group input {
+    margin-right: 10px;
 }

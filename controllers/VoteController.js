@@ -79,8 +79,7 @@ export default class VoteController {
     try {
       const existingVote = await voteService.hasVoted(author, permlink);
       if (existingVote) {
-        // Invece di mostrare solo la notifica, permettiamo di modificare il voto
-        this.handleVoteModification(upvoteBtn);
+        this.showAlreadyVotedNotification(existingVote.percent);
         return;
       }
     } catch (error) {
@@ -135,9 +134,6 @@ export default class VoteController {
         percentIndicator.textContent = `${weight / 100}%`;
         upvoteBtn.appendChild(percentIndicator);
         
-        // Store the vote percentage in the dataset
-        upvoteBtn.dataset.percent = weight;
-        
         this.addSuccessAnimation(upvoteBtn);
         
         // Show success notification
@@ -149,67 +145,6 @@ export default class VoteController {
         this.handleVoteError(error, upvoteBtn, countElement);
       }
     });
-  }
-  
-  async handleVoteModification(voteBtn) {
-    if (!voteBtn) return;
-    
-    const currentPercentText = voteBtn.querySelector('.vote-percent-indicator')?.textContent;
-    const currentPercent = currentPercentText 
-      ? parseInt(currentPercentText.replace('%', '')) 
-      : 100;
-
-    // Determina author e permlink dal dataset del pulsante o dal contesto
-    let author, permlink;
-    
-    if (voteBtn.dataset.author && voteBtn.dataset.permlink) {
-      // È un pulsante di commento
-      author = voteBtn.dataset.author;
-      permlink = voteBtn.dataset.permlink;
-    } else {
-      // È probabilmente un pulsante di post
-      // Cerca di ottenerli dal post corrente
-      const post = this.view.currentPost || this.view.post;
-      if (post) {
-        author = post.author;
-        permlink = post.permlink;
-      } else {
-        console.error('Non è possibile determinare author e permlink per la modifica del voto');
-        return;
-      }
-    }
-    
-    // Check if user is logged in
-    if (!this.checkLoggedIn()) return;
-    
-    // Show vote percentage selector with current percentage
-    this.showVotePercentagePopup(voteBtn, async (weight) => {
-      try {
-        const countElement = voteBtn.querySelector('.count');
-        const currentCount = countElement ? parseInt(countElement.textContent) || 0 : 0;
-        
-        this.setVotingState(voteBtn, true, weight);
-        
-        // Submit updated vote
-        await voteService.vote({
-          author,
-          permlink,
-          weight
-        });
-        
-        // Update UI
-        this.setVoteSuccessState(voteBtn, currentCount - 1, weight);
-        
-        // Show success notification
-        this.view.emit('notification', {
-          type: 'success',
-          message: `Il tuo voto è stato aggiornato a ${weight / 100}%!`
-        });
-      } catch (error) {
-        const countElement = voteBtn.querySelector('.count');
-        this.handleVoteError(error, voteBtn, countElement);
-      }
-    }, currentPercent);
   }
   
   checkLoggedIn() {
@@ -234,23 +169,7 @@ export default class VoteController {
       formattedPercent = percent / 100;
     }
 
-    // Mostra una notifica con opzione per modificare il voto
-    this.view.emit('notification', {
-      type: 'info',
-      message: `Hai già votato questo contenuto con ${formattedPercent}%`,
-      duration: 5000,
-      action: {
-        text: 'Modifica voto',
-        callback: () => {
-          // Trova il pulsante di voto nel post o commento attuale
-          const voteBtn = this.view.element.querySelector('.voted.upvote-btn');
-          if (voteBtn) {
-            // Mostra il popup di selezione percentuale per modificare il voto
-            this.handleVoteModification(voteBtn);
-          }
-        }
-      }
-    });
+
   }
   
   setVotingState(button, isVoting, weight) {
