@@ -11,6 +11,8 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  opacity: 0;
+  animation: modalFadeIn 0.4s ease-out 0.1s forwards;
 }
 
 /* Stile per dialog dell'upload immagini */
@@ -25,6 +27,8 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  opacity: 0;
+  animation: modalFadeIn 0.4s ease-out 0.1s forwards;
 }
 
 /* IMPORTANTE: Aggiungiamo prefissi specifici a tutti i selettori per evitare conflitti */
@@ -36,6 +40,9 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(20px);
+  opacity: 0;
+  animation: modalContentAppear 0.4s ease-out 0.2s forwards;
 }
 
 .image-upload-modal .modal-content {
@@ -44,6 +51,9 @@
   width: 90%;
   max-width: 400px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(20px);
+  opacity: 0;
+  animation: modalContentAppear 0.4s ease-out 0.2s forwards;
 }
 
 .image-upload-dialog .dialog-header {
@@ -401,6 +411,8 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    opacity: 0;
+    animation: modalFadeIn 0.4s ease-out 0.1s forwards;
 }
 
 .modal-content {
@@ -410,6 +422,9 @@
     max-width: 500px;
     width: 90%;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(20px);
+    opacity: 0;
+    animation: modalContentAppear 0.4s ease-out 0.2s forwards;
 }
 
 .warning-modal h3, 
@@ -485,4 +500,21 @@
 
 .key-input-modal .checkbox-group input {
     margin-right: 10px;
+}
+
+/* Aggiungiamo le animazioni personalizzate */
+@keyframes modalFadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes modalContentAppear {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
