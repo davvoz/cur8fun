@@ -122,10 +122,13 @@ export default class VoteController {
         iconElement.textContent = 'thumb_up_alt';
         upvoteBtn.appendChild(iconElement);
         
-        // Create new count element
+        // IMPORTANTE: Assicuriamoci di incrementare il contatore
+        const newCount = currentCount + 1;
+        
+        // Create new count element with the updated value
         const newCountElement = document.createElement('span');
         newCountElement.className = 'count';
-        newCountElement.textContent = (currentCount + 1);
+        newCountElement.textContent = newCount;
         upvoteBtn.appendChild(newCountElement);
         
         // Add vote percentage indicator
@@ -141,7 +144,29 @@ export default class VoteController {
           type: 'success',
           message: `Your ${weight / 100}% vote on this comment was recorded successfully!`
         });
+        
+        // Aggiorniamo anche il valore nel modello del commento se disponibile
+        if (commentParam && typeof commentParam === 'object') {
+          if (!commentParam.active_votes) {
+            commentParam.active_votes = [];
+          }
+          
+          const user = authService.getCurrentUser();
+          if (user) {
+            // Aggiungi il voto dell'utente all'array active_votes
+            commentParam.active_votes.push({
+              voter: user.username,
+              percent: weight
+            });
+          }
+        }
+        
       } catch (error) {
+        // Restore original button state in case of error
+        upvoteBtn.disabled = false;
+        upvoteBtn.classList.remove('voting');
+        upvoteBtn.innerHTML = originalButtonHtml;
+        
         this.handleVoteError(error, upvoteBtn, countElement);
       }
     });
