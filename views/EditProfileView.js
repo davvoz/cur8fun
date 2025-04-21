@@ -357,13 +357,13 @@ class EditProfileView extends View {
         console.log('Updated profile object:', updatedProfile);
 
         try {
-            // Mostra un modal che offre all'utente le due opzioni:
-            // 1. Usare una chiave active direttamente
-            // 2. Usare Steem Keychain (se disponibile)
+            // Show a modal that offers the user two options:
+            // 1. Use an active key directly
+            // 2. Use Steem Keychain (if available)
             const authChoice = await this.showAuthChoiceModal();
             
             if (authChoice === 'active_key') {
-                // L'utente ha scelto di usare una chiave active
+                // User chose to use an active key
                 const activeKey = await this.promptForActiveKey();
                 if (!activeKey) {
                     eventEmitter.emit('notification', {
@@ -373,15 +373,15 @@ class EditProfileView extends View {
                     return;
                 }
                 
-                // Aggiorna il profilo usando la chiave fornita
+                // Update profile using the provided key
                 await profileService.updateProfile(this.username, updatedProfile, activeKey);
             } 
             else if (authChoice === 'keychain') {
-                // L'utente ha scelto di usare Steem Keychain
+                // User chose to use Steem Keychain
                 await profileService.updateProfile(this.username, updatedProfile);
             }
             else {
-                // L'utente ha annullato
+                // User cancelled
                 return;
             }
             
@@ -400,103 +400,104 @@ class EditProfileView extends View {
     }
     
     async showAuthChoiceModal() {
+        console.log("showAuthChoiceModal called");
+        
         return new Promise((resolve) => {
             const isKeychainAvailable = typeof window !== 'undefined' && window.steem_keychain;
             
-            // Create modal for the auth choice
+            // Create modal HTML directly
+            const modalHTML = `
+                <div class="auth-modal-overlay" id="authModalOverlay">
+                    <div class="auth-modal-content">
+                        <h3 class="auth-modal-header">Choose Authentication Method</h3>
+                        <p>
+                            <strong>Updating your profile requires Active authority.</strong>
+                            <br><br>
+                            Please select how you want to authenticate this operation:
+                        </p>
+                        <div class="auth-options">
+                            <div class="auth-option">
+                                <h4>Use Active Key</h4>
+                                <p>Enter your active private key to sign this transaction directly.</p>
+                                <p>⚠️ Your key will only be used to sign this transaction and will not be stored.</p>
+                                <button class="auth-btn auth-btn-primary" id="activeKeyBtn">Use Active Key</button>
+                            </div>
+                            ${isKeychainAvailable ? `
+                                <div class="auth-option">
+                                    <h4>Use Steem Keychain</h4>
+                                    <p>Sign the transaction securely using the Steem Keychain browser extension.</p>
+                                    <button class="auth-btn auth-btn-blue" id="keychainBtn">Use Keychain</button>
+                                </div>
+                            ` : `
+                                <div class="auth-option">
+                                    <h4>Steem Keychain Not Available</h4>
+                                    <p>Steem Keychain extension is not detected in your browser.</p>
+                                    <a href="https://github.com/steem-monsters/steem-keychain" target="_blank">Get Steem Keychain</a>
+                                </div>
+                            `}
+                        </div>
+                        <div class="auth-modal-footer">
+                            <button class="auth-btn auth-btn-secondary" id="cancelAuthBtn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert modal into DOM
             const modalContainer = document.createElement('div');
-            modalContainer.className = 'modal-container';
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
             
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
+            console.log("Modal inserted into DOM");
             
-            const header = document.createElement('h3');
-            header.className = 'modal-header';
-            header.textContent = 'Choose Authentication Method';
+            // Get references to buttons after they're in the DOM
+            const modal = document.getElementById('authModalOverlay');
+            const activeKeyBtn = document.getElementById('activeKeyBtn');
+            const keychainBtn = document.getElementById('keychainBtn');
+            const cancelBtn = document.getElementById('cancelAuthBtn');
             
-            const message = document.createElement('p');
-            message.className = 'modal-body';
-            message.innerHTML = `
-                <strong>Updating your profile requires Active authority.</strong>
-                <br><br>
-                Please select how you want to authenticate this operation:
-            `;
+            // Make sure we have references to all buttons
+            console.log("Modal elements:", { 
+                modal: !!modal, 
+                activeKeyBtn: !!activeKeyBtn, 
+                keychainBtn: !!keychainBtn, 
+                cancelBtn: !!cancelBtn 
+            });
             
-            const optionsContainer = document.createElement('div');
-            optionsContainer.className = 'auth-options';
-            
-            // Opzione 1: Inserisci Active Key
-            const keyOption = document.createElement('div');
-            keyOption.className = 'auth-option';
-            keyOption.innerHTML = `
-                <h4>Use Active Key</h4>
-                <p>Enter your active private key to sign this transaction directly.</p>
-                <p class="security-tip">⚠️ Your key will only be used to sign this transaction and will not be stored.</p>
-                <button class="modal-btn modal-btn-primary key-btn">Use Active Key</button>
-            `;
-            
-            // Opzione 2: Usa Keychain (se disponibile)
-            const keychainOption = document.createElement('div');
-            keychainOption.className = 'auth-option';
-            
-            if (isKeychainAvailable) {
-                keychainOption.innerHTML = `
-                    <h4>Use Steem Keychain</h4>
-                    <p>Sign the transaction securely using the Steem Keychain browser extension.</p>
-                    <button class="modal-btn modal-btn-success keychain-btn">Use Keychain</button>
-                `;
-            } else {
-                keychainOption.innerHTML = `
-                    <h4>Steem Keychain Not Available</h4>
-                    <p>Steem Keychain extension is not detected in your browser.</p>
-                    <a href="https://github.com/steem-monsters/steem-keychain" target="_blank" class="keychain-link">Get Steem Keychain</a>
-                `;
-            }
-            
-            // Aggiunge le opzioni al container
-            optionsContainer.appendChild(keyOption);
-            optionsContainer.appendChild(keychainOption);
-            
-            // Pulsante per chiudere/annullare
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'modal-footer';
-            
-            const cancelButton = document.createElement('button');
-            cancelButton.className = 'modal-btn modal-btn-secondary';
-            cancelButton.textContent = 'Cancel';
-            
-            buttonContainer.appendChild(cancelButton);
-            
-            // Assembla il modal
-            modalContent.appendChild(header);
-            modalContent.appendChild(message);
-            modalContent.appendChild(optionsContainer);
-            modalContent.appendChild(buttonContainer);
-            
-            modalContainer.appendChild(modalContent);
-            document.body.appendChild(modalContainer);
-            
-            // Event listeners
-            cancelButton.onclick = () => {
-                document.body.removeChild(modalContainer);
-                resolve(null);
+            // Add event listeners
+            const cleanup = () => {
+                if (modal && document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
+                console.log("Modal cleaned up");
             };
             
-            const keyBtn = modalContainer.querySelector('.key-btn');
-            if (keyBtn) {
-                keyBtn.onclick = () => {
-                    document.body.removeChild(modalContainer);
+            if (activeKeyBtn) {
+                activeKeyBtn.addEventListener('click', () => {
+                    console.log("Active key button clicked");
+                    cleanup();
                     resolve('active_key');
-                };
+                });
             }
             
-            const keychainBtn = modalContainer.querySelector('.keychain-btn');
             if (keychainBtn && isKeychainAvailable) {
-                keychainBtn.onclick = () => {
-                    document.body.removeChild(modalContainer);
+                keychainBtn.addEventListener('click', () => {
+                    console.log("Keychain button clicked");
+                    cleanup();
                     resolve('keychain');
-                };
+                });
             }
+            
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    console.log("Cancel button clicked");
+                    cleanup();
+                    resolve(null);
+                });
+            }
+            
+            // Log when the modal is supposed to be visible
+            console.log("Modal should now be visible");
         });
     }
     
@@ -562,80 +563,160 @@ class EditProfileView extends View {
     }
     
     async promptForActiveKey() {
+        console.log("promptForActiveKey called");
+        
         return new Promise((resolve) => {
-            // Create modal for active key input
-            const modalContainer = document.createElement('div');
-            modalContainer.className = 'modal-container';
-            
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
-            
-            const header = document.createElement('h3');
-            header.className = 'modal-header';
-            header.textContent = 'Enter Active Key';
-            
-            const form = document.createElement('form');
-            form.className = 'modal-body';
-            form.onsubmit = (e) => {
-                e.preventDefault();
-                const key = keyInput.value.trim();
-                document.body.removeChild(modalContainer);
-                resolve(key);
-            };
-            
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'input-group';
-            
-            const keyInput = document.createElement('input');
-            keyInput.type = 'password';
-            keyInput.placeholder = 'Your Active Key';
-            keyInput.required = true;
-            keyInput.className = 'key-input';
-            
-            const securityNote = document.createElement('div');
-            securityNote.className = 'banner banner-info';
-            securityNote.innerHTML = `
-                <span class="banner-icon">ℹ️</span>
-                <div class="banner-content">
-                    <strong>Security Note:</strong> Your key is never stored and is only used for this transaction.
+            // Create modal HTML directly
+            const modalHTML = `
+                <div class="auth-modal-overlay" id="activeKeyModalOverlay">
+                    <div class="auth-modal-content">
+                        <h3 class="auth-modal-header">Enter Active Key</h3>
+                        <form class="auth-form" id="activeKeyForm">
+                            <div class="auth-input-group">
+                                <input type="password" 
+                                       id="activeKeyInput" 
+                                       class="auth-input" 
+                                       placeholder="Your Active Key" 
+                                       required>
+                                <div class="auth-error" id="keyError"></div>
+                            </div>
+                            
+                            <div class="auth-security-note">
+                                <strong>Security Note:</strong> Your key is never stored and is only used for this transaction.
+                            </div>
+                            
+                            <div class="auth-modal-footer">
+                                <button type="button" class="auth-btn auth-btn-secondary" id="cancelKeyBtn">Cancel</button>
+                                <button type="submit" class="auth-btn auth-btn-primary" id="submitKeyBtn">Submit</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             `;
             
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'modal-footer';
+            // Insert modal into DOM
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer.firstElementChild);
             
-            const cancelButton = document.createElement('button');
-            cancelButton.type = 'button';
-            cancelButton.className = 'modal-btn modal-btn-secondary';
-            cancelButton.textContent = 'Cancel';
+            console.log("Active key modal inserted into DOM");
             
-            const submitButton = document.createElement('button');
-            submitButton.type = 'submit';
-            submitButton.className = 'modal-btn modal-btn-primary';
-            submitButton.textContent = 'Submit';
+            // Get references to modal elements
+            const modal = document.getElementById('activeKeyModalOverlay');
+            const form = document.getElementById('activeKeyForm');
+            const keyInput = document.getElementById('activeKeyInput');
+            const keyError = document.getElementById('keyError');
+            const cancelBtn = document.getElementById('cancelKeyBtn');
             
-            buttonContainer.appendChild(cancelButton);
-            buttonContainer.appendChild(submitButton);
+            console.log("Active key modal elements:", {
+                modal: !!modal,
+                form: !!form,
+                keyInput: !!keyInput,
+                keyError: !!keyError,
+                cancelBtn: !!cancelBtn
+            });
             
-            inputGroup.appendChild(keyInput);
-            form.appendChild(inputGroup);
-            form.appendChild(securityNote);
-            
-            modalContent.appendChild(header);
-            modalContent.appendChild(form);
-            modalContent.appendChild(buttonContainer);
-            
-            modalContainer.appendChild(modalContent);
-            document.body.appendChild(modalContainer);
-            
-            // Event listeners
-            cancelButton.onclick = () => {
-                document.body.removeChild(modalContainer);
-                resolve(null);
+            // Setup cleanup function - using let instead of const so it can be reassigned later
+            let cleanup = () => {
+                if (modal && document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
+                console.log("Active key modal cleaned up");
             };
             
-            // Focus on the input field
-            setTimeout(() => keyInput.focus(), 100);
+            // Validate and clean the active key
+            const validateActiveKey = (key) => {
+                // Remove spaces at the beginning and end
+                let cleanedKey = key.trim();
+                
+                // Check that it starts with "5" (typical of Active Steem keys)
+                if (!cleanedKey.startsWith('5')) {
+                    return { valid: false, key: cleanedKey, error: 'Invalid Active key format. Active keys typically begin with "5".' };
+                }
+                
+                // Check the length (private Steem keys are typically 51-52 characters)
+                if (cleanedKey.length < 50 || cleanedKey.length > 53) {
+                    return { valid: false, key: cleanedKey, error: 'Invalid key length. Active keys are typically 51-52 characters long.' };
+                }
+                
+                // Check for invalid characters in the Base58 format
+                // Base58 in Steem uses: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+                const base58Regex = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/;
+                if (!base58Regex.test(cleanedKey)) {
+                    return { valid: false, key: cleanedKey, error: 'Key contains invalid characters. Only base58 characters are allowed.' };
+                }
+                
+                return { valid: true, key: cleanedKey, error: null };
+            };
+            
+            // Add event listeners
+            if (form) {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    console.log("Active key form submitted");
+                    
+                    // Validate the key before proceeding
+                    const rawKey = keyInput.value;
+                    const validation = validateActiveKey(rawKey);
+                    
+                    if (!validation.valid) {
+                        // Show the error
+                        keyError.textContent = validation.error;
+                        keyError.style.display = 'block';
+                        console.log("Key validation failed:", validation.error);
+                        return;
+                    }
+                    
+                    // Proceed with the validated key
+                    cleanup();
+                    resolve(validation.key);
+                });
+            }
+            
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    console.log("Active key cancel button clicked");
+                    cleanup();
+                    resolve(null);
+                });
+            }
+            
+            // Focus on the input field with a slight delay
+            if (keyInput) {
+                setTimeout(() => {
+                    keyInput.focus();
+                    console.log("Active key input focused");
+                }, 100);
+            }
+            
+            console.log("Active key modal should now be visible");
+            
+            // Prevent accidental closing of the modal
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                });
+            }
+            
+            // Prevent closing with the ESC key
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            };
+            
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Add cleanup for the event listener
+            const originalCleanup = cleanup;
+            cleanup = () => {
+                document.removeEventListener('keydown', handleKeyDown);
+                originalCleanup();
+            };
         });
     }
 }
