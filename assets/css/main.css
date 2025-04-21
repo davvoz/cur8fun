@@ -39,6 +39,7 @@
 @import 'pages/home.css';
 @import 'pages/tag.css';
 @import 'pages/wallet/wallet.css'; 
+@import 'pages/wallet/curation.css'; /* Aggiunto import per gli stili della tab curazione */
 @import 'pages/communities-list.css';
 @import 'pages/followers-modal.css';
 @import 'pages/following-modal.css';

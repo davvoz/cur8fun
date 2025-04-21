@@ -459,7 +459,7 @@ export default class CurationTab extends Component {
   async handleCalculateClick() {
     if (this.isLoading) return;
     
-    const username = this.targetUsername || this.element.querySelector('#curator-username').value.trim();
+    const username = this.targetUsername || this.element.querySelector('#curator-username').value.trim().toLowerCase();
     const days = this.selectedDays || parseInt(this.element.querySelector('#analysis-days').value, 10);
     
     if (!username) {

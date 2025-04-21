@@ -11,6 +11,11 @@
   min-width: 150px;
 }
 
+/* Force username input to display as lowercase */
+#curator-username {
+  text-transform: lowercase;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
