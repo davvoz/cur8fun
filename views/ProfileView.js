@@ -560,9 +560,9 @@ class ProfileView extends View {
       this.commentsContainer = null;
     }
     
-    // Clean up wallet component
+    // Clean up wallet component - usa destroy() invece di unmount()
     if (this.walletHistoryComponent) {
-      this.walletHistoryComponent.unmount();
+      this.walletHistoryComponent.destroy(); // Metodo corretto dalla classe base
       this.walletHistoryComponent = null;
     }
   }

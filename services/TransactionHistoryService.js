@@ -333,6 +333,91 @@ class TransactionHistoryService {
   sortTransactions(transactions, direction = 'desc') {
     return filterService.sortTransactions(transactions, direction);
   }
+  
+  /**
+   * Recupera e unifica i tipi di transazione unici da un array di transazioni
+   * @param {Array} transactions - Array di transazioni da analizzare
+   * @returns {Object} - Oggetto con i tipi di transazione come chiavi e conteggio come valori
+   */
+  extractTransactionTypes(transactions) {
+    const typeCounts = {};
+    const processedIds = new Set();
+    
+    for (const tx of transactions) {
+      // Evita di contare la stessa transazione due volte
+      if (processedIds.has(tx.id)) continue;
+      processedIds.add(tx.id);
+      
+      const txType = tx.type || 'other';
+      typeCounts[txType] = (typeCounts[txType] || 0) + 1;
+    }
+    
+    return typeCounts;
+  }
+  
+  /**
+   * Ottiene la mappa standard di icone per i tipi di transazione
+   * @returns {Object} - Oggetto con tipi di transazione come chiavi e nomi di icone come valori
+   */
+  getStandardIconMap() {
+    return {
+      transfer: 'swap_horiz',
+      claim_reward_balance: 'card_giftcard',
+      vote: 'thumb_up',
+      comment: 'comment',
+      curation_reward: 'workspace_premium',
+      author_reward: 'stars',
+      delegate_vesting_shares: 'engineering',
+      fill_order: 'shopping_cart',
+      limit_order: 'receipt_long',
+      producer_reward: 'verified',
+      account_update: 'manage_accounts',
+      effective_comment_vote: 'how_to_vote',
+      withdraw_vesting: 'power_off',
+      liquidity_reward: 'water_drop',
+      interest: 'trending_up',
+      transfer_to_vesting: 'upgrade',
+      cancel_transfer_from_savings: 'cancel',
+      return_vesting_delegation: 'keyboard_return',
+      proposal_pay: 'description',
+      escrow_transfer: 'security',
+      escrow_approve: 'check_circle',
+      escrow_dispute: 'gavel',
+      escrow_release: 'lock_open',
+      fill_convert_request: 'sync_alt',
+      transfer_to_savings: 'savings',
+      transfer_from_savings: 'move_up',
+      comment_benefactor_reward: 'volunteer_activism',
+      comment_reward: 'emoji_events',
+      witness_update: 'update',
+      witness_vote: 'how_to_vote',
+      create_claimed_account: 'person_add',
+      feed_publish: 'publish',
+      other: 'more_horiz'
+    };
+  }
+  
+  /**
+   * Recupera lo stato di filtro predefinito per tutti i tipi di transazioni
+   * @param {boolean} defaultValue - Valore predefinito per i filtri (true = attivo)
+   * @returns {Object} - Oggetto con tipi di transazione come chiavi e defaultValue come valori
+   */
+  getDefaultFilterState(defaultValue = true) {
+    return {
+      transfer: defaultValue,
+      vote: defaultValue,
+      comment: defaultValue,
+      claim_reward_balance: defaultValue,
+      transfer_to_vesting: defaultValue,
+      withdraw_vesting: defaultValue,
+      curation_reward: defaultValue,
+      author_reward: defaultValue,
+      comment_reward: defaultValue,
+      delegate_vesting_shares: defaultValue,
+      custom_json: defaultValue,
+      other: defaultValue
+    };
+  }
 }
 
 // Crea e esporta una singola istanza del servizio
