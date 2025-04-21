@@ -7,3 +7,4 @@ utils/output
 assets/tests/input.txt
 assets/tests/output.txt
 assets/tests/target.txt
+/.well-known
