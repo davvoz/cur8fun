@@ -47,7 +47,13 @@ class AuthService {
      * Check if SteemKeychain extension is installed
      */
     isKeychainInstalled() {
-        return window.steem_keychain !== undefined;
+        // Prima verifica l'esistenza dell'oggetto steem_keychain
+        const keychainExistsInWindow = window.steem_keychain !== undefined;
+        
+        // Aggiunge del logging per debug
+        console.log(`[AuthService] isKeychainInstalled check: ${keychainExistsInWindow}`);
+        
+        return keychainExistsInWindow;
     }
 
     /**
@@ -300,15 +306,29 @@ class AuthService {
         if (!user) return false;
         
         // User explicitly logged in with active key
-        if (user.keyType === 'active') return true;
+        if (user.keyType === 'active') {
+            console.log("[AuthService] hasActiveKeyAccess: User logged in with active key");
+            return true;
+        }
         
         // Check if we have a stored active key
         const activeKey = this.getActiveKey();
-        if (activeKey) return true;
+        if (activeKey) {
+            console.log("[AuthService] hasActiveKeyAccess: Active key found in storage");
+            return true;
+        }
         
-        // For Keychain users, we'll need to request later
-        if (user.loginMethod === 'keychain') return true;
+        // Per gli utenti Keychain, assumiamo che abbiano accesso a active key
+        // Keychain richiederà la conferma al momento dell'operazione
+        if (user.loginMethod === 'keychain') {
+            const keychainInstalled = this.isKeychainInstalled();
+            console.log(`[AuthService] hasActiveKeyAccess: User uses Keychain, extension available: ${keychainInstalled}`);
+            if (keychainInstalled) {
+                return true;
+            }
+        }
         
+        console.log("[AuthService] hasActiveKeyAccess: No active key access detected");
         return false;
     }
 
