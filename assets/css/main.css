@@ -65,7 +65,8 @@
 @import 'components/auth-error-popup.css';
 
 /* Mobile search button in header */
-.mobile-search-button {
+.mobile-search-button,
+.mobile-faucet-button {
     display: none;
     color: var(--text-primary);
     margin-right: 12px;
@@ -84,7 +85,8 @@
     display: none ;
   }
 
-  .mobile-search-button {
+  .mobile-search-button,
+  .mobile-faucet-button {
     display: flex;
     align-items: center;
     justify-content: center;

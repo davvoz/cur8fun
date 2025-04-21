@@ -112,6 +112,22 @@ function renderAuthenticatedNav(container, user) {
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
   
+  
+  
+  // Mobile faucet button - add next to search button
+  const mobileFaucetButton = document.createElement('a');
+  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet';
+  mobileFaucetButton.className = 'mobile-faucet-button';
+  mobileFaucetButton.target = '_blank';
+  mobileFaucetButton.rel = 'noopener noreferrer';
+  const faucetIcon = document.createElement('span');
+  faucetIcon.className = 'icon';
+  // Use FontAwesome icon to match desktop navigation
+  const faIcon = document.createElement('i');
+  faIcon.className = 'fas fa-faucet';
+  faucetIcon.appendChild(faIcon);
+  mobileFaucetButton.appendChild(faucetIcon);
+  navActions.appendChild(mobileFaucetButton);
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';
@@ -121,7 +137,6 @@ function renderAuthenticatedNav(container, user) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
-  
   // Notifications button
   navActions.appendChild(createNotificationsButton());
   
@@ -145,6 +160,21 @@ function renderUnauthenticatedNav(container) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
+  
+  // Mobile faucet button - add next to search button
+  const mobileFaucetButton = document.createElement('a');
+  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet';
+  mobileFaucetButton.className = 'mobile-faucet-button';
+  mobileFaucetButton.target = '_blank';
+  mobileFaucetButton.rel = 'noopener noreferrer';
+  const faucetIcon = document.createElement('span');
+  faucetIcon.className = 'icon';
+  // Use FontAwesome icon to match desktop navigation
+  const faIcon = document.createElement('i');
+  faIcon.className = 'fas fa-faucet';
+  faucetIcon.appendChild(faIcon);
+  mobileFaucetButton.appendChild(faucetIcon);
+  navActions.appendChild(mobileFaucetButton);
   
   // Login button
   const loginBtn = document.createElement('a');
