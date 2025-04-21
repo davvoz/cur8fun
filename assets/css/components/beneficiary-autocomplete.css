@@ -453,39 +453,49 @@
   margin-top: 8px;
 }
 
+/* Stili per i pulsanti delle percentuali predefinite */
+.percent-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+.percent-preset-btn {
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 3px);
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-color);
+  min-width: 50px;
+  text-align: center;
+}
+
+.percent-preset-btn:hover {
+  background-color: var(--background-lighter);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.percent-preset-btn:active {
+  transform: scale(0.97);
+}
+
+.percent-preset-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
 .add-beneficiary-dialog .dialog-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
-}
-
-.add-beneficiary-dialog .btn {
-  padding: 10px 16px;
-  border-radius: var(--radius-md, 4px);
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-}
-
-.add-beneficiary-dialog .primary-btn {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.add-beneficiary-dialog .primary-btn:hover {
-  background-color: var(--primary-color-dark, #0056b3);
-}
-
-.add-beneficiary-dialog .secondary-btn {
-  background-color: var(--background-light);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-}
-
-.add-beneficiary-dialog .secondary-btn:hover {
-  background-color: var(--background-lighter);
 }
 
 .add-beneficiary-dialog .dialog-error {
