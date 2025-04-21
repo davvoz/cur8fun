@@ -162,6 +162,53 @@ class AuthService {
     }
 
     /**
+     * Login specifico con active key
+     * @param {string} username - Steem username
+     * @param {string} activeKey - La chiave active dell'utente
+     * @param {boolean} remember - Se memorizzare la chiave per uso futuro
+     * @returns {Promise<Object>} - Oggetto utente autenticato
+     */
+    async loginWithActiveKey(username, activeKey, remember = true) {
+        try {
+            // Verifica che la chiave sia valida come active key
+            await this.verifyKey(username, activeKey, 'active');
+            
+            // Effettua il login standard specificando 'active' come tipo di chiave
+            return this.login(username, activeKey, remember, 'active');
+        } catch (error) {
+            console.error('Active key login failed:', error);
+            throw new Error(error.message || 'Authentication failed with active key');
+        }
+    }
+
+    /**
+     * Login specifico con posting key (alias per maggiore chiarezza)
+     * @param {string} username - Steem username
+     * @param {string} postingKey - La chiave posting dell'utente
+     * @param {boolean} remember - Se memorizzare la chiave per uso futuro
+     * @returns {Promise<Object>} - Oggetto utente autenticato
+     */
+    async loginWithPostingKey(username, postingKey, remember = true) {
+        try {
+            // Se la posting key è null, verifica se è già memorizzata
+            if (postingKey === null) {
+                const storedKey = this.getPostingKey();
+                if (storedKey) {
+                    postingKey = storedKey;
+                } else {
+                    throw new Error('No posting key provided or stored');
+                }
+            }
+            
+            // Usa il metodo login standard con tipo 'posting'
+            return this.login(username, postingKey, remember, 'posting');
+        } catch (error) {
+            console.error('Posting key login failed:', error);
+            throw new Error(error.message || 'Authentication failed with posting key');
+        }
+    }
+
+    /**
      * Verifies that a key is valid for the specified key type
      * @param {string} username - Username Steem
      * @param {string} privateKey - Key to verify

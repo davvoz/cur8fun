@@ -2,6 +2,7 @@ import Component from '../Component.js';
 import authService from '../../services/AuthService.js';
 import eventEmitter from '../../utils/EventEmitter.js';
 import router from '../../utils/Router.js';
+import activeKeyInput from '../auth/ActiveKeyInputComponent.js'; // Importo il componente centralizzato
 
 /**
  * Component that shows a warning when the user doesn't have access with active key
@@ -235,16 +236,68 @@ class ActiveKeyWarningComponent extends Component {
   /**
    * Handles the click on the button to log in with active key
    */
-  handleActiveKeyLogin() {
-    // Perform logout
-    authService.logout();
-    
-    // Use the application router for redirection instead of window.location.href
-    // This ensures the parameter is correctly handled by the routing system
-    router.navigate('/login', { 
-      active: true,
-      returnUrl: window.location.pathname // Save the current page to return after login
-    });
+  async handleActiveKeyLogin() {
+    // Utilizzo il componente centralizzato ActiveKeyInputComponent
+    try {
+      const activeKey = await activeKeyInput.promptForActiveKey('Enter Active Key for Wallet Access');
+      
+      if (!activeKey) {
+        // L'utente ha annullato l'inserimento
+        console.log('[ActiveKeyWarningComponent] Active key input cancelled by user');
+        return;
+      }
+      
+      // Store username before logout
+      const username = this.username;
+      
+      if (!username) {
+        eventEmitter.emit('notification', {
+          type: 'error',
+          message: 'No user is currently logged in. Please login first.'
+        });
+        return;
+      }
+      
+      // Tenta di autenticarsi con la active key
+      try {
+        console.log('[ActiveKeyWarningComponent] Attempting to login with active key');
+        
+        // Esegui il logout per sicurezza
+        authService.logout();
+        
+        // Esegui il login con l'active key
+        await authService.loginWithActiveKey(username, activeKey);
+        
+        // Se arriviamo qui, l'autenticazione è riuscita
+        eventEmitter.emit('notification', {
+          type: 'success',
+          message: 'Successfully authenticated with Active Key'
+        });
+        
+        // Ricarica la pagina per aggiornare lo stato
+        window.location.reload();
+      } catch (error) {
+        console.error('[ActiveKeyWarningComponent] Active key login failed:', error);
+        
+        eventEmitter.emit('notification', {
+          type: 'error',
+          message: `Authentication failed: ${error.message || 'Invalid active key'}`
+        });
+        
+        // Se l'autenticazione fallisce, ripristina l'accesso base
+        try {
+          await authService.loginWithPostingKey(username, null); // null perché utilizziamo il localStorage o sessionStorage
+        } catch {
+          // Ignora errori nel tentativo di ripristino
+        }
+      }
+    } catch (error) {
+      console.error('[ActiveKeyWarningComponent] Error during active key input:', error);
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: `Error processing active key: ${error.message || 'Unknown error'}`
+      });
+    }
   }
   
   /**
