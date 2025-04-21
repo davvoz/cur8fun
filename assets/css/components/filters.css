@@ -7,54 +7,179 @@
   margin-top: var(--space-sm);
 }
 
-.filter-container details {
+/* Miglioramenti dell'header delle transazioni */
+.transaction-header {
+  margin-bottom: var(--space-md);
+}
+
+.transaction-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.transaction-header-row h3 {
+  margin: 0;
+  color: var(--text-heading);
+}
+
+/* Nuovi stili per i dettagli dei filtri */
+.filter-details {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   overflow: hidden;
+  margin-bottom: var(--space-md);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.filter-container summary {
+.filter-summary {
   cursor: pointer;
-  color: var(--text-heading);
-  font-weight: 600;
+  padding: var(--space-sm);
   display: flex;
   align-items: center;
-  padding: var(--space-xs) var(--space-sm);
   background-color: var(--surface);
-  border-radius: var(--radius-sm);
+  color: var(--text-heading);
+  font-weight: 600;
+  user-select: none;
 }
 
-.filter-container summary:hover {
-  background-color: var(--background-hover);
-}
-
-.filter-container summary::-webkit-details-marker {
+.filter-summary::-webkit-details-marker {
   display: none;
 }
 
-.filter-container summary::before {
-  content: 'filter_list';
-  font-family: 'Material Icons';
-  margin-right: var(--space-xs);
-  font-size: 1.1rem;
+.filter-toggle-icon {
+  margin-right: var(--space-sm);
   color: var(--primary-color);
 }
 
-.filter-container summary::after {
-  content: 'expand_more';
-  font-family: 'Material Icons';
-  margin-left: auto;
-  transition: transform 0.2s;
+/* Quick filter row */
+.quick-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm);
+  background-color: var(--surface-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+  gap: var(--space-sm);
 }
 
-.filter-container details[open] summary::after {
-  transform: rotate(180deg);
+/* Search filter */
+.search-filter-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
 }
 
-.filter-options {
-  background: var(--surface);
+.search-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.search-input-container {
+  position: relative;
+  flex: 1;
+  max-width: 300px;
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--space-xs);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+}
+
+.transaction-search-input {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) 30px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.transaction-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color-light);
+}
+
+/* No search results message */
+.no-search-results {
+  color: var(--text-tertiary);
   padding: var(--space-md);
-  border-top: 1px solid var(--border-color);
+  text-align: center;
+  font-style: italic;
+  background-color: var(--background-light);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-sm);
+}
+
+/* Filter action buttons */
+.filter-action-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.reset-all-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.9rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+/* Tabs system */
+.filter-tabs {
+  margin-top: var(--space-md);
+}
+
+.filter-tab-buttons {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-md);
+  overflow-x: auto;
+  gap: 2px;
+}
+
+.filter-tab-button {
+  padding: var(--space-sm);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.filter-tab-button:hover {
+  color: var(--primary-color);
+  background-color: var(--background-hover);
+}
+
+.filter-tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.filter-tab-content {
+  display: none;
+}
+
+.filter-tab-content.active {
+  display: block;
 }
 
 /* Gruppi di filtri */
@@ -79,6 +204,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-sm);
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: var(--space-xs);
 }
 
 /* Elementi del filtro */
@@ -145,13 +273,12 @@
 
 /* Contatore dei risultati */
 .results-counter {
-  width: 100%;
-  text-align: center;
-  padding: var(--space-sm) 0;
+  padding: var(--space-xs) var(--space-sm);
   color: var(--text-secondary);
   font-size: 0.9rem;
-  border-top: 1px solid var(--border-color);
-  margin-top: var(--space-sm);
+  background-color: var(--background-light);
+  border-radius: var(--radius-sm);
+  text-align: right;
 }
 
 /* Stili per la selezione dell'intervallo di date */
@@ -199,15 +326,44 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 600px) {
-  .filter-container {
-    width: 100%;
-    margin-top: var(--space-md);
+@media (max-width: 768px) {
+  .transaction-header-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
   
-  .filter-group {
+  .results-counter {
+    text-align: left;
+    width: 100%;
+  }
+  
+  .quick-filter-row {
     flex-direction: column;
-    gap: var(--space-xs);
+    align-items: flex-start;
+  }
+  
+  .search-filter-container {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .search-input-container {
+    max-width: none;
+  }
+  
+  .filters-container {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  
+  .filter-tab-buttons {
+    overflow-x: auto;
+    padding-bottom: var(--space-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .filters-container {
+    grid-template-columns: 1fr;
   }
   
   .date-inputs-container {

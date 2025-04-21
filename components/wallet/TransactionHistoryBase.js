@@ -64,6 +64,9 @@ export default class TransactionHistoryBase extends Component {
     this.setupInfiniteScroll = this.setupInfiniteScroll.bind(this);
     this.renderTransactions = this.renderTransactions.bind(this);
     this.createTransactionItem = this.createTransactionItem.bind(this);
+    this.handleTypeSearch = this.handleTypeSearch.bind(this);
+    this.switchFilterTab = this.switchFilterTab.bind(this);
+    this.resetAllFilters = this.resetAllFilters.bind(this);
   }
 
   // Common UI creation methods
@@ -71,45 +74,160 @@ export default class TransactionHistoryBase extends Component {
     const header = document.createElement('div');
     header.className = 'transaction-header';
     
+    // Title row with counter
+    const titleRow = document.createElement('div');
+    titleRow.className = 'transaction-header-row';
+    
     // Title
     const titleElement = document.createElement('h3');
     titleElement.textContent = title;
-    header.appendChild(titleElement);
+    titleRow.appendChild(titleElement);
     
-    // Filter container
-    const filterContainer = document.createElement('div');
-    filterContainer.className = 'filter-container';
-    
-    const details = document.createElement('details');
-    
-    const summary = document.createElement('summary');
-    summary.textContent = 'Filters';
-    details.appendChild(summary);
-    
-    const filterOptions = document.createElement('div');
-    filterOptions.className = 'filter-options';
-    
-    // Date range filters
-    const dateRangeGroup = this.createDateRangeFilter(filterIdPrefix);
-    
-    // Transaction type filters (container to be populated later)
-    const typeFilterGroup = this.createTypeFilterGroup(filterIdPrefix);
-    
-    // Direction filters
-    const directionFilterGroup = this.createDirectionFilterGroup(filterIdPrefix);
-    
-    // Results counter
+    // Results counter - spostato qui per maggiore visibilità
     const resultsCounter = document.createElement('div');
     resultsCounter.id = `${filterIdPrefix}filtered-results-count`;
     resultsCounter.className = 'results-counter';
     resultsCounter.textContent = 'Loading transactions...';
     this.resultsCounter = resultsCounter;
+    titleRow.appendChild(resultsCounter);
     
-    // Assemble filters
-    filterOptions.appendChild(dateRangeGroup);
-    filterOptions.appendChild(typeFilterGroup);
-    filterOptions.appendChild(directionFilterGroup);
-    filterOptions.appendChild(resultsCounter);
+    header.appendChild(titleRow);
+    
+    // Filter container with improved styling
+    const filterContainer = document.createElement('div');
+    filterContainer.className = 'filter-container';
+    
+    const details = document.createElement('details');
+    details.className = 'filter-details';
+    
+    const summary = document.createElement('summary');
+    summary.className = 'filter-summary';
+    
+    // Improved summary with icon
+    const filterIcon = document.createElement('span');
+    filterIcon.className = 'material-icons filter-toggle-icon';
+    filterIcon.textContent = 'filter_list';
+    summary.appendChild(filterIcon);
+    
+    const summaryText = document.createElement('span');
+    summaryText.textContent = 'Transaction Filters';
+    summary.appendChild(summaryText);
+    
+    details.appendChild(summary);
+    
+    // Container for all filter options with improved layout
+    const filterOptions = document.createElement('div');
+    filterOptions.className = 'filter-options';
+    
+    // Quick filter row
+    const quickFilterRow = document.createElement('div');
+    quickFilterRow.className = 'quick-filter-row';
+    
+    // Search for transaction types
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'search-filter-container';
+    
+    const searchLabel = document.createElement('label');
+    searchLabel.setAttribute('for', `${filterIdPrefix}transaction-search`);
+    searchLabel.className = 'search-label';
+    searchLabel.textContent = 'Search types:';
+    
+    const searchInput = document.createElement('div');
+    searchInput.className = 'search-input-container';
+    
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'material-icons search-icon';
+    searchIcon.textContent = 'search';
+    searchInput.appendChild(searchIcon);
+    
+    const txSearchInput = document.createElement('input');
+    txSearchInput.type = 'text';
+    txSearchInput.id = `${filterIdPrefix}transaction-search`;
+    txSearchInput.className = 'transaction-search-input';
+    txSearchInput.placeholder = 'Type to filter...';
+    txSearchInput.addEventListener('input', this.handleTypeSearch.bind(this));
+    searchInput.appendChild(txSearchInput);
+    
+    searchContainer.appendChild(searchLabel);
+    searchContainer.appendChild(searchInput);
+    
+    // Action buttons container
+    const actionButtonsContainer = document.createElement('div');
+    actionButtonsContainer.className = 'filter-action-buttons';
+    
+    // Reset all filters button
+    const resetAllButton = document.createElement('button');
+    resetAllButton.className = 'btn primary-btn reset-all-btn';
+    resetAllButton.innerHTML = '<span class="material-icons">refresh</span> Reset All Filters';
+    resetAllButton.addEventListener('click', this.resetAllFilters.bind(this));
+    actionButtonsContainer.appendChild(resetAllButton);
+    
+    quickFilterRow.appendChild(searchContainer);
+    quickFilterRow.appendChild(actionButtonsContainer);
+    filterOptions.appendChild(quickFilterRow);
+    
+    // Tabs for filter categories
+    const filterTabs = document.createElement('div');
+    filterTabs.className = 'filter-tabs';
+    
+    const tabButtons = document.createElement('div');
+    tabButtons.className = 'filter-tab-buttons';
+    
+    // Create tab buttons
+    const tabs = [
+      { id: 'date', icon: 'event', text: 'Date' },
+      { id: 'type', icon: 'category', text: 'Types' },
+      { id: 'direction', icon: 'swap_vert', text: 'Direction' }
+    ];
+    
+    tabs.forEach((tab, index) => {
+      const tabButton = document.createElement('button');
+      tabButton.className = `filter-tab-button ${index === 0 ? 'active' : ''}`;
+      tabButton.dataset.tabId = tab.id;
+      tabButton.addEventListener('click', this.switchFilterTab.bind(this));
+      
+      const tabIcon = document.createElement('span');
+      tabIcon.className = 'material-icons';
+      tabIcon.textContent = tab.icon;
+      tabButton.appendChild(tabIcon);
+      
+      const tabText = document.createElement('span');
+      tabText.textContent = tab.text;
+      tabButton.appendChild(tabText);
+      
+      tabButtons.appendChild(tabButton);
+    });
+    
+    filterTabs.appendChild(tabButtons);
+    
+    // Tab content
+    const tabContents = document.createElement('div');
+    tabContents.className = 'filter-tab-contents';
+    
+    // Date range tab
+    const dateTab = document.createElement('div');
+    dateTab.className = 'filter-tab-content active';
+    dateTab.dataset.tabId = 'date';
+    dateTab.appendChild(this.createDateRangeFilter(filterIdPrefix));
+    
+    // Type filters tab
+    const typeTab = document.createElement('div');
+    typeTab.className = 'filter-tab-content';
+    typeTab.dataset.tabId = 'type';
+    typeTab.appendChild(this.createTypeFilterGroup(filterIdPrefix));
+    
+    // Direction filters tab
+    const directionTab = document.createElement('div');
+    directionTab.className = 'filter-tab-content';
+    directionTab.dataset.tabId = 'direction';
+    directionTab.appendChild(this.createDirectionFilterGroup(filterIdPrefix));
+    
+    tabContents.appendChild(dateTab);
+    tabContents.appendChild(typeTab);
+    tabContents.appendChild(directionTab);
+    
+    filterTabs.appendChild(tabContents);
+    filterOptions.appendChild(filterTabs);
     
     details.appendChild(filterOptions);
     filterContainer.appendChild(details);
@@ -467,7 +585,8 @@ export default class TransactionHistoryBase extends Component {
   extractTransactionTypes(currentFilters = {}) {
     const existingFilters = { ...this.filters.types };
     
-    if (!this.typeCounts) this.typeCounts = {};
+    // Resettiamo i conteggi dei tipi ad ogni chiamata per evitare conteggi cumulativi errati
+    this.typeCounts = {};
     
     const countedIds = new Set();
     
@@ -1019,5 +1138,113 @@ export default class TransactionHistoryBase extends Component {
     this.resultsCounter = null;
     
     super.destroy();
+  }
+  
+  handleTypeSearch(event) {
+    const searchTerm = event.target.value.toLowerCase();
+    if (!this.filterContainer) return;
+    
+    // Trova tutti gli elementi di tipo transazione
+    const filterItems = this.filterContainer.querySelectorAll('.filter-item');
+    
+    filterItems.forEach(item => {
+      const label = item.querySelector('label');
+      if (!label) return;
+      
+      const displayName = label.textContent.toLowerCase();
+      
+      // Mostra/nascondi in base al termine di ricerca
+      if (searchTerm === '' || displayName.includes(searchTerm)) {
+        item.style.display = '';
+        item.classList.remove('hidden');
+      } else {
+        item.style.display = 'none';
+        item.classList.add('hidden');
+      }
+    });
+    
+    // Mostra un messaggio se nessun risultato è trovato
+    const hasVisibleItems = Array.from(filterItems).some(item => !item.classList.contains('hidden'));
+    let noResultsMsg = this.filterContainer.querySelector('.no-search-results');
+    
+    if (!hasVisibleItems) {
+      if (!noResultsMsg) {
+        noResultsMsg = document.createElement('div');
+        noResultsMsg.className = 'no-search-results';
+        noResultsMsg.textContent = `No transaction types match "${searchTerm}"`;
+        this.filterContainer.appendChild(noResultsMsg);
+      } else {
+        noResultsMsg.textContent = `No transaction types match "${searchTerm}"`;
+        noResultsMsg.style.display = '';
+      }
+    } else if (noResultsMsg) {
+      noResultsMsg.style.display = 'none';
+    }
+  }
+  
+  switchFilterTab(event) {
+    // Trova il pulsante e l'ID della tab
+    const button = event.currentTarget;
+    const tabId = button.dataset.tabId;
+    
+    if (!tabId) return;
+    
+    // Trova tutti i pulsanti delle tab e le tab stesse
+    const tabButtons = document.querySelectorAll('.filter-tab-button');
+    const tabContents = document.querySelectorAll('.filter-tab-content');
+    
+    // Rimuovi la classe active da tutti i pulsanti e tutte le tab
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    // Aggiungi la classe active al pulsante corrente
+    button.classList.add('active');
+    
+    // Trova e attiva il contenuto della tab corrispondente
+    const activeTabContent = document.querySelector(`.filter-tab-content[data-tab-id="${tabId}"]`);
+    if (activeTabContent) {
+      activeTabContent.classList.add('active');
+    }
+  }
+  
+  resetAllFilters() {
+    // Resetta i filtri per tipo transazione
+    this.transactionTypes.forEach(type => {
+      const checkboxId = `filter-${type}`;
+      if (this.filterCheckboxes[checkboxId]) {
+        this.filterCheckboxes[checkboxId].checked = true;
+      }
+    });
+    
+    // Resetta i filtri per direzione
+    ['filter-by', 'filter-on', 'profile-filter-by', 'profile-filter-on'].forEach(id => {
+      if (this.filterCheckboxes[id]) {
+        this.filterCheckboxes[id].checked = true;
+      }
+    });
+    
+    // Resetta i filtri per data
+    this.resetDateRange();
+    
+    // Resetta il campo di ricerca
+    const searchInput = document.getElementById('transaction-search');
+    if (searchInput) {
+      searchInput.value = '';
+      // Trigger di un evento input per aggiornare la visualizzazione dei filtri
+      const event = new Event('input', { bubbles: true });
+      searchInput.dispatchEvent(event);
+    }
+    
+    // Aggiorna i filtri e renderizza nuovamente le transazioni
+    this.updateFilters();
+    this.renderTransactions();
+    
+    // Notifica l'utente
+    if (window.eventEmitter) {
+      window.eventEmitter.emit('notification', {
+        type: 'info',
+        message: 'All filters have been reset'
+      });
+    }
   }
 }
