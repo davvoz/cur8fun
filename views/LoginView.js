@@ -17,6 +17,12 @@ class LoginView {
       handleKeychainLogin: null,
       handleSteemLogin: null
     };
+    
+    // Rileva se ci sono parametri speciali nell'URL
+    this.useActiveKey = params.active === true;
+    this.useKeychain = params.keychain === true;
+    
+    console.log('LoginView params:', params);
   }
 
   /**
@@ -80,9 +86,9 @@ class LoginView {
     form.appendChild(usernameGroup);
 
     // Keychain login section (if available)
-    //controlliamo se siamo su mobile
+    //controlliamo se siamo su mobile o se l'utente ha richiesto esplicitamente il login con Keychain
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    if (!isMobile ) {
+    if (!isMobile || this.useKeychain) {
         const keychainButton = this.createButton(
             'Login with SteemKeychain',
             'button',
@@ -100,7 +106,7 @@ class LoginView {
                 keychainButton.disabled = true;
                 keychainButton.classList.add('disabled');
             }
-        } );
+        });
     }
 
     // Key type selection field
@@ -123,7 +129,7 @@ class LoginView {
     
     form.appendChild(keyTypeGroup);
 
-    const passwordGroup = this.createFormGroup('password', 'Private Key', 'password');
+    const passwordGroup = this.createFormGroup('password', this.useActiveKey ? 'Private Active Key' : 'Private Posting Key', 'password');
     form.appendChild(passwordGroup);
     form.appendChild(this.createRememberMeGroup());
     form.appendChild(this.createButton('Login', 'submit', 'btn-primary full-width'));
@@ -138,7 +144,7 @@ class LoginView {
     const activeKeyWarning = document.createElement('div');
     activeKeyWarning.className = 'active-key-warning';
     activeKeyWarning.innerHTML = '<strong>Note:</strong> Use active key only when performing wallet operations. For regular browsing, posting key is safer.';
-    activeKeyWarning.style.display = 'none';
+    activeKeyWarning.style.display = this.useActiveKey ? 'block' : 'none';
     activeKeyWarning.style.color = '#ff7700';
     activeKeyWarning.style.fontSize = '0.85em';
     activeKeyWarning.style.padding = '8px 0';
@@ -170,6 +176,12 @@ class LoginView {
     this.element.appendChild(contentWrapper);
 
     this.bindEvents();
+    
+    // Focus sul campo username per una migliore esperienza utente
+    setTimeout(() => {
+      const usernameInput = this.element.querySelector('#username');
+      if (usernameInput) usernameInput.focus();
+    }, 100);
   }
 
   createHeading() {
@@ -186,6 +198,12 @@ class LoginView {
   createRadioButton(name, value, labelText, checked = false) {
     const container = document.createElement('div');
     container.className = 'radio-option';
+    
+    // Se il valore è 'active' e useActiveKey è true, impostiamo checked=true
+    // Oppure se il valore è 'posting' e useActiveKey è false, impostiamo checked=true
+    if ((value === 'active' && this.useActiveKey) || (value === 'posting' && !this.useActiveKey)) {
+      checked = true;
+    }
     
     const input = document.createElement('input');
     input.type = 'radio';

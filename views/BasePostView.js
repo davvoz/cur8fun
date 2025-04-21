@@ -422,11 +422,14 @@ class BasePostView {
       
       // 1. Check from the community property in metadata (most reliable)
       if (metadata && metadata.community) {
-        const communityTag = metadata.community.startsWith('hive-') 
+        // Verifica che community sia una stringa prima di usare startsWith
+        const communityIsString = typeof metadata.community === 'string';
+        
+        const communityTag = communityIsString && metadata.community.startsWith('hive-') 
           ? metadata.community 
-          : `hive-${metadata.community}`;
+          : communityIsString ? `hive-${metadata.community}` : null;
           
-        if (this.isValidCommunityTag(communityTag)) {
+        if (communityTag && this.isValidCommunityTag(communityTag)) {
           return communityTag;
         }
       }
