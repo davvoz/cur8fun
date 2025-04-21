@@ -235,6 +235,11 @@ function createUserMenu(user) {
   avatar.src = `https://steemitimages.com/u/${user.username}/avatar`;
   avatar.alt = user.username;
   avatar.className = 'avatar';
+  // Aggiungere un gestore di errore per caricare l'avatar predefinito se l'immagine non è disponibile
+  avatar.onerror = function() {
+    this.src = './assets/img/default-avatar.png';
+    console.log(`Avatar not available for ${user.username}, using default`);
+  };
   userMenu.appendChild(avatar);
   
   // Dropdown menu
