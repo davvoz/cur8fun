@@ -1351,7 +1351,6 @@ async getUserBalances(username) {
  */
 async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = null) {
   if (!this.currentUser) throw new Error('Not logged in');
-  debugger
   try {
     // Get the appropriate key based on the required key type
     let privateKey = null;

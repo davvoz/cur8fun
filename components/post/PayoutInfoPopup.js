@@ -91,7 +91,6 @@ class PayoutInfoPopup {
   _getDynamicGlobalProperties() {
     return new Promise((resolve, reject) => {
       window.steem.api.getDynamicGlobalProperties((err, result) => {
-        debugger;
         console.log('Dynamic Global Properties:', result);
         if (err) {
           reject(err);
