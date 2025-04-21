@@ -4,49 +4,49 @@ import eventEmitter from '../../utils/EventEmitter.js';
 import router from '../../utils/Router.js';
 
 /**
- * Componente che mostra un avviso quando l'utente non ha accesso con active key
+ * Component that shows a warning when the user doesn't have access with active key
  * @extends Component
  */
 class ActiveKeyWarningComponent extends Component {
   /**
-   * Crea una nuova istanza del componente di avviso per active key
-   * @param {HTMLElement} container - Elemento container dove renderizzare il componente
-   * @param {Object} options - Opzioni di configurazione
+   * Creates a new instance of the active key warning component
+   * @param {HTMLElement} container - Container element where to render the component
+   * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
     super(container, options);
     this.username = authService.getCurrentUser()?.username;
     console.log('[ActiveKeyWarningComponent] Created with username:', this.username);
     
-    // Aggiungiamo un flag per forzare la visualizzazione durante i test
+    // Add a flag to force display during tests
     this.forceDisplay = options.forceDisplay || false;
     
-    // Imposta il container come attributo diretto
+    // Set the container as a direct attribute
     this.container = container;
 
-    // Nasconde il container inizialmente per prevenire flash di contenuto
+    // Hide the container initially to prevent content flash
     if (container) {
       container.style.display = 'none';
     }
     
-    // Flag per tenere traccia dell'inizializzazione
+    // Flag to track initialization
     this.initialized = false;
     
-    // Tentativi di controllo dell'autenticazione
+    // Authentication check attempts
     this.checkAttempts = 0;
     this.maxAttempts = 5;
   }
 
   /**
-   * Inizializza il componente quando il DOM è pronto
-   * e l'autenticazione è completata
+   * Initializes the component when the DOM is ready
+   * and authentication is completed
    */
   init() {
-    // Verifica immediatamente lo stato dell'autenticazione con un ritardo
-    // per dare tempo al browser di completare l'inizializzazione di Keychain
+    // Immediately check authentication status with a delay
+    // to give the browser time to complete Keychain initialization
     setTimeout(() => this.checkAuthStatusWithRetry(), 300);
 
-    // Ascolta eventuali cambiamenti nell'autenticazione
+    // Listen for authentication changes
     eventEmitter.on('auth:changed', () => {
       console.log('[ActiveKeyWarningComponent] Auth state changed, rechecking status');
       this.checkAuthStatus();
@@ -56,30 +56,30 @@ class ActiveKeyWarningComponent extends Component {
   }
   
   /**
-   * Verifica lo stato di autenticazione con tentativi multipli
-   * Importante per dare il tempo a Keychain di essere completamente inizializzato
+   * Checks authentication status with multiple attempts
+   * Important to give Keychain time to be fully initialized
    */
   checkAuthStatusWithRetry() {
-    // Incrementa il contatore dei tentativi
+    // Increment the attempt counter
     this.checkAttempts++;
     
     console.log(`[ActiveKeyWarningComponent] Auth check attempt ${this.checkAttempts}`);
     
-    // Verifica se Keychain è installato e disponibile
+    // Check if Keychain is installed and available
     const keychainAvailable = authService.isKeychainInstalled();
     console.log(`[ActiveKeyWarningComponent] Is Keychain available: ${keychainAvailable}`);
     
-    // Ottieni l'utente corrente e il metodo di login
+    // Get the current user and login method
     const user = authService.getCurrentUser();
     const loginMethod = user?.loginMethod;
     console.log(`[ActiveKeyWarningComponent] Current login method: ${loginMethod}`);
     
-    // Verifica lo stato dell'autenticazione
+    // Check authentication status
     const hasActiveAccess = authService.hasActiveKeyAccess();
     console.log(`[ActiveKeyWarningComponent] Has active access: ${hasActiveAccess}`);
     
     if (hasActiveAccess) {
-      // Utente ha accesso, nascondi il warning
+      // User has access, hide the warning
       console.log('[ActiveKeyWarningComponent] User has active access, hiding warning');
       if (this.container) {
         this.container.style.display = 'none';
@@ -87,17 +87,17 @@ class ActiveKeyWarningComponent extends Component {
       return;
     }
     
-    // Se l'utente usa Keychain ma hasActiveAccess è falso, potrebbe essere
-    // che Keychain non è ancora completamente inizializzato
+    // If the user uses Keychain but hasActiveAccess is false, it might be
+    // that Keychain is not yet fully initialized
     if (loginMethod === 'keychain' && !hasActiveAccess && this.checkAttempts < this.maxAttempts) {
       console.log('[ActiveKeyWarningComponent] Keychain detected but access not confirmed, retrying...');
-      // Riprova tra 300ms
+      // Retry after 300ms
       setTimeout(() => this.checkAuthStatusWithRetry(), 300);
       return;
     }
     
-    // Se arriviamo qui, l'utente non ha accesso all'active key
-    // o abbiamo esaurito i tentativi
+    // If we reach here, the user does not have access to the active key
+    // or we have exhausted the attempts
     if (!hasActiveAccess || this.forceDisplay) {
       console.log('[ActiveKeyWarningComponent] No active access confirmed, showing warning');
       this.render();
@@ -110,7 +110,7 @@ class ActiveKeyWarningComponent extends Component {
   }
 
   /**
-   * Verifica lo stato di autenticazione e aggiorna il display
+   * Checks authentication status and updates the display
    */
   checkAuthStatus() {
     const hasActiveAccess = authService.hasActiveKeyAccess();
@@ -128,7 +128,7 @@ class ActiveKeyWarningComponent extends Component {
   }
 
   /**
-   * Renderizza il componente di avviso
+   * Renders the warning component
    */
   render() {
     if (!this.container) {
@@ -136,55 +136,55 @@ class ActiveKeyWarningComponent extends Component {
       return;
     }
     
-    // Pulisce il container
+    // Clear the container
     this.container.innerHTML = '';
     
-    // Crea la struttura dell'avviso
+    // Create the warning structure
     const warningElement = this.createWarningElement();
     this.container.appendChild(warningElement);
     
-    // Assicurati che il container sia visibile
+    // Ensure the container is visible
     this.container.style.display = 'block';
     
     console.log('[ActiveKeyWarningComponent] Warning rendered successfully');
   }
   
   /**
-   * Crea l'elemento di avviso con tutti i suoi componenti interni
-   * @returns {HTMLElement} L'elemento di avviso
+   * Creates the warning element with all its internal components
+   * @returns {HTMLElement} The warning element
    */
   createWarningElement() {
     const warningContainer = document.createElement('div');
     warningContainer.className = 'active-key-warning';
     
-    // Icona di avviso con Material Icons
+    // Warning icon with Material Icons
     const warningIcon = document.createElement('span');
     warningIcon.className = 'material-icons warning-icon';
     warningIcon.textContent = 'warning';
     warningContainer.appendChild(warningIcon);
     
-    // Contenuto dell'avviso
+    // Warning content
     const warningContent = document.createElement('div');
     warningContent.className = 'warning-content';
     
-    // Titolo dell'avviso
+    // Warning title
     const warningTitle = document.createElement('h4');
-    warningTitle.textContent = 'Accesso limitato al portafoglio';
+    warningTitle.textContent = 'Limited Wallet Access';
     warningContent.appendChild(warningTitle);
     
-    // Testo dell'avviso con lista di operazioni limitate
+    // Warning text with list of limited operations
     const warningText = document.createElement('p');
     warningText.innerHTML = this.getWarningText();
     warningContent.appendChild(warningText);
     
-    // Container per i pulsanti
+    // Container for buttons
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'button-container';
     
-    // Aggiungi pulsanti di azione
+    // Add action buttons
     this.addActionButtons(buttonContainer);
     
-    // Assembla tutto
+    // Assemble everything
     warningContent.appendChild(buttonContainer);
     warningContainer.appendChild(warningContent);
     
@@ -192,39 +192,39 @@ class ActiveKeyWarningComponent extends Component {
   }
   
   /**
-   * Restituisce il testo dell'avviso
-   * @returns {string} HTML per il testo di avviso
+   * Returns the warning text
+   * @returns {string} HTML for the warning text
    */
   getWarningText() {
-    return 'Per eseguire operazioni che richiedono l\'<strong>active key</strong>:' +
+    return 'To perform operations that require the <strong>active key</strong>:' +
       '<ul>' +
-      '<li>Trasferimenti di fondi</li>' +
+      '<li>Fund transfers</li>' +
       '<li>Power Up/Down</li>' +
-      '<li>Modifiche delle autorizzazioni dell\'account</li>' +
-      '<li>Operazioni sugli STEEM Power delegati</li>' +
+      '<li>Account permission changes</li>' +
+      '<li>Operations on delegated STEEM Power</li>' +
       '</ul>' +
-      'È necessario accedere con l\'active key o utilizzare Keychain.';
+      'You need to log in with your active key or use Keychain.';
   }
   
   /**
-   * Aggiunge i pulsanti di azione all'avviso
-   * @param {HTMLElement} container - Container dei pulsanti
+   * Adds action buttons to the warning
+   * @param {HTMLElement} container - Button container
    */
   addActionButtons(container) {
-    // Pulsante per accedere con active key
+    // Button to log in with active key
     const loginButton = document.createElement('button');
     loginButton.className = 'btn-primary';
-    loginButton.textContent = 'Accedi con Active Key';
+    loginButton.textContent = 'Log in with Active Key';
     loginButton.addEventListener('click', () => {
       this.handleActiveKeyLogin();
     });
     container.appendChild(loginButton);
     
-    // Se l'utente ha Keychain installato, mostra anche questa opzione
+    // If the user has Keychain installed, also show this option
     if (authService.isKeychainInstalled()) {
       const keychainButton = document.createElement('button');
       keychainButton.className = 'btn-secondary';
-      keychainButton.textContent = 'Usa Keychain';
+      keychainButton.textContent = 'Use Keychain';
       keychainButton.addEventListener('click', () => {
         this.handleKeychainLogin();
       });
@@ -233,43 +233,43 @@ class ActiveKeyWarningComponent extends Component {
   }
   
   /**
-   * Gestisce il click sul pulsante per accedere con active key
+   * Handles the click on the button to log in with active key
    */
   handleActiveKeyLogin() {
-    // Esegui logout
+    // Perform logout
     authService.logout();
     
-    // Usa il router dell'applicazione per il reindirizzamento invece di window.location.href
-    // Questo assicura che il parametro venga gestito correttamente dal sistema di routing
+    // Use the application router for redirection instead of window.location.href
+    // This ensures the parameter is correctly handled by the routing system
     router.navigate('/login', { 
       active: true,
-      returnUrl: window.location.pathname // Salva la pagina corrente per tornare dopo il login
+      returnUrl: window.location.pathname // Save the current page to return after login
     });
   }
   
   /**
-   * Gestisce il click sul pulsante per usare Keychain
+   * Handles the click on the button to use Keychain
    */
   async handleKeychainLogin() {
     try {
-      // Memorizza username prima del logout
+      // Store username before logout
       const username = this.username;
       
       // Logout
       authService.logout();
       
       if (username) {
-        // Mostra un feedback all'utente
+        // Show feedback to the user
         this.showKeychainNotification();
         
-        // Login con Keychain
+        // Login with Keychain
         await authService.loginWithKeychain(username);
         
-        // Rimuovi notifica e ricarica pagina
+        // Remove notification and reload page
         this.removeKeychainNotification();
         window.location.reload();
       } else {
-        // Usa il router invece di window.location.href per coerenza
+        // Use the router instead of window.location.href for consistency
         router.navigate('/login', { 
           keychain: true,
           returnUrl: window.location.pathname
@@ -278,10 +278,10 @@ class ActiveKeyWarningComponent extends Component {
     } catch (error) {
       console.error('Keychain login failed:', error);
       
-      // Rimuovi la notifica se presente
+      // Remove the notification if present
       this.removeKeychainNotification();
       
-      // Mostra un errore
+      // Show an error
       eventEmitter.emit('notification', {
         type: 'error',
         message: `Keychain login failed: ${error.message || 'Unknown error'}`
@@ -290,23 +290,23 @@ class ActiveKeyWarningComponent extends Component {
   }
   
   /**
-   * Mostra una notifica durante l'autenticazione con Keychain
+   * Shows a notification during Keychain authentication
    */
   showKeychainNotification() {
-    // Rimuovi notifiche esistenti per sicurezza
+    // Remove existing notifications for safety
     this.removeKeychainNotification();
     
-    // Crea nuova notifica
+    // Create new notification
     const notification = document.createElement('div');
     notification.id = 'keychain-notification';
     notification.className = 'keychain-notification';
-    notification.textContent = 'Riautenticazione con Keychain in corso...';
+    notification.textContent = 'Reauthenticating with Keychain...';
     
     document.body.appendChild(notification);
   }
   
   /**
-   * Rimuove la notifica di Keychain
+   * Removes the Keychain notification
    */
   removeKeychainNotification() {
     const notification = document.getElementById('keychain-notification');
@@ -316,10 +316,10 @@ class ActiveKeyWarningComponent extends Component {
   }
   
   /**
-   * Pulisce eventuali risorse quando il componente viene distrutto
+   * Cleans up resources when the component is destroyed
    */
   destroy() {
-    // Rimuovi i listener di eventi
+    // Remove event listeners
     eventEmitter.off('auth:changed');
     
     this.removeKeychainNotification();
