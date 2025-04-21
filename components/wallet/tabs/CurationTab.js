@@ -448,7 +448,8 @@ export default class CurationTab extends Component {
   }
   
   handleUsernameChange(event) {
-    this.targetUsername = event.target.value.trim();
+    // Salva il valore originale per la visualizzazione ma converti in lowercase per la ricerca
+    this.targetUsername = event.target.value.trim().toLowerCase();
   }
   
   handleDaysChange(event) {

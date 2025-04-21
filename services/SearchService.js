@@ -105,15 +105,18 @@ export class SearchService {
                 return [];
             }
             
+            // Converti in lowercase per garantire risultati più accurati
+            const normalizedQuery = cleanQuery.toLowerCase();
+            
             // Usa l'API Hive per cercare account simili
             const params = {
                 jsonrpc: '2.0',
                 id: 1,
                 method: 'condenser_api.lookup_accounts',
-                params: [cleanQuery, limit + offset]
+                params: [normalizedQuery, limit + offset]
             };
             
-            console.log('Looking up accounts with query:', cleanQuery);
+            console.log('Looking up accounts with query:', normalizedQuery);
             
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',
@@ -262,11 +265,14 @@ export class SearchService {
                 return [];
             }
 
+            // Converti in lowercase per garantire risultati più coerenti
+            const normalizedQuery = cleanQuery.trim().toLowerCase();
+
             const params = {
                 jsonrpc: '2.0',
                 id: 1,
                 method: 'condenser_api.get_trending_tags',
-                params: [cleanQuery, 10]  // Limit to 10 suggestions
+                params: [normalizedQuery, 10]  // Limit to 10 suggestions
             };
 
             const response = await fetch(this.API_ENDPOINT, {
@@ -283,7 +289,7 @@ export class SearchService {
 
             // Filter and map the results
             return (result.result || [])
-                .filter(tag => tag.name.startsWith(cleanQuery))
+                .filter(tag => tag.name.toLowerCase().startsWith(normalizedQuery))
                 .map(tag => ({
                     type: 'tag',
                     name: tag.name,

@@ -4,6 +4,19 @@
     margin: 0 auto;
 }
 
+/* Nuovo stile aggiunto per forzare il lowercase nei risultati di ricerca */
+.search-suggestion-item .username,
+.tag-name,
+.search-input {
+    text-transform: lowercase;
+}
+
+/* Assicuriamo che gli input di ricerca inseriti dall'utente vengano visualizzati in lowercase */
+input[type="search"],
+input[data-search-input="true"] {
+    text-transform: lowercase;
+}
+
 .search-header {
     margin-bottom: var(--space-xxl);
     text-align: center;
