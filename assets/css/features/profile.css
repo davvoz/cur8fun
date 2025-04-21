@@ -260,7 +260,7 @@
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-md);
   position: sticky;
-  top: -17px;
+  top: var(--space-xs);
   background-color: var(--background-color);
   z-index: 10;
   padding: var(--space-xs) 0;
