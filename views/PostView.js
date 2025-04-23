@@ -177,72 +177,58 @@ class PostView extends View {
   updateOpenGraphMetaTags() {
     if (!this.post) return;
     
-    // Update the dynamic meta container with current post info
-    const metaContainer = document.getElementById('dynamic-meta-container');
-    if (metaContainer) {
-      metaContainer.setAttribute('data-post-id', `${this.post.id || ''}`);
-      metaContainer.setAttribute('data-author', this.post.author || '');
-      metaContainer.setAttribute('data-permlink', this.post.permlink || '');
-    }
-    
-    // Helper function to update meta tags by ID and property/name
-    const updateMetaTag = (id, attributeType, attributeName, content) => {
-      // Try to get by ID first (our custom meta tags)
-      let metaTag = document.getElementById(id);
-      
-      // If not found by ID, try to find by property/name attribute
-      if (!metaTag) {
-        metaTag = document.querySelector(`meta[${attributeType}="${attributeName}"]`);
-      }
-      
-      // If still not found, create a new one
+    // Helper function to create or update meta tags
+    const setMetaTag = (property, content) => {
+      let metaTag = document.querySelector(`meta[property="${property}"]`);
       if (!metaTag) {
         metaTag = document.createElement('meta');
-        metaTag.setAttribute(attributeType, attributeName);
-        if (id) {
-          metaTag.id = id;
-        }
+        metaTag.setAttribute('property', property);
         document.head.appendChild(metaTag);
       }
-      
-      // Set the content
       metaTag.setAttribute('content', content);
     };
     
-    // Get the canonical URL for this post
-    const canonicalUrl = this.getCanonicalUrl();
+    // Basic Open Graph meta tags
+    setMetaTag('og:title', this.post.title);
+    setMetaTag('og:type', 'article');
+    setMetaTag('og:url', window.location.href);
     
     // Create description from post body (strip markdown and limit length)
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
+    setMetaTag('og:description', description);
     
-    // Get image URL from post body or metadata with multiple fallback options
+    // Get image URL from post body or metadata
     const imageUrl = this.getPostImageUrl();
-    
-    // Basic Open Graph meta tags
-    updateMetaTag('og-title', 'property', 'og:title', this.post.title || 'STEEM Post');
-    updateMetaTag('og-type', 'property', 'og:type', 'article');
-    updateMetaTag('og-url', 'property', 'og:url', canonicalUrl);
-    updateMetaTag('og-desc', 'property', 'og:description', description);
-    
-    // Image (only add if we have a valid URL)
     if (imageUrl) {
+<<<<<<< HEAD
       updateMetaTag('og-image', 'property', 'og:image', imageUrl);
       console.log('Setting og:image to:', imageUrl);
+=======
+      setMetaTag('og:image', imageUrl);
+>>>>>>> parent of 0085a81... probabile rollback
     }
     
-    // Additional Open Graph meta tags
-    updateMetaTag(null, 'property', 'og:site_name', 'STEEM Social Network');
-    updateMetaTag(null, 'property', 'og:article:published_time', this.post.created);
-    updateMetaTag(null, 'property', 'og:article:author', this.post.author);
-    updateMetaTag(null, 'property', 'og:article:section', this.post.category || '');
+    // Additional meta tags for better previews
+    setMetaTag('og:site_name', 'STEEM Social Network');
+    setMetaTag('og:article:published_time', this.post.created);
+    setMetaTag('og:article:author', this.post.author);
     
-    // Twitter Card meta tags
-    updateMetaTag('twitter-card', 'name', 'twitter:card', imageUrl ? 'summary_large_image' : 'summary');
-    updateMetaTag('twitter-title', 'name', 'twitter:title', this.post.title || 'STEEM Post');
-    updateMetaTag('twitter-desc', 'name', 'twitter:description', description);
+    // Twitter Card meta tags for Twitter sharing
+    const setTwitterTag = (name, content) => {
+      let twitterTag = document.querySelector(`meta[name="${name}"]`);
+      if (!twitterTag) {
+        twitterTag = document.createElement('meta');
+        twitterTag.setAttribute('name', name);
+        document.head.appendChild(twitterTag);
+      }
+      twitterTag.setAttribute('content', content);
+    };
     
-    // Set Twitter image only if we have a valid URL
+    setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
+    setTwitterTag('twitter:title', this.post.title);
+    setTwitterTag('twitter:description', description);
     if (imageUrl) {
+<<<<<<< HEAD
       updateMetaTag('twitter-image', 'name', 'twitter:image', imageUrl);
       console.log('Setting twitter:image to:', imageUrl);
     }
@@ -253,29 +239,12 @@ class PostView extends View {
       canonicalLink = document.createElement('link');
       canonicalLink.setAttribute('rel', 'canonical');
       document.head.appendChild(canonicalLink);
+=======
+      setTwitterTag('twitter:image', imageUrl);
+>>>>>>> parent of 0085a81... probabile rollback
     }
-    canonicalLink.setAttribute('href', canonicalUrl);
-    
-    // Update document title as well for better browser history/bookmarks
-    document.title = `${this.post.title} - STEEM Social Network`;
   }
   
-  /**
-   * Get the canonical URL for this post
-   * @returns {string} The canonical URL
-   */
-  getCanonicalUrl() {
-    const baseUrl = window.location.origin;
-    const path = `/@${this.post.author}/${this.post.permlink}`;
-    
-    // Handle hash-based routing properly
-    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-      return `${baseUrl}/#${path}`;
-    }
-    
-    return `${baseUrl}${path}`;
-  }
-
   /**
    * Extracts the first image URL from post body or metadata
    * @returns {string|null} Image URL or null if no image found
@@ -289,40 +258,21 @@ class PostView extends View {
       
       // Check if there's an explicit image property or images array in metadata
       if (metadata && metadata.image && metadata.image.length > 0) {
-        const imageUrl = this.sanitizeImageUrl(metadata.image[0]);
-        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
-      }
-      
-      // Try to find image inside SteemContentRenderer extracted images
-      if (this.contentRenderer) {
-        try {
-          const renderedContent = this.contentRenderer.render({
-            body: this.post.body.substring(0, 1500) // Only render the first part for performance
-          });
-          
-          // Check if any images were extracted
-          if (renderedContent && renderedContent.images && renderedContent.images.length > 0) {
-            const imageUrl = this.sanitizeImageUrl(renderedContent.images[0].src);
-            if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
-          }
-        } catch (error) {
-          console.error('Error using content renderer for image extraction:', error);
-        }
+        return this.ensureAbsoluteUrl(metadata.image[0]);
       }
       
       // Fallback to searching the post body for images
-      // Markdown image syntax: ![alt text](image-url)
       const imgRegex = /!\[.*?\]\((.*?)\)/;
       const imgMatch = this.post.body.match(imgRegex);
       if (imgMatch && imgMatch[1]) {
-        const imageUrl = this.sanitizeImageUrl(imgMatch[1]);
-        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
+        return this.ensureAbsoluteUrl(imgMatch[1]);
       }
       
       // Alternative method to find HTML img tags
       const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
       const htmlImgMatch = this.post.body.match(htmlImgRegex);
       if (htmlImgMatch && htmlImgMatch[1]) {
+<<<<<<< HEAD
         const imageUrl = this.sanitizeImageUrl(htmlImgMatch[1]);
         if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
       }
@@ -345,6 +295,9 @@ class PostView extends View {
       // But use a larger size for better sharing display
       if (this.post.author) {
         return `https://steemitimages.com/u/${this.post.author}/avatar/large`;
+=======
+        return this.ensureAbsoluteUrl(htmlImgMatch[1]);
+>>>>>>> parent of 0085a81... probabile rollback
       }
       
       return null;
@@ -355,6 +308,7 @@ class PostView extends View {
   }
   
   /**
+<<<<<<< HEAD
    * Sanitizes an image URL by removing unsafe parts and checking for validity
    * @param {string} url - The image URL to sanitize
    * @returns {string|null} - The sanitized URL or null if invalid
@@ -408,6 +362,8 @@ class PostView extends View {
   }
 
   /**
+=======
+>>>>>>> parent of 0085a81... probabile rollback
    * Ensures that a URL is absolute
    * @param {string} url - The URL to process
    * @returns {string} The absolute URL
@@ -425,18 +381,30 @@ class PostView extends View {
       return `https:${url}`;
     }
     
-    // For IPFS URLs
-    if (url.startsWith('ipfs://')) {
-      return `https://ipfs.io/ipfs/${url.slice(7)}`;
-    }
+    // Handle relative URLs
+    return `https://steemitimages.com/${url}`;
+  }
+  
+  /**
+   * Removes markdown syntax from text
+   * @param {string} markdown - The markdown text
+   * @returns {string} Plain text without markdown
+   */
+  stripMarkdown(markdown) {
+    if (!markdown) return '';
     
-    // Handle Steem/Hive specific formats
-    if (url.startsWith('@')) {
-      return `https://steemitimages.com/u/${url.slice(1)}/avatar/large`;
-    }
-    
-    // Handle relative URLs - use Steem's image proxy
-    return `https://steemitimages.com/0x0/${url}`;
+    return markdown
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
+      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
+      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
+      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
+      .replace(/```.*?```/gs, '') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/#+ /g, '') // Remove headings
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .replace(/\s+/g, ' ') // Consolidate whitespace
+      .trim();
   }
 
 =======
@@ -944,30 +912,6 @@ class PostView extends View {
     this.commentsSectionComponent = null;
     this.voteController = null;
     this.commentController = null;
-  }
-
-  /**
-   * Removes markdown syntax from text
-   * @param {string} markdown - The markdown text
-   * @returns {string} Plain text without markdown
-   */
-  stripMarkdown(markdown) {
-    if (!markdown) return '';
-    
-    return markdown
-      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
-      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
-      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
-      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
-      .replace(/```.*?```/gs, '') // Remove code blocks
-      .replace(/`([^`]+)`/g, '$1') // Remove inline code
-      .replace(/#+ /g, '') // Remove headings
-      .replace(/<\/?[^>]+(>|$)/g, '') // Remove HTML tags
-      .replace(/\n/g, ' ') // Replace newlines with spaces
-      .replace(/\s+/g, ' ') // Consolidate whitespace
-      .replace(/https?:\/\/\S+/g, '') // Remove URLs
-      .trim();
   }
 }
 
