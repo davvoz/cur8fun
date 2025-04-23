@@ -229,6 +229,7 @@ class PostView extends View {
     // Image (only add if we have a valid URL)
     if (imageUrl) {
       updateMetaTag('og-image', 'property', 'og:image', imageUrl);
+      console.log('Setting og:image to:', imageUrl);
     }
     
     // Additional Open Graph meta tags
@@ -245,6 +246,7 @@ class PostView extends View {
     // Set Twitter image only if we have a valid URL
     if (imageUrl) {
       updateMetaTag('twitter-image', 'name', 'twitter:image', imageUrl);
+      console.log('Setting twitter:image to:', imageUrl);
     }
     
     // Add canonical link element for better SEO
@@ -335,7 +337,14 @@ class PostView extends View {
         if (imageUrl) return imageUrl; // Already absolute
       }
       
+      // Last resort: if no image is found but the post has a thumbnail reference, try to use it
+      if (metadata && metadata.thumbnail) {
+        const thumbnailUrl = this.sanitizeImageUrl(metadata.thumbnail);
+        if (thumbnailUrl) return this.ensureAbsoluteUrl(thumbnailUrl);
+      }
+      
       // As a fallback, if no image is found in the post, try to get the author's avatar
+      // But use a larger size for better sharing display
       if (this.post.author) {
         return `https://steemitimages.com/u/${this.post.author}/avatar/large`;
       }
@@ -356,36 +365,47 @@ class PostView extends View {
     if (!url) return null;
     
     try {
-      // Remove query parameters and fragments
-      let cleanUrl = url.split('?')[0].split('#')[0].trim();
+      // Remove query parameters and fragments, but keep those that might be needed for some image services
+      let cleanUrl = url.trim();
+      
+      // If URL contains query parameters that look like Steem/Hive proxy params, keep them
+      if (!url.includes('steemitimages.com') && !url.includes('images.hive.blog')) {
+        cleanUrl = url.split('?')[0].split('#')[0].trim();
+      }
       
       // Check for common image extensions
-      const hasImageExtension = /\.(jpe?g|png|gif|webp|svg)$/i.test(cleanUrl);
+      const hasImageExtension = /\.(jpe?g|png|gif|webp|svg|bmp)$/i.test(cleanUrl);
       
       // If it doesn't have an image extension but seems to be from an image service, accept it
-      const isImageService = /steemitimages\.com|hivebuzz\.me|images\.hive\.blog/i.test(cleanUrl);
+      const isImageService = /steemitimages\.com|hivebuzz\.me|images\.hive\.blog|ipfs|imgur|cloudinary|googleusercontent|giphy|unsplash/i.test(cleanUrl);
       
       if (!hasImageExtension && !isImageService) {
-        // If it's not obviously an image URL, check for potential proxy URLs
-        if (!/\/ipfs\/|\/image\/|\/photos\/|\/images\//i.test(cleanUrl)) {
-          return null;
+        // If it's not obviously an image URL, check for potential proxy URLs or image paths
+        if (!/\/ipfs\/|\/image\/|\/photos\/|\/images\/|\/img\/|\/media\/|\/content\/|\/uploads\//i.test(cleanUrl)) {
+          // It's not obviously an image URL, but we'll try to use it anyway
+          console.log('URL might not be an image, but will try:', cleanUrl);
         }
       }
       
       // Make sure URL is properly formed
       try {
-        cleanUrl = new URL(cleanUrl).href;
-      } catch (e) {
-        // If URL is not absolute and can't be parsed, it might be relative
-        if (!cleanUrl.startsWith('http')) {
-          return cleanUrl; // Return as is, will be handled by ensureAbsoluteUrl
+        // For absolute URLs, use the URL constructor
+        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+          cleanUrl = new URL(cleanUrl).href;
+        } else if (cleanUrl.startsWith('//')) {
+          // For protocol-relative URLs
+          cleanUrl = `https:${cleanUrl}`;
         }
-        return null;
+        // Relative URLs will be handled by ensureAbsoluteUrl
+      } catch (e) {
+        // URL parsing failed, but we'll still try to use it
+        console.log('URL parsing failed for:', cleanUrl);
       }
       
       return cleanUrl;
     } catch (e) {
-      return null;
+      console.error('Error sanitizing image URL:', e);
+      return url; // Return the original URL as a fallback
     }
   }
 
