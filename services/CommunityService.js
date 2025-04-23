@@ -48,7 +48,6 @@ class CommunityService {
     
     // Check if an identical request is already in progress
     if (this.pendingRequests.has(requestKey)) {
-      console.log(`Reusing pending request for ${path}`);
       return this.pendingRequests.get(requestKey);
     }
     
@@ -97,7 +96,6 @@ class CommunityService {
   async listCommunities() {
     // Se c'è già una richiesta in corso, attendi che sia completata
     if (this.isLoadingAllCommunities) {
-      console.log('Waiting for ongoing communities request to complete...');
       // Wait for the ongoing request to complete
       while (this.isLoadingAllCommunities) {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -105,14 +103,12 @@ class CommunityService {
       
       // Se ora abbiamo i dati in cache, usali
       if (this.cachedCommunities) {
-        console.log('Returning cached communities after waiting for ongoing request');
         return this.cachedCommunities;
       }
     }
     
     // Se abbiamo già i dati in memoria, usali (provenienti da localStorage all'avvio o da richiesta precedente)
     if (this.cachedCommunities) {
-      console.log('Returning cached communities from memory');
       return this.cachedCommunities;
     }
     
@@ -120,15 +116,12 @@ class CommunityService {
     this.isLoadingAllCommunities = true;
     
     try {
-      console.log('Fetching all communities from API');
       const communities = await this.sendRequest('/communities', 'GET');
       
       if (!communities || !Array.isArray(communities)) {
         console.error('Invalid communities data received:', communities);
         throw new Error('Invalid communities data received');
       }
-      
-      console.log(`Loaded ${communities.length} communities from API`);
       
       // Pre-process communities to normalize data and improve search performance
       const processedCommunities = communities.map(community => {
@@ -192,7 +185,7 @@ class CommunityService {
           return limitedResults;
         }
       } catch (error) {
-        console.log('Specific search endpoint not available, falling back to client-side filtering');
+        // Falling back to client-side filtering
       }
       
       // If specific search fails, get all communities and filter
@@ -302,11 +295,9 @@ class CommunityService {
       // Controlla il metodo di login dell'utente
       if (currentUser.loginMethod === 'keychain' && this.isKeychainAvailable()) {
         // Usa Keychain per firmare l'operazione
-        console.log(`Subscribing to ${community} using Keychain`);
         result = await this.broadcastWithKeychain(username, operations);
       } else {
         // Usa la chiave posting diretta
-        console.log(`Subscribing to ${community} using posting key`);
         const postingKey = authService.getPostingKey();
         
         if (!postingKey) {
@@ -376,11 +367,9 @@ class CommunityService {
       // Controlla il metodo di login dell'utente
       if (currentUser.loginMethod === 'keychain' && this.isKeychainAvailable()) {
         // Usa Keychain per firmare l'operazione
-        console.log(`Unsubscribing from ${community} using Keychain`);
         result = await this.broadcastWithKeychain(username, operations);
       } else {
         // Usa la chiave posting diretta
-        console.log(`Unsubscribing from ${community} using posting key`);
         const postingKey = authService.getPostingKey();
         
         if (!postingKey) {
@@ -482,14 +471,11 @@ class CommunityService {
     if (useCache && this.cachedUserSubscriptions.has(username)) {
       const { timestamp, subscriptions } = this.cachedUserSubscriptions.get(username);
       if (Date.now() - timestamp < this.cacheExpiry) {
-        console.log(`Using cached subscriptions for ${username}`);
         return subscriptions;
       }
     }
     
     try {
-      console.log(`Fetching subscriptions for ${username} using JSON-RPC`);
-      
       // Prepara la richiesta JSON-RPC
       const requestBody = {
         jsonrpc: "2.0", 
@@ -520,7 +506,6 @@ class CommunityService {
       
       // Estrai le community sottoscritte dalla risposta
       const rawCommunities = data.result || [];
-      console.log(`Retrieved ${rawCommunities.length} subscribed communities for ${username}`);
       
       // Trasforma gli array in oggetti con proprietà significative
       const communities = rawCommunities.map(communityData => {
@@ -615,7 +600,6 @@ class CommunityService {
           };
         });
       
-      console.log(`Found ${communitiesFromFollowing.length} communities from following data`);
       return communitiesFromFollowing;
     } catch (error) {
       console.error('Error in alternative subscription method:', error);
@@ -665,7 +649,6 @@ class CommunityService {
     
     // Verifica preventiva che sia un tag community valido
     if (!this.isValidCommunityTag(communityName)) {
-      console.log(`${communityName} non è un tag community valido, ignoro`);
       return null;
     }
     
@@ -683,7 +666,6 @@ class CommunityService {
         );
         
         if (foundCommunity) {
-          console.log(`Found community ${communityName} in cache`);
           return foundCommunity;
         }
       }
@@ -691,7 +673,6 @@ class CommunityService {
       // Se non è in cache, carica la lista completa
       // Questo evita la richiesta searchCommunities che causa CORS
       if (!this.cachedCommunities) {
-        console.log(`Loading all communities to find ${communityName}`);
         try {
           await this.listCommunities();
         } catch (listError) {
@@ -709,7 +690,6 @@ class CommunityService {
           );
           
           if (foundCommunity) {
-            console.log(`Found community ${communityName} after loading all communities`);
             return foundCommunity;
           }
         }
@@ -943,10 +923,8 @@ class CommunityService {
         const parsedData = JSON.parse(cachedData);
         
         if (parsedData.timestamp && (Date.now() - parsedData.timestamp) < this.localStorageCacheExpiry) {
-          console.log('Loaded communities from localStorage');
           this.cachedCommunities = parsedData.communities;
         } else {
-          console.log('Cached communities expired, clearing localStorage');
           localStorage.removeItem(this.localStorageKeys.communities);
           localStorage.removeItem(this.localStorageKeys.version);
         }
@@ -969,7 +947,6 @@ class CommunityService {
       
       localStorage.setItem(this.localStorageKeys.communities, JSON.stringify(dataToCache));
       localStorage.setItem(this.localStorageKeys.version, this.cacheVersion.toString());
-      console.log('Saved communities to localStorage');
     } catch (error) {
       console.error('Error saving communities to localStorage:', error);
     }

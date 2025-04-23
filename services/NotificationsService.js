@@ -35,7 +35,6 @@ class NotificationsService {
                 if (Array.isArray(parsedData)) {
                     parsedData.forEach(id => map.set(id, true));
                 }
-                console.log(`📋 Caricato stato di lettura per ${map.size} notifiche dal localStorage`);
             }
         } catch (error) {
             console.error('Errore nel caricamento dello stato di lettura delle notifiche:', error);
@@ -50,7 +49,6 @@ class NotificationsService {
         try {
             const readIds = Array.from(this.readNotificationsMap.keys());
             localStorage.setItem('steemee_read_notifications', JSON.stringify(readIds));
-            console.log(`💾 Salvato stato di lettura per ${readIds.length} notifiche nel localStorage`);
         } catch (error) {
             console.error('Errore nel salvataggio dello stato di lettura delle notifiche:', error);
         }
@@ -60,17 +58,14 @@ class NotificationsService {
      * Preloads notifications in background at application start
      */
     async preloadNotifications() {
-        console.log('🔄 Precaricamento notifiche in background...');
         const currentUser = authService.getCurrentUser();
         if (!currentUser) {
-            console.log('❌ Nessun utente loggato, precaricamento notifiche annullato');
             return;
         }
         
         try {
             // Carica le notifiche in background, impostando forceRefresh a false per usare la cache se disponibile
             const result = await this.getNotifications(TYPES.ALL, 1, 30, false);
-            console.log(`✅ Precaricamento completato: ${result.notifications.length} notifiche`);
             
             // Aggiorna il conteggio non lette
             this.updateUnreadCount();
@@ -133,8 +128,6 @@ class NotificationsService {
         // Update count
         this.updateUnreadCount();
         
-        console.log(`✓ Notifica segnata come letta: ${notificationId}`);
-        
         return notification;
     }
     
@@ -175,8 +168,6 @@ class NotificationsService {
             this.unreadCount = 0;
             eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
         }
-        
-        console.log(`✓ Tutte le notifiche segnate come lette per ${currentUser.username}`);
     }
 
     /**
@@ -191,9 +182,6 @@ class NotificationsService {
 
         const username = currentUser.username;
         
-        // RISOLUZIONE MACELLO: FORZA SEMPRE IL RECUPERO COMPLETO PER OGNI TIPO
-        console.log(`🚀 RECUPERO COMPLETO per ${username}, tipo: ${type}`);
-        
         try {
             // Se in cache e non forzato, usa la cache
             const cacheKey = `${username}_ALL_NOTIFICATIONS`;
@@ -201,15 +189,10 @@ class NotificationsService {
             
             if (!forceRefresh) {
                 allNotifications = this.getCachedNotifications(cacheKey)?.notifications;
-                if (allNotifications && allNotifications.length > 0) {
-                    console.log(`✅ Usando cache con ${allNotifications.length} notifiche`);
-                }
             }
             
             // Se la cache non esiste o è forzato il refresh, recupera tutto
             if (!allNotifications || forceRefresh) {
-                console.log(`🔄 Recupero completo dello storico per ${username}`);
-                
                 // Recupera TUTTE le notifiche storiche
                 allNotifications = await this.fetchAllHistoricalNotifications(username);
                 
@@ -218,15 +201,12 @@ class NotificationsService {
                     notifications: allNotifications,
                     hasMore: false
                 });
-                
-                console.log(`💾 Salvate ${allNotifications.length} notifiche in cache`);
             }
             
             // Filtra per tipo (se non è ALL)
             let filteredNotifications = allNotifications;
             if (type !== TYPES.ALL) {
                 filteredNotifications = allNotifications.filter(n => n.type === type);
-                console.log(`🔍 Filtrate per tipo ${type}: ${filteredNotifications.length} notifiche`);
             }
             
             // Debug dei conteggi per tipo
@@ -235,16 +215,12 @@ class NotificationsService {
                     acc[n.type] = (acc[n.type] || 0) + 1;
                     return acc;
                 }, {});
-                
-                console.log("📊 CONTEGGIO NOTIFICHE PER TIPO:", countByType);
             }
             
             // Applica paginazione
             const start = (page - 1) * limit;
             const end = start + limit;
             const paginatedNotifications = filteredNotifications.slice(start, end);
-            
-            console.log(`📄 Pagina ${page}: mostro ${paginatedNotifications.length} notifiche (${start}-${end} di ${filteredNotifications.length})`);
             
             return {
                 notifications: paginatedNotifications,
@@ -290,7 +266,6 @@ class NotificationsService {
      */
     async fetchAllHistoricalNotifications(username) {
         // RECUPERO MULTI-CICLO DI TUTTA LA STORIA SENZA SALTI
-        console.log(`⏳ AVVIO RECUPERO MASSIVO per ${username}`);
         
         // Parametri iniziali
         let lastId = -1;
@@ -313,12 +288,9 @@ class NotificationsService {
                 try {
                     this.updateBusyMessage(`Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}<br>Trovate ${allNotifications.length} notifiche`);
                     
-                    console.log(`🔍 Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}`);
-                    
                     const history = await transactionHistoryService.getUserTransactionHistory(username, batchSize, lastId);
                     
                     if (!history || !Array.isArray(history) || history.length === 0) {
-                        console.log('📭 Nessuna transazione trovata');
                         continueSearch = false;
                         break;
                     }
@@ -333,11 +305,9 @@ class NotificationsService {
                     }
                     
                     const oldestId = lastTransaction[0];
-                    console.log(`📜 Recuperate ${history.length} transazioni. ID più vecchio: ${oldestId}`);
                     
                     // Se abbiamo raggiunto l'inizio o siamo bloccati, fermiamoci
                     if (oldestId <= 1 || oldestId === lastId) {
-                        console.log(`🏁 Raggiunto ID ${oldestId}, fine ricerca`);
                         continueSearch = false;
                         break;
                     }
@@ -357,14 +327,11 @@ class NotificationsService {
                         }
                     });
                     
-                    console.log(`✅ Trovate ${newNotifications.length} nuove notifiche, totale: ${allNotifications.length}`);
-                    
                     // Breve pausa per non sovraccaricare
                     await new Promise(resolve => setTimeout(resolve, 100));
                     
                     // Se poche transazioni, probabilmente abbiamo finito
                     if (history.length < batchSize / 2) {
-                        console.log('📉 Meno della metà del batch, probabilmente abbiamo finito');
                         continueSearch = false;
                         break;
                     }
@@ -382,15 +349,11 @@ class NotificationsService {
         // Ordina per data (più recenti prima)
         allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
-        console.log(`🎉 RECUPERO COMPLETATO: ${allNotifications.length} notifiche in ${totalTransactions} transazioni`);
-        
         // Statistiche per tipo
         const countByType = {};
         allNotifications.forEach(n => {
             countByType[n.type] = (countByType[n.type] || 0) + 1;
         });
-        
-        console.log("📊 STATISTICHE FINALI:", countByType);
         
         return allNotifications;
     }
@@ -588,7 +551,6 @@ class NotificationsService {
         this.notificationsCache.clear();
         this.allNotificationsCache = null; // Direct reset instead of calling non-existent method
         this.unreadCount = 0;
-        console.log('🧹 Cache notifiche completamente svuotata');
     }
 
     /**
@@ -596,7 +558,6 @@ class NotificationsService {
      */
     clearAllNotificationsCache() {
         this.allNotificationsCache = null;
-        console.log('🧹 Cache notifiche globali svuotata');
     }
 
     /**

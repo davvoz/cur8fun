@@ -681,7 +681,50 @@ class CommentsSection {
     }
   }
   
-  // Toggle collapse/expand for replies
+  // Adding the missing renderReplies method
+  renderReplies(parentElement, comment) {
+    if (!comment.children || comment.children.length === 0) return;
+    
+    // Create a container for replies if it doesn't exist
+    let repliesContainer = parentElement.querySelector('.replies');
+    if (!repliesContainer) {
+      repliesContainer = document.createElement('div');
+      repliesContainer.className = 'replies';
+      repliesContainer.setAttribute('data-level', comment.depth || 0);
+      
+      const repliesWrapper = document.createElement('div');
+      repliesWrapper.className = 'replies-wrapper';
+      
+      repliesContainer.appendChild(repliesWrapper);
+      parentElement.appendChild(repliesContainer);
+    }
+    
+    // Get the wrapper where replies should be added
+    const repliesWrapper = repliesContainer.querySelector('.replies-wrapper');
+    if (!repliesWrapper) return;
+    
+    // Clear existing replies
+    while (repliesWrapper.firstChild) {
+      repliesWrapper.removeChild(repliesWrapper.firstChild);
+    }
+    
+    // Sort replies chronologically
+    const sortedReplies = [...comment.children].sort((a, b) => 
+      new Date(a.created) - new Date(b.created)
+    );
+    
+    // Render each reply
+    sortedReplies.forEach(reply => {
+      const replyElement = this.createCommentElement(reply, (comment.depth || 0) + 1);
+      repliesWrapper.appendChild(replyElement);
+      
+      // Recursively render replies to this reply
+      if (reply.children && reply.children.length > 0) {
+        this.renderReplies(replyElement, reply);
+      }
+    });
+  }
+
   toggleRepliesCollapse(comment, repliesWrapper, collapseBtn) {
     const commentKey = `${comment.author}/${comment.permlink}`;
     const isCurrentlyCollapsed = this.collapsedComments.has(commentKey);
