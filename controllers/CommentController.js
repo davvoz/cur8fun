@@ -670,7 +670,7 @@ export default class CommentController {
       net_votes: 0,
       active_votes: [],
       children: [],
-      depth: (parentComment.depth || 0) + 1,
+      depth: 0,
       isNew: true // Mark as new for highlighting
     };
   }

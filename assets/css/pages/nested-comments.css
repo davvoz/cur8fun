@@ -5,9 +5,11 @@
 
 /* ---------- Base Variables ---------- */
 :root {
-  --comment-indent-step: 12px;    /* Base indentation for each level */
+  --comment-indent-step: 16px;    /* Indentazione costante per OGNI livello di annidamento (desktop) */
+  --comment-indent-mobile: 8px;   /* Indentazione costante per OGNI livello di annidamento (mobile) */
+  --comment-thread-width: 2px;    /* Spessore linea di connessione (desktop) */
+  --comment-thread-width-mobile: 1px; /* Spessore linea di connessione (mobile) */
   --comment-max-visible-depth: 8; /* Maximum visible nesting depth before collapsing */
-  --comment-thread-width: 2px;    /* Width of the thread connecting line */
   --comment-highlight-duration: 2s;
   --collapse-transition: 300ms;   /* Timing for collapse/expand animations */
 }
@@ -171,18 +173,19 @@
   position: relative;
   border-radius: var(--radius-sm);
   padding: var(--space-sm);
-  transition: background-color var(--transition-fast);
   width: 100%;
-  box-sizing: border-box;
   background-color: var(--surface-color);
-  border: 0 0  1px solid var(--border-color-light)  0 ;
   margin-bottom: var(--space-xs);
+  width: auto;
+  /* Bordo più leggero su mobile */
+  border-left: 1px solid var(--border-color-light);
 }
 
 @media (min-width: 768px) {
   .comment {
     padding: var(--space-md);
     border-radius: var(--radius-md);
+    border-left: 2px solid var(--border-color-light);
   }
 }
 
@@ -202,7 +205,7 @@
 ;
     flex-direction: row;
     gap: var(--space-xs);
-    margin-bottom: var(--space-sm);
+    margin: var(--space-sm);
     flex-wrap: nowrap;
     justify-content: flex-start;
 }
@@ -269,8 +272,7 @@
   
 @media (min-width: 768px) {
   .comment-body {
-    margin: var(--space-md) 0;
-    line-height: 1.6;
+    margin: var(--space-md) ;
   }
 }
 
@@ -332,34 +334,41 @@
 /* Gli stili relativi al voto sono stati spostati in features/vote.css */
 
 /* ---------- Nested Replies System ---------- */
-/* Container for replies */
+/* Container for replies - MOBILE FIRST APPROACH */
 .replies {
   position: relative;
   margin-top: var(--space-sm);
-  padding-left: var(--comment-indent-step);
+  /* Indentazione FISSA per mobile */
+  padding-left: var(--comment-indent-mobile);
   width: 100%;
   box-sizing: border-box;
 }
   
+/* Aumenta indentazione su desktop */
 @media (min-width: 768px) {
   .replies {
     margin-top: var(--space-md);
-    padding-left: calc(var(--comment-indent-step) * 2);
+    /* Indentazione FISSA per desktop */
+    padding-left: var(--comment-indent-step);
   }
 }
 
-/* Adaptable thread line */
+/* Adaptable thread line - MOBILE FIRST APPROACH */
 .thread-line {
   position: absolute;
-  left: calc(var(--comment-indent-step) / 4);
+  /* Posizionamento ottimizzato per mobile */
+  left: 1px;
   top: 0;
   bottom: 8px;
-  width: var(--comment-thread-width);
+  width: var(--comment-thread-width-mobile);
+  background-color: var(--border-color-light);
 }
   
+/* Aggiusta thread line SOLO su desktop */
 @media (min-width: 768px) {
   .thread-line {
-    left: calc(var(--comment-indent-step) / 2);
+    left: calc(var(--comment-indent-step) / 6);
+    width: var(--comment-thread-width);
   }
 }
 
@@ -406,7 +415,7 @@
 
 .collapse-replies-btn:hover {
   background-color: var(--background-lighter);
-  color: var(--primary-color);
+  color: var (--primary-color);
 }
 
 .collapse-replies-btn .material-icons {
@@ -449,23 +458,13 @@
   .comment-error,
   .comments-section-error {
     padding: var(--space-md);
-    margin: var(--space-md) 0;
+    margin: var (--space-md) 0;
     border-radius: var(--radius-md);
   }
-}
-.comment{
-  width: auto;
-  /*bordo a sinistra*/
-  border-left: 2px solid var(--border-color-light);
 }
 
 /* Mobile optimizations */
 @media (max-width: 480px) {
-  /* On very small screens, reduce indentation further */
-  .replies {
-    padding-left: calc(var(--comment-indent-step) / 1.5);
-  }
-  
   /* Simplify the comment header */
   .author-container {
     gap: var(--space-xs);
@@ -493,37 +492,4 @@
   }
 }
 
-/* ---------- Print Styles ---------- */
-@media print {
-  .comments-section {
-    box-shadow: none;
-    border: 1px solid #ccc;
-  }
-  
-  .comment-form,
-  .reply-form,
-  .comment-actions,
-  .collapse-replies-btn,
-  .show-more-btn {
-    display: none;
-  }
-  
-  .thread-line {
-    display: none;
-  }
-}
 
-/* ---------- High Contrast Mode ---------- */
-@media (forced-colors: active) {
-  .thread-line {
-    background-color: CanvasText;
-  }
-  
-  .action-btn.voted {
-    border: 1px solid CanvasText;
-  }
-  
-  .collapse-replies-btn {
-    border: 1px solid CanvasText;
-  }
-}

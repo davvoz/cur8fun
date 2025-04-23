@@ -108,35 +108,35 @@ export default class CommentUIManager {
     item.dataset.commentId = `${comment.author}_${comment.permlink}`;
 
     // Format the date
-    const date = new Date(comment.created);
-    let formattedDate = date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const postDate = new Date(comment.created);
+    const date = document.createElement('div');
+    date.className = 'comment-date';
+    let formattedDate ;
     // Calculate time elapsed since post creation in minutes
-    const timeElapsed = Math.floor((Date.now() - date.getTime()) / 1000 / 60);
-    if (timeElapsed < 60) {
-      date.textContent = `${timeElapsed} min ago`;
-    } else if (timeElapsed < 24 * 60) {
-      // Convert minutes to hours
-      date.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
-    } else if (timeElapsed < 30 * 24 * 60) {
-      // Convert minutes to days
-      date.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
-    } else if (timeElapsed < 365 * 24 * 60) {
-      // Convert minutes to months
-      date.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
-    } else {
-      date.textContent = postDate.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-    formattedDate = date;
+        // Calculate time elapsed since post creation in minutes
+        const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
+        if (timeElapsed < 60) {
+          date.textContent = `${timeElapsed} min ago`;
+        } else if (timeElapsed < 24 * 60) {
+          // Convert minutes to hours
+          date.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
+        } else if (timeElapsed < 30 * 24 * 60) {
+          // Convert minutes to days
+          date.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
+        } else if (timeElapsed < 365 * 24 * 60) {
+          // Convert minutes to months
+          date.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
+        } else {
+          date.textContent = postDate.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        }
+    formattedDate = date.textContent;
+    // Add the date to the comment item
+    item.appendChild(date);
+    
     // Create the parent post info text
     const parentInfo = comment.root_title ?
       `<div class="comment-parent">
