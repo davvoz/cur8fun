@@ -260,12 +260,18 @@
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-md);
   position: sticky;
-  top:0;
+  top:-16px;
   background-color: var(--background-color);
   z-index: 10;
   padding: var(--space-xs) 0;
 }
-
+/*mobile*/
+@media screen and (max-width: 768px) {
+  .profile-tabs {
+    top:0;
+  }
+  
+}
 .tab-btn {
   padding: var(--space-sm) var(--space-md);
   margin-right: var(--space-md);
