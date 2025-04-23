@@ -151,9 +151,6 @@ class PostView extends View {
 
       this.loadingIndicator.updateProgress(100);
 
-      // Add Open Graph meta tags for better sharing preview
-      this.updateOpenGraphMetaTags();
-
       this.initComponents();
       await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);
@@ -172,6 +169,7 @@ class PostView extends View {
     }
   }
 
+<<<<<<< HEAD
   /**
    * Adds or updates Open Graph meta tags in the document head
    * for better link preview when sharing
@@ -441,6 +439,8 @@ class PostView extends View {
     return `https://steemitimages.com/0x0/${url}`;
   }
 
+=======
+>>>>>>> parent of 0433a18... test link preview
   initComponents() {
     if (!this.post) return;
     
