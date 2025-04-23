@@ -606,6 +606,27 @@ class BasePostView {
       day: 'numeric'
     });
     
+      // Calculate time elapsed since post creation in minutes
+      const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
+      if (timeElapsed < 60) {
+        date.textContent = `${timeElapsed} min ago`;
+      } else if (timeElapsed < 24 * 60) {
+        // Convert minutes to hours
+        date.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
+      } else if (timeElapsed < 30 * 24 * 60) {
+        // Convert minutes to days
+        date.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
+      } else if (timeElapsed < 365 * 24 * 60) {
+        // Convert minutes to months
+        date.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
+      } else {
+        date.textContent = postDate.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      }
+
     info.appendChild(infoTopRow);
     info.appendChild(date);
     header.append(avatarContainer, info);
