@@ -151,6 +151,9 @@ class PostView extends View {
 
       this.loadingIndicator.updateProgress(100);
 
+      // Add Open Graph meta tags for better sharing preview
+      this.updateOpenGraphMetaTags();
+
       this.initComponents();
       await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);
@@ -167,6 +170,144 @@ class PostView extends View {
       this.isLoading = false;
       this.loadingIndicator.hide();
     }
+  }
+
+  /**
+   * Adds or updates Open Graph meta tags in the document head
+   * for better link preview when sharing
+   */
+  updateOpenGraphMetaTags() {
+    if (!this.post) return;
+    
+    // Helper function to create or update meta tags
+    const setMetaTag = (property, content) => {
+      let metaTag = document.querySelector(`meta[property="${property}"]`);
+      if (!metaTag) {
+        metaTag = document.createElement('meta');
+        metaTag.setAttribute('property', property);
+        document.head.appendChild(metaTag);
+      }
+      metaTag.setAttribute('content', content);
+    };
+    
+    // Basic Open Graph meta tags
+    setMetaTag('og:title', this.post.title);
+    setMetaTag('og:type', 'article');
+    setMetaTag('og:url', window.location.href);
+    
+    // Create description from post body (strip markdown and limit length)
+    const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
+    setMetaTag('og:description', description);
+    
+    // Get image URL from post body or metadata
+    const imageUrl = this.getPostImageUrl();
+    if (imageUrl) {
+      setMetaTag('og:image', imageUrl);
+    }
+    
+    // Additional meta tags for better previews
+    setMetaTag('og:site_name', 'STEEM Social Network');
+    setMetaTag('og:article:published_time', this.post.created);
+    setMetaTag('og:article:author', this.post.author);
+    
+    // Twitter Card meta tags for Twitter sharing
+    const setTwitterTag = (name, content) => {
+      let twitterTag = document.querySelector(`meta[name="${name}"]`);
+      if (!twitterTag) {
+        twitterTag = document.createElement('meta');
+        twitterTag.setAttribute('name', name);
+        document.head.appendChild(twitterTag);
+      }
+      twitterTag.setAttribute('content', content);
+    };
+    
+    setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
+    setTwitterTag('twitter:title', this.post.title);
+    setTwitterTag('twitter:description', description);
+    if (imageUrl) {
+      setTwitterTag('twitter:image', imageUrl);
+    }
+  }
+  
+  /**
+   * Extracts the first image URL from post body or metadata
+   * @returns {string|null} Image URL or null if no image found
+   */
+  getPostImageUrl() {
+    if (!this.post) return null;
+    
+    try {
+      // First check json_metadata for image
+      const metadata = this.parseMetadata(this.post.json_metadata);
+      
+      // Check if there's an explicit image property or images array in metadata
+      if (metadata && metadata.image && metadata.image.length > 0) {
+        return this.ensureAbsoluteUrl(metadata.image[0]);
+      }
+      
+      // Fallback to searching the post body for images
+      const imgRegex = /!\[.*?\]\((.*?)\)/;
+      const imgMatch = this.post.body.match(imgRegex);
+      if (imgMatch && imgMatch[1]) {
+        return this.ensureAbsoluteUrl(imgMatch[1]);
+      }
+      
+      // Alternative method to find HTML img tags
+      const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
+      const htmlImgMatch = this.post.body.match(htmlImgRegex);
+      if (htmlImgMatch && htmlImgMatch[1]) {
+        return this.ensureAbsoluteUrl(htmlImgMatch[1]);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error extracting post image URL:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Ensures that a URL is absolute
+   * @param {string} url - The URL to process
+   * @returns {string} The absolute URL
+   */
+  ensureAbsoluteUrl(url) {
+    if (!url) return null;
+    
+    // If the URL is already absolute, return it
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Handle protocol-relative URLs
+    if (url.startsWith('//')) {
+      return `https:${url}`;
+    }
+    
+    // Handle relative URLs
+    return `https://steemitimages.com/${url}`;
+  }
+  
+  /**
+   * Removes markdown syntax from text
+   * @param {string} markdown - The markdown text
+   * @returns {string} Plain text without markdown
+   */
+  stripMarkdown(markdown) {
+    if (!markdown) return '';
+    
+    return markdown
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
+      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
+      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
+      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
+      .replace(/```.*?```/gs, '') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/#+ /g, '') // Remove headings
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .replace(/\s+/g, ' ') // Consolidate whitespace
+      .trim();
   }
 
   initComponents() {
