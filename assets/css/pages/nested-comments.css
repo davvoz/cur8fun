@@ -457,7 +457,9 @@
     border-radius: var(--radius-md);
   }
 }
-
+.comment{
+  width: min-content;
+}
 /* ---------- Advanced Nesting Support ---------- */
 /* Special styles for deeply nested comments to maintain readability */
 /* Apply to any level beyond our max visible depth */

@@ -61,31 +61,6 @@
   border-color: var(--primary-color);
 }
 
-/* Subtle fade effect on edges */
-.tag-selection-bar::before,
-.tag-selection-bar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 30px;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.tag-selection-bar::before {
-  left: 0;
-  background: linear-gradient(90deg, 
-    var(--background) 0%, 
-    rgba(var(--background-rgb), 0) 100%);
-}
-
-.tag-selection-bar::after {
-  right: 0;
-  background: linear-gradient(90deg, 
-    rgba(var(--background-rgb), 0) 0%, 
-    var(--background) 100%);
-}
 
 /* Custom Tag Input Styles */
 .custom-tag-container {
