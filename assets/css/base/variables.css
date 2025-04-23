@@ -68,20 +68,20 @@
     --z-notification: 1200;
     
     /* Default to light theme variables */
-    --background: #f8f9fa;
-    --background-color: #ffffff;
-    --background-light: #f8f9fa;
-    --background-lighter: #eef0f2;
-    --background-hover: #e9ecef;
-    --background-subtle: #f1f3f5;
-    --surface-color: #ffffff;
-    --surface-dark: #f1f3f5;
+    --background: #f0f2f5; /* Scurito da #f8f9fa */
+    --background-color: #f5f7fa; /* Scurito da #ffffff */
+    --background-light: #eaedf0; /* Scurito da #f8f9fa */
+    --background-lighter: #e5e8ec; /* Scurito da #eef0f2 */
+    --background-hover: #dfe2e6; /* Scurito da #e9ecef */
+    --background-subtle: #e8eaee; /* Scurito da #f1f3f5 */
+    --surface-color: #f8f9fa; /* Scurito da #ffffff */
+    --surface-dark: #e8eaee; /* Scurito da #f1f3f5 */
     
     /* Light theme border colors */
-    --border-color: #dee2e6;
-    --border-color-light: #e9ecef;
-    --border-color-hover: #ced4da;
-    --border-light: #e9ecef;
+    --border-color: #d5dade; /* Scurito leggermente */
+    --border-color-light: #dfe2e6; /* Scurito leggermente */
+    --border-color-hover: #c5cad0; /* Scurito leggermente */
+    --border-light: #dfe2e6; /* Scurito leggermente */
     
     /* Light theme text colors */
     --text-color: #343a40;
@@ -92,7 +92,7 @@
     --text: #495057;
     
     /* Light theme modal and Banner colors */
-    --modal-background: #ffffff;
+    --modal-background: #f5f7fa; /* Scurito da #ffffff */
     --banner-success: #27ae60;
     --banner-error: #e74c3c;
     --banner-warning: #f39c12;
@@ -125,8 +125,8 @@
     --color-success: var(--success-color);
     
     /* RGB values for color variations */
-    --background-rgb: 248, 249, 250; 
-    --background-light-rgb: 248, 249, 250;
+    --background-rgb: 240, 242, 245; /* Aggiornato per riflettere il nuovo background */
+    --background-light-rgb: 234, 237, 240; /* Aggiornato per riflettere il nuovo background-light */
     --primary-rgb: 255, 117, 24;
 }
 

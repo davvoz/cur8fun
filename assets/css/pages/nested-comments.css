@@ -175,7 +175,7 @@
   width: 100%;
   box-sizing: border-box;
   background-color: var(--surface-color);
-  border: 1px solid var(--border-color-light);
+  border: 0 0  1px solid var(--border-color-light)  0 ;
   margin-bottom: var(--space-xs);
 }
 
@@ -198,19 +198,15 @@
 
 /* ---------- Comment Header ---------- */
 .comment-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-sm);
+  display: flex
+;
+    flex-direction: row;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
+    flex-wrap: nowrap;
+    justify-content: flex-start;
 }
   
-@media (min-width: 640px) {
-  .comment-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
 
 .author-container {
   display: flex;
@@ -458,48 +454,9 @@
   }
 }
 .comment{
-  width: min-content;
-}
-/* ---------- Advanced Nesting Support ---------- */
-/* Special styles for deeply nested comments to maintain readability */
-/* Apply to any level beyond our max visible depth */
-.comment[data-depth="6"],
-.comment[data-depth="7"],
-.comment[data-depth="8"] {
-  border-left: 2px solid var(--primary-light);
-  padding-left: var(--space-sm);
-  margin-left: calc(var(--comment-indent-step) / 2);
-}
-
-/* For very deep nesting, collapse the indent to prevent horizontal scrolling */
-.comment[data-depth="9"],
-.comment[data-depth="10"],
-.comment[data-depth="11"],
-.comment[data-depth="12"] {
-  border-left: 3px solid var(--primary-color);
-  padding-left: var(--space-md);
-  margin-left: 0;
-}
-
-/* Visual indicators for different nesting levels */
-.comment[data-depth="1"] {
-  border-left-color: var(--primary-color);
-}
-
-.comment[data-depth="2"] {
-  border-left-color: var(--primary-light);
-}
-
-.comment[data-depth="3"] {
-  border-left-color: var(--secondary-color);
-}
-
-.comment[data-depth="4"] {
-  border-left-color: var(--secondary-light);
-}
-
-.comment[data-depth="5"] {
-  border-left-color: var(--primary-dark);
+  width: auto;
+  /*bordo a sinistra*/
+  border-left: 2px solid var(--border-color-light);
 }
 
 /* Mobile optimizations */

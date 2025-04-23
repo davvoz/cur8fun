@@ -8,12 +8,12 @@ export default class CommentUIManager {
     this.renderer = renderer;
     this.infiniteScroll = null;
     this.loadingIndicator = null;
-    
+
     // Inizializza ContentRenderer per il rendering markdown
     this.contentRenderer = new ContentRenderer({
       containerClass: 'comment-content-body',
       imageClass: 'comment-image',
-      maxImageWidth: 600, 
+      maxImageWidth: 600,
       useSteemContentRenderer: true,
       enableYouTube: true
     });
@@ -21,7 +21,7 @@ export default class CommentUIManager {
 
   showLoadingState() {
     if (!this.container) return;
-    
+
     this.container.innerHTML = '';
     this.loadingIndicator = new LoadingIndicator('spinner');
     this.loadingIndicator.show(this.container, 'Loading comments...');
@@ -31,13 +31,13 @@ export default class CommentUIManager {
     this.container.innerHTML = '';
     this.loadingIndicator = new LoadingIndicator('progressBar');
     this.loadingIndicator.show(this.container, 'Caricamento commenti...');
-    
+
     // Add counter element
     const counter = document.createElement('div');
     counter.className = 'loading-counter';
     counter.textContent = 'Recupero commenti...';
     this.loadingIndicator.element.appendChild(counter);
-    
+
     return this.loadingIndicator.element;
   }
 
@@ -49,14 +49,14 @@ export default class CommentUIManager {
 
   showLoadingComplete(commentCount) {
     if (!this.loadingIndicator) return;
-    
+
     if (this.loadingIndicator.element.querySelector('.loading-text')) {
       this.loadingIndicator.element.querySelector('.loading-text').textContent = 'Caricamento completato!';
     }
-    
+
     const counter = this.loadingIndicator.element.querySelector('.loading-counter');
     if (counter) counter.textContent = `${commentCount} commenti caricati`;
-    
+
     if (this.loadingIndicator.type === 'progressBar') {
       this.loadingIndicator.updateProgress(100);
       const fill = this.loadingIndicator.element.querySelector('.progress-fill');
@@ -69,13 +69,13 @@ export default class CommentUIManager {
 
   setupLayout(layout, options = {}) {
     if (!this.container) return;
-    
+
     // Always use list layout
     console.log(`[CommentUIManager] Setting up elegant list layout`);
-    
+
     this.container.innerHTML = '';
     this.container.className = 'comments-container comments-list-view';
-    
+
     // No need for card layout class anymore
   }
 
@@ -83,9 +83,9 @@ export default class CommentUIManager {
     const wrapper = document.createElement('div');
     wrapper.className = 'comments-list-wrapper';
     this.container.appendChild(wrapper);
-    
+
     console.log(`[CommentUIManager] Created comments list wrapper`);
-    
+
     return wrapper;
   }
 
@@ -94,10 +94,10 @@ export default class CommentUIManager {
       console.warn(`[CommentUIManager] No comments to render or no container`);
       return;
     }
-    
+
     // Clear any existing class
     container.className = 'comments-list-wrapper';
-    
+
     comments.forEach((comment, index) => {
       // Create a list-style comment item
       const commentItem = this._createListStyleComment(comment);
@@ -110,24 +110,44 @@ export default class CommentUIManager {
     const item = document.createElement('div');
     item.className = 'comment-list-item';
     item.dataset.commentId = `${comment.author}_${comment.permlink}`;
-    
+
     // Format the date
     const date = new Date(comment.created);
-    const formattedDate = date.toLocaleDateString('en-US', {
-      year: 'numeric', 
-      month: 'short', 
+    let formattedDate = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+    // Calculate time elapsed since post creation in minutes
+    const timeElapsed = Math.floor((Date.now() - date.getTime()) / 1000 / 60);
+    if (timeElapsed < 60) {
+      date.textContent = `${timeElapsed} min ago`;
+    } else if (timeElapsed < 24 * 60) {
+      // Convert minutes to hours
+      date.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
+    } else if (timeElapsed < 30 * 24 * 60) {
+      // Convert minutes to days
+      date.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
+    } else if (timeElapsed < 365 * 24 * 60) {
+      // Convert minutes to months
+      date.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
+    } else {
+      date.textContent = postDate.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    formattedDate = date;
     // Create the parent post info text
-    const parentInfo = comment.root_title ? 
+    const parentInfo = comment.root_title ?
       `<div class="comment-parent">
         <span class="parent-icon"><i class="fa fa-reply-all"></i></span>
         <span class="parent-title">Re: ${comment.root_title}</span>
       </div>` : '';
-    
+
     // Create avatar and header structure
     item.innerHTML = `
       <div class="comment-avatar">
@@ -157,7 +177,7 @@ export default class CommentUIManager {
         </div>
       </div>
     `;
-    
+
     // Renderizza il markdown utilizzando ContentRenderer
     try {
       const commentBody = item.querySelector('.comment-body');
@@ -165,13 +185,13 @@ export default class CommentUIManager {
         const renderedContent = this.contentRenderer.render({
           body: comment.body || ''
         });
-        
+
         if (renderedContent && renderedContent.container) {
           // Svuota il div del commento prima di aggiungere il contenuto renderizzato
           while (commentBody.firstChild) {
             commentBody.removeChild(commentBody.firstChild);
           }
-          
+
           // Aggiungi il contenuto renderizzato
           commentBody.appendChild(renderedContent.container);
         } else {
@@ -187,18 +207,18 @@ export default class CommentUIManager {
         commentBody.textContent = this._stripMarkdown(comment.body);
       }
     }
-    
+
     // Add click event to the item
     item.addEventListener('click', (e) => {
       // Don't navigate if clicking on author link
       if (e.target.closest('.comment-author')) return;
-      
+
       // Get the base URL (everything before the hash) to preserve deployment path
       const baseUrl = window.location.href.split('#')[0];
       // Add # to the URL for proper routing
       window.location.href = `${baseUrl}#/@${comment.author}/${comment.permlink}`;
     });
-    
+
     return item;
   }
 
@@ -231,13 +251,13 @@ export default class CommentUIManager {
     }
 
     console.log(`Initializing InfiniteScroll with page ${initialPage}`);
-    
+
     // Create a wrapper function that calls loadMoreFn and returns the result
     const loadMoreCallback = async (page) => {
       console.log(`InfiniteScroll calling loadMore for page ${page}`);
       return await loadMoreFn(page);
     };
-    
+
     this.infiniteScroll = new InfiniteScroll({
       container: this.container,
       loadMore: loadMoreCallback,
@@ -251,7 +271,7 @@ export default class CommentUIManager {
 
   showError(error) {
     if (!this.container) return;
-    
+
     this.container.innerHTML = `
       <div class="error-message">
         <h3>Error loading comments</h3>
@@ -259,7 +279,7 @@ export default class CommentUIManager {
         <button class="retry-btn">Retry</button>
       </div>
     `;
-    
+
     this.container.querySelector('.retry-btn')?.addEventListener('click', () => {
       this.container.innerHTML = '';
       this.container.dispatchEvent(new CustomEvent('retry-comments'));
@@ -271,7 +291,7 @@ export default class CommentUIManager {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
-    
+
     if (this.loadingIndicator) {
       this.loadingIndicator.hide();
       this.loadingIndicator = null;
