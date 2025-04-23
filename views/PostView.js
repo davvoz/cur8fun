@@ -179,56 +179,103 @@ class PostView extends View {
   updateOpenGraphMetaTags() {
     if (!this.post) return;
     
-    // Helper function to create or update meta tags
-    const setMetaTag = (property, content) => {
-      let metaTag = document.querySelector(`meta[property="${property}"]`);
+    // Update the dynamic meta container with current post info
+    const metaContainer = document.getElementById('dynamic-meta-container');
+    if (metaContainer) {
+      metaContainer.setAttribute('data-post-id', `${this.post.id || ''}`);
+      metaContainer.setAttribute('data-author', this.post.author || '');
+      metaContainer.setAttribute('data-permlink', this.post.permlink || '');
+    }
+    
+    // Helper function to update meta tags by ID and property/name
+    const updateMetaTag = (id, attributeType, attributeName, content) => {
+      // Try to get by ID first (our custom meta tags)
+      let metaTag = document.getElementById(id);
+      
+      // If not found by ID, try to find by property/name attribute
+      if (!metaTag) {
+        metaTag = document.querySelector(`meta[${attributeType}="${attributeName}"]`);
+      }
+      
+      // If still not found, create a new one
       if (!metaTag) {
         metaTag = document.createElement('meta');
-        metaTag.setAttribute('property', property);
+        metaTag.setAttribute(attributeType, attributeName);
+        if (id) {
+          metaTag.id = id;
+        }
         document.head.appendChild(metaTag);
       }
+      
+      // Set the content
       metaTag.setAttribute('content', content);
     };
     
-    // Basic Open Graph meta tags
-    setMetaTag('og:title', this.post.title);
-    setMetaTag('og:type', 'article');
-    setMetaTag('og:url', window.location.href);
+    // Get the canonical URL for this post
+    const canonicalUrl = this.getCanonicalUrl();
     
     // Create description from post body (strip markdown and limit length)
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
-    setMetaTag('og:description', description);
     
-    // Get image URL from post body or metadata
+    // Get image URL from post body or metadata with multiple fallback options
     const imageUrl = this.getPostImageUrl();
+    
+    // Basic Open Graph meta tags
+    updateMetaTag('og-title', 'property', 'og:title', this.post.title || 'STEEM Post');
+    updateMetaTag('og-type', 'property', 'og:type', 'article');
+    updateMetaTag('og-url', 'property', 'og:url', canonicalUrl);
+    updateMetaTag('og-desc', 'property', 'og:description', description);
+    
+    // Image (only add if we have a valid URL)
     if (imageUrl) {
-      setMetaTag('og:image', imageUrl);
+      updateMetaTag('og-image', 'property', 'og:image', imageUrl);
     }
     
-    // Additional meta tags for better previews
-    setMetaTag('og:site_name', 'STEEM Social Network');
-    setMetaTag('og:article:published_time', this.post.created);
-    setMetaTag('og:article:author', this.post.author);
+    // Additional Open Graph meta tags
+    updateMetaTag(null, 'property', 'og:site_name', 'STEEM Social Network');
+    updateMetaTag(null, 'property', 'og:article:published_time', this.post.created);
+    updateMetaTag(null, 'property', 'og:article:author', this.post.author);
+    updateMetaTag(null, 'property', 'og:article:section', this.post.category || '');
     
-    // Twitter Card meta tags for Twitter sharing
-    const setTwitterTag = (name, content) => {
-      let twitterTag = document.querySelector(`meta[name="${name}"]`);
-      if (!twitterTag) {
-        twitterTag = document.createElement('meta');
-        twitterTag.setAttribute('name', name);
-        document.head.appendChild(twitterTag);
-      }
-      twitterTag.setAttribute('content', content);
-    };
+    // Twitter Card meta tags
+    updateMetaTag('twitter-card', 'name', 'twitter:card', imageUrl ? 'summary_large_image' : 'summary');
+    updateMetaTag('twitter-title', 'name', 'twitter:title', this.post.title || 'STEEM Post');
+    updateMetaTag('twitter-desc', 'name', 'twitter:description', description);
     
-    setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
-    setTwitterTag('twitter:title', this.post.title);
-    setTwitterTag('twitter:description', description);
+    // Set Twitter image only if we have a valid URL
     if (imageUrl) {
-      setTwitterTag('twitter:image', imageUrl);
+      updateMetaTag('twitter-image', 'name', 'twitter:image', imageUrl);
     }
+    
+    // Add canonical link element for better SEO
+    let canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (!canonicalLink) {
+      canonicalLink = document.createElement('link');
+      canonicalLink.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', canonicalUrl);
+    
+    // Update document title as well for better browser history/bookmarks
+    document.title = `${this.post.title} - STEEM Social Network`;
   }
   
+  /**
+   * Get the canonical URL for this post
+   * @returns {string} The canonical URL
+   */
+  getCanonicalUrl() {
+    const baseUrl = window.location.origin;
+    const path = `/@${this.post.author}/${this.post.permlink}`;
+    
+    // Handle hash-based routing properly
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+      return `${baseUrl}/#${path}`;
+    }
+    
+    return `${baseUrl}${path}`;
+  }
+
   /**
    * Extracts the first image URL from post body or metadata
    * @returns {string|null} Image URL or null if no image found
@@ -242,21 +289,55 @@ class PostView extends View {
       
       // Check if there's an explicit image property or images array in metadata
       if (metadata && metadata.image && metadata.image.length > 0) {
-        return this.ensureAbsoluteUrl(metadata.image[0]);
+        const imageUrl = this.sanitizeImageUrl(metadata.image[0]);
+        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
+      }
+      
+      // Try to find image inside SteemContentRenderer extracted images
+      if (this.contentRenderer) {
+        try {
+          const renderedContent = this.contentRenderer.render({
+            body: this.post.body.substring(0, 1500) // Only render the first part for performance
+          });
+          
+          // Check if any images were extracted
+          if (renderedContent && renderedContent.images && renderedContent.images.length > 0) {
+            const imageUrl = this.sanitizeImageUrl(renderedContent.images[0].src);
+            if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
+          }
+        } catch (error) {
+          console.error('Error using content renderer for image extraction:', error);
+        }
       }
       
       // Fallback to searching the post body for images
+      // Markdown image syntax: ![alt text](image-url)
       const imgRegex = /!\[.*?\]\((.*?)\)/;
       const imgMatch = this.post.body.match(imgRegex);
       if (imgMatch && imgMatch[1]) {
-        return this.ensureAbsoluteUrl(imgMatch[1]);
+        const imageUrl = this.sanitizeImageUrl(imgMatch[1]);
+        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
       }
       
       // Alternative method to find HTML img tags
       const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
       const htmlImgMatch = this.post.body.match(htmlImgRegex);
       if (htmlImgMatch && htmlImgMatch[1]) {
-        return this.ensureAbsoluteUrl(htmlImgMatch[1]);
+        const imageUrl = this.sanitizeImageUrl(htmlImgMatch[1]);
+        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
+      }
+      
+      // Check for any URL that ends with common image extensions
+      const urlRegex = /https?:\/\/[^\s"'<>]+?\.(jpe?g|png|gif|webp)(\?[^\s"'<>]+)?/i;
+      const urlMatch = this.post.body.match(urlRegex);
+      if (urlMatch && urlMatch[0]) {
+        const imageUrl = this.sanitizeImageUrl(urlMatch[0]);
+        if (imageUrl) return imageUrl; // Already absolute
+      }
+      
+      // As a fallback, if no image is found in the post, try to get the author's avatar
+      if (this.post.author) {
+        return `https://steemitimages.com/u/${this.post.author}/avatar/large`;
       }
       
       return null;
@@ -266,6 +347,48 @@ class PostView extends View {
     }
   }
   
+  /**
+   * Sanitizes an image URL by removing unsafe parts and checking for validity
+   * @param {string} url - The image URL to sanitize
+   * @returns {string|null} - The sanitized URL or null if invalid
+   */
+  sanitizeImageUrl(url) {
+    if (!url) return null;
+    
+    try {
+      // Remove query parameters and fragments
+      let cleanUrl = url.split('?')[0].split('#')[0].trim();
+      
+      // Check for common image extensions
+      const hasImageExtension = /\.(jpe?g|png|gif|webp|svg)$/i.test(cleanUrl);
+      
+      // If it doesn't have an image extension but seems to be from an image service, accept it
+      const isImageService = /steemitimages\.com|hivebuzz\.me|images\.hive\.blog/i.test(cleanUrl);
+      
+      if (!hasImageExtension && !isImageService) {
+        // If it's not obviously an image URL, check for potential proxy URLs
+        if (!/\/ipfs\/|\/image\/|\/photos\/|\/images\//i.test(cleanUrl)) {
+          return null;
+        }
+      }
+      
+      // Make sure URL is properly formed
+      try {
+        cleanUrl = new URL(cleanUrl).href;
+      } catch (e) {
+        // If URL is not absolute and can't be parsed, it might be relative
+        if (!cleanUrl.startsWith('http')) {
+          return cleanUrl; // Return as is, will be handled by ensureAbsoluteUrl
+        }
+        return null;
+      }
+      
+      return cleanUrl;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /**
    * Ensures that a URL is absolute
    * @param {string} url - The URL to process
@@ -284,30 +407,18 @@ class PostView extends View {
       return `https:${url}`;
     }
     
-    // Handle relative URLs
-    return `https://steemitimages.com/${url}`;
-  }
-  
-  /**
-   * Removes markdown syntax from text
-   * @param {string} markdown - The markdown text
-   * @returns {string} Plain text without markdown
-   */
-  stripMarkdown(markdown) {
-    if (!markdown) return '';
+    // For IPFS URLs
+    if (url.startsWith('ipfs://')) {
+      return `https://ipfs.io/ipfs/${url.slice(7)}`;
+    }
     
-    return markdown
-      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
-      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
-      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
-      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
-      .replace(/```.*?```/gs, '') // Remove code blocks
-      .replace(/`([^`]+)`/g, '$1') // Remove inline code
-      .replace(/#+ /g, '') // Remove headings
-      .replace(/\n/g, ' ') // Replace newlines with spaces
-      .replace(/\s+/g, ' ') // Consolidate whitespace
-      .trim();
+    // Handle Steem/Hive specific formats
+    if (url.startsWith('@')) {
+      return `https://steemitimages.com/u/${url.slice(1)}/avatar/large`;
+    }
+    
+    // Handle relative URLs - use Steem's image proxy
+    return `https://steemitimages.com/0x0/${url}`;
   }
 
   initComponents() {
@@ -813,6 +924,30 @@ class PostView extends View {
     this.commentsSectionComponent = null;
     this.voteController = null;
     this.commentController = null;
+  }
+
+  /**
+   * Removes markdown syntax from text
+   * @param {string} markdown - The markdown text
+   * @returns {string} Plain text without markdown
+   */
+  stripMarkdown(markdown) {
+    if (!markdown) return '';
+    
+    return markdown
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
+      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
+      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
+      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
+      .replace(/```.*?```/gs, '') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/#+ /g, '') // Remove headings
+      .replace(/<\/?[^>]+(>|$)/g, '') // Remove HTML tags
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .replace(/\s+/g, ' ') // Consolidate whitespace
+      .replace(/https?:\/\/\S+/g, '') // Remove URLs
+      .trim();
   }
 }
 
