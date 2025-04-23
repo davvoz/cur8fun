@@ -417,28 +417,45 @@ class PostView extends View {
   ensureAbsoluteUrl(url) {
     if (!url) return null;
     
-    // If the URL is already absolute, return it
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
+    try {
+      // If the URL is already absolute, return it
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      }
+      
+      // Handle protocol-relative URLs
+      if (url.startsWith('//')) {
+        return `https:${url}`;
+      }
+      
+      // For IPFS URLs
+      if (url.startsWith('ipfs://')) {
+        return `https://ipfs.io/ipfs/${url.slice(7)}`;
+      }
+      
+      // Handle Steem/Hive specific formats
+      if (url.startsWith('@')) {
+        return `https://steemitimages.com/u/${url.slice(1)}/avatar/large`;
+      }
+      
+      // For URLs that start with a slash, prepend with Steem's image proxy
+      if (url.startsWith('/')) {
+        // Remove the leading slash to avoid double slashes in the final URL
+        const urlWithoutLeadingSlash = url.startsWith('/') ? url.slice(1) : url;
+        return `https://steemitimages.com/800x0/${urlWithoutLeadingSlash}`;
+      }
+      
+      // For all other relative URLs, use Steem's image proxy with maximum size for better social sharing
+      return `https://steemitimages.com/800x0/${url}`;
+    } catch (e) {
+      console.error('Error ensuring absolute URL:', e, url);
+      // In case of error, try to make a best effort to return something useful
+      if (url.includes('://')) {
+        return url; // Return as is if it has a protocol
+      } else {
+        return `https://steemitimages.com/800x0/${url}`; // Use Steem proxy as fallback
+      }
     }
-    
-    // Handle protocol-relative URLs
-    if (url.startsWith('//')) {
-      return `https:${url}`;
-    }
-    
-    // For IPFS URLs
-    if (url.startsWith('ipfs://')) {
-      return `https://ipfs.io/ipfs/${url.slice(7)}`;
-    }
-    
-    // Handle Steem/Hive specific formats
-    if (url.startsWith('@')) {
-      return `https://steemitimages.com/u/${url.slice(1)}/avatar/large`;
-    }
-    
-    // Handle relative URLs - use Steem's image proxy
-    return `https://steemitimages.com/0x0/${url}`;
   }
 
   initComponents() {
