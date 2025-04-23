@@ -98,6 +98,25 @@
   }
 }
 
+/* Previene lo zoom automatico su iOS per tutti i campi input nell'applicazione */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Previene lo zoom su iOS */
+  }
+  
+  .community-search-input,
+  .search-input,
+  .markdown-textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Fallback styles in case any imports fail */
 :root {
   /* Ensure critical variables are available */

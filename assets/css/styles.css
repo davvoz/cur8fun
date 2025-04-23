@@ -41,7 +41,16 @@
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 14px;
+}
+
+/* Previene lo zoom automatico su iOS per i campi input */
+@media (max-width: 767px) {
+    .memo-key-modal input,
+    .active-key-input input,
+    .checkbox-group input {
+        font-size: 16px !important; /* Previene lo zoom su iOS */
+    }
 }
 
 .memo-key-modal .modal-buttons {
