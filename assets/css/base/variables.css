@@ -1,58 +1,46 @@
 /* Variables and design tokens */
 :root {
-    /*var(--background);*/
-    --background : #121212; /* Dark theme background */
-    /* Primary colors */
+    /* Primary colors - shared across themes */
     --primary-color: #ff7518; /* Vibrant orange */
     --primary-light: #ff9248; /* Lighter variant */
     --primary-dark: #d95800; /* Darker variant */
+    --primary-color-rgb: 255, 117, 24; /* RGB values for opacity adjustments */
     
-    /* Secondary colors */
+    /* Secondary colors - shared across themes */
     --secondary-color: #2ecc71; /* Complementary green */
     --secondary-light: #54d98c; /* Lighter variant */
     --secondary-dark: #25a55b; /* Darker variant */
+    --secondary-color-rgb: 46, 204, 113; /* RGB values for opacity adjustments */
     
-    /* Background colors */
-    --background-color: #121212; /* Dark background */
-    --background-light: #1e1e1e; /* Lighter variant for cards */
-    --background-lighter: #2d2d2d; /* For hover states */
-    --surface-color: #1a1a1a; /* For component surfaces */
+    /* Brand colors - semantic colors */
+    --success-color: #27ae60;
+    --success-light: rgba(39, 174, 96, 0.1);
+    --success-dark: #219653;
+    --success-color-rgb: 39, 174, 96;
     
-    /* Border colors */
-    --border-color: #333333; /* Darker borders */
-    --border-light: #444444; /* Lighter borders for hover states */
+    --warning-color: #f39c12;
+    --warning-light: rgba(243, 156, 18, 0.1);
+    --warning-dark: #e67e22;
+    --warning-color-rgb: 243, 156, 18;
     
-    /* Text colors */
-    --text-color: #e0e0e0; /* Light text for contrast */
-    --text-secondary: #a0a0a0; /* Slightly darker secondary text */
-    --text-muted: #707070; /* For less important text */
-    --text-on-primary: #ffffff; /* Text on primary color */
-    --text-heading: #ffffff; /* Text for headings */
+    --error-color: #e74c3c;
+    --error-light: rgba(231, 76, 60, 0.1);
+    --error-dark: #c0392b;
+    --error-color-rgb: 231, 76, 60;
     
-    /* Modal and Banner colors */
-    --modal-background: #1a1a1a; /* Modal background */
-    --banner-success: #2ecc71; /* Success banner */
-    --banner-error: #e74c3c; /* Error banner */
-    --banner-warning: #f39c12; /* Warning banner */
-    --banner-info: #3498db; /* Info banner */
+    --info-color: #3498db;
+    --info-light: rgba(52, 152, 219, 0.1);
+    --info-dark: #2980b9;
+    --info-color-rgb: 52, 152, 219;
     
-    /* Button colors */
-    --button-primary: #ff7518; /* Primary button */
-    --button-primary-hover: #ff9248; /* Primary button hover */
-    --button-secondary: #2d2d2d; /* Secondary button */
-    --button-secondary-hover: #444444; /* Secondary button hover */
-    --button-danger: #e74c3c; /* Danger/cancel button */
-    --button-danger-hover: #c0392b; /* Danger button hover */
-    --button-success: #2ecc71; /* Success/confirm button */
-    --button-success-hover: #27ae60; /* Success button hover */
-    
-    /* Layout measurements */
+    /* Layout measurements - shared across themes */
     --nav-height: 60px;
     --side-nav-width: 240px;
     --content-max-width: 1000px;
     --content-padding: 20px;
     
-    /* Spacing scale */
+    /* Spacing scale - shared across themes */
+    --space-xxs: 2px;
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 16px;
@@ -60,28 +48,130 @@
     --space-xl: 32px;
     --space-xxl: 48px;
     
-    /* Shadows and effects */
-    --header-box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    --card-box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    --popup-box-shadow: 0 6px 24px rgba(0,0,0,0.25);
-    --subtle-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    
-    /* Border radius */
+    /* Border radius - shared across themes */
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 12px;
     --radius-pill: 9999px;
     
-    /* Transitions */
+    /* Transitions - shared across themes */
     --transition-fast: 150ms ease;
     --transition-normal: 250ms ease;
     --transition-slow: 350ms ease;
     --transition-xslow: 1500ms ease;
     
-    /* Z-index layers */
+    /* Z-index layers - shared across themes */
     --z-nav: 1000;
     --z-sidebar: 900;
     --z-content: 800;
     --z-modal: 1100;
     --z-notification: 1200;
+    
+    /* Default to light theme variables */
+    --background: #f8f9fa;
+    --background-color: #ffffff;
+    --background-light: #f8f9fa;
+    --background-lighter: #eef0f2;
+    --background-hover: #e9ecef;
+    --background-subtle: #f1f3f5;
+    --surface-color: #ffffff;
+    --surface-dark: #f1f3f5;
+    
+    /* Light theme border colors */
+    --border-color: #dee2e6;
+    --border-color-light: #e9ecef;
+    --border-color-hover: #ced4da;
+    --border-light: #e9ecef;
+    
+    /* Light theme text colors */
+    --text-color: #343a40;
+    --text-secondary: #6c757d;
+    --text-muted: #adb5bd;
+    --text-on-primary: #ffffff;
+    --text-heading: #212529;
+    --text: #495057;
+    
+    /* Light theme modal and Banner colors */
+    --modal-background: #ffffff;
+    --banner-success: #27ae60;
+    --banner-error: #e74c3c;
+    --banner-warning: #f39c12;
+    --banner-info: #3498db;
+    
+    /* Light theme button colors */
+    --button-primary: #ff7518;
+    --button-primary-hover: #ff9248;
+    --button-secondary: #e9ecef;
+    --button-secondary-hover: #dee2e6;
+    --button-danger: #e74c3c;
+    --button-danger-hover: #c0392b;
+    --button-success: #2ecc71;
+    --button-success-hover: #27ae60;
+    
+    /* Light theme shadows */
+    --header-box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    --card-box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    --popup-box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+    --subtle-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    --hover-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    
+    /* Color variations */
+    --color-primary: var(--primary-color);
+    --color-primary-light: rgba(255, 117, 24, 0.1);
+    --color-upvote: var(--secondary-color);
+    --color-danger: var(--error-color);
+    --color-danger-light: rgba(231, 76, 60, 0.1);
+    --color-warning: var(--warning-color);
+    --color-success: var(--success-color);
+    
+    /* RGB values for color variations */
+    --background-rgb: 248, 249, 250; 
+    --background-light-rgb: 248, 249, 250;
+    --primary-rgb: 255, 117, 24;
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+    /* Background colors - improved with lighter shades */
+    --background: #1a1a1a; /* Lighter than before */
+    --background-color: #1a1a1a; /* Lighter than before */
+    --background-light: #242424; /* Lighter than before */
+    --background-lighter: #2d2d2d; /* Lighter than before */
+    --background-hover: #333333;
+    --background-subtle: #232323;
+    --surface-color: #242424; /* Lighter than before */
+    --surface-dark: #1e1e1e;
+    
+    /* Dark theme text colors - improved for better readability */
+    --text-color: #e8e8e8; /* Lighter for better contrast */
+    --text-secondary: #b0b0b0; /* Lighter for better contrast */
+    --text-muted: #808080;
+    --text-on-primary: #ffffff;
+    --text-heading: #ffffff;
+    --text: #d0d0d0;
+    
+    /* Dark theme border colors - slightly more visible */
+    --border-color: #3a3a3a;
+    --border-color-light: #2e2e2e;
+    --border-color-hover: #424242;
+    --border-light: #444444;
+    
+    /* Dark theme modal and banner backgrounds */
+    --modal-background: #242424;
+    
+    /* Dark theme button colors - adjusted for dark backgrounds */
+    --button-secondary: #2d2d2d;
+    --button-secondary-hover: #444444;
+    
+    /* Dark theme shadows - more subtle */
+    --header-box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    --card-box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    --popup-box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    --subtle-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    --hover-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    
+    /* RGB values for dark theme */
+    --background-rgb: 26, 26, 26;
+    --background-light-rgb: 36, 36, 36;
+    --background-dark-rgb: 18, 18, 18;
 }

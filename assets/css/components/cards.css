@@ -69,18 +69,14 @@
     overflow: hidden;
     background-color: var(--background-subtle);
     border-bottom: 1px solid var(--border-color-light);
-    /*aggiungiamo un po' di ombra per dare profondità*/
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all var(--transition-normal);
 }
 
 .post-image-container img {
-    /*facciamola bella e responsive*/
     width: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
-    /*aggiungiamo un po' di ombra per dare profondità*/
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
 }
 
 /* Mobile optimization for square images */

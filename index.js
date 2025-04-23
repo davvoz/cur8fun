@@ -2,6 +2,7 @@
 import router from './utils/Router.js';
 import eventEmitter from './utils/EventEmitter.js';
 import NavigationManager from './utils/NavigationManager.js';
+import themeManager from './utils/ThemeManager.js';
 
 // Services
 import authService from './services/AuthService.js';
@@ -88,6 +89,8 @@ function initNavigation() {
 
 function updateNavigation() {
   updateNavigationMenu();
+  // Aggiorniamo i pulsanti del tema ogni volta che aggiorniamo la navigazione
+  setupThemeButtons();
   // Remove the call to highlightActiveMenuItem as it's now handled by NavigationManager
   // highlightActiveMenuItem();
 }
@@ -112,7 +115,18 @@ function renderAuthenticatedNav(container, user) {
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
   
+  // Mobile Theme Toggle button - aggiunto all'inizio
+  const mobileThemeToggle = document.createElement('button');
+  mobileThemeToggle.className = 'theme-toggle-btn mobile-theme-toggle';
+  mobileThemeToggle.setAttribute('aria-label', 'Toggle theme');
+  mobileThemeToggle.title = 'Toggle light/dark theme';
   
+  const themeIcon = document.createElement('span');
+  themeIcon.className = 'material-icons';
+  themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcon
+  mobileThemeToggle.appendChild(themeIcon);
+  
+  navActions.appendChild(mobileThemeToggle);
   
   // Mobile faucet button - add next to search button
   const mobileFaucetButton = document.createElement('a');
@@ -128,6 +142,7 @@ function renderAuthenticatedNav(container, user) {
   faucetIcon.appendChild(faIcon);
   mobileFaucetButton.appendChild(faucetIcon);
   navActions.appendChild(mobileFaucetButton);
+  
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';
@@ -137,6 +152,7 @@ function renderAuthenticatedNav(container, user) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
+  
   // Notifications button
   navActions.appendChild(createNotificationsButton());
   
@@ -150,6 +166,19 @@ function renderUnauthenticatedNav(container) {
   // Contenitore per i pulsanti
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
+  
+  // Mobile Theme Toggle button - aggiunto all'inizio
+  const mobileThemeToggle = document.createElement('button');
+  mobileThemeToggle.className = 'theme-toggle-btn mobile-theme-toggle';
+  mobileThemeToggle.setAttribute('aria-label', 'Toggle theme');
+  mobileThemeToggle.title = 'Toggle light/dark theme';
+  
+  const themeIcon = document.createElement('span');
+  themeIcon.className = 'material-icons';
+  themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcon
+  mobileThemeToggle.appendChild(themeIcon);
+  
+  navActions.appendChild(mobileThemeToggle);
   
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
@@ -316,8 +345,95 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('Failed to preload communities:', error);
   });
   
+  // Initialize theme manager
+  themeManager.init();
+  
   initApp();
+  
+  // Add theme toggle button to navigation after app is initialized
+  addThemeToggleButton();
 });
+
+/**
+ * Creates and adds a theme toggle button to the navigation
+ */
+function addThemeToggleButton() {
+  // Gestisce entrambi i pulsanti del tema (mobile e desktop)
+  const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
+  if (!themeToggleButtons.length) return;
+  
+  // Aggiorna le icone in tutti i pulsanti
+  themeToggleButtons.forEach(themeToggle => {
+    const icon = themeToggle.querySelector('.material-icons');
+    if (!icon) return;
+    
+    // Update the icon based on the current theme
+    updateThemeIcon(icon);
+    
+    // Add click handler to each button
+    themeToggle.addEventListener('click', () => {
+      const newTheme = themeManager.toggleTheme();
+      
+      // Aggiorna le icone in tutti i pulsanti
+      document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
+        updateThemeIcon(i);
+      });
+      
+      // Provide feedback with notification
+      eventEmitter.emit('notification', {
+        type: 'info',
+        message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
+        duration: 2000
+      });
+    });
+  });
+}
+
+/**
+ * Updates the theme toggle icon based on current theme
+ */
+function updateThemeIcon(iconElement) {
+  const currentTheme = themeManager.getCurrentTheme();
+  iconElement.textContent = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
+}
+
+/**
+ * Configures all theme toggle buttons in the document
+ * to make sure they reflect the current theme and have event listeners
+ */
+function setupThemeButtons() {
+  const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
+  if (!themeToggleButtons.length) return;
+  
+  themeToggleButtons.forEach(themeToggle => {
+    // Prima rimuovi eventuali click handler esistenti per evitare duplicazioni
+    const clone = themeToggle.cloneNode(true);
+    themeToggle.parentNode.replaceChild(clone, themeToggle);
+    
+    const icon = clone.querySelector('.material-icons');
+    if (!icon) return;
+    
+    // Update the icon based on the current theme
+    updateThemeIcon(icon);
+    
+    // Add click handler
+    clone.addEventListener('click', () => {
+      const newTheme = themeManager.toggleTheme();
+      
+      // Aggiorna le icone in tutti i pulsanti
+      document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
+        updateThemeIcon(i);
+      });
+      
+      // Provide feedback with notification
+      eventEmitter.emit('notification', {
+        type: 'info',
+        message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
+        duration: 2000
+      });
+    });
+  });
+}
 
 //Per aggiungere una nuova route ,
 //aggiungere una nuova riga al metodo addRoute di router.js

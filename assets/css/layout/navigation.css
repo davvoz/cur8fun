@@ -1,7 +1,7 @@
 /* Main Navigation */
 .main-nav {
     grid-area: nav;
-    background: rgba(18, 18, 18, 0.8);
+    background: var(--background-light);
     border-bottom: 1px solid var(--border-color);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -406,4 +406,84 @@ body.menu-open {
   font-size: 64px;
   margin-bottom: var(--space-md);
   color: var(--primary-color);
+}
+
+/* Theme toggle button styling */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  cursor: pointer;
+  margin-right: var(--space-md);
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--background-lighter);
+  color: var(--primary-color);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background-color: rgba(var(--primary-color-rgb), 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease-out, height 0.4s ease-out;
+  z-index: -1;
+}
+
+.theme-toggle-btn:hover::after {
+  width: 36px;
+  height: 36px;
+}
+
+/* Subtle animation for the icon */
+.theme-toggle-btn .material-icons {
+  transition: transform 0.5s ease;
+}
+
+.theme-toggle-btn:hover .material-icons {
+  transform: rotate(30deg);
+}
+
+@media (max-width: 768px) {
+  .theme-toggle-btn {
+    width: 32px;
+    height: 32px;
+    margin-right: var(--space-sm);
+  }
+}
+
+/* Mobile theme toggle button styling */
+.mobile-theme-toggle {
+  display: none; /* Nascosto di default su desktop */
+}
+
+@media (max-width: 768px) {
+  .mobile-theme-toggle {
+    display: flex; /* Visibile solo su mobile */
+    margin-right: var(--space-sm);
+  }
+  
+  /* Nascondiamo il pulsante nella sidebar su mobile */
+  .side-nav .theme-toggle-btn {
+    display: none;
+  }
 }
