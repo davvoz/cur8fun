@@ -181,17 +181,37 @@ class PostView extends View {
     
     // Helper function to create or update meta tags
     const setMetaTag = (property, content) => {
-      let metaTag = document.querySelector(`meta[property="${property}"]`);
-      if (!metaTag) {
-        metaTag = document.createElement('meta');
-        metaTag.setAttribute('property', property);
-        document.head.appendChild(metaTag);
+      // Remove existing meta tag first to avoid duplicates
+      const existingTag = document.querySelector(`meta[property="${property}"]`);
+      if (existingTag) {
+        existingTag.parentNode.removeChild(existingTag);
       }
+      
+      const metaTag = document.createElement('meta');
+      metaTag.setAttribute('property', property);
       metaTag.setAttribute('content', content);
+      document.head.appendChild(metaTag);
     };
     
+    // Helper function for Twitter Cards (uses name instead of property)
+    const setTwitterTag = (name, content) => {
+      // Remove existing Twitter tag
+      const existingTag = document.querySelector(`meta[name="${name}"]`);
+      if (existingTag) {
+        existingTag.parentNode.removeChild(existingTag);
+      }
+      
+      const twitterTag = document.createElement('meta');
+      twitterTag.setAttribute('name', name);
+      twitterTag.setAttribute('content', content);
+      document.head.appendChild(twitterTag);
+    };
+    
+    // Get image URL from post body or metadata with improved extraction
+    const imageUrl = this.getPostImageUrl();
+    
     // Basic Open Graph meta tags
-    setMetaTag('og:title', this.post.title);
+    setMetaTag('og:title', this.post.title || 'STEEM Post');
     setMetaTag('og:type', 'article');
     setMetaTag('og:url', window.location.href);
     
@@ -199,10 +219,34 @@ class PostView extends View {
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
     setMetaTag('og:description', description);
     
-    // Get image URL from post body or metadata
-    const imageUrl = this.getPostImageUrl();
+    // Set image URL - critical for WhatsApp and Telegram
     if (imageUrl) {
+      // Set image multiple times with different properties to maximize compatibility
       setMetaTag('og:image', imageUrl);
+      setMetaTag('og:image:url', imageUrl);
+      setMetaTag('og:image:secure_url', imageUrl);
+      
+      // Try to determine image dimensions if possible
+      const img = new Image();
+      img.src = imageUrl;
+      
+      // Set default dimensions while waiting for the actual dimensions
+      setMetaTag('og:image:width', '1200');
+      setMetaTag('og:image:height', '630');
+      
+      // Update dimensions once image is loaded
+      img.onload = () => {
+        setMetaTag('og:image:width', img.width.toString());
+        setMetaTag('og:image:height', img.height.toString());
+      };
+      
+      setMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
+    } else {
+      // Fallback to logo if no image is found
+      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
+      setMetaTag('og:image', logoUrl);
+      setMetaTag('og:image:url', logoUrl);
+      setMetaTag('og:image:secure_url', logoUrl);
     }
     
     // Additional meta tags for better previews
@@ -211,21 +255,41 @@ class PostView extends View {
     setMetaTag('og:article:author', this.post.author);
     
     // Twitter Card meta tags for Twitter sharing
-    const setTwitterTag = (name, content) => {
-      let twitterTag = document.querySelector(`meta[name="${name}"]`);
-      if (!twitterTag) {
-        twitterTag = document.createElement('meta');
-        twitterTag.setAttribute('name', name);
-        document.head.appendChild(twitterTag);
-      }
-      twitterTag.setAttribute('content', content);
-    };
-    
     setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
-    setTwitterTag('twitter:title', this.post.title);
+    setTwitterTag('twitter:title', this.post.title || 'STEEM Post');
     setTwitterTag('twitter:description', description);
+    
     if (imageUrl) {
       setTwitterTag('twitter:image', imageUrl);
+      setTwitterTag('twitter:image:alt', this.post.title || 'STEEM Post Image');
+    }
+    
+    // Special meta tags specifically for WhatsApp and Telegram
+    if (imageUrl) {
+      // WhatsApp specific (some sources suggest this helps)
+      setMetaTag('og:image:type', 'image/jpeg');
+      
+      // Additional tags that help with Telegram
+      const linkElem = document.querySelector('link[rel="image_src"]');
+      if (linkElem) {
+        linkElem.setAttribute('href', imageUrl);
+      } else {
+        const link = document.createElement('link');
+        link.setAttribute('rel', 'image_src');
+        link.setAttribute('href', imageUrl);
+        document.head.appendChild(link);
+      }
+      
+      // Add itemprop for Google+ and some other platforms
+      let itemPropImg = document.querySelector('meta[itemprop="image"]');
+      if (itemPropImg) {
+        itemPropImg.setAttribute('content', imageUrl);
+      } else {
+        itemPropImg = document.createElement('meta');
+        itemPropImg.setAttribute('itemprop', 'image');
+        itemPropImg.setAttribute('content', imageUrl);
+        document.head.appendChild(itemPropImg);
+      }
     }
   }
   
@@ -245,18 +309,47 @@ class PostView extends View {
         return this.ensureAbsoluteUrl(metadata.image[0]);
       }
       
-      // Fallback to searching the post body for images
-      const imgRegex = /!\[.*?\]\((.*?)\)/;
-      const imgMatch = this.post.body.match(imgRegex);
-      if (imgMatch && imgMatch[1]) {
-        return this.ensureAbsoluteUrl(imgMatch[1]);
+      // Check for other common metadata image formats
+      if (metadata) {
+        // Check for thumbnail property
+        if (metadata.thumbnail) {
+          return this.ensureAbsoluteUrl(metadata.thumbnail);
+        }
+        
+        // Check for featured_image property
+        if (metadata.featured_image) {
+          return this.ensureAbsoluteUrl(metadata.featured_image);
+        }
       }
       
-      // Alternative method to find HTML img tags
-      const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
-      const htmlImgMatch = this.post.body.match(htmlImgRegex);
-      if (htmlImgMatch && htmlImgMatch[1]) {
-        return this.ensureAbsoluteUrl(htmlImgMatch[1]);
+      // Fallback to searching the post body for images - regex patterns
+      // 1. First look for Markdown images ![alt](url)
+      const markdownImgRegex = /!\[.*?\]\((.*?)(?:\s+["'].*?["'])?\)/;
+      const mdMatch = this.post.body.match(markdownImgRegex);
+      if (mdMatch && mdMatch[1]) {
+        return this.ensureAbsoluteUrl(mdMatch[1]);
+      }
+      
+      // 2. Look for HTML img tags
+      const htmlImgRegex = /<img.*?src=["'](.*?)["']/i;
+      const htmlMatch = this.post.body.match(htmlImgRegex);
+      if (htmlMatch && htmlMatch[1]) {
+        return this.ensureAbsoluteUrl(htmlMatch[1]);
+      }
+      
+      // 3. Check for image URLs directly (common formats)
+      const urlRegex = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i;
+      const urlMatch = this.post.body.match(urlRegex);
+      if (urlMatch && urlMatch[1]) {
+        return this.ensureAbsoluteUrl(urlMatch[1]);
+      }
+      
+      // 4. Last resort: Try to extract images using a more general approach
+      // from steem avators or similar URLs
+      const generalImgRegex = /https?:\/\/(?:steemitimages\.com|images\.hive\.blog|gateway\.pinata\.cloud)\/\S+/i;
+      const generalMatch = this.post.body.match(generalImgRegex);
+      if (generalMatch && generalMatch[0]) {
+        return this.ensureAbsoluteUrl(generalMatch[0]);
       }
       
       return null;
@@ -284,10 +377,18 @@ class PostView extends View {
       return `https:${url}`;
     }
     
-    // Handle relative URLs
-    return `https://steemitimages.com/${url}`;
+    // Handle relative URLs - try different approaches
+    // First, try steemitimages which is commonly used for STEEM content
+    if (url.startsWith('/')) {
+      // URL is relative to root
+      return `https://steemitimages.com${url}`;
+    } else {
+      // Try to determine if this is a Markdown-style path reference or plain filename
+      // For steemit/hive content, use the steemitimages CDN
+      return `https://steemitimages.com/0x0/${url}`;
+    }
   }
-  
+
   /**
    * Removes markdown syntax from text
    * @param {string} markdown - The markdown text
