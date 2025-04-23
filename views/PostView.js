@@ -151,6 +151,9 @@ class PostView extends View {
 
       this.loadingIndicator.updateProgress(100);
 
+      // Add Open Graph meta tags for better sharing preview
+      this.updateOpenGraphMetaTags();
+
       this.initComponents();
       await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);
@@ -169,7 +172,6 @@ class PostView extends View {
     }
   }
 
-<<<<<<< HEAD
   /**
    * Adds or updates Open Graph meta tags in the document head
    * for better link preview when sharing
@@ -200,12 +202,7 @@ class PostView extends View {
     // Get image URL from post body or metadata
     const imageUrl = this.getPostImageUrl();
     if (imageUrl) {
-<<<<<<< HEAD
-      updateMetaTag('og-image', 'property', 'og:image', imageUrl);
-      console.log('Setting og:image to:', imageUrl);
-=======
       setMetaTag('og:image', imageUrl);
->>>>>>> parent of 0085a81... probabile rollback
     }
     
     // Additional meta tags for better previews
@@ -228,20 +225,7 @@ class PostView extends View {
     setTwitterTag('twitter:title', this.post.title);
     setTwitterTag('twitter:description', description);
     if (imageUrl) {
-<<<<<<< HEAD
-      updateMetaTag('twitter-image', 'name', 'twitter:image', imageUrl);
-      console.log('Setting twitter:image to:', imageUrl);
-    }
-    
-    // Add canonical link element for better SEO
-    let canonicalLink = document.querySelector('link[rel="canonical"]');
-    if (!canonicalLink) {
-      canonicalLink = document.createElement('link');
-      canonicalLink.setAttribute('rel', 'canonical');
-      document.head.appendChild(canonicalLink);
-=======
       setTwitterTag('twitter:image', imageUrl);
->>>>>>> parent of 0085a81... probabile rollback
     }
   }
   
@@ -272,32 +256,7 @@ class PostView extends View {
       const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
       const htmlImgMatch = this.post.body.match(htmlImgRegex);
       if (htmlImgMatch && htmlImgMatch[1]) {
-<<<<<<< HEAD
-        const imageUrl = this.sanitizeImageUrl(htmlImgMatch[1]);
-        if (imageUrl) return this.ensureAbsoluteUrl(imageUrl);
-      }
-      
-      // Check for any URL that ends with common image extensions
-      const urlRegex = /https?:\/\/[^\s"'<>]+?\.(jpe?g|png|gif|webp)(\?[^\s"'<>]+)?/i;
-      const urlMatch = this.post.body.match(urlRegex);
-      if (urlMatch && urlMatch[0]) {
-        const imageUrl = this.sanitizeImageUrl(urlMatch[0]);
-        if (imageUrl) return imageUrl; // Already absolute
-      }
-      
-      // Last resort: if no image is found but the post has a thumbnail reference, try to use it
-      if (metadata && metadata.thumbnail) {
-        const thumbnailUrl = this.sanitizeImageUrl(metadata.thumbnail);
-        if (thumbnailUrl) return this.ensureAbsoluteUrl(thumbnailUrl);
-      }
-      
-      // As a fallback, if no image is found in the post, try to get the author's avatar
-      // But use a larger size for better sharing display
-      if (this.post.author) {
-        return `https://steemitimages.com/u/${this.post.author}/avatar/large`;
-=======
         return this.ensureAbsoluteUrl(htmlImgMatch[1]);
->>>>>>> parent of 0085a81... probabile rollback
       }
       
       return null;
@@ -308,62 +267,6 @@ class PostView extends View {
   }
   
   /**
-<<<<<<< HEAD
-   * Sanitizes an image URL by removing unsafe parts and checking for validity
-   * @param {string} url - The image URL to sanitize
-   * @returns {string|null} - The sanitized URL or null if invalid
-   */
-  sanitizeImageUrl(url) {
-    if (!url) return null;
-    
-    try {
-      // Remove query parameters and fragments, but keep those that might be needed for some image services
-      let cleanUrl = url.trim();
-      
-      // If URL contains query parameters that look like Steem/Hive proxy params, keep them
-      if (!url.includes('steemitimages.com') && !url.includes('images.hive.blog')) {
-        cleanUrl = url.split('?')[0].split('#')[0].trim();
-      }
-      
-      // Check for common image extensions
-      const hasImageExtension = /\.(jpe?g|png|gif|webp|svg|bmp)$/i.test(cleanUrl);
-      
-      // If it doesn't have an image extension but seems to be from an image service, accept it
-      const isImageService = /steemitimages\.com|hivebuzz\.me|images\.hive\.blog|ipfs|imgur|cloudinary|googleusercontent|giphy|unsplash/i.test(cleanUrl);
-      
-      if (!hasImageExtension && !isImageService) {
-        // If it's not obviously an image URL, check for potential proxy URLs or image paths
-        if (!/\/ipfs\/|\/image\/|\/photos\/|\/images\/|\/img\/|\/media\/|\/content\/|\/uploads\//i.test(cleanUrl)) {
-          // It's not obviously an image URL, but we'll try to use it anyway
-          console.log('URL might not be an image, but will try:', cleanUrl);
-        }
-      }
-      
-      // Make sure URL is properly formed
-      try {
-        // For absolute URLs, use the URL constructor
-        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-          cleanUrl = new URL(cleanUrl).href;
-        } else if (cleanUrl.startsWith('//')) {
-          // For protocol-relative URLs
-          cleanUrl = `https:${cleanUrl}`;
-        }
-        // Relative URLs will be handled by ensureAbsoluteUrl
-      } catch (e) {
-        // URL parsing failed, but we'll still try to use it
-        console.log('URL parsing failed for:', cleanUrl);
-      }
-      
-      return cleanUrl;
-    } catch (e) {
-      console.error('Error sanitizing image URL:', e);
-      return url; // Return the original URL as a fallback
-    }
-  }
-
-  /**
-=======
->>>>>>> parent of 0085a81... probabile rollback
    * Ensures that a URL is absolute
    * @param {string} url - The URL to process
    * @returns {string} The absolute URL
@@ -407,8 +310,6 @@ class PostView extends View {
       .trim();
   }
 
-=======
->>>>>>> parent of 0433a18... test link preview
   initComponents() {
     if (!this.post) return;
     
