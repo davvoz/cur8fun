@@ -82,7 +82,8 @@ input[data-search-input="true"] {
     outline: none;
 }
 
-.search-icon {
+/* Rendere il selettore più specifico per evitare conflitti con altri stili */
+.search-input-wrapper .search-icon {
     position: absolute;
     left: var(--space-lg);
     top: 50%;

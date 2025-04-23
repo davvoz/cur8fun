@@ -132,24 +132,37 @@ export default class TransactionHistoryBase extends Component {
     searchLabel.className = 'search-label';
     searchLabel.textContent = 'Search types:';
     
-    const searchInput = document.createElement('div');
-    searchInput.className = 'search-input-container';
+    // Corretto il contenitore dell'input di ricerca
+    const searchInputContainer = document.createElement('div');
+    searchInputContainer.className = 'search-input-container';
+    searchInputContainer.style.position = 'relative'; // Assicuriamo che il contenitore sia posizionato relativamente
     
-    const searchIcon = document.createElement('span');
-    searchIcon.className = 'material-icons search-icon';
-    searchIcon.textContent = 'search';
-    searchInput.appendChild(searchIcon);
-    
+    // Creiamo prima l'input di ricerca
     const txSearchInput = document.createElement('input');
     txSearchInput.type = 'text';
     txSearchInput.id = `${filterIdPrefix}transaction-search`;
     txSearchInput.className = 'transaction-search-input';
     txSearchInput.placeholder = 'Type to filter...';
     txSearchInput.addEventListener('input', this.handleTypeSearch.bind(this));
-    searchInput.appendChild(txSearchInput);
+    txSearchInput.style.paddingLeft = '30px'; // Aggiungiamo padding a sinistra per fare spazio all'icona
+    
+    // Ora creiamo l'icona di ricerca
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'material-icons';
+    searchIcon.textContent = 'search';
+    searchIcon.style.position = 'absolute';
+    searchIcon.style.left = '8px';
+    searchIcon.style.top = '50%';
+    searchIcon.style.transform = 'translateY(-50%)';
+    searchIcon.style.color = 'var(--text-muted, #999)';
+    searchIcon.style.pointerEvents = 'none'; // Previene interferenze con l'input
+    
+    // Aggiungiamo gli elementi nell'ordine corretto
+    searchInputContainer.appendChild(txSearchInput); // Prima l'input
+    searchInputContainer.appendChild(searchIcon); // Poi l'icona sopra
     
     searchContainer.appendChild(searchLabel);
-    searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(searchInputContainer);
     
     // Action buttons container
     const actionButtonsContainer = document.createElement('div');
