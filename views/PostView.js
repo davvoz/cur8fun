@@ -151,18 +151,11 @@ class PostView extends View {
 
       this.loadingIndicator.updateProgress(100);
 
-      // Aggiorna i meta tag prima dell'inizializzazione dei componenti
+      // Add Open Graph meta tags for better sharing preview
       this.updateOpenGraphMetaTags();
 
       this.initComponents();
-      await this.renderComponents(); 
-      
-      // Aggiorna i meta tag anche dopo il rendering del post 
-      // per catturare eventuali immagini caricate dinamicamente
-      setTimeout(() => {
-        this.updateOpenGraphMetaTags();
-      }, 1000);
-      
+      await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);
     } catch (error) {
       console.error('Failed to load post:', error);
@@ -188,32 +181,13 @@ class PostView extends View {
     
     // Helper function to create or update meta tags
     const setMetaTag = (property, content) => {
-      // Rimuove tag esistente se presente
-      let existingTag = document.querySelector(`meta[property="${property}"]`);
-      if (existingTag) {
-        existingTag.remove();
+      let metaTag = document.querySelector(`meta[property="${property}"]`);
+      if (!metaTag) {
+        metaTag = document.createElement('meta');
+        metaTag.setAttribute('property', property);
+        document.head.appendChild(metaTag);
       }
-      
-      // Crea nuovo tag
-      const metaTag = document.createElement('meta');
-      metaTag.setAttribute('property', property);
       metaTag.setAttribute('content', content);
-      document.head.appendChild(metaTag);
-    };
-    
-    // Helper function per Twitter card tags
-    const setTwitterTag = (name, content) => {
-      // Rimuove tag esistente se presente
-      let existingTag = document.querySelector(`meta[name="${name}"]`);
-      if (existingTag) {
-        existingTag.remove();
-      }
-      
-      // Crea nuovo tag
-      const metaTag = document.createElement('meta');
-      metaTag.setAttribute('name', name);
-      metaTag.setAttribute('content', content);
-      document.head.appendChild(metaTag);
     };
     
     // Basic Open Graph meta tags
@@ -227,20 +201,8 @@ class PostView extends View {
     
     // Get image URL from post body or metadata
     const imageUrl = this.getPostImageUrl();
-    console.log('Found image URL for sharing:', imageUrl);
-    
     if (imageUrl) {
-      // Impostiamo l'immagine con priorità alta
       setMetaTag('og:image', imageUrl);
-      setMetaTag('og:image:secure_url', imageUrl);
-      setMetaTag('og:image:width', '1200');  // Dimensione consigliata per OG
-      setMetaTag('og:image:height', '630');  // Dimensione consigliata per OG
-    } else {
-      // Se non troviamo immagini, usiamo un'immagine di fallback più evidente del logo
-      console.log('No image found, using fallback');
-      const fallbackImage = `${window.location.origin}/assets/img/placeholder.png`;
-      setMetaTag('og:image', fallbackImage);
-      setMetaTag('og:image:secure_url', fallbackImage);
     }
     
     // Additional meta tags for better previews
@@ -249,18 +211,22 @@ class PostView extends View {
     setMetaTag('og:article:author', this.post.author);
     
     // Twitter Card meta tags for Twitter sharing
-    setTwitterTag('twitter:card', 'summary_large_image'); // Sempre usa large_image
+    const setTwitterTag = (name, content) => {
+      let twitterTag = document.querySelector(`meta[name="${name}"]`);
+      if (!twitterTag) {
+        twitterTag = document.createElement('meta');
+        twitterTag.setAttribute('name', name);
+        document.head.appendChild(twitterTag);
+      }
+      twitterTag.setAttribute('content', content);
+    };
+    
+    setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
     setTwitterTag('twitter:title', this.post.title);
     setTwitterTag('twitter:description', description);
-    
     if (imageUrl) {
       setTwitterTag('twitter:image', imageUrl);
-    } else {
-      const fallbackImage = `${window.location.origin}/assets/img/placeholder.png`;
-      setTwitterTag('twitter:image', fallbackImage);
     }
-    
-    console.log('Meta tags updated for sharing');
   }
   
   /**
@@ -276,47 +242,23 @@ class PostView extends View {
       
       // Check if there's an explicit image property or images array in metadata
       if (metadata && metadata.image && metadata.image.length > 0) {
-        const imageUrl = this.ensureAbsoluteUrl(metadata.image[0]);
-        console.log('Found image in metadata:', imageUrl);
-        return imageUrl;
+        return this.ensureAbsoluteUrl(metadata.image[0]);
       }
       
-      // Controlla il rendering HTML (se disponibile)
-      const postContentElement = document.querySelector('.post-content-body');
-      if (postContentElement) {
-        const firstImg = postContentElement.querySelector('img');
-        if (firstImg && firstImg.src) {
-          console.log('Found image in rendered HTML:', firstImg.src);
-          return firstImg.src;
-        }
-      }
-      
-      // Controlla se c'è un'immagine in copertina/thumbnail nei metadati
-      if (metadata && metadata.thumbnail) {
-        const thumbnailUrl = this.ensureAbsoluteUrl(metadata.thumbnail);
-        console.log('Found thumbnail in metadata:', thumbnailUrl);
-        return thumbnailUrl;
-      }
-      
-      // Cerca immagini nel markdown
+      // Fallback to searching the post body for images
       const imgRegex = /!\[.*?\]\((.*?)\)/;
       const imgMatch = this.post.body.match(imgRegex);
       if (imgMatch && imgMatch[1]) {
-        const imageUrl = this.ensureAbsoluteUrl(imgMatch[1]);
-        console.log('Found image in markdown:', imageUrl);
-        return imageUrl;
+        return this.ensureAbsoluteUrl(imgMatch[1]);
       }
       
-      // Cerca tag HTML img nel corpo del post
+      // Alternative method to find HTML img tags
       const htmlImgRegex = /<img.*?src=["'](.*?)["']/;
       const htmlImgMatch = this.post.body.match(htmlImgRegex);
       if (htmlImgMatch && htmlImgMatch[1]) {
-        const imageUrl = this.ensureAbsoluteUrl(htmlImgMatch[1]);
-        console.log('Found image in HTML tag:', imageUrl);
-        return imageUrl;
+        return this.ensureAbsoluteUrl(htmlImgMatch[1]);
       }
       
-      console.log('No image found in post');
       return null;
     } catch (error) {
       console.error('Error extracting post image URL:', error);
@@ -332,26 +274,40 @@ class PostView extends View {
   ensureAbsoluteUrl(url) {
     if (!url) return null;
     
-    // Rimuovi parametri di ridimensionamento che potrebbero causare problemi
-    url = url.replace(/\?.*$/, '');
-    
-    // Se l'URL è già assoluto, restituiscilo
+    // If the URL is already absolute, return it
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
     
-    // Se l'URL è relativo al protocollo, aggiungi https:
+    // Handle protocol-relative URLs
     if (url.startsWith('//')) {
       return `https:${url}`;
     }
     
-    // Se l'URL è relativo alla radice, aggiungi l'origine
-    if (url.startsWith('/')) {
-      return `${window.location.origin}${url}`;
-    }
+    // Handle relative URLs
+    return `https://steemitimages.com/${url}`;
+  }
+  
+  /**
+   * Removes markdown syntax from text
+   * @param {string} markdown - The markdown text
+   * @returns {string} Plain text without markdown
+   */
+  stripMarkdown(markdown) {
+    if (!markdown) return '';
     
-    // Per altri URL relativi, prova a usare steemitimages come base
-    return `https://steemitimages.com/0x0/${url}`;
+    return markdown
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
+      .replace(/(?:\*\*|__)(.*?)(?:\*\*|__)/g, '$1') // Remove bold
+      .replace(/(?:\*|_)(.*?)(?:\*|_)/g, '$1') // Remove italic
+      .replace(/(?:~~)(.*?)(?:~~)/g, '$1') // Remove strikethrough
+      .replace(/```.*?```/gs, '') // Remove code blocks
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code
+      .replace(/#+ /g, '') // Remove headings
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .replace(/\s+/g, ' ') // Consolidate whitespace
+      .trim();
   }
 
   initComponents() {
@@ -587,9 +543,6 @@ class PostView extends View {
 
   handleShare() {
     const url = window.location.href;
-    
-    // Assicuriamoci che i meta tag siano aggiornati prima della condivisione
-    this.updateOpenGraphMetaTags();
 
     if (navigator.share) {
       navigator.share({
@@ -598,7 +551,6 @@ class PostView extends View {
         url: url
       }).catch(err => console.error('Error sharing:', err));
     } else {
-      // Se il Web Share API non è disponibile, copia il link negli appunti
       navigator.clipboard.writeText(url).then(() => {
         this.emit('notification', {
           type: 'success',
