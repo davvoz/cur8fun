@@ -359,7 +359,6 @@
   top: 0;
   bottom: 8px;
   width: var(--comment-thread-width);
-  background-color: var(--primary-color);
 }
   
 @media (min-width: 768px) {
