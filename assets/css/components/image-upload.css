@@ -518,3 +518,112 @@
         transform: translateY(0);
     }
 }
+
+/* Editor drag and drop styles */
+.editor-drop-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 117, 24, 0.1);
+  border: 3px dashed var(--primary-color, #ff751a);
+  border-radius: var(--radius-md, 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.editor-drop-indicator.active {
+  opacity: 1;
+}
+
+.editor-drop-indicator .drop-icon {
+  font-size: 48px;
+  color: var(--primary-color, #ff751a);
+  margin-bottom: 10px;
+}
+
+.editor-drop-indicator .drop-message {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--primary-color, #ff751a);
+}
+
+.editor-drop-indicator .drop-info {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin-top: 5px;
+}
+
+.editor-area-container {
+  position: relative;
+}
+
+/* Adding image upload notification overlay */
+.image-upload-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--background-color, #fff);
+  border-left: 4px solid var(--primary-color, #ff751a);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 15px 20px;
+  border-radius: var(--radius-md, 4px);
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+  animation: slideInRight 0.3s ease-out;
+  max-width: 90%;
+}
+
+.image-upload-notification.success {
+  border-left-color: var(--success-color, #28a745);
+}
+
+.image-upload-notification.error {
+  border-left-color: var(--error-color, #dc3545);
+}
+
+.image-upload-notification .notification-icon {
+  margin-right: 12px;
+  font-size: 24px;
+}
+
+.image-upload-notification.success .notification-icon {
+  color: var(--success-color, #28a745);
+}
+
+.image-upload-notification.error .notification-icon {
+  color: var(--error-color, #dc3545);
+}
+
+.image-upload-notification .notification-content {
+  flex: 1;
+}
+
+.image-upload-notification .notification-title {
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.image-upload-notification .notification-message {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

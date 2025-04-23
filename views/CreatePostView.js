@@ -396,19 +396,7 @@ class CreatePostView extends View {
     this.element.appendChild(postEditor);
 
     // Inizializza l'editor Markdown
-    this.markdownEditor = new MarkdownEditor(
-      document.getElementById('markdown-editor-container'),
-      {
-        placeholder: 'Write your post content here using Markdown...',
-        onChange: (value) => {
-          this.postBody = value;
-          this.hasUnsavedChanges = true;
-        },
-        height: '500px',
-        initialValue: this.postBody || ''
-      }
-    );
-    this.markdownEditor.render();
+    this.initializeMarkdownEditor();
 
     // Verifica se esiste una bozza e mostra il prompt
     this.checkForDraft();
@@ -2608,6 +2596,229 @@ class CreatePostView extends View {
       console.error('Failed to get recent beneficiaries:', error);
       return [];
     }
+  }
+
+  /**
+   * Inizializza l'editor Markdown e imposta il drag and drop per le immagini
+   */
+  async initializeMarkdownEditor() {
+    const editorContainer = document.getElementById('markdown-editor-container');
+    if (!editorContainer) return;
+    
+    // Rendi il container un elemento relativo per posizionare l'indicatore di drop
+    const editorAreaContainer = document.createElement('div');
+    editorAreaContainer.className = 'editor-area-container';
+    editorContainer.appendChild(editorAreaContainer);
+    
+    // Inizializza l'editor Markdown all'interno del container
+    this.markdownEditor = new MarkdownEditor(
+      editorAreaContainer,
+      {
+        placeholder: 'Write your post content here using Markdown...',
+        onChange: (value) => {
+          this.postBody = value;
+          this.hasUnsavedChanges = true;
+        },
+        height: '500px',
+        initialValue: this.postBody || ''
+      }
+    );
+    this.markdownEditor.render();
+    
+    // Aggiungi l'indicatore di drop
+    this.addDropIndicator(editorAreaContainer);
+    
+    // Imposta gli eventi di drag and drop
+    this.setupDragAndDropEvents(editorAreaContainer);
+  }
+
+  /**
+   * Aggiunge l'indicatore visuale per il drag and drop
+   * @param {HTMLElement} container - Container dell'editor
+   */
+  addDropIndicator(container) {
+    if (!container) return;
+    
+    // Crea l'indicatore di drop
+    const dropIndicator = document.createElement('div');
+    dropIndicator.className = 'editor-drop-indicator';
+    dropIndicator.id = 'editor-drop-indicator';
+    
+    // Aggiungi l'icona
+    const dropIcon = document.createElement('div');
+    dropIcon.className = 'drop-icon';
+    dropIcon.innerHTML = '<span class="material-icons">cloud_upload</span>';
+    dropIndicator.appendChild(dropIcon);
+    
+    // Aggiungi il messaggio
+    const dropMessage = document.createElement('div');
+    dropMessage.className = 'drop-message';
+    dropMessage.textContent = 'Drop image to upload';
+    dropIndicator.appendChild(dropMessage);
+    
+    // Aggiungi l'info
+    const dropInfo = document.createElement('div');
+    dropInfo.className = 'drop-info';
+    dropInfo.textContent = 'The image will be inserted at the cursor position';
+    dropIndicator.appendChild(dropInfo);
+    
+    // Aggiungi l'indicatore al container
+    container.appendChild(dropIndicator);
+  }
+
+  /**
+   * Imposta gli eventi di drag and drop per l'editor
+   * @param {HTMLElement} editorContainer - Container dell'editor
+   */
+  setupDragAndDropEvents(editorContainer) {
+    if (!editorContainer) return;
+    
+    const dropIndicator = document.getElementById('editor-drop-indicator');
+    if (!dropIndicator) return;
+    
+    // Previeni il comportamento predefinito per permettere il drop
+    editorContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Mostra l'indicatore solo se si trascina un'immagine
+      if (this.isDraggingImage(e)) {
+        dropIndicator.classList.add('active');
+      }
+    });
+    
+    // Nascondi l'indicatore quando il drag esce dall'area
+    editorContainer.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropIndicator.classList.remove('active');
+    });
+    
+    // Gestisci il drop dell'immagine
+    editorContainer.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Nascondi l'indicatore
+      dropIndicator.classList.remove('active');
+      
+      // Verifica che sia un'immagine
+      if (!this.isDraggingImage(e)) return;
+      
+      const file = e.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      
+      // Carica l'immagine
+      await this.handleEditorImageDrop(file);
+    });
+  }
+
+  /**
+   * Verifica se l'utente sta trascinando un'immagine
+   * @param {DragEvent} e - Evento di drag
+   * @returns {boolean} - True se è un'immagine
+   */
+  isDraggingImage(e) {
+    if (!e.dataTransfer) return false;
+    
+    // Verifica i tipi di dati trascinati
+    if (e.dataTransfer.types.includes('Files')) {
+      const items = e.dataTransfer.items;
+      
+      if (items && items.length > 0) {
+        // Controlla se almeno un elemento è un'immagine
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Gestisce il drop di un'immagine nell'editor
+   * @param {File} file - Il file immagine droppato
+   */
+  async handleEditorImageDrop(file) {
+    try {
+      // Mostra notifica di caricamento
+      this.showImageUploadNotification('Uploading image...', 'info');
+      
+      // Controlla la dimensione del file
+      if (!this.isFileSizeValid(file)) {
+        this.showImageUploadNotification('File too large. Maximum size is 15MB.', 'error');
+        return;
+      }
+      
+      // Importa il servizio di upload immagini
+      const ImageUploadService = await import('../services/ImageUploadService.js')
+        .then(module => module.default)
+        .catch(err => {
+          throw new Error('Could not load image upload service: ' + err.message);
+        });
+      
+      if (!this.user) {
+        this.showImageUploadNotification('You must be logged in to upload images', 'error');
+        return;
+      }
+      
+      // Carica l'immagine
+      const imageUrl = await ImageUploadService.uploadImage(file, this.user.username);
+      
+      // Inserisci l'immagine nell'editor
+      this.insertImageToEditor(`![Image](${imageUrl})`);
+      
+      // Mostra notifica di successo
+      this.showImageUploadNotification('Image uploaded and inserted successfully!', 'success');
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      this.showImageUploadNotification(`Upload failed: ${error.message}`, 'error');
+    }
+  }
+
+  /**
+   * Mostra una notifica per l'upload di immagini
+   * @param {string} message - Messaggio da mostrare
+   * @param {string} type - Tipo di notifica (info, success, error)
+   */
+  showImageUploadNotification(message, type = 'info') {
+    // Rimuovi notifiche precedenti
+    const existingNotification = document.querySelector('.image-upload-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+    
+    // Crea nuova notifica
+    const notification = document.createElement('div');
+    notification.className = `image-upload-notification ${type}`;
+    
+    // Determina l'icona in base al tipo
+    let iconName = 'info';
+    if (type === 'success') iconName = 'check_circle';
+    if (type === 'error') iconName = 'error';
+    
+    // Aggiungi contenuto
+    notification.innerHTML = `
+      <span class="material-icons notification-icon">${iconName}</span>
+      <div class="notification-content">
+        <div class="notification-title">${type === 'info' ? 'Image Upload' : (type === 'success' ? 'Upload Complete' : 'Upload Failed')}</div>
+        <div class="notification-message">${message}</div>
+      </div>
+    `;
+    
+    // Aggiungi al DOM
+    document.body.appendChild(notification);
+    
+    // Rimuovi dopo alcuni secondi
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+      }
+    }, type === 'error' ? 5000 : 3000);
   }
 }
 
