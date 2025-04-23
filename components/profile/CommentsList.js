@@ -36,8 +36,6 @@ export default class CommentsList extends BasePostView {
   async render(container) {
     if (!container) return;
     
-    console.log(`[CommentsList] Rendering per @${this.username}`);
-    
     // Verifica se abbiamo già dati caricati precedentemente
     const hasExistingData = this.allComments && this.allComments.length > 0;
     
@@ -69,7 +67,6 @@ export default class CommentsList extends BasePostView {
     
     // Se abbiamo dati esistenti, renderizza quelli invece di ricaricare
     if (hasExistingData) {
-      console.log(`[CommentsList] Usando ${this.allComments.length} commenti dalla cache`);
       await this.renderLoadedComments();
     } else {
       // Carica i commenti solo se non ne abbiamo già
@@ -233,8 +230,6 @@ export default class CommentsList extends BasePostView {
   }
 
   refreshGridLayout() {
-    console.log("[CommentsList] Refreshing comments layout");
-    
     if (!this.container) return;
     
     // Reset pagination

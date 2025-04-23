@@ -129,8 +129,6 @@ class CommentsSection {
   async fetchAllReplies() {
     if (!this.comments || this.comments.length === 0) return;
     
-    console.log('💬 INIZIO RECUPERO COMMENTI E RISPOSTE');
-    
     // Crea un indicatore di caricamento
     const loadingIndicator = document.createElement('div');
     loadingIndicator.className = 'loading-replies';
@@ -147,15 +145,12 @@ class CommentsSection {
     
     try {
       // 1. Primo passo: otteniamo le risposte dirette al post principale
-      console.log(`💬 Passo 1: Recupero commenti di primo livello per @${this.parentPost.author}/${this.parentPost.permlink}`);
       
       // Per maggiore sicurezza, recuperiamo nuovamente anche le risposte dirette al post
       const directReplies = await steemApi.getContentReplies(
         this.parentPost.author, 
         this.parentPost.permlink
       );
-      
-      console.log(`💬 Recuperate ${directReplies.length} risposte dirette al post`);
       
       // 2. Creiamo una mappa per tenere traccia di tutti i commenti
       const allCommentsMap = new Map();
@@ -180,7 +175,6 @@ class CommentsSection {
           const replies = await steemApi.getContentReplies(comment.author, comment.permlink);
           
           if (replies && replies.length > 0) {
-            console.log(`💬 Trovate ${replies.length} risposte a @${comment.author}/${comment.permlink}`);
             totalRepliesFound += replies.length;
             
             // Aggiungi solo le risposte che non abbiamo già
@@ -199,7 +193,6 @@ class CommentsSection {
       
       // 5. Ora abbiamo tutti i commenti e tutte le risposte
       this.comments = Array.from(allCommentsMap.values());
-      console.log(`💬 RECUPERO COMPLETATO: ${totalRepliesFound} risposte su ${this.comments.length} commenti totali`);
       
       // IMPORTANTE: analizza la struttura dei commenti per debug
       this.analyzeComments();
@@ -216,23 +209,16 @@ class CommentsSection {
   
   // Nuovo metodo per analizzare la struttura dei commenti e risposte
   analyzeComments() {
-    console.log('🔍 ANALISI STRUTTURA COMMENTI:');
-    console.log(`🔍 Totale commenti: ${this.comments.length}`);
-    
     // Contiamo i commenti radice (risposte dirette al post)
     const rootComments = this.comments.filter(c => 
       c.parent_author === this.parentPost.author && 
       c.parent_permlink === this.parentPost.permlink
     );
     
-    console.log(`🔍 Commenti radice: ${rootComments.length}`);
-    
     // Contiamo i commenti che sono risposte ad altri commenti
     const replies = this.comments.filter(c => 
       !(c.parent_author === this.parentPost.author && c.parent_permlink === this.parentPost.permlink)
     );
-    
-    console.log(`🔍 Risposte ad altri commenti: ${replies.length}`);
     
     // Verifichiamo la profondità massima
     const depths = {};
@@ -259,8 +245,6 @@ class CommentsSection {
         }
       }
     });
-    
-    console.log(`🔍 Commenti con genitore mancante: ${commentsWithNoParent.length}`);
   }
 
   renderComments() {
@@ -294,72 +278,41 @@ class CommentsSection {
     // Count total number of root comments
     const totalRootComments = commentTree.length;
     
-    // Render only a subset of comments initially if there are many
-    const commentsToRender = totalRootComments > this.commentsToShow 
-      ? commentTree.slice(0, this.commentsToShow) 
-      : commentTree;
-
-    // Render the comment tree
+    // Show a limited number of root comments initially
+    const commentsToRender = commentTree.slice(0, this.maxRootCommentsToShow);
+    
+    // Render each root comment with its replies
     commentsToRender.forEach(comment => {
       const commentElement = this.createCommentElement(comment);
       this.commentsListContainer.appendChild(commentElement);
+      
+      // Render replies if any
+      if (comment.children && comment.children.length > 0) {
+        this.renderReplies(commentElement, comment);
+      }
     });
-
-    // Add "Show More" button if needed
-    if (totalRootComments > this.commentsToShow) {
+    
+    // Add "Show more comments" button if there are more comments
+    if (totalRootComments > this.maxRootCommentsToShow) {
+      const remaining = totalRootComments - this.maxRootCommentsToShow;
       const showMoreContainer = document.createElement('div');
       showMoreContainer.className = 'show-more-comments';
       
       const showMoreButton = document.createElement('button');
-      showMoreButton.className = 'show-more-btn';
-      showMoreButton.textContent = `Show More Comments (${totalRootComments - this.commentsToShow} remaining)`;
-      
-      showMoreButton.addEventListener('click', () => this.loadMoreComments(commentTree));
+      showMoreButton.textContent = `Show ${remaining} more ${remaining === 1 ? 'comment' : 'comments'}`;
+      showMoreButton.className = 'show-more-button';
+      showMoreButton.addEventListener('click', () => {
+        this.maxRootCommentsToShow = totalRootComments;
+        this.renderComments();
+      });
       
       showMoreContainer.appendChild(showMoreButton);
       this.commentsListContainer.appendChild(showMoreContainer);
-    }
-
-    console.log('Comments rendered:', commentsToRender.length, 'of', totalRootComments, 'root comments');
-  }
-
-  // Add a method to load more comments when the "Show More" button is clicked
-  loadMoreComments(commentTree) {
-    // Calculate the current count and the next batch
-    const currentCount = this.commentsToShow;
-    this.commentsToShow += this.commentsIncrement;
-    
-    // Get the next batch of comments
-    const nextBatch = commentTree.slice(currentCount, this.commentsToShow);
-    
-    // Find the show more button
-    const showMoreContainer = this.commentsListContainer.querySelector('.show-more-comments');
-    
-    // Insert the new comments before the "Show More" button
-    if (showMoreContainer) {
-      nextBatch.forEach(comment => {
-        const commentElement = this.createCommentElement(comment);
-        this.commentsListContainer.insertBefore(commentElement, showMoreContainer);
-      });
-      
-      // Update or remove the "Show More" button
-      const remaining = commentTree.length - this.commentsToShow;
-      if (remaining <= 0) {
-        // No more comments to load, remove the button
-        this.commentsListContainer.removeChild(showMoreContainer);
-      } else {
-        // Update the button text to reflect the new count
-        const showMoreButton = showMoreContainer.querySelector('.show-more-btn');
-        if (showMoreButton) {
-          showMoreButton.textContent = `Show More Comments (${remaining} remaining)`;
-        }
-      }
     }
   }
 
   // Questa funzione deve essere completamente modificata per garantire la corretta gestione della profondità
   buildCommentTree(comments) {
-    console.log('🌳 COSTRUZIONE ALBERO COMMENTI');
     
     // 1. Creiamo una mappa di tutti i commenti per accessi veloci
     const commentMap = new Map();
@@ -393,7 +346,6 @@ class CommentsSection {
           parentComment.children.push(commentNode);
         } else {
           // Se non troviamo il genitore, aggiungi come radice
-          console.warn(`⚠️ Genitore non trovato per ${commentKey}, aggiunto come radice`);
           rootComments.push(commentNode);
         }
       }
@@ -423,26 +375,7 @@ class CommentsSection {
     
     sortCommentsByDate(rootComments);
     
-    // 6. Debug dell'albero finale
-    console.log(`🌳 Albero finale: ${rootComments.length} commenti radice`);
-    this.visualizeTree(rootComments);
-    
     return rootComments;
-  }
-  
-  // Metodo per visualizzare l'albero in modo chiaro
-  visualizeTree(comments, prefix = '') {
-    comments.forEach((comment, index) => {
-      const isLast = index === comments.length - 1;
-      const branch = isLast ? '└── ' : '├── ';
-      const newPrefix = isLast ? prefix + '    ' : prefix + '│   ';
-      
-      console.log(`${prefix}${branch}${comment.author}/${comment.permlink} [depth=${comment.depth}, replies=${comment.children.length}]`);
-      
-      if (comment.children && comment.children.length > 0) {
-        this.visualizeTree(comment.children, newPrefix);
-      }
-    });
   }
 
   createCommentElement(comment, depth = null) {
@@ -560,8 +493,6 @@ class CommentsSection {
           throw new Error('Renderer did not return a valid node');
         }
       } catch (renderError) {
-        console.warn('ContentRenderer failed:', renderError);
-        
         const fallbackContent = document.createElement('div');
         fallbackContent.className = 'comment-text-fallback';
         fallbackContent.textContent = comment.body || '';
@@ -632,7 +563,6 @@ class CommentsSection {
         event.preventDefault(); // Prevent default button behavior
         
         const isVisible = replyForm.style.display !== 'none';
-        console.log(`Reply button clicked for ${comment.author}, form ${isVisible ? 'visible' : 'hidden'}`);
         
         // Close any other open reply forms first
         if (this.activeReplyForm && this.activeReplyForm !== replyForm) {
@@ -650,7 +580,6 @@ class CommentsSection {
       if (this.handleReplyCallback) {
         const submitReply = () => {
           const replyText = replyTextarea.value.trim();
-          console.log(`Submitting reply to ${comment.author}: "${replyText.substring(0, 20)}..."`);
           
           if (replyText) {
             try {
@@ -676,7 +605,6 @@ class CommentsSection {
       } else {
         submitReplyBtn.disabled = true;
         submitReplyBtn.title = 'Reply functionality not available';
-        console.warn(`Reply callback not available for comment by ${comment.author}`);
       }
 
       // Add upvote button handler
@@ -747,7 +675,6 @@ class CommentsSection {
 
       return commentDiv;
     } catch (error) {
-      console.error(`Failed to create comment element:`, error);
       const errorElement = document.createElement('div');
       errorElement.className = 'comment-error';
       errorElement.textContent = `Error displaying comment`;
@@ -847,7 +774,6 @@ class CommentsSection {
         try {
           replyTextarea.focus();
         } catch (e) {
-          console.warn('Could not focus textarea', e);
         }
       }, 100);
     }
@@ -911,7 +837,6 @@ class CommentsSection {
         commentsHeader.textContent = `Comments (${this.comments.length})`;
       }
     }).catch(err => {
-      console.error('Failed to refresh replies:', err);
       // Fallback to just rendering what we have
       this.renderComments();
     });
@@ -925,8 +850,6 @@ class CommentsSection {
     if (!this.comments || this.comments.length === 0 || !this.parentPost) return;
     
     try {
-      console.log('🔄 Quick refresh of comment replies');
-      
       // Create a map of existing comments
       const allCommentsMap = new Map();
       this.comments.forEach(c => allCommentsMap.set(`${c.author}/${c.permlink}`, c));
@@ -967,7 +890,6 @@ class CommentsSection {
               }
             }
           } catch (err) {
-            console.warn(`Couldn't fetch replies for ${comment.author}/${comment.permlink}:`, err);
           }
         }
         
@@ -975,9 +897,7 @@ class CommentsSection {
         this.comments = Array.from(allCommentsMap.values());
       }
       
-      console.log(`🔄 Comment refresh complete. Total comments: ${this.comments.length}`);
     } catch (error) {
-      console.error('Error refreshing replies:', error);
     }
   }
   
@@ -987,13 +907,10 @@ class CommentsSection {
    */
   addNewComment(commentResult) {
     if (!commentResult || !commentResult.success) {
-      console.error('Invalid comment result:', commentResult);
       return;
     }
     
     try {
-      console.log('Adding new comment directly to UI:', commentResult);
-      
       // Create a new comment object with the necessary properties
       const newComment = {
         author: commentResult.author,
@@ -1033,13 +950,10 @@ class CommentsSection {
         }, 300);
       }
     } catch (error) {
-      console.error('Error adding new comment to UI:', error);
-      
       // Fallback method: do a full refresh of comments
       this.quickRefreshReplies().then(() => {
         this.renderComments();
       }).catch(err => {
-        console.error('Failed to refresh comments:', err);
       });
     }
   }
@@ -1050,7 +964,6 @@ class CommentsSection {
       try {
         this.closeReplyForm(this.activeReplyForm, this.activeReplyBtn);
       } catch (e) {
-        console.warn('Error closing active reply form:', e);
       }
     }
     

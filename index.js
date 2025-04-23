@@ -297,7 +297,6 @@ function createUserMenu(user) {
   // Aggiungere un gestore di errore per caricare l'avatar predefinito se l'immagine non è disponibile
   avatar.onerror = function() {
     this.src = './assets/img/default-avatar.png';
-    console.log(`Avatar not available for ${user.username}, using default`);
   };
   userMenu.appendChild(avatar);
   
@@ -338,9 +337,8 @@ function handleLogout(e) {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Precarichiamo le community in background per velocizzare l'esperienza utente
-  console.log('Preloading communities data...');
   communityService.listCommunities().then(communities => {
-    console.log(`Successfully preloaded ${communities.length} communities`);
+    // Communities loaded successfully
   }).catch(error => {
     console.warn('Failed to preload communities:', error);
   });

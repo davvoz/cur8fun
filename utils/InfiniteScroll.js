@@ -20,7 +20,6 @@ export default class InfiniteScroll {
     this.endMessage = endMessage;
     this.errorMessage = errorMessage;
     
-    console.log('InfiniteScroll initialized with container:', container);
     this.setupObserver();
   }
 
@@ -41,8 +40,6 @@ export default class InfiniteScroll {
     this.observerTarget.style.zIndex = '1';
     this.observerTarget.dataset.purpose = 'infinite-scroll-observer';
     this.container.appendChild(this.observerTarget);
-    
-    console.log('Observer target added to container:', this.observerTarget);
 
     // Clean up any existing observer
     if (this.observer) {
@@ -53,7 +50,6 @@ export default class InfiniteScroll {
     this.observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !this.isLoading && this.hasMore) {
-          console.log('Observer target is intersecting, loading more items. Intersection ratio:', entries[0].intersectionRatio);
           this.loadNextPage();
         }
       },
@@ -64,14 +60,12 @@ export default class InfiniteScroll {
     );
 
     this.observer.observe(this.observerTarget);
-    console.log('IntersectionObserver started observing target with ID:', this.observerTarget.id);
   }
 
   async loadNextPage() {
     if (this.isLoading || !this.hasMore) return;
     
     try {
-      console.log(`Loading page ${this.currentPage+1}`);
       this.isLoading = true;
       
       // Create loading indicator
@@ -84,7 +78,6 @@ export default class InfiniteScroll {
       
       // Load more content
       const hasMoreItems = await this.loadMore(this.currentPage + 1);
-      console.log(`Loaded page ${this.currentPage+1}, has more: ${hasMoreItems}`);
       
       // Remove loading indicator
       if (loadingIndicator.parentNode) {
@@ -101,8 +94,6 @@ export default class InfiniteScroll {
           this.container.appendChild(this.observerTarget);
         }
       } else {
-        console.log('No more items to load');
-        
         // Check if we already have an end message
         const existingEndMessage = this.container.querySelector('.end-message');
         if (!existingEndMessage) {
@@ -155,8 +146,6 @@ export default class InfiniteScroll {
     if (!this.loadMore) return false;
     
     try {
-        console.log(`Triggering load more for page ${page}`);
-        
         // Store currentPage before calling loadMore to avoid duplicate calls
         this.currentPage = page;
         
@@ -166,7 +155,6 @@ export default class InfiniteScroll {
         // Update current page only if we have more to load, otherwise keep as is
         if (!hasMore) {
             this.noMorePages = true;
-            console.log('No more pages to load, disabling infinite scroll');
         }
         
         return hasMore;
@@ -177,7 +165,6 @@ export default class InfiniteScroll {
   }
 
   destroy() {
-    console.log('Destroying infinite scroll');
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;
@@ -189,7 +176,6 @@ export default class InfiniteScroll {
   }
 
   reset(initialPage = 1) {
-    console.log('Resetting infinite scroll');
     this.currentPage = initialPage;
     this.hasMore = true;
     this.isLoading = false;

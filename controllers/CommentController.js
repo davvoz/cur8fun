@@ -61,7 +61,6 @@ export default class CommentController {
     for (const selector of selectors) {
       submitButton = this.view.element.querySelector(selector);
       if (submitButton) {
-        console.log('Found comment submit button with selector:', selector);
         break;
       }
     }
@@ -75,7 +74,6 @@ export default class CommentController {
 
       // Add click event listener with proper binding
       submitButton.addEventListener('click', this.boundHandleClick);
-      console.log('✅ Comment submit button listener attached successfully');
 
       this.initialized = true;
 
@@ -90,7 +88,6 @@ export default class CommentController {
    */
   handleNewCommentClick(event) {
     event.preventDefault();
-    console.log('Comment submit button clicked');
     this.handleNewComment();
   }
 
@@ -99,8 +96,6 @@ export default class CommentController {
    * @returns {Promise<void>}
    */
   async handleNewComment() {
-    console.log('Handling new comment submission');
-
     const commentForm = this.findCommentForm();
     if (!commentForm) return;
 
@@ -111,7 +106,6 @@ export default class CommentController {
     }
 
     const commentText = textarea.value.trim();
-    console.log('Comment text:', commentText ? 'Found' : 'Empty');
 
     // Validate comment and check login
     if (!this.validateComment(commentText, textarea) || !this.checkLoggedIn()) {
@@ -129,8 +123,6 @@ export default class CommentController {
       });
       return;
     }
-
-    console.log('Commenting on post by:', postInfo.author, 'with permlink:', postInfo.permlink);
 
     // Set loading state
     const originalText = submitButton.textContent;
@@ -183,7 +175,6 @@ export default class CommentController {
 
     // Method 1: From view.post object
     if (this.view.post?.author && this.view.post?.permlink) {
-      console.log('Found post info from view.post');
       postAuthor = this.view.post.author;
       postPermlink = this.view.post.permlink;
     }
@@ -193,7 +184,6 @@ export default class CommentController {
         document.querySelector('[data-author][data-permlink]');
 
       if (postContainer) {
-        console.log('Found post info from DOM data attributes');
         postAuthor = postContainer.dataset.author;
         postPermlink = postContainer.dataset.permlink;
       }
@@ -205,7 +195,6 @@ export default class CommentController {
       const match = urlPath.match(/\/@([a-zA-Z0-9\-.]+)\/([a-zA-Z0-9\-]+)/);
 
       if (match && match.length >= 3) {
-        console.log('Found post info from URL');
         postAuthor = match[1];
         postPermlink = match[2];
       }
@@ -217,7 +206,6 @@ export default class CommentController {
       const permlinkInput = commentForm.querySelector('input[name="parent_permlink"]');
 
       if (authorInput && permlinkInput) {
-        console.log('Found post info from hidden inputs');
         postAuthor = authorInput.value;
         postPermlink = permlinkInput.value;
       }
@@ -282,8 +270,6 @@ export default class CommentController {
     }
 
     try {
-      console.log('Adding new comment to UI:', commentResult);
-
       // Aggiorna il modello dati nel view
       if (this.view.comments) {
         // Create a new comment object
@@ -386,8 +372,6 @@ export default class CommentController {
    * @returns {Promise<void>}
    */
   async handleReply(parentComment, replyText) {
-    console.log('Handling reply submission', parentComment);
-
     if (!this.validateReply(replyText) || !this.checkLoggedIn()) {
       return;
     }
@@ -612,8 +596,6 @@ export default class CommentController {
     }
 
     try {
-      console.log('Adding new reply to UI:', result);
-
       const repliesContainer = this.getOrCreateRepliesContainer(commentElement);
       const repliesWrapper = this.getOrCreateRepliesWrapper(repliesContainer);
 
@@ -857,8 +839,6 @@ export default class CommentController {
   }
 
   getErrorMessage(error) {
-    console.log('Processing error:', error);
-
     if (!error) return 'Unknown error occurred';
 
     const errorMessage = error.message || '';

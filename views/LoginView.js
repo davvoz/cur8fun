@@ -21,8 +21,6 @@ class LoginView {
     // Rileva se ci sono parametri speciali nell'URL
     this.useActiveKey = params.active === true;
     this.useKeychain = params.keychain === true;
-    
-    console.log('LoginView params:', params);
   }
 
   /**

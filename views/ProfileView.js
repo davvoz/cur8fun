@@ -118,7 +118,6 @@ class ProfileView extends View {
       // Check if logged-in user is following this profile
       await this.checkFollowStatus();
     } catch (error) {
-      console.error('Error rendering profile:', error);
       this.renderErrorState(profileContainer, error);
     } finally {
       this.loadingIndicator.hide();
@@ -351,8 +350,6 @@ class ProfileView extends View {
     // Se la tab corrente è già attiva, non fare nulla
     if (this.currentTab === tabName) return;
     
-    console.log(`Switching to tab: ${tabName}`);
-    
     // Ottieni i riferimenti ai container
     const { postsContainer, commentsContainer, walletContainer } = this.getGridContainers();
     
@@ -367,7 +364,6 @@ class ProfileView extends View {
       // per evitare duplicazioni quando si rientra
       if (commentsContainer) {
         commentsContainer.innerHTML = '';
-        console.log('[ProfileView] Pulizia container commenti per evitare duplicazioni');
       }
     }
     
@@ -402,13 +398,11 @@ class ProfileView extends View {
         
         // Verifica se i commenti sono già stati caricati prima
         if (!this.commentsLoaded || commentsContainer.innerHTML === '') {
-          console.log(`[ProfileView] Primo rendering dei commenti`);
           if (this.commentsComponent && commentsContainer) {
             this.commentsComponent.render(commentsContainer);
             this.commentsLoaded = true;
           }
         } else {
-          console.log(`[ProfileView] Usando commenti già caricati, solo refresh layout`);
           // Solo aggiorna il layout per adattarlo alla larghezza corrente
           if (this.commentsComponent) {
             setTimeout(() => {
@@ -429,8 +423,6 @@ class ProfileView extends View {
         
         // Inizializza il componente wallet se non esiste
         if (!this.walletHistoryComponent) {
-          console.log("Creating wallet history component for", this.username);
-          
           // Crea il componente direttamente
           try {
             this.walletHistoryComponent = new ProfileWalletHistory(this.username);
@@ -438,7 +430,6 @@ class ProfileView extends View {
             // Renderizza nel container
             this.walletHistoryComponent.render(walletContainer);
           } catch(error) {
-            console.error("Failed to load wallet component:", error);
             walletContainer.innerHTML = `<div class="error-message">Failed to load wallet history</div>`;
           }
         } else {
@@ -462,7 +453,6 @@ class ProfileView extends View {
       const isFollowing = await profileService.isFollowing(this.username, this.currentUser);
       this.profileHeader.updateFollowStatus(isFollowing);
     } catch (error) {
-      console.error('Error checking follow status:', error);
     }
   }
   
@@ -479,7 +469,6 @@ class ProfileView extends View {
       
       // Ottieni lo stato del follow prima dell'azione
       const isCurrentlyFollowing = await profileService.isFollowing(this.username, this.currentUser);
-      console.log(`Stato follow iniziale: ${isCurrentlyFollowing ? 'following' : 'not following'}`);
       
       // Memorizza lo stato iniziale per riferimento
       const previousFollowState = isCurrentlyFollowing;
@@ -490,14 +479,12 @@ class ProfileView extends View {
       if (isCurrentlyFollowing) {
         // Se già seguendo, smetti di seguire
         await profileService.unfollowUser(this.username, this.currentUser);
-        console.log(`Unfollow di ${this.username} completato`);
         
         // Aggiorna lo stato direttamente per evitare ritardi nella UI
         this.profileHeader.updateFollowStatus(false);
       } else {
         // Altrimenti inizia a seguire
         await profileService.followUser(this.username, this.currentUser);
-        console.log(`Follow di ${this.username} completato`);
         
         // Aggiorna lo stato direttamente per evitare ritardi nella UI
         this.profileHeader.updateFollowStatus(true);
@@ -518,7 +505,6 @@ class ProfileView extends View {
       }
       
     } catch (error) {
-      console.error('Error following/unfollowing:', error);
       if (window.eventEmitter) {
         window.eventEmitter.emit('notification', {
           type: 'error',

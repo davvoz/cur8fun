@@ -37,7 +37,6 @@ class SteemService {
     clearCache() {
         // If implementing a cache, this would clear it
         // For now just return a resolved promise
-        console.log('Clearing service cache for fresh data');
         return Promise.resolve();
     }
 

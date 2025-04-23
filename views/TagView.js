@@ -30,7 +30,6 @@ class TagView extends BasePostView {
                 throw new Error('No tag specified');
             }
             
-            console.log(`Loading posts for tag: ${this.tag}, page: ${page}`);
             const result = await steemService.getPostsByTag(this.tag, page);
             
             // Check if result has the expected structure
@@ -51,12 +50,20 @@ class TagView extends BasePostView {
                     return isNew;
                 });
                 
-                if (uniquePosts.length > 0) {
-                    this.posts = [...this.posts, ...uniquePosts];
-                    this.renderPosts(page > 1);
+                if (page === 1) {
+                    // First page, completely replace the existing posts
+                    this.posts = uniquePosts;
                 } else {
-                    console.log('No new unique posts in this batch.');
+                    // Append new unique posts to the existing collection
+                    if (uniquePosts.length === 0) {
+                        // No new unique posts in this batch
+                        this.hasMorePosts = false;
+                        return;
+                    }
+                    this.posts = [...this.posts, ...uniquePosts];
                 }
+                
+                this.renderPosts(page > 1);
             }
             
             return hasMore;
@@ -100,20 +107,29 @@ class TagView extends BasePostView {
         this.loadPosts(1).then(hasMore => {
             // Initialize infinite scroll
             if (postsContainer) {
-                console.log('Initializing infinite scroll for TagView');
-                this.infiniteScroll = new InfiniteScroll({
-                    container: postsContainer,
-                    loadMore: (page) => this.loadPosts(page),
-                    threshold: '200px',
-                    loadingMessage: 'Loading more posts...',
-                    endMessage: `No more posts with tag #${this.tag}`,
-                    errorMessage: 'Failed to load posts. Please check your connection.'
-                });
+                this.initInfiniteScroll();
             }
         }).catch(error => {
             console.error('Error loading initial posts:', error);
             this.handleLoadError();
         });
+    }
+    
+    initInfiniteScroll() {
+        if (!this.infiniteScroll) {
+            // Get the posts container element
+            const postsContainer = document.getElementById('posts-container');
+            if (!postsContainer) return;
+            
+            this.infiniteScroll = new InfiniteScroll({
+                container: postsContainer,
+                loadMore: (page) => this.loadPosts(page),
+                threshold: '200px',
+                loadingMessage: 'Loading more posts...',
+                endMessage: `No more posts with tag #${this.tag}`,
+                errorMessage: 'Failed to load posts. Please check your connection.'
+            });
+        }
     }
     
     onBeforeUnmount() {

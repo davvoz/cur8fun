@@ -71,8 +71,6 @@ export default class CommentUIManager {
     if (!this.container) return;
 
     // Always use list layout
-    console.log(`[CommentUIManager] Setting up elegant list layout`);
-
     this.container.innerHTML = '';
     this.container.className = 'comments-container comments-list-view';
 
@@ -83,8 +81,6 @@ export default class CommentUIManager {
     const wrapper = document.createElement('div');
     wrapper.className = 'comments-list-wrapper';
     this.container.appendChild(wrapper);
-
-    console.log(`[CommentUIManager] Created comments list wrapper`);
 
     return wrapper;
   }
@@ -250,11 +246,8 @@ export default class CommentUIManager {
       this.infiniteScroll.destroy();
     }
 
-    console.log(`Initializing InfiniteScroll with page ${initialPage}`);
-
     // Create a wrapper function that calls loadMoreFn and returns the result
     const loadMoreCallback = async (page) => {
-      console.log(`InfiniteScroll calling loadMore for page ${page}`);
       return await loadMoreFn(page);
     };
 

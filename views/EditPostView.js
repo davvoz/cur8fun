@@ -21,9 +21,6 @@ class EditPostView extends View {
     this.author = params.author || '';
     this.permlink = params.permlink || '';
     
-    // Debug log the params
-    console.log('EditPostView params:', params, 'author:', this.author, 'permlink:', this.permlink);
-    
     this.isLoading = true;
     this.loadError = null;
 

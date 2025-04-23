@@ -642,9 +642,6 @@ class CreatePostView extends View {
       setTimeout(() => {
         this.updateDraftStatus('Saved');
       }, 500);
-      
-      // DEBUG: per test
-      console.log("Draft saved:", draftData);
     } else {
       this.updateDraftStatus('Failed to save');
       console.error("Failed to save draft");
@@ -666,9 +663,6 @@ class CreatePostView extends View {
         this.saveIfChanged();
       }
     }, 15000);
-    
-    // DEBUG: per test
-    console.log("AutoSave started");
   }
 
   /**
@@ -750,48 +744,6 @@ class CreatePostView extends View {
 
       // Visualizza le community sottoscritte
       this.renderCommunityOptions(subscriptions, 'Your Communities');
-
-      // STAMPA IN CONSOLE PER VALUTAZIONE DEL DESIGN
-      console.group('🎨 Elenco Community per Valutazione Design');
-      console.log(`Trovate ${subscriptions.length} community sottoscritte per ${this.user.username}`);
-
-      // Tabella con le informazioni principali
-      console.table(subscriptions.map(community => ({
-        name: community.name,
-        title: community.title || '[Senza Titolo]',
-        subscribers: community.subscribers || 'N/A',
-        hasAvatar: !!community.avatar_url,
-        isNSFW: community.is_nsfw ? '⚠️ Sì' : 'No',
-        initialLetter: (community.title || community.name || '?').charAt(0).toUpperCase(),
-        colorHue: this.getConsistentHue((community.title || community.name || ''))
-      })));
-
-      // Anteprima del design per le prime 5 community
-      console.log('Anteprima Design (prime 5 community):');
-      subscriptions.slice(0, 5).forEach((community, index) => {
-        const title = community.title || community.name || 'Senza Nome';
-        const letter = title.charAt(0).toUpperCase();
-        const hue = this.getConsistentHue(title);
-        const colorCode = `hsl(${hue}, 70%, 50%)`;
-
-        console.log(
-          `%c ${letter} %c ${title} %c ${community.subscribers || 0} iscritti`,
-          `background-color: ${colorCode}; color: white; border-radius: 50%; padding: 3px 8px; font-weight: bold;`,
-          'font-weight: bold; font-size: 14px;',
-          'color: gray; font-size: 12px;'
-        );
-      });
-
-      // Esempi di formattazione del container
-      console.log('\nEsempi di Container:');
-      console.log('%cGrid Layout%c (3 colonne, spazio tra le community: 10px)',
-        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
-      console.log('%cLista Scorrimento Orizzontale%c (larghezza fissa: 120px per item)',
-        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
-      console.log('%cLista Verticale%c (altezza: 50px per item, bordo sottile separatore)',
-        'background: #555; color: white; padding: 2px 5px;', 'color: black;');
-
-      console.groupEnd();
     } catch (error) {
       console.error('Failed to load subscribed communities:', error);
       const dropdown = document.getElementById('community-dropdown');
@@ -1127,17 +1079,6 @@ class CreatePostView extends View {
 
     if (this.isSubmitting) return;
 
-    // Debug: log dei dati del post prima della validazione
-    console.log("Post submission data:", {
-      title: this.postTitle,
-      bodyLength: this.postBody?.length || 0,
-      tags: this.tags,
-      tagCount: this.tags.length,
-      community: this.selectedCommunity?.name,
-      beneficiaries: this.includeBeneficiary ? this.beneficiaries : 'none',
-      totalBeneficiaryPercentage: this.includeBeneficiary ? (this.totalWeight / 100).toFixed(1) + '%' : '0%'
-    });
-
     // Verifica dati
     if (!this.postTitle.trim()) {
       this.showError('Please enter a title for your post');
@@ -1156,7 +1097,6 @@ class CreatePostView extends View {
 
     // Validazione del numero massimo di tag con log esplicito
     if (this.tags.length > 5) {
-      console.error(`Too many tags: ${this.tags.length} tags provided, maximum is 5`);
       this.showError('Maximum 5 tags allowed. Please remove some tags to continue.');
       
       // Focus sull'input dei tag per facilitare la correzione
@@ -1212,12 +1152,6 @@ class CreatePostView extends View {
         options.beneficiaries = this.beneficiaries;
       }
 
-      console.log("Attempting to create post with data:", {
-        ...postData,
-        bodyLength: postData.body.length,
-        options
-      });
-
       // Usa il servizio centralizzato per creare post con le opzioni dei beneficiari
       const result = await createPostService.createPost(postData, options);
 
@@ -1226,7 +1160,6 @@ class CreatePostView extends View {
         try {
           // Optional: implementa la notifica
         } catch (notifyErr) {
-          console.error("Failed to send notification:", notifyErr);
           // Non bloccare il flusso per errori di notifica
         }
       }
@@ -1239,7 +1172,6 @@ class CreatePostView extends View {
         window.location.href = `#/@${username}/${permlink}`;
       }, 2000);
     } catch (error) {
-      console.error('Failed to publish post:', error);
       this.showError(`Failed to publish post: ${error.message}`);
 
       // Ripristina pulsante

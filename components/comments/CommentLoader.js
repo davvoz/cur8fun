@@ -17,8 +17,6 @@ export default class CommentLoader {
     this.loading = true;
 
     try {
-      console.log(`Loading comments for @${this.username}, page ${page}, limit ${limit}`);
-      
       // Carica i commenti dal servizio - sempre forza il refresh
       const comments = await profileService.getUserComments(this.username, limit, page, {
         forceRefresh: true, // Forza sempre il refresh
@@ -38,15 +36,22 @@ export default class CommentLoader {
         this.estimatedTotalComments = this.allComments.length;
         this.lastFetchedPage = page;
         
-        // Determina se ci sono altri commenti da caricare
+        // Aggiorna flag se ci sono potenzialmente altri commenti da caricare
+        // Assumiamo che se il numero di commenti restituiti è uguale al limite, ce ne sono altri
         this.hasMoreComments = comments.length >= limit;
         
-        return comments;
+        // Se viene restituito un numero minore del limite, probabilmente abbiamo raggiunto la fine
+        if (comments.length < limit) {
+          this.hasMoreComments = false;
+        }
+      } else {
+        this.hasMoreComments = false;
       }
-      return [];
+      
+      return this.allComments;
     } catch (error) {
-      console.error('Error loading comments:', error);
-      throw error;
+      console.error('[CommentLoader] Error loading comments:', error);
+      return [];
     } finally {
       this.loading = false;
     }

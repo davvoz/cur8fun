@@ -133,7 +133,6 @@ class NotificationsView {
         // Setup infinite scroll after a short delay to ensure content is rendered
         setTimeout(() => {
             this.setupInfiniteScroll();
-            console.log("Infinite scroll configurato dopo il caricamento iniziale");
         }, 300);
 
         // Update unread count after rendering
@@ -205,11 +204,9 @@ class NotificationsView {
     
     async loadNotifications(page = 1, limit = 20) {
         if (this.loading) {
-            console.log(`Already loading notifications, skipping request for page ${page}`);
             return false;
         }
         
-        console.log(`Loading page ${page} with limit ${limit}`);
         this.loading = true;
         
         if (page === 1) {
@@ -223,15 +220,12 @@ class NotificationsView {
             // Per gli upvote, usa un limite più alto
             const actualLimit = this.activeFilter === TYPES.UPVOTES ? 50 : limit;
             
-            console.log(`Requesting notifications: type=${this.activeFilter}, page=${page}, limit=${actualLimit}`);
             const { notifications, hasMore } = await notificationsService.getNotifications(
                 this.activeFilter, 
                 page, 
                 actualLimit, 
                 forceRefresh
             );
-            
-            console.log(`Received ${notifications.length} notifications, hasMore: ${hasMore}`);
             
             if (page === 1) {
                 // Clear existing notifications for first page
@@ -253,9 +247,6 @@ class NotificationsView {
             // Add new notifications to array
             this.notifications = [...this.notifications, ...uniqueNotifications];
             
-            console.log(`Added ${uniqueNotifications.length} new unique notifications`);
-            console.log(`Total notifications displayed: ${this.notifications.length}`);
-            
             // Render the notifications
             this.renderNotifications(uniqueNotifications);
             
@@ -271,7 +262,6 @@ class NotificationsView {
             
             return hasMore && uniqueNotifications.length > 0;
         } catch (error) {
-            console.error('Failed to load notifications:', error);
             this.showError('Failed to load notifications. Please try again later.');
             return false;
         } finally {
@@ -341,7 +331,6 @@ class NotificationsView {
                 setTimeout(() => this.setupInfiniteScroll(), 300);
             }
         } catch (error) {
-            console.error('Errore nel refresh completo:', error);
             this.showError('Errore nel recupero completo delle notifiche. Riprova più tardi.');
         } finally {
             this.hideLoading();
@@ -350,8 +339,6 @@ class NotificationsView {
     
     renderNotifications(notifications) {
         if (!notifications || notifications.length === 0) return;
-        
-        console.log(`Rendering ${notifications.length} notifications`);
         
         // For each notification, create and append element
         notifications.forEach(notification => {
@@ -366,7 +353,6 @@ class NotificationsView {
                 // Reset the infinite scroll which will recreate and position the observer
                 if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
                     this.infiniteScroll.setupObserver();
-                    console.log('Observer repositioned after adding new notifications');
                 }
             }, 100);
         }
@@ -635,9 +621,7 @@ class NotificationsView {
             // Aggiorna lo stato vuoto
             this.updateEmptyState();
             
-            console.log(`Caricati e visualizzati TUTTI i ${allUpvotes.length} upvote`);
         } catch (error) {
-            console.error('Errore nel caricamento di tutti gli upvote storici:', error);
             this.showError('Si è verificato un errore durante il recupero degli upvote. Riprova più tardi.');
         } finally {
             this.hideLoading();
@@ -652,33 +636,26 @@ class NotificationsView {
         }
         
         if (!this.notificationsContainer) {
-            console.error('Cannot setup infinite scroll: container not found');
             return;
         }
-        
-        console.log('Setting up infinite scroll - new instance');
         
         // Create new infinite scroll with the proper container and callback
         this.infiniteScroll = new InfiniteScroll({
             container: this.notificationsContainer,
             loadMore: async (page) => {
-                console.log(`InfiniteScroll: triggered load for page ${page}`);
                 try {
                     // Utilizzare un limite fisso ma grande per ogni pagina
                     const result = await this.loadNotifications(page, 30);
-                    console.log(`InfiniteScroll: page ${page} loaded, hasMore=${result}`);
                     
                     // Importante: forza la riconfigurazione dell'observer
                     setTimeout(() => {
                         if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
                             this.infiniteScroll.setupObserver();
-                            console.log(`InfiniteScroll: observer riconfigurato dopo caricamento pagina ${page}`);
                         }
                     }, 100);
                     
                     return result;
                 } catch (error) {
-                    console.error("Error in infinite scroll loadMore:", error);
                     return false;
                 }
             },
@@ -693,7 +670,6 @@ class NotificationsView {
         setTimeout(() => {
             if (this.infiniteScroll && typeof this.infiniteScroll.setupObserver === 'function') {
                 this.infiniteScroll.setupObserver();
-                console.log('InfiniteScroll: observer posizionato manualmente dopo setup');
             }
         }, 500);
     }
@@ -722,7 +698,6 @@ class NotificationsView {
     
     showError(message) {
         // Simple error message - in a real app this could be a popup or toast
-        console.error(message);
         
         // Update UI to show error state
         if (this.notificationsContainer) {

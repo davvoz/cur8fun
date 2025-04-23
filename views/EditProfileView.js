@@ -36,8 +36,6 @@ class EditProfileView extends View {
             throw new Error(`Profile not found for @${this.username}`);
         }
         
-        console.log('Loaded profile data:', this.profile);
-        
         // Extract profile images from correct location
         if (this.profile.profile) {
             // If the images are in a nested profile object
@@ -48,11 +46,6 @@ class EditProfileView extends View {
             this.profileImage = this.profile.profileImage || this.profile.profile_image;
             this.coverImage = this.profile.coverImage || this.profile.cover_image;
         }
-        
-        console.log('Extracted image data:', { 
-            profileImage: this.profileImage, 
-            coverImage: this.coverImage 
-        });
     }
 
     renderEditProfileForm(container) {
@@ -280,7 +273,6 @@ class EditProfileView extends View {
                 this.showImagePreview(targetField);
             }
         } catch (error) {
-            console.error(`Failed to upload ${targetField}:`, error);
             eventEmitter.emit('notification', {
                 type: 'error',
                 message: `Failed to upload image: ${error.message || 'Unknown error'}`
@@ -341,11 +333,6 @@ class EditProfileView extends View {
         const form = this.container.querySelector('#edit-profile-form');
         const formData = new FormData(form);
 
-        console.log('Form data values:');
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]); 
-        }
-
         // Create proper Steem profile format with snake_case keys
         const updatedProfile = {
             profile_image: formData.get('profile_image'),
@@ -354,8 +341,6 @@ class EditProfileView extends View {
             location: formData.get('location'),
             website: formData.get('website')
         };
-
-        console.log('Updated profile object:', updatedProfile);
 
         try {
             // Show a modal that offers the user two options:
@@ -392,7 +377,6 @@ class EditProfileView extends View {
             });
             router.navigate(`/@${this.username}`);
         } catch (error) {
-            console.error('Error updating profile:', error);
             eventEmitter.emit('notification', {
                 type: 'error',
                 message: 'Failed to update profile: ' + (error.message || 'Unknown error')
@@ -401,8 +385,6 @@ class EditProfileView extends View {
     }
     
     async showAuthChoiceModal() {
-        console.log("showAuthChoiceModal called");
-        
         return new Promise((resolve) => {
             const isKeychainAvailable = typeof window !== 'undefined' && window.steem_keychain;
             
@@ -449,33 +431,21 @@ class EditProfileView extends View {
             modalContainer.innerHTML = modalHTML;
             document.body.appendChild(modalContainer.firstElementChild);
             
-            console.log("Modal inserted into DOM");
-            
             // Get references to buttons after they're in the DOM
             const modal = document.getElementById('authModalOverlay');
             const activeKeyBtn = document.getElementById('activeKeyBtn');
             const keychainBtn = document.getElementById('keychainBtn');
             const cancelBtn = document.getElementById('cancelAuthBtn');
             
-            // Make sure we have references to all buttons
-            console.log("Modal elements:", { 
-                modal: !!modal, 
-                activeKeyBtn: !!activeKeyBtn, 
-                keychainBtn: !!keychainBtn, 
-                cancelBtn: !!cancelBtn 
-            });
-            
             // Add event listeners
             const cleanup = () => {
                 if (modal && document.body.contains(modal)) {
                     document.body.removeChild(modal);
                 }
-                console.log("Modal cleaned up");
             };
             
             if (activeKeyBtn) {
                 activeKeyBtn.addEventListener('click', () => {
-                    console.log("Active key button clicked");
                     cleanup();
                     resolve('active_key');
                 });
@@ -483,7 +453,6 @@ class EditProfileView extends View {
             
             if (keychainBtn && isKeychainAvailable) {
                 keychainBtn.addEventListener('click', () => {
-                    console.log("Keychain button clicked");
                     cleanup();
                     resolve('keychain');
                 });
@@ -491,14 +460,10 @@ class EditProfileView extends View {
             
             if (cancelBtn) {
                 cancelBtn.addEventListener('click', () => {
-                    console.log("Cancel button clicked");
                     cleanup();
                     resolve(null);
                 });
             }
-            
-            // Log when the modal is supposed to be visible
-            console.log("Modal should now be visible");
         });
     }
     
@@ -564,7 +529,6 @@ class EditProfileView extends View {
     }
     
     async promptForActiveKey() {
-        console.log("EditProfileView: promptForActiveKey called");
         // Utilizzo il componente centralizzato
         return activeKeyInput.promptForActiveKey('Enter Active Key');
     }

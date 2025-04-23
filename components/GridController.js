@@ -155,8 +155,6 @@ class GridController {
     
     // Apply new layout class - even on mobile, respect user selection
     this.target.classList.add(`grid-layout-${this.settings.layout}`);
-    
-    console.log(`GridController: Applied layout "${this.settings.layout}" to`, this.target);
   }
   
   setupMutationObserver() {

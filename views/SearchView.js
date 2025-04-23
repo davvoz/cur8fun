@@ -15,8 +15,6 @@ class SearchView extends View {
   }
 
   async render(container) {
-    console.log('SearchView render called');
-
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
     // Aggiungi un riferimento alla SearchView nel container

@@ -700,10 +700,8 @@ class PostView extends View {
       
       this.updateCommunityDisplay(communityInfo, communityIcon, communityData, baseDisplayName, communitySlug, communityContainer);
     } catch (error) {
-      // Handle error state
       this.removeElementIfExists(loadingSpinner);
       communityIcon.style.display = 'inline-flex';
-      console.log('Error fetching community details:', error);
       
       this.renderSimpleCommunityLink(communityInfo, baseDisplayName, communitySlug);
     }
