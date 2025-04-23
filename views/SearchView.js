@@ -75,29 +75,62 @@ class SearchView extends View {
     // Create input wrapper with icon
     const inputWrapper = document.createElement('div');
     inputWrapper.className = 'search-input-wrapper';
+    // Assicuriamo che il wrapper abbia position: relative
+    inputWrapper.style.position = 'relative';
+    // Cambio da display:flex a display:block per permettere agli elementi di posizionarsi uno sotto l'altro
+    inputWrapper.style.display = 'block'; 
 
-    const searchIcon = document.createElement('i');
-    searchIcon.className = 'fas fa-search search-icon';
-    inputWrapper.appendChild(searchIcon);
+    // Creiamo un contenitore specifico per l'input e l'icona
+    const inputIconWrapper = document.createElement('div');
+    inputIconWrapper.style.position = 'relative';
+    inputIconWrapper.style.width = '100%';
 
+    // Creiamo prima l'icona di ricerca con posizionamento assoluto
+    const searchIcon = document.createElement('div');
+    searchIcon.innerHTML = '<i class="fas fa-search"></i>';
+    searchIcon.style.position = 'absolute';
+    searchIcon.style.left = '15px';
+    searchIcon.style.top = '50%';
+    searchIcon.style.transform = 'translateY(-50%)';
+    searchIcon.style.color = '#666';
+    searchIcon.style.pointerEvents = 'none';
+    searchIcon.style.zIndex = '10';
+    searchIcon.style.fontSize = '16px';
+    searchIcon.style.display = 'flex';
+    searchIcon.style.alignItems = 'center';
+    searchIcon.style.justifyContent = 'center';
+    inputIconWrapper.appendChild(searchIcon);
+
+    // Ora creiamo l'input di ricerca
     this.searchInput = document.createElement('input');
     this.searchInput.type = 'text';
     this.searchInput.className = 'search-input';
     this.searchInput.dataset.searchMethod = this.currentSearchMethod;
     this.updatePlaceholder(this.currentSearchMethod);
-    inputWrapper.appendChild(this.searchInput);
+    this.searchInput.style.paddingLeft = '40px';
+    this.searchInput.style.width = '100%';
+    inputIconWrapper.appendChild(this.searchInput);
+
+    // Aggiungiamo il wrapper di input e icona al wrapper principale
+    inputWrapper.appendChild(inputIconWrapper);
+
+    // Aggiungiamo un contenitore per gli elementi che devono stare sotto l'input
+    const belowInputContainer = document.createElement('div');
+    belowInputContainer.style.marginTop = '8px';
 
     // Aggiungi un hint sotto il campo di ricerca
     const searchHint = document.createElement('div');
     searchHint.className = 'search-hint';
     this.updateSearchHint(searchHint, this.currentSearchMethod);
-    inputWrapper.appendChild(searchHint);
+    searchHint.style.marginBottom = '5px';
+    belowInputContainer.appendChild(searchHint);
 
     // Add search stats counter
     const searchStats = document.createElement('div');
     searchStats.className = 'search-stats';
     searchStats.innerHTML = '<span class="stat-count">0</span> results found';
-    inputWrapper.appendChild(searchStats);
+    searchStats.style.marginBottom = '5px';
+    belowInputContainer.appendChild(searchStats);
 
     // Add keyboard shortcuts hint
     const keyboardHint = document.createElement('div');
@@ -107,7 +140,10 @@ class SearchView extends View {
       <span><kbd>↑</kbd><kbd>↓</kbd> to navigate</span>
       <span><kbd>ESC</kbd> to close</span>
     `;
-    inputWrapper.appendChild(keyboardHint);
+    belowInputContainer.appendChild(keyboardHint);
+    
+    // Aggiungiamo il contenitore degli elementi sotto l'input
+    inputWrapper.appendChild(belowInputContainer);
 
     this.searchInput.addEventListener('input', (event) => {
       const query = this.searchInput.value.trim();
