@@ -874,7 +874,30 @@
 @media (max-width: 768px) {
   /* Grid layout on mobile */
   .posts-container.grid-layout-grid {
-    grid-template-columns: repeat(1, 1fr); /* Two columns on mobile */
+    grid-template-columns: repeat(1, 1fr); /* Single column on mobile */
+    gap: var(--space-md);
+  }
+  
+  .posts-container.grid-layout-grid .post-card {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+  
+  /* Square images in grid layout */
+  .posts-container.grid-layout-grid .post-image-container {
+    height: 0;
+    padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
+    position: relative;
+  }
+  
+  .posts-container.grid-layout-grid .post-image-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   
   /* List layout on mobile - improved card design */
@@ -897,10 +920,23 @@
     padding: var(--space-sm);
   }
   
+  /* Square images in list layout */
+  .posts-container.grid-layout-list .post-thumbnail {
+    min-height: 100px;
+    max-height: 100px;
+    width: 100px;
+    aspect-ratio: 1/1;
+  }
+  
   /* Compact layout on mobile - better spacing */
   .posts-container.grid-layout-compact {
     grid-template-columns: 1fr; /* Single column for compact view */
-
+  }
+  
+  /* Square images in compact layout */
+  .posts-container.grid-layout-compact .post-image-container {
+    height: 0;
+    padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
   }
   
   .posts-container.grid-layout-compact .post-card {

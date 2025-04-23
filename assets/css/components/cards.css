@@ -83,6 +83,30 @@
 
 }
 
+/* Mobile optimization for square images */
+@media (max-width: 767px) {
+    .post-image-container {
+        height: 0;
+        padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .post-image-container img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        object-fit: cover;
+    }
+    
+    /* Miglioriamo l'aspect ratio anche nel layout lista */
+    .grid-layout-list .post-image-container {
+        height: 0;
+        padding-bottom: 100%;
+        width: 100%;
+    }
+}
 
 /* Loading state for images */
 .post-image-container.loading::before {
@@ -131,7 +155,6 @@
 /* Improve loaded image display */
 .post-image-container.loaded img {
     filter: contrast(1.02) saturate(1.05);
-    max-height: 200px;
     /* Slightly enhance contrast and saturation */
 }
 
