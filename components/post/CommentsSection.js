@@ -462,6 +462,31 @@ class CommentsSection {
       commentDiv.className = 'comment';
       commentDiv.setAttribute('data-depth', commentDepth); // Add data-depth attribute for CSS styling
       
+      // Detect mobile view with correct media query
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      
+      // Apply appropriate indentation based on device type
+      // Mobile: drastically reduced indentation to prevent overflow
+      if (isMobile) {
+        // Usa indentazione minima per commenti annidati su mobile
+        // Usa un valore fisso molto piccolo invece di moltiplicare per la profondità
+        const mobileIndent = 1; // Valore fisso di 4px per tutti i livelli di nidificazione
+        
+        if (commentDepth > 0) {
+          commentDiv.style.marginLeft = `${mobileIndent}px`; // Margine fisso piccolo
+          commentDiv.style.paddingLeft = `${mobileIndent}px`; // Padding fisso piccolo
+        } else {
+          // Per commenti di primo livello, nessun bordo o indentazione
+          commentDiv.style.borderLeft = 'none';
+          commentDiv.style.marginLeft = '0';
+          commentDiv.style.paddingLeft = '0';
+        }
+      } else {
+        // Desktop: normal indentation
+        commentDiv.style.marginLeft = `${Math.min(commentDepth * 2, 2)}px`; // Normal margin for desktop, max 40px
+        commentDiv.style.paddingLeft = `${Math.min(commentDepth * 1, 1)}px`; // Normal padding for desktop, max 20px
+      }
+      
       // Add critical data attributes for finding this comment later
       commentDiv.setAttribute('data-author', comment.author);
       commentDiv.setAttribute('data-permlink', comment.permlink);
@@ -695,11 +720,8 @@ class CommentsSection {
         const repliesContainer = document.createElement('div');
         repliesContainer.className = 'replies';
         
-        // Add thread line as defined in CSS
-        const threadLine = document.createElement('div');
-        threadLine.className = 'thread-line';
-        threadLine.setAttribute('aria-hidden', 'true');
-        repliesContainer.appendChild(threadLine);
+        // IMPORTANTE: Aggiungo attributo data-level per controllare l'indentazione in CSS
+        repliesContainer.setAttribute('data-level', commentDepth); 
         
         // Create wrapper for replies as per our CSS
         const repliesWrapper = document.createElement('div');
@@ -710,32 +732,9 @@ class CommentsSection {
           new Date(a.created) - new Date(b.created)
         );
 
-        // Create collapse/expand button if there are many replies
-        if (sortedReplies.length > 5) {
-          const collapseBtn = document.createElement('button');
-          collapseBtn.className = 'collapse-replies-btn';
-          
-          const isCollapsed = this.collapsedComments.has(`${comment.author}/${comment.permlink}`);
-          
-          collapseBtn.innerHTML = `
-            <span class="material-icons">${isCollapsed ? 'expand_more' : 'expand_less'}</span>
-            <span class="collapse-text">${isCollapsed ? 'Show' : 'Hide'} ${sortedReplies.length} ${sortedReplies.length === 1 ? 'reply' : 'replies'}</span>
-          `;
-          
-          collapseBtn.addEventListener('click', () => {
-            this.toggleRepliesCollapse(comment, repliesWrapper, collapseBtn);
-          });
-          
-          // Add the collapse button before the replies
-          repliesContainer.insertBefore(collapseBtn, repliesWrapper);
-          
-          // If it's already collapsed, hide the replies
-          if (isCollapsed) {
-            repliesWrapper.style.display = 'none';
-          }
-        }
-
-        // Add child comments with incremented depth
+        // IMPORTANTE: non incrementare la profondità quando creiamo gli elementi figlio
+        // Usiamo lo stesso commentDepth per tutti i figli, poiché l'indentazione viene
+        // gestita dalla struttura HTML e dal CSS
         sortedReplies.forEach(reply => {
           const replyElement = this.createCommentElement(reply, commentDepth + 1);
           repliesWrapper.appendChild(replyElement);

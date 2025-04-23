@@ -197,15 +197,6 @@
   margin-top: var(--space-lg);
 }
 
-.comment {
-  margin-bottom: var(--space-md);
-  padding: var(--space-md);
-  border-radius: var(--radius-md);
-  background-color: var(--background-light);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--subtle-shadow);
-}
-
 .author-container {
   display: flex;
   align-items: center;
