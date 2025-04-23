@@ -44,8 +44,6 @@ class HomeView extends BasePostView {
         if (uniquePosts.length > 0) {
           this.posts = [...this.posts, ...uniquePosts];
           this.renderPosts(page > 1);
-        } else {
-          console.log('No new unique posts in this batch.');
         }
       }
       
@@ -61,8 +59,6 @@ class HomeView extends BasePostView {
   }
 
   async fetchPostsByTag(page = 1) {
-    console.log(`Fetching ${this.tag} posts, page ${page}`);
-    
     // Use getPostsByTag for any custom tag not in the special list
     if (!['trending', 'hot', 'created', 'promoted'].includes(this.tag)) {
       return steemService.getPostsByTag(this.tag, page);
@@ -99,7 +95,6 @@ class HomeView extends BasePostView {
     this.loadPosts(1).then((hasMore) => {
       // Initialize infinite scroll after first page loads
       if (postsContainer) {
-        console.log('Initializing infinite scroll');
         this.infiniteScroll = new InfiniteScroll({
           container: postsContainer,
           loadMore: (page) => this.loadPosts(page),
