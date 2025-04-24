@@ -115,13 +115,14 @@ class PayoutInfoPopup {
       const prices = await fetch('https://imridd.eu.pythonanywhere.com/api/prices')
         .then(res => res.json())
         .catch(() => ({ STEEM: 1 })); // Fallback if API fails
-      
+
       const steemPrice = prices.STEEM || 1;
       const payout = this.getPendingPayout();
-      
+
       // Initialize breakdown values
       let sbd = 0, steem = 0, sp = 0;
-      
+
+
       // Handle different payout scenarios
       if (this.post.percent_steem_dollars === 10000) {
         // 100% SBD payout mode
@@ -132,7 +133,7 @@ class PayoutInfoPopup {
         // 100% SP payout mode
         sp = payout / steemPrice;
       }
-      
+
       // Return formatted values
       return {
         sbd: sbd.toFixed(2),
@@ -179,7 +180,7 @@ class PayoutInfoPopup {
     if (this.isPostPaidOut()) {
       // Per i post pagati, consideriamo l'importo totale author + curator
       const authorPayout = parseFloat(this.post.total_payout_value?.split(' ')[0] || 0);
-      
+
       return beneficiaries.map(b => {
         const percentage = b.weight / 10000;
         // Il beneficiario riceve la sua percentuale del totale
@@ -370,93 +371,133 @@ class PayoutInfoPopup {
     breakdownTitle.textContent = 'Breakdown:';
     section.appendChild(breakdownTitle);
 
-    // Create breakdown table for currency distribution with loading indicator
+    // Create breakdown table for currency distribution
     const currencyTable = document.createElement('div');
     currencyTable.className = 'payout-breakdown-table currency-breakdown';
 
-    // Add loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'loading-indicator';
-    loadingIndicator.textContent = 'Loading breakdown data...';
-    currencyTable.appendChild(loadingIndicator);
+    if (!isPaidOut) {
+      // Add loading indicator solo per i post non pagati
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.className = 'loading-indicator';
+      loadingIndicator.textContent = 'Loading breakdown data...';
+      currencyTable.appendChild(loadingIndicator);
 
-    section.appendChild(currencyTable);
+      section.appendChild(currencyTable);
+      
+      // Fetch payout breakdown asynchronously
+      this.getPayoutBreakdown()
+        .then(currencyBreakdown => {
+          console.log('Currency Breakdown:', currencyBreakdown);
 
-    // Fetch payout breakdown asynchronously
-    this.getPayoutBreakdown()
-      .then(currencyBreakdown => {
-        console.log('Currency Breakdown:', currencyBreakdown);
+          // Clear the loading indicator
+          currencyTable.innerHTML = '';
 
-        // Clear the loading indicator
-        currencyTable.innerHTML = '';
+          if (!currencyBreakdown) {
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'error-message';
+            errorMessage.textContent = 'Unable to load payout breakdown';
+            currencyTable.appendChild(errorMessage);
+            return;
+          }
 
-        if (!currencyBreakdown) {
+          // SBD Row
+          const sbdRow = document.createElement('div');
+          sbdRow.className = 'payout-row';
+
+          const sbdLabel = document.createElement('div');
+          sbdLabel.className = 'payout-item-label';
+          sbdLabel.textContent = 'SBD';
+
+          const sbdValue = document.createElement('div');
+          sbdValue.className = 'payout-item-value';
+          sbdValue.textContent = `${currencyBreakdown.sbd} SBD`;
+
+          sbdRow.appendChild(sbdLabel);
+          sbdRow.appendChild(sbdValue);
+          currencyTable.appendChild(sbdRow);
+
+          // STEEM Row
+          const steemRow = document.createElement('div');
+          steemRow.className = 'payout-row';
+
+          const steemLabel = document.createElement('div');
+          steemLabel.className = 'payout-item-label';
+          steemLabel.textContent = 'STEEM';
+
+          const steemValue = document.createElement('div');
+          steemValue.className = 'payout-item-value';
+          steemValue.textContent = `${currencyBreakdown.steem} STEEM`;
+
+          steemRow.appendChild(steemLabel);
+          steemRow.appendChild(steemValue);
+          currencyTable.appendChild(steemRow);
+
+          // SP Row
+          const spRow = document.createElement('div');
+          spRow.className = 'payout-row';
+
+          const spLabel = document.createElement('div');
+          spLabel.className = 'payout-item-label';
+          spLabel.textContent = 'SP';
+
+          const spValue = document.createElement('div');
+          spValue.className = 'payout-item-value';
+          spValue.textContent = `${currencyBreakdown.sp} SP`;
+
+          spRow.appendChild(spLabel);
+          spRow.appendChild(spValue);
+          currencyTable.appendChild(spRow);
+        })
+        .catch(error => {
+          console.error('Error fetching payout breakdown:', error);
+          currencyTable.innerHTML = '';
+
           const errorMessage = document.createElement('div');
           errorMessage.className = 'error-message';
-          errorMessage.textContent = 'Unable to load payout breakdown';
+          errorMessage.textContent = 'Error loading payout breakdown';
           currencyTable.appendChild(errorMessage);
-          return;
-        }
+        });
 
-        // SBD Row
-        const sbdRow = document.createElement('div');
-        sbdRow.className = 'payout-row';
+      return section;
+    } else {
+      // If the post is paid out, show the total payout value instead sbd, steem and sp -> author reward and curator reward in dollars
+      const authorPayout = this.getAuthorPayout();
+      const curatorPayout = this.getCuratorPayout();
+      const authorPayoutRow = document.createElement('div');
+      authorPayoutRow.className = 'payout-row';
 
-        const sbdLabel = document.createElement('div');
-        sbdLabel.className = 'payout-item-label';
-        sbdLabel.textContent = 'SBD';
+      const authorPayoutLabel = document.createElement('div');
+      authorPayoutLabel.className = 'payout-item-label';
+      authorPayoutLabel.textContent = 'Author Reward';
 
-        const sbdValue = document.createElement('div');
-        sbdValue.className = 'payout-item-value';
-        sbdValue.textContent = `${currencyBreakdown.sbd} SBD`;
+      const authorPayoutValue = document.createElement('div');
+      authorPayoutValue.className = 'payout-item-value';
+      authorPayoutValue.textContent = `$${authorPayout}`;
 
-        sbdRow.appendChild(sbdLabel);
-        sbdRow.appendChild(sbdValue);
-        currencyTable.appendChild(sbdRow);
+      authorPayoutRow.appendChild(authorPayoutLabel);
+      authorPayoutRow.appendChild(authorPayoutValue);
+      currencyTable.appendChild(authorPayoutRow);
 
-        // STEEM Row
-        const steemRow = document.createElement('div');
-        steemRow.className = 'payout-row';
+      // Curator Row
+      const curatorPayoutRow = document.createElement('div');
+      curatorPayoutRow.className = 'payout-row';
 
-        const steemLabel = document.createElement('div');
-        steemLabel.className = 'payout-item-label';
-        steemLabel.textContent = 'STEEM';
+      const curatorPayoutLabel = document.createElement('div');
+      curatorPayoutLabel.className = 'payout-item-label';
+      curatorPayoutLabel.textContent = 'Curator Reward';
 
-        const steemValue = document.createElement('div');
-        steemValue.className = 'payout-item-value';
-        steemValue.textContent = `${currencyBreakdown.steem} STEEM`;
+      const curatorPayoutValue = document.createElement('div');
+      curatorPayoutValue.className = 'payout-item-value';
+      curatorPayoutValue.textContent = `$${curatorPayout}`;
 
-        steemRow.appendChild(steemLabel);
-        steemRow.appendChild(steemValue);
-        currencyTable.appendChild(steemRow);
+      curatorPayoutRow.appendChild(curatorPayoutLabel);
+      curatorPayoutRow.appendChild(curatorPayoutValue);
+      currencyTable.appendChild(curatorPayoutRow);
 
-        // SP Row
-        const spRow = document.createElement('div');
-        spRow.className = 'payout-row';
-
-        const spLabel = document.createElement('div');
-        spLabel.className = 'payout-item-label';
-        spLabel.textContent = 'SP';
-
-        const spValue = document.createElement('div');
-        spValue.className = 'payout-item-value';
-        spValue.textContent = `${currencyBreakdown.sp} SP`;
-
-        spRow.appendChild(spLabel);
-        spRow.appendChild(spValue);
-        currencyTable.appendChild(spRow);
-      })
-      .catch(error => {
-        console.error('Error fetching payout breakdown:', error);
-        currencyTable.innerHTML = '';
-
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'error-message';
-        errorMessage.textContent = 'Error loading payout breakdown';
-        currencyTable.appendChild(errorMessage);
-      });
-
-    return section;
+      // Add the table to the section
+      section.appendChild(currencyTable);
+      return section;
+    }
   }
 
   /**
