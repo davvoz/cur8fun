@@ -3,6 +3,58 @@
  * Centralized styles for all vote-related UI elements
  */
 
+/* ---------- Nuovo container per upvote e conteggio voti ---------- */
+.upvote-container {
+  display: flex;
+  align-items: center;
+  margin-right: var(--space-md);
+}
+
+/* Stile per rendere il contatore un pulsante interattivo */
+.vote-count-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  margin-left: 2px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-color);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vote-count-btn:hover {
+  background-color: var(--background-lighter);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.vote-count-btn:active {
+  transform: translateY(0);
+}
+
+.vote-count-btn .count {
+  font-weight: 500;
+}
+
+/* Upvote action button (solo icona) */
+.upvote-action {
+  margin-right: 0 !important;
+  padding-right: var(--space-xs);
+}
+
+/* Quando il post è stato votato, evidenzia anche il contatore */
+.upvote-btn.voted + .vote-count-btn {
+  color: var(--secondary-color);
+}
+
+.upvote-btn.voted + .vote-count-btn:hover {
+  background-color: rgba(46, 204, 113, 0.08);
+}
+
 /* ---------- General vote buttons ---------- */
 .action-btn.upvote-btn,
 .action-item.vote-action {

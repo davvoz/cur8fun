@@ -12,16 +12,19 @@ class PostActions {
     
     // Bind methods
     this.handlePayoutClick = this.handlePayoutClick.bind(this);
+    this.handleVotesClick = this.handleVotesClick.bind(this);
   }
 
   render() {
     const postActions = document.createElement('div');
     postActions.className = 'post-actions';
 
-    const upvoteBtn = this.createActionButton('upvote-btn', 'thumb_up', this.post.active_votes.length || 0);
+    // Creiamo il pulsante upvote con contatore cliccabile per mostrare i votanti
+    const upvoteBtn = this.createUpvoteButtonWithClickableCount();
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
-    const votesDetailsBtn = this.createActionButton('votes-details-btn', 'how_to_vote', 'Votes');
+    
+    // Rimuoviamo il pulsante votes-details-btn poiché ora il conteggio voti sarà cliccabile
 
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
@@ -31,7 +34,6 @@ class PostActions {
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
     postActions.appendChild(shareBtn);
-    postActions.appendChild(votesDetailsBtn);
     postActions.appendChild(payoutInfo);
     
     // Only add edit button if user can edit the post
@@ -46,7 +48,7 @@ class PostActions {
 
     // Add event listeners
     if (this.upvoteCallback) {
-      upvoteBtn.addEventListener('click', this.upvoteCallback);
+      upvoteBtn.querySelector('.upvote-action').addEventListener('click', this.upvoteCallback);
     }
     
     if (this.commentCallback) {
@@ -56,14 +58,49 @@ class PostActions {
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
     }
-    
-    // Add event listener for votes details button
-    votesDetailsBtn.addEventListener('click', () => {
-      const votesPopup = new VotesPopup(this.post);
-      votesPopup.show();
-    });
 
     return postActions;
+  }
+
+  // Nuovo metodo per creare il pulsante di upvote con contatore cliccabile
+  createUpvoteButtonWithClickableCount() {
+    const container = document.createElement('div');
+    container.className = 'upvote-container';
+    
+    // Crea il pulsante di upvote (solo icona)
+    const upvoteAction = document.createElement('button');
+    upvoteAction.className = 'action-btn upvote-btn upvote-action';
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'material-icons';
+    iconSpan.textContent = 'thumb_up';
+    upvoteAction.appendChild(iconSpan);
+    
+    // Crea il contatore cliccabile
+    const countBtn = document.createElement('button');
+    countBtn.className = 'vote-count-btn';
+    
+    const countSpan = document.createElement('span');
+    countSpan.className = 'count';
+    countSpan.textContent = this.post.active_votes.length || 0;
+    countBtn.appendChild(countSpan);
+    
+    // Aggiungi event listener per aprire il popup dei votanti
+    countBtn.addEventListener('click', this.handleVotesClick);
+    
+    // Aggiungi entrambi gli elementi al container
+    container.appendChild(upvoteAction);
+    container.appendChild(countBtn);
+    
+    return container;
+  }
+
+  // Handler per il click sul conteggio voti
+  handleVotesClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const votesPopup = new VotesPopup(this.post);
+    votesPopup.show();
   }
 
   // Nuovo handler per il click sul payout info
