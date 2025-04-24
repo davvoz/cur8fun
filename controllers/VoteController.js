@@ -83,7 +83,7 @@ export default class VoteController {
         return;
       }
     } catch (error) {
-      console.log('Error checking comment vote status:', error);
+      // Error checking comment vote status - silently fail
     }
 
     // Show vote percentage selector
@@ -235,7 +235,7 @@ export default class VoteController {
   handleVoteError(error, button, countElement) {
     if (error.isCancelled) {
       // Don't show error notification for cancelled votes
-      console.log('Vote was cancelled by user');
+      // Cancelled by user - no action needed
     } else if (error.isAuthError) {
       console.error('Authentication error:', error.message);
       
@@ -312,7 +312,7 @@ export default class VoteController {
         }
       }
     } catch (error) {
-      console.log('Error checking vote status:', error);
+      // Silently fail on vote status check error
     }
   }
   

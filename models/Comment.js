@@ -28,10 +28,15 @@ class Comment extends Content {
      * @returns {Promise<Post>} The root post
      */
     async getRootPost() {
-        // This would need to traverse up the chain using a SteemService
-        console.log("Retrieving root post...");
-        // Implementation would interact with Steem blockchain
-        return null;
+        try {
+            // Instead of console.log, just perform the operation silently
+            const rootPost = await this.postService.getPost(this.rootAuthor, this.rootPermlink);
+            this.rootPost = rootPost;
+            return rootPost;
+        } catch (error) {
+            console.error('Error retrieving root post:', error);
+            return null;
+        }
     }
 
     /**

@@ -147,9 +147,6 @@ class NavigationManager {
       this.bottomNav.appendChild(leftContainer);
       this.bottomNav.appendChild(centerContainer);
       this.bottomNav.appendChild(rightContainer);
-      
-      // Debug check to verify the button is in the DOM
-      console.log('Center button added:', !!this.bottomNav.querySelector('.center-button'));
     }
   }
   
@@ -285,8 +282,6 @@ class NavigationManager {
     if (currentPath !== '/' && currentPath.endsWith('/')) {
       currentPath = currentPath.slice(0, -1);
     }
-    
-    console.log('Current path for menu highlighting:', currentPath);
     
     // Update side nav active state
     const sideMenuItems = document.querySelectorAll('.side-nav .menu-item');

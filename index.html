@@ -29,14 +29,12 @@
                                 // Has parts after repo name and no hash
                                 if (pathParts.length > 2 && !location.hash) {
                                     const routePath = '/' + pathParts.slice(2).join('/');
-                                    console.log('Redirecting to hash route:', routePath);
                                     location.replace(basePath + '/#' + routePath);
                                 }
                             },
                             'root': () => {
                                 // Repository root path
                                 if (pathParts.length === 2 && pathParts[1] === basePath.substring(1) && !location.hash) {
-                                    console.log('Repository root - redirecting to home');
                                     location.replace(basePath + '/#/');
                                 }
                             }
@@ -54,7 +52,6 @@
                             location.pathname !== '/index.html' && 
                             !location.hash) {
                             
-                            console.log('Local redirect to hash route:', location.pathname);
                             location.replace('/#' + location.pathname);
                         }
                     }
@@ -65,9 +62,7 @@
             const env = Object.values(environments).find(env => env.detect());
             const basePath = env.getBasePath();
             
-            if (basePath) {
-                console.log('Base path detected:', basePath);
-            }
+            document.documentElement.style.setProperty('--base-path', JSON.stringify(basePath));
             
             env.handleRoutes(basePath);
         })();

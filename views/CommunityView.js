@@ -33,7 +33,6 @@ class CommunityView extends BasePostView {
    */
   async loadPosts(page = 1) {
     if (this.loading) {
-      console.log('Already loading posts, skipping duplicate request.');
       return false;
     }
 
@@ -101,8 +100,6 @@ class CommunityView extends BasePostView {
    */
   async fetchCommunityDetails() {
     try {
-      console.log(`Fetching details for community ${this.communityId}`);
-      
       // Use the optimized communityFetch method that takes advantage of cached data
       const result = await this.communityFetch('details', { communityId: this.communityId });
       
@@ -491,7 +488,6 @@ class CommunityView extends BasePostView {
       const cachedData = this._communityCache[cacheKey];
       // Only use cache if it hasn't expired
       if (Date.now() - cachedData.timestamp < 300000) { // 5 minutes expiry
-        console.log(`Using cached data for ${operation}`);
         return cachedData.data;
       }
     }
@@ -527,7 +523,6 @@ class CommunityView extends BasePostView {
           if (params.lastAuthor && params.lastPermlink) {
             fetchParams.start_author = params.lastAuthor;
             fetchParams.start_permlink = params.lastPermlink;
-            console.log(`Using pagination: start with ${params.lastAuthor}/${params.lastPermlink}`);
           }
 
           const rawPosts = await steemService.fetchCommunityPosts(fetchParams);
