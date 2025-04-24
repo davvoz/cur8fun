@@ -48,10 +48,10 @@
     }
 
     #app {
-        grid-template-areas: 
+        /* grid-template-areas: 
             "nav"
             "main"
-            "sidebar";
+            "sidebar"; */
         grid-template-columns: 1fr;
         grid-template-rows: var(--nav-height) 1fr 60px;
         height: 100vh;
@@ -105,7 +105,8 @@
     }
 
     .content-wrapper {
-        padding: var(--space-md) var(--space-sm);
+        /* padding: var(--space-md) var(--space-sm); */
+        padding: var(--space-md)
     }
 
     .nav-container {
