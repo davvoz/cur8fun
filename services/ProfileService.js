@@ -52,9 +52,6 @@ class ProfileService {
 
     async updateProfile(username, updatedFields, activeKey = null) {
         try {
-            console.log('ProfileService: Updating profile for', username);
-            console.log('Updated fields:', updatedFields);
-            
             // First get the current profile from blockchain
             const userData = await steemService.getUserData(username, { includeProfile: true });
             
@@ -77,8 +74,6 @@ class ProfileService {
                 }
             }
             
-            console.log('Existing profile data:', existingProfile);
-            
             // Create merged profile - start with existing, add updates
             const mergedProfile = {
                 ...existingProfile,
@@ -91,8 +86,6 @@ class ProfileService {
                     delete mergedProfile[key];
                 }
             });
-            
-            console.log('Merged profile data to save:', mergedProfile);
             
             // Call steemService to update the profile on the blockchain, passing the active key if provided
             const result = await steemService.updateUserProfile(username, mergedProfile, activeKey);
@@ -117,11 +110,8 @@ class ProfileService {
      */
     async getUserPosts(username, limit = 30, page = 1, params = {}) {
         try {
-            console.log(`ProfileService: Getting posts for ${username}, page=${page}, limit=${limit}`);
-            
             // Force refresh handling
             if (params?.forceRefresh) {
-                console.log('Force refresh requested, clearing cache');
                 this.clearUserPostsCache(username);
                 // Reset anche i dati di paginazione nel SteemService
                 if (steemService._lastPostByUser) {
@@ -136,7 +126,6 @@ class ProfileService {
             if (!params?.forceRefresh) {
                 const cachedPosts = this.getCachedPosts(cacheKey);
                 if (cachedPosts) {
-                    console.log(`Using ${cachedPosts.length} cached posts for page ${page}`);
                     return cachedPosts;
                 }
             }
@@ -157,7 +146,6 @@ class ProfileService {
                         start_author: lastPost.author,
                         start_permlink: lastPost.permlink
                     };
-                    console.log(`Using pagination from page ${page-1}: ${lastPost.author}/${lastPost.permlink}`);
                 } else {
                     // Se non abbiamo la pagina precedente in cache, chiedi al service
                     const lastPostRef = steemService.getLastPostForUser(username);
@@ -166,14 +154,12 @@ class ProfileService {
                             start_author: lastPostRef.author,
                             start_permlink: lastPostRef.permlink
                         };
-                        console.log(`Using pagination from service: ${lastPostRef.author}/${lastPostRef.permlink}`);
                     } else {
                         console.warn(`No pagination reference for page ${page}, results may be incorrect`);
                         
                         // Se siamo a pagina > 1 ma non abbiamo un punto di riferimento,
                         // potremmo dover caricare tutte le pagine precedenti
                         if (page > 2) { // Solo se siamo oltre pagina 2, per evitare loop
-                            console.log(`Attempting to load previous page ${page-1} first`);
                             const prevPagePosts = await this.getUserPosts(username, limit, page-1);
                             
                             if (prevPagePosts && prevPagePosts.length > 0) {
@@ -182,7 +168,6 @@ class ProfileService {
                                     start_author: lastPost.author,
                                     start_permlink: lastPost.permlink
                                 };
-                                console.log(`Generated pagination from loaded previous page: ${lastPost.author}/${lastPost.permlink}`);
                             }
                         }
                     }
@@ -199,7 +184,6 @@ class ProfileService {
             if (result.posts && result.posts.length > 0) {
                 // Limita il numero di post alla quantità richiesta per la cache
                 const postsToCache = result.posts.slice(0, limit);
-                console.log(`Caching ${postsToCache.length} posts for page ${page}`);
                 this.cachePosts(cacheKey, postsToCache);
                 
                 // Memorizza l'ultimo post per future richieste
@@ -211,7 +195,6 @@ class ProfileService {
                 // Ritorna solo il numero di post richiesti
                 return result.posts.slice(0, limit);
             } else {
-                console.log(`No posts found for ${username}, page ${page}`);
                 return [];
             }
         } catch (error) {
@@ -242,8 +225,6 @@ class ProfileService {
         if (this.lastPosts) {
             delete this.lastPosts[username];
         }
-        
-        console.log(`Cleared post cache for ${username}`);
     }
 
     async followUser(username, currentUser) {
@@ -423,8 +404,6 @@ class ProfileService {
         const COMMENTS_CACHE_DURATION_MS = 120 * 60 * 1000; // 2 hours in milliseconds
         
         try {
-            console.log(`ProfileService: Getting comments for ${username}, page=${page}, limit=${limit}, forceRefresh=${forceRefresh}`);
-            
             // Check cache if not forcing refresh
             if (!forceRefresh) {
                 const paginatedCachedComments = this.getPaginatedCachedComments(
@@ -436,14 +415,11 @@ class ProfileService {
             }
             
             // Load comments from blockchain
-            console.log(`Loading all comments from blockchain for ${username}`);
             const comments = await steemService.getCommentsByAuthor(username, -1);
             
             if (!this.isValidCommentsResponse(comments)) {
                 return [];
             }
-            
-            console.log(`✓ Successfully loaded ${comments.length} total comments for ${username}`);
             
             // Cache the comments
             if (comments.length > 0) {
@@ -482,9 +458,7 @@ class ProfileService {
             return null;
         }
         
-        console.log(`Using ${cachedComments.length} cached comments`);
         const paginatedComments = this.paginateResults(cachedComments, page, limit);
-        console.log(`Returning ${paginatedComments.length} comments for page ${page} from cache`);
         
         if (page === 1) {
             this.emitCommentsLoadedEvent(username, cachedComments.length, 'cache', page);
@@ -531,7 +505,6 @@ class ProfileService {
         
         try {
             sessionStorage.setItem(cacheKey, JSON.stringify(comments));
-            console.log('Comments saved in sessionStorage for faster access');
         } catch (storageError) {
             console.warn('Unable to save all comments in sessionStorage:', storageError);
         }
@@ -561,7 +534,6 @@ class ProfileService {
         // Try using cached data
         const cachedComments = this.getCachedPosts(cacheKey);
         if (cachedComments && cachedComments.length > 0) {
-            console.log(`Using cached comments after error (${cachedComments.length} comments)`);
             return this.paginateResults(cachedComments, page, limit);
         }
         
@@ -571,7 +543,6 @@ class ProfileService {
                 const savedComments = sessionStorage.getItem(cacheKey);
                 if (savedComments) {
                     const parsedComments = JSON.parse(savedComments);
-                    console.log(`Retrieved ${parsedComments.length} comments from sessionStorage`);
                     return this.paginateResults(parsedComments, page, limit);
                 }
             } catch (e) {

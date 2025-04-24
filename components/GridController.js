@@ -186,7 +186,6 @@ class GridController {
     
     // Start observing the target node for configured mutations
     this.mutationObserver.observe(this.target, { childList: true });
-    console.log('GridController: MutationObserver set up for', this.target);
   }
   
   unmount() {
