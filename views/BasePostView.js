@@ -182,8 +182,6 @@ class BasePostView {
       postsToRender = this.posts;
     }
     
-    console.log(`Rendering ${postsToRender.length} posts (append: ${append})`);
-    
     // Filter out any duplicates that might have slipped through
     const uniquePostsToRender = postsToRender.filter(post => {
       const postId = `${post.author}_${post.permlink}`;
@@ -194,8 +192,6 @@ class BasePostView {
       return true;
     });
 
-    console.log(`Rendering ${uniquePostsToRender.length} unique posts`);
-    
     // Show no posts message only if we're not currently loading AND there are no posts
     if (uniquePostsToRender.length === 0 && this.posts.length === 0 && !this.loading) {
       this.renderNoPostsMessage(postsContainer);
@@ -664,7 +660,7 @@ class BasePostView {
         }
       })
       .catch(err => {
-        console.log(`Could not fetch community info for ${communityId}`, err);
+        console.error(`Could not fetch community info for ${communityId}`, err);
       });
   }
 
@@ -726,7 +722,6 @@ class BasePostView {
       
       const timeoutId = setTimeout(() => {
         if (!image.complete) {
-          console.log(`Image load timeout: ${url.substring(0, 50)}...`);
           tryNextOption("Timeout");
         }
       }, 5000);
@@ -739,7 +734,6 @@ class BasePostView {
       
       image.onerror = () => {
         clearTimeout(timeoutId);
-        console.log(`Image load error: ${url.substring(0, 50)}...`);
         tryNextOption("Failed to load");
       };
       
@@ -1045,7 +1039,7 @@ class BasePostView {
         
         // Handle errors
         if (error.isCancelled) {
-          console.log('Vote was cancelled by user');
+          console.error('Vote was cancelled by user');
         } else if (error.isAuthError) {
           console.error('Authentication error:', error.message);
           

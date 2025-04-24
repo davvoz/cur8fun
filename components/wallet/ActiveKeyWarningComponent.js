@@ -17,7 +17,6 @@ class ActiveKeyWarningComponent extends Component {
   constructor(container, options = {}) {
     super(container, options);
     this.username = authService.getCurrentUser()?.username;
-    console.log('[ActiveKeyWarningComponent] Created with username:', this.username);
     
     // Add a flag to force display during tests
     this.forceDisplay = options.forceDisplay || false;
@@ -49,7 +48,6 @@ class ActiveKeyWarningComponent extends Component {
 
     // Listen for authentication changes
     eventEmitter.on('auth:changed', () => {
-      console.log('[ActiveKeyWarningComponent] Auth state changed, rechecking status');
       this.checkAuthStatus();
     });
     
@@ -64,24 +62,18 @@ class ActiveKeyWarningComponent extends Component {
     // Increment the attempt counter
     this.checkAttempts++;
     
-    console.log(`[ActiveKeyWarningComponent] Auth check attempt ${this.checkAttempts}`);
-    
     // Check if Keychain is installed and available
     const keychainAvailable = authService.isKeychainInstalled();
-    console.log(`[ActiveKeyWarningComponent] Is Keychain available: ${keychainAvailable}`);
     
     // Get the current user and login method
     const user = authService.getCurrentUser();
     const loginMethod = user?.loginMethod;
-    console.log(`[ActiveKeyWarningComponent] Current login method: ${loginMethod}`);
     
     // Check authentication status
     const hasActiveAccess = authService.hasActiveKeyAccess();
-    console.log(`[ActiveKeyWarningComponent] Has active access: ${hasActiveAccess}`);
     
     if (hasActiveAccess) {
       // User has access, hide the warning
-      console.log('[ActiveKeyWarningComponent] User has active access, hiding warning');
       if (this.container) {
         this.container.style.display = 'none';
       }
@@ -91,7 +83,6 @@ class ActiveKeyWarningComponent extends Component {
     // If the user uses Keychain but hasActiveAccess is false, it might be
     // that Keychain is not yet fully initialized
     if (loginMethod === 'keychain' && !hasActiveAccess && this.checkAttempts < this.maxAttempts) {
-      console.log('[ActiveKeyWarningComponent] Keychain detected but access not confirmed, retrying...');
       // Retry after 300ms
       setTimeout(() => this.checkAuthStatusWithRetry(), 300);
       return;
@@ -100,10 +91,8 @@ class ActiveKeyWarningComponent extends Component {
     // If we reach here, the user does not have access to the active key
     // or we have exhausted the attempts
     if (!hasActiveAccess || this.forceDisplay) {
-      console.log('[ActiveKeyWarningComponent] No active access confirmed, showing warning');
       this.render();
     } else {
-      console.log('[ActiveKeyWarningComponent] Access confirmed, hiding warning');
       if (this.container) {
         this.container.style.display = 'none';
       }
@@ -115,15 +104,12 @@ class ActiveKeyWarningComponent extends Component {
    */
   checkAuthStatus() {
     const hasActiveAccess = authService.hasActiveKeyAccess();
-    console.log('[ActiveKeyWarningComponent] Direct auth check. hasActiveKeyAccess:', hasActiveAccess);
     
     if (hasActiveAccess && !this.forceDisplay) {
-      console.log('[ActiveKeyWarningComponent] User has active key access, hiding warning');
       if (this.container) {
         this.container.style.display = 'none';
       }
     } else {
-      console.log('[ActiveKeyWarningComponent] User does not have active key access, showing warning');
       this.render();
     }
   }
@@ -146,8 +132,6 @@ class ActiveKeyWarningComponent extends Component {
     
     // Ensure the container is visible
     this.container.style.display = 'block';
-    
-    console.log('[ActiveKeyWarningComponent] Warning rendered successfully');
   }
   
   /**
@@ -243,7 +227,6 @@ class ActiveKeyWarningComponent extends Component {
       
       if (!activeKey) {
         // L'utente ha annullato l'inserimento
-        console.log('[ActiveKeyWarningComponent] Active key input cancelled by user');
         return;
       }
       
@@ -260,8 +243,6 @@ class ActiveKeyWarningComponent extends Component {
       
       // Tenta di autenticarsi con la active key
       try {
-        console.log('[ActiveKeyWarningComponent] Attempting to login with active key');
-        
         // Esegui il logout per sicurezza
         authService.logout();
         

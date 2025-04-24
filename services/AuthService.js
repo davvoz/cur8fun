@@ -50,9 +50,6 @@ class AuthService {
         // Prima verifica l'esistenza dell'oggetto steem_keychain
         const keychainExistsInWindow = window.steem_keychain !== undefined;
         
-        // Aggiunge del logging per debug
-        console.log(`[AuthService] isKeychainInstalled check: ${keychainExistsInWindow}`);
-        
         return keychainExistsInWindow;
     }
 
@@ -278,8 +275,6 @@ class AuthService {
                 // Add expiry timestamp (24 hours)
                 const expiry = Date.now() + (24 * 60 * 60 * 1000);
                 localStorage.setItem(`${username}_${keyType}_key_expiry`, expiry.toString());
-                
-                console.info(`${keyType} key stored for mobile operations`);
             } catch (error) {
                 console.error(`Failed to store ${keyType} key:`, error);
             }
@@ -295,26 +290,20 @@ class AuthService {
         const user = this.getCurrentUser();
         
         if (!user) {
-            console.log(`getKey: No logged in user found`);
             return null;
         }
         
-        console.log(`getKey: Processing for user ${user.username} with login method ${user.loginMethod}`);
-        
         // For Keychain users
         if (user.loginMethod === 'keychain') {
-            console.log(`getKey: User is using Keychain, no stored key needed`);
             return null; // Keychain will handle the operation
         }
         
         // For direct key login
         try {
             const keyExpiry = localStorage.getItem(`${user.username}_${keyType}_key_expiry`);
-            console.log(`getKey: ${keyType} key expiry timestamp: ${keyExpiry}`);
             
             // Check expiry
             if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
-                console.log(`getKey: Stored ${keyType} key is expired, removing it`);
                 // Key expired, remove it
                 localStorage.removeItem(`${user.username}_${keyType}_key`);
                 localStorage.removeItem(`${user.username}_${keyType}_key_expiry`);
@@ -322,7 +311,6 @@ class AuthService {
             }
             
             const key = localStorage.getItem(`${user.username}_${keyType}_key`);
-            console.log(`getKey: ${keyType} key ${key ? 'found' : 'not found'} for user ${user.username}`);
             return key;
         } catch (error) {
             console.error(`getKey: Error retrieving ${keyType} key:`, error);
@@ -354,14 +342,12 @@ class AuthService {
         
         // User explicitly logged in with active key
         if (user.keyType === 'active') {
-            console.log("[AuthService] hasActiveKeyAccess: User logged in with active key");
             return true;
         }
         
         // Check if we have a stored active key
         const activeKey = this.getActiveKey();
         if (activeKey) {
-            console.log("[AuthService] hasActiveKeyAccess: Active key found in storage");
             return true;
         }
         
@@ -369,13 +355,11 @@ class AuthService {
         // Keychain richiederà la conferma al momento dell'operazione
         if (user.loginMethod === 'keychain') {
             const keychainInstalled = this.isKeychainInstalled();
-            console.log(`[AuthService] hasActiveKeyAccess: User uses Keychain, extension available: ${keychainInstalled}`);
             if (keychainInstalled) {
                 return true;
             }
         }
         
-        console.log("[AuthService] hasActiveKeyAccess: No active key access detected");
         return false;
     }
 
@@ -388,7 +372,6 @@ class AuthService {
             if (user) {
                 // If SteemLogin, clear token
                 if (user.loginMethod === 'steemlogin') {
-                    console.log('Clearing SteemLogin token');
                     sessionStorage.removeItem('steemLoginToken');
                     localStorage.removeItem(`${user.username}_steemlogin_token`);
                 } else if (user.loginMethod === 'privateKey') {
@@ -401,7 +384,6 @@ class AuthService {
             }
             
             // Clear general auth state
-            console.log('Logging out user');
             this.currentUser = null;
             localStorage.removeItem('currentUser');
             
@@ -413,8 +395,6 @@ class AuthService {
                 type: 'info',
                 message: 'You have been logged out'
             });
-            
-            console.log('Logout completed successfully');
         } catch (error) {
             console.error('Error during logout:', error);
         }
@@ -433,30 +413,23 @@ class AuthService {
      * Ideally, keys should not be stored in localStorage
      */
     getPostingKey() {
-        console.log('getPostingKey: Attempting to retrieve posting key');
         const user = this.getCurrentUser();
         
         if (!user) {
-            console.log('getPostingKey: No logged in user found');
             return null;
         }
         
-        console.log(`getPostingKey: Processing for user ${user.username} with login method ${user.loginMethod}`);
-        
         // Per utenti Keychain
         if (user.loginMethod === 'keychain') {
-            console.log('getPostingKey: User is using Keychain, no stored key needed');
             return null; // Keychain gestirà l'operazione 
         }
         
         // Per login con chiave diretta
         try {
             const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
-            console.log(`getPostingKey: Key expiry timestamp: ${keyExpiry}`);
             
             // Verifica scadenza
             if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
-                console.log('getPostingKey: Stored key is expired, removing it');
                 // Chiave scaduta, rimuovila
                 localStorage.removeItem(`${user.username}_posting_key`);
                 localStorage.removeItem(`${user.username}_posting_key_expiry`);
@@ -464,7 +437,6 @@ class AuthService {
             }
             
             const key = localStorage.getItem(`${user.username}_posting_key`);
-            console.log(`getPostingKey: Key ${key ? 'found' : 'not found'} for user ${user.username}`);
             return key;
         } catch (error) {
             console.error('getPostingKey: Error retrieving posting key:', error);
@@ -510,8 +482,6 @@ class AuthService {
             
             // Verifica che lo stato ricevuto corrisponda a quello salvato
             if (state === savedState) {
-                console.log('SteemLogin callback detected: Valid state');
-                
                 try {
                     // Pulisci i parametri URL prima di tutto
                     window.history.replaceState({}, document.title, window.location.pathname);
@@ -523,7 +493,6 @@ class AuthService {
                             throw error;
                         });
                     
-                    console.log('SteemLogin authentication completed successfully');
                     return true;
                 } catch (error) {
                     console.error('Error in SteemLogin callback:', error);
@@ -584,8 +553,6 @@ class AuthService {
             const state = Math.random().toString(36).substring(7);
             sessionStorage.setItem('steemLoginState', state);
             
-            console.log('Redirecting to SteemLogin...', steemClient);
-            
             // Ottieni URL di login e reindirizza
             const loginUrl = steemClient.getLoginURL(state);
             window.location.href = loginUrl;
@@ -615,7 +582,6 @@ class AuthService {
             let userData;
             try {
                 userData = await this.getSteemLoginUserData(accessToken);
-                console.log('SteemLogin user data received:', userData);
             } catch (error) {
                 console.error('Failed to fetch user data from SteemLogin:', error);
                 throw new Error(`Authentication error: ${error.message || 'Failed to retrieve user data'}`);
@@ -628,8 +594,6 @@ class AuthService {
                 throw new Error('Authentication error: Invalid user data (missing username)');
             }
             
-            console.log('SteemLogin authenticated username:', username);
-            
             // Crea oggetto utente
             let user;
             
@@ -638,7 +602,6 @@ class AuthService {
                 const userProfile = await steemService.getProfile(username);
                 
                 user = this.createUserObjectFromSteemLogin(username, accessToken, userProfile);
-                console.log('User authenticated with full profile');
             } catch (error) {
                 // Fallback con profilo minimo in caso di errore
                 console.warn('Could not fetch user profile, creating minimal user object:', error);
@@ -710,7 +673,6 @@ class AuthService {
      */
     async getSteemLoginUserData(accessToken) {
         try {
-            console.log('Fetching SteemLogin user data with token:', accessToken);
             const response = await fetch('https://api.steemlogin.com/api/me', {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
@@ -723,7 +685,6 @@ class AuthService {
             }
             
             const data = await response.json();
-            console.log('SteemLogin API response:', data);
             return data;
         } catch (error) {
             console.error('Error fetching SteemLogin user data:', error);
@@ -797,8 +758,6 @@ class AuthService {
             if (persistent) {
                 localStorage.setItem(`${username}_steemlogin_token`, JSON.stringify(tokenData));
             }
-            
-            console.log('Token stored successfully');
         } catch (error) {
             console.error('Error storing token:', error);
         }
@@ -815,8 +774,6 @@ class AuthService {
         if (!token) return false;
         
         try {
-            console.log('Validating SteemLogin token...');
-            
             // Timeout per evitare attese infinite
             const fetchWithTimeout = async (url, options, timeout = 8000) => {
                 const controller = new AbortController();
@@ -841,7 +798,6 @@ class AuthService {
             });
             
             const isValid = response.ok;
-            console.log('SteemLogin token validity check:', isValid);
             
             if (!isValid) {
                 // Se il token non è valido, puliamolo

@@ -105,7 +105,6 @@ class ImageUploadService {
     try {
       // Comprimi l'immagine
       const compressedFile = await this.compressImage(file);
-      console.log(`Image compressed from ${file.size} to ${compressedFile.size} bytes`);
       
       // Genera un nome file unico
       const uniqueFilename = this.generateUniqueFilename(file);
@@ -119,8 +118,6 @@ class ImageUploadService {
         // filename: uniqueFilename,
         image_base64: base64Data
       };
-      
-      console.log('Uploading image to imridd API...');
       
       // Esegui la richiesta con timeout
       const response = await this.fetchWithTimeout(
@@ -145,8 +142,6 @@ class ImageUploadService {
       if (!data.image_url) {
         throw new Error('Invalid response: missing image URL');
       }
-      
-      console.log('Image uploaded successfully:', data.image_url);
       
       eventEmitter.emit('notification', {
         type: 'success',
@@ -210,8 +205,6 @@ class ImageUploadService {
     if (!window.steem_keychain) {
       throw new Error('Steem Keychain is not available');
     }
-    
-    console.log('Fallback: uploading with Keychain...');
     
     // ... (codice esistente per upload con Keychain) ...
     // Mantieni questo metodo se vuoi un fallback in caso di problemi con l'API

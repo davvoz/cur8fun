@@ -164,7 +164,6 @@ class CommunitiesListView {
   async loadCommunities() {
     try {
       // Load communities with a single API call
-      console.log('Loading all communities in CommunitiesListView');
       this.communities = await communityService.listCommunities();
       
       // Store all communities in the filteredCommunities array initially
@@ -271,8 +270,6 @@ class CommunitiesListView {
           this.subscribedCommunities.add(`hive-${name}`);
         }
       });
-      
-      console.log(`Loaded ${this.subscribedCommunities.size/2} subscribed communities for ${this.currentUser.username}`);
     } catch (error) {
       console.error('Error loading user subscriptions:', error);
     }
@@ -733,8 +730,6 @@ class CommunitiesListView {
     this.infiniteScroll = new InfiniteScroll({
       container: communitiesGrid,
       loadMore: async (page) => {
-        console.log(`Loading communities page ${page}`);
-        
         // Calculate pagination indices
         const startIndex = (page - 1) * this.itemsPerPage;
         const endIndex = page * this.itemsPerPage;
@@ -762,8 +757,6 @@ class CommunitiesListView {
       endMessage: 'No more communities to discover',
       errorMessage: 'Error loading communities. Please try again.'
     });
-    
-    console.log('Infinite scroll initialized for communities list');
   }
 
   onBeforeUnmount() {

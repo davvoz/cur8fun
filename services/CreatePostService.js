@@ -402,7 +402,6 @@ class CreatePostService {
       };
       
       localStorage.setItem(this.DRAFT_STORAGE_KEY, JSON.stringify(draft));
-      console.log('Draft saved successfully', draft);
       return true;
     } catch (error) {
       console.error('Failed to save draft:', error);
@@ -424,7 +423,6 @@ class CreatePostService {
       // Verifica che la bozza appartenga all'utente corrente
       const currentUser = authService.getCurrentUser()?.username;
       if (currentUser && draft.username !== currentUser) {
-        console.log('Draft belongs to a different user, ignoring');
         return null;
       }
       
@@ -434,7 +432,6 @@ class CreatePostService {
       const daysOld = (now - draftDate) / (1000 * 60 * 60 * 24);
       
       if (daysOld > 7) {
-        console.log('Draft is too old, ignoring');
         this.clearDraft();
         return null;
       }
@@ -460,7 +457,6 @@ class CreatePostService {
   clearDraft() {
     try {
       localStorage.removeItem(this.DRAFT_STORAGE_KEY);
-      console.log('Draft cleared');
     } catch (error) {
       console.error('Failed to clear draft:', error);
     }

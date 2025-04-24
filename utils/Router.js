@@ -20,17 +20,11 @@ class Router {
     // Detect if we're on GitHub Pages and set the base path
     this.detectBasePath();
     
-    console.log('Router initialized with:', {
-      useHashRouting: this.useHashRouting,
-      basePath: this.basePath
-    });
-    
     // Handle browser navigation events
     if (this.useHashRouting) {
       // For hash-based routing, listen to the hashchange event
       window.addEventListener('hashchange', () => {
         const path = this.getPathFromHash();
-        console.log('Hash changed, new path:', path);
         this.handleRouteChange(path, {});
       });
     } else {
@@ -53,7 +47,6 @@ class Router {
       const pathParts = window.location.pathname.split('/');
       if (pathParts.length >= 2 && pathParts[1]) {
         this.basePath = '/' + pathParts[1];
-        console.log('Detected GitHub Pages repository:', this.basePath);
       }
     }
   }
@@ -141,8 +134,6 @@ class Router {
       return;
     }
     
-    console.log('Navigating to:', path);
-    
     // Special handling for search paths
     if (path.startsWith('/search') && params.q) {
       // If the path is a search with a query, add the query to the URL parameter
@@ -202,8 +193,6 @@ class Router {
     // Get the path from the appropriate source
     const path = typeof pathOrEvent === 'string' ? pathOrEvent : this.getCurrentPath();
     
-    console.log('handleRouteChange called with path:', path, 'current path:', this.currentPath);
-    
     // Don't reload the current page if it's the same path
     if (path === this.currentPath && this.currentView) {
       return;
@@ -241,13 +230,6 @@ class Router {
         break;
       }
     }
-
-    // Debug log for route matching
-    console.log('Route match:', {
-      path,
-      matchedRoute: matchedRoute?.path,
-      extractedParams: params
-    });
     
     // Run middleware
     for (const hook of this.beforeHooks) {
@@ -293,8 +275,6 @@ class Router {
       ...matchedRoute.options, 
       ...additionalParams
     };
-    
-    console.log('View params:', mergedParams);
     
     // Instantiate and render the view with the main-content element
     this.currentView = new matchedRoute.viewClass(mergedParams);
@@ -379,7 +359,6 @@ class Router {
             path = path.substring(this.basePath.length) || '/';
           }
           
-          console.log('Link clicked, navigating to:', path);
           this.navigate(path);
         }
       }
@@ -391,11 +370,9 @@ class Router {
     // Handle initial route
     if (this.useHashRouting) {
       const initialPath = this.getPathFromHash() || '/';
-      console.log('Initial route:', initialPath);
       this.handleRouteChange(initialPath);
     } else {
       const initialPath = window.location.pathname.replace(this.basePath, '') || '/';
-      console.log('Initial route (no hash):', initialPath);
       this.handleRouteChange(initialPath);
     }
     return this;

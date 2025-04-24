@@ -24,11 +24,6 @@ class FilterService {
     // Se non ci sono filtri, restituisci tutte le transazioni
     if (!filters) return transactions;
     
-    if (this.config.debug) {
-      console.log(`Filtering ${transactions.length} transactions with:`, 
-                  JSON.stringify(filters, null, 2));
-    }
-    
     const { username, isActionBy, isActionOn } = context;
     
     return transactions.filter(tx => {
