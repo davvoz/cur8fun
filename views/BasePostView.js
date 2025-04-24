@@ -860,7 +860,12 @@ class BasePostView {
     // Default to 0 if no valid vote count is found
     return 0;
   }
-
+  getPendingPayout(post) {
+    const pending = parseFloat(post.pending_payout_value?.split(' ')[0] || 0);
+    const total = parseFloat(post.total_payout_value?.split(' ')[0] || 0);
+    const curator = parseFloat(post.curator_payout_value?.split(' ')[0] || 0);
+    return (pending + total + curator).toFixed(2);
+  }
   /**
    * Create post actions bar
    */
@@ -876,7 +881,7 @@ class BasePostView {
     commentAction.classList.add('comment-action');
     
     // Payout action (non interactive, just shows value)
-    const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value || 0).toFixed(2));
+    const payoutAction = this.createActionItem('attach_money', parseFloat(this.getPendingPayout(post)).toFixed(2));
     payoutAction.classList.add('payout-action');
     
     actions.append(voteAction, commentAction, payoutAction);
