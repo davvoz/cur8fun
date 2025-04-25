@@ -518,10 +518,19 @@ class ProfileView extends View {
   }
   
   renderErrorState(container, error) {
+    const escapeHTML = (str) => str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const safeMessage = escapeHTML(error.message || 'An unknown error occurred');
+
     container.innerHTML = `
       <div class="profile-render-error">
         <h2>Error loading profile</h2>
-        <p>${error.message || 'An unknown error occurred'}</p>
+        <p>${safeMessage}</p>
         <button class="retry-btn">Retry</button>
       </div>
     `;
