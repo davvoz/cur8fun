@@ -31,10 +31,10 @@ class LoginView {
     this.element = container;
 
     const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'content-wrapper';
+    contentWrapper.className = 'content-wrappero';
 
     const loginContainer = document.createElement('div');
-    loginContainer.className = 'login-container card';
+    loginContainer.className = 'login-container';
 
     contentWrapper.appendChild(loginContainer);
 

@@ -321,6 +321,35 @@ function createUserMenu(user) {
   logoutBtn.addEventListener('click', handleLogout);
   
   userMenu.appendChild(dropdown);
+  
+  // Handler per gestire l'apertura e la chiusura del dropdown
+  let clickHandler = function(event) {
+    // Previeni il comportamento predefinito solo se cliccato sull'avatar
+    if (event.target === avatar) {
+      event.preventDefault();
+    }
+    
+    // Toggle della classe show-dropdown
+    dropdown.classList.toggle('show-dropdown');
+    
+    // Se il dropdown è ora visibile, aggiungi un listener al document
+    if (dropdown.classList.contains('show-dropdown')) {
+      // Usiamo setTimeout per assicurarci che questo listener venga aggiunto dopo l'evento corrente
+      setTimeout(() => {
+        // Handler per chiudere il menu quando si clicca altrove
+        document.addEventListener('click', function closeMenu(e) {
+          if (!userMenu.contains(e.target)) {
+            dropdown.classList.remove('show-dropdown');
+            document.removeEventListener('click', closeMenu);
+          }
+        });
+      }, 10);
+    }
+  };
+  
+  // Aggiungi l'event listener all'intero contenitore userMenu invece che solo all'avatar
+  userMenu.addEventListener('click', clickHandler);
+  
   return userMenu;
 }
 

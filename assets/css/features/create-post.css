@@ -20,11 +20,6 @@
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
-.card:hover {
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
 .card-content {
   padding: var(--space-lg);
 }

@@ -38,6 +38,7 @@
 
 .user-menu .dropdown {
     position: absolute;
+    top: 100%;
     right: 0;
     background: var(--background-light);
     border-radius: var(--radius-md);
@@ -47,7 +48,7 @@
     min-width: 180px;
     border: 1px solid var(--border-color);
     transform-origin: center;
-    animation: dropdownAppear var(--transition-fast) ;
+    animation: dropdownAppear var(--transition-fast);
     z-index: var(--z-modal);
 }
 
@@ -62,8 +63,16 @@
     }
 }
 
-.user-menu:hover .dropdown,
-.dropdown:hover {
+/* Show dropdown on hover for desktop devices */
+@media (min-width: 769px) {
+    .user-menu:hover .dropdown,
+    .dropdown:hover {
+        display: block;
+    }
+}
+
+/* Show dropdown when show-dropdown class is present (for mobile and desktop) */
+.dropdown.show-dropdown {
     display: block;
 }
 
@@ -74,7 +83,9 @@
     text-decoration: none;
     transition: all var(--transition-fast);
 }
-
+.register-btn{
+    display: none   ;
+}
 .dropdown a:hover {
     background: var(--background-lighter);
     color: var(--primary-light);
@@ -83,13 +94,21 @@
 
 /* Login Form */
 .login-container {
-    max-width: 400px;
-    margin: var(--space-xxl) auto;
+    max-width: 500px;
+    margin: 10px auto;
     padding: var(--space-xl);
     background-color: var(--background-light);
     border-radius: var(--radius-lg);
     box-shadow: var(--card-box-shadow);
     border: 1px solid var(--border-color);
+}
+
+/*mobile view*/
+@media (max-width: 768px) {
+    .login-container {
+        width: 98%;
+        padding: 0;
+    }
 }
 
 .login-container h2 {

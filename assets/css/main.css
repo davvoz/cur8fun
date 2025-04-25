@@ -87,11 +87,14 @@
 
   .mobile-search-button,
   .mobile-faucet-button {
+
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  
+  .mobile-faucet-button{
+    display: none ;
+  }
   /* Hide search in sidebar on mobile */
   .side-nav .search-nav {
     display: none;

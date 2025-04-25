@@ -174,5 +174,6 @@
     /* Adjust content area */
     #main-content {
         padding-bottom: 70px;
+        z-index: 1;
     }
 }
