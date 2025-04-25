@@ -493,19 +493,19 @@ export default class MarkdownEditor extends Component {
   async handleImageUpload() {
     const fileInput = document.getElementById('markdown-image-upload');
     
-    // Quando il file viene selezionato
+    // Aggiungi attributo multiple per permettere selezione multipla
+    fileInput.multiple = true;
+    
+    // Quando i file vengono selezionati
     fileInput.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
       
       try {
-        this.showUploadStatus('Uploading image...', 'info');
-        
-        // Importa il servizio di upload
+        // Importa i servizi necessari
         const imageUploadService = await import('../services/ImageUploadService.js')
           .then(module => module.default);
         
-        // Importa il servizio di autenticazione
         const authService = await import('../services/AuthService.js')
           .then(module => module.default);
         
@@ -515,15 +515,38 @@ export default class MarkdownEditor extends Component {
           return;
         }
         
-        // Esegui upload
-        const imageUrl = await imageUploadService.uploadImage(file, user.username);
+        // Mostra messaggio iniziale
+        this.showUploadStatus(`Uploading ${files.length} image${files.length > 1 ? 's' : ''}...`, 'info');
         
-        // Inserisci l'immagine nell'editor
-        this.insertMarkdown(`![Image](${imageUrl})`);
+        // Processa ogni file
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (!file || !file.type.startsWith('image/')) continue;
+          
+          try {
+            // Aggiorna stato per ogni file se ci sono più immagini
+            if (files.length > 1) {
+              this.showUploadStatus(`Uploading image ${i+1} of ${files.length}...`, 'info');
+            }
+            
+            // Esegui upload
+            const imageUrl = await imageUploadService.uploadImage(file, user.username);
+            
+            // Inserisci l'immagine nell'editor
+            this.insertMarkdown(`![${file.name || 'Image'}](${imageUrl})`);
+            
+          } catch (error) {
+            console.error(`Failed to upload image ${file.name}:`, error);
+            this.showUploadStatus(`Failed to upload ${file.name}: ${error.message}`, 'error');
+            // Continua con altri file anche se uno fallisce
+          }
+        }
         
-        this.showUploadStatus('Image uploaded successfully!', 'success');
+        // Mostra messaggio di successo finale
+        this.showUploadStatus(`${files.length > 1 ? `${files.length} images` : 'Image'} uploaded successfully!`, 'success');
+        
       } catch (error) {
-        console.error('Image upload failed:', error);
+        console.error('Image upload process failed:', error);
         this.showUploadStatus(`Upload failed: ${error.message}`, 'error');
       } finally {
         // Reset input
