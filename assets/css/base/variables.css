@@ -128,6 +128,9 @@
     --background-rgb: 240, 242, 245; /* Aggiornato per riflettere il nuovo background */
     --background-light-rgb: 234, 237, 240; /* Aggiornato per riflettere il nuovo background-light */
     --primary-rgb: 255, 117, 24;
+
+    --text-color-secondary : #6c757d; /* Scurito leggermente */
+    --text-color : #343a40; /* Scurito leggermente */
 }
 
 /* Dark theme variables */
@@ -174,4 +177,7 @@
     --background-rgb: 26, 26, 26;
     --background-light-rgb: 36, 36, 36;
     --background-dark-rgb: 18, 18, 18;
+
+    --text-color-secondary : #b0b0b0; /* Lighter for better contrast */
+    --text-color : #e8e8e8; /* Lighter for better contrast */
 }

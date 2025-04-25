@@ -1,3 +1,17 @@
+.post-actions-post {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: nowrap;
+  justify-content: center;
+  flex-direction: row;
+  align-content: center;
+  margin: var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+}
+
 /* Post View Layout */
 .post-view {
   max-width: 860px;
@@ -93,16 +107,6 @@
 .post-body {
   margin: var(--space-lg) 0;
   font-family: var(--font-text, system-ui, sans-serif);
-}
-
-/* Post Actions */
-.post-actions {
-  display: flex;
-  align-items: center;
-  padding: var(--space-md) 0;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  margin: var(--space-lg) 0;
 }
 
 .action-btn {
@@ -349,6 +353,7 @@
 
 /* Specific handling for very large images */
 @media (min-width: 769px) {
+
   img[width="1000"],
   img[width="1200"],
   img[width="1280"],
@@ -429,9 +434,9 @@
   .error-code {
     font-size: 4rem;
   }
-  
+
   /* Make images smaller on tablets */
-  .content-image, 
+  .content-image,
   .featured-image,
   .post-image {
     max-width: 95%;
@@ -449,46 +454,50 @@
     width: 100%;
     margin-top: var(--space-sm);
   }
-  
+
   /* Handle specific large images that might have inline width/height */
-  img[width], 
-  img[height], 
-  img[style*="width"], 
+  img[width],
+  img[height],
+  img[style*="width"],
   img[style*="height"],
-  img[data-width], 
+  img[data-width],
   img[data-height] {
-    width: auto ;
-    height: auto ;
-    max-width: 100% ;
-    max-height: 400px ;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 400px;
   }
-  
+
   /* Reduce spacing around image containers */
   .content-images-container,
   .featured-image-container,
   .post-content-body p:has(img) {
-    margin: var(--space-sm) 0 ;
-    padding: 0 ;
+    margin: var(--space-sm) 0;
+    padding: 0;
   }
 }
 
 /* Additional breakpoint for very small devices */
 @media (max-width: 360px) {
-  .content-image, 
+
+  .content-image,
   .featured-image,
   .post-image {
-    max-height: 55vh; /* Even smaller height limit for tiny screens */
+    max-height: 55vh;
+    /* Even smaller height limit for tiny screens */
   }
-  
+
   /* Override specific legacy image sizing */
-  img[width], img[data-width] {
-    width: auto ;
-    max-width: 100% ;
+  img[width],
+  img[data-width] {
+    width: auto;
+    max-width: 100%;
   }
 }
 
 /* Additional breakpoint for very small devices */
 @media (max-width: 360px) {
+
   /* Even tighter controls for small phones */
   .post-content img,
   .post-content-body img,
@@ -496,14 +505,15 @@
   img.content-image,
   img.featured-image,
   img.post-image {
-    max-height: 300px ;
+    max-height: 300px;
   }
 }
 
 /* YouTube Embed Styling */
 .youtube-embed-container {
   position: relative;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  padding-bottom: 56.25%;
+  /* 16:9 aspect ratio */
   height: 0;
   overflow: hidden;
   max-width: 100%;
@@ -532,7 +542,8 @@
 /* Make sure videos are responsive on small screens */
 @media (max-width: 600px) {
   .youtube-embed-container {
-    padding-bottom: 68%; /* Slightly taller on mobile */
+    padding-bottom: 68%;
+    /* Slightly taller on mobile */
     margin: var(--space-md) 0;
     width: 100%;
   }
@@ -541,7 +552,8 @@
 /* Very small screens need different aspect ratio */
 @media (max-width: 480px) {
   .youtube-embed-container {
-    padding-bottom: 75%; /* Even taller on very small screens */
+    padding-bottom: 75%;
+    /* Even taller on very small screens */
     margin: var(--space-sm) 0;
     border-radius: var(--radius-sm);
   }
@@ -582,7 +594,7 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .community-container {
     margin-left: 0;
     margin-top: 5px;
@@ -644,7 +656,7 @@
   line-height: 1.2;
 }
 
-.community-title:hover, 
+.community-title:hover,
 .community-id:hover {
   color: var(--primary-color);
   text-decoration: underline;
@@ -661,8 +673,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Per layout mobile */
@@ -670,7 +687,7 @@
   .avataro {
     flex-wrap: wrap;
   }
-  
+
   .community-container {
     margin-left: 0;
     margin-top: 8px;
@@ -679,4 +696,3 @@
 }
 
 /* Gli stili relativi al voto sono stati spostati in features/vote.css */
-

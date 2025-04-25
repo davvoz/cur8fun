@@ -41,10 +41,6 @@ export default class PostsList extends BasePostView {
     // Store container reference
     this.container = container;
     
-    // Create simple content structure
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'content-wrapper';
-    
     // Create grid controller container
     const gridControllerContainer = document.createElement('div');
     gridControllerContainer.className = 'grid-controller-container';
@@ -53,12 +49,9 @@ export default class PostsList extends BasePostView {
     const postsContainer = document.createElement('div');
     postsContainer.className = 'posts-container';
     
-    // Add to content wrapper
-    contentWrapper.appendChild(gridControllerContainer);
-    contentWrapper.appendChild(postsContainer);
-    
-    // Add to main container
-    container.appendChild(contentWrapper);
+    // Add elements directly to the main container
+    container.appendChild(gridControllerContainer);
+    container.appendChild(postsContainer);
     
     // Explicitly render the grid controller
     this.renderGridController(gridControllerContainer);

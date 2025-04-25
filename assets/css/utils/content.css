@@ -24,7 +24,14 @@
 }
 
 .content-wrapper {
-    max-width: var(--content-max-width);
+    max-width: 80%;
     margin: 0 auto;
-    padding: var(--space-xl);
+}
+
+@media screen and (max-width: 768px) {
+    .content-wrapper {
+        max-width: 100%;
+        padding: var(--space-sm);
+    }
+    
 }

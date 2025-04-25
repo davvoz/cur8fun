@@ -92,7 +92,6 @@
   line-height: 1.5;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
@@ -178,7 +177,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
@@ -189,10 +187,6 @@
 
 .grid-layout-list .comment-title {
   font-size: 1.1rem;
-}
-
-.grid-layout-list .comment-body {
-  -webkit-line-clamp: 4;
 }
 
 /* Compact layout styles */
@@ -208,7 +202,6 @@
 .grid-layout-compact .comment-body {
   font-size: 0.8rem;
   margin-bottom: var(--space-xs);
-  -webkit-line-clamp: 2;
 }
 
 .grid-layout-compact .comment-parent-info {

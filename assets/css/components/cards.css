@@ -1,24 +1,3 @@
-/* Post Cards */
-.post-card {
-    background: var(--background-light);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-xl);
-    box-shadow: var(--card-box-shadow);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    overflow: hidden;
-    border: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    max-width: 100%;
-    height: 100%;
-    margin: var(--space-xs);
-}
-
-.post-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--popup-box-shadow);
-}
 
 /* Header styling */
 .post-header {
@@ -61,110 +40,7 @@
     color: var(--text-color-secondary);
 }
 
-/* Image container with fixed aspect ratio */
-.post-image-container {
-    position: relative;
-    width: 100%;
-    /* 16:9 aspect ratio */
-    overflow: hidden;
-    background-color: var(--background-subtle);
-    border-bottom: 1px solid var(--border-color-light);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    transition: all var(--transition-normal);
-}
 
-.post-image-container img {
-    width: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-}
-
-/* Mobile optimization for square images */
-@media (max-width: 767px) {
-    .post-image-container {
-        height: 0;
-        padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .post-image-container img {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        object-fit: cover;
-    }
-    
-    /* Miglioriamo l'aspect ratio anche nel layout lista */
-    .grid-layout-list .post-image-container {
-        height: 0;
-        padding-bottom: 100%;
-        width: 100%;
-    }
-}
-
-/* Loading state for images */
-.post-image-container.loading::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg,
-            var(--background-subtle) 0%,
-            var(--background-light) 50%,
-            var(--background-subtle) 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite linear;
-    z-index: 1;
-}
-
-/* Disable degrade effects on still loading images */
-.post-image-container.loading img {
-    opacity: 0;
-}
-
-@keyframes shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-
-    100% {
-        background-position: 200% 0;
-    }
-}
-
-/* Reduce animation load */
-@media (prefers-reduced-motion: reduce) {
-    .post-image-container.loading::before {
-        animation: none;
-        background: var(--background-subtle);
-    }
-
-    .post-card:hover .post-image-container img {
-        transform: none;
-    }
-}
-
-/* Improve loaded image display */
-.post-image-container.loaded img {
-    filter: contrast(1.02) saturate(1.05);
-    /* Slightly enhance contrast and saturation */
-}
-
-/* Content wrapper - more compact without excerpt */
-.post-content-wrapper {
-    padding: var(--space-sm) var(--space-md);
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
 
 /* Per layout lista aggiungiamo spazio per l'excerpt quando disponibile */
 .grid-layout-list .post-content-middle {
@@ -183,17 +59,6 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     overflow: hidden;
-}
-
-/* Hide excerpt since we're not displaying it anymore */
-.post-excerpt {
-    display: none;
-    /* Nascosto di default ma mostrato nel layout lista */
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: var(--text-color-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* Tags styling - more compact and right under title */
@@ -219,16 +84,6 @@
 .post-tag:hover {
     background-color: var(--color-primary-light);
     color: var(--color-primary);
-}
-
-/* Post actions - adjust position to make card more compact */
-.post-actions {
-    padding: var(--space-xs) var(--space-md);
-    border-top: 1px solid var(--border-color-light);
-    margin-top: auto;
-    display: flex;
-    gap: var(--space-md);
-    flex-wrap: wrap;
 }
 
 .action-item {
@@ -263,11 +118,6 @@
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: var(--space-lg);
     }
-
-    .post-card {
-        margin-bottom: 0;
-    }
-
 
 }
 
@@ -367,11 +217,6 @@
         font-size: 0.85rem;
         color: var(--text-color-secondary);
         margin-left: auto;
-    }
-
-    /* Post excerpt mostrato solo nel layout lista */
-    .grid-layout-list .post-excerpt {
-        display: block;
     }
 
     /* Migliorare stili di hover per interazioni più sofisticate */

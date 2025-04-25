@@ -37,9 +37,16 @@
 
 /* Profile View Styling */
 .profile-container {
-  max-width: 1100px;
+  max-width: 80%;
   margin: 0 auto;
   padding-bottom: var(--space-lg);
+}
+
+@media screen and (max-width: 768px) {
+  .profile-container {
+    max-width: 100%;
+  }
+  
 }
 
 /* Profile Header */
@@ -375,6 +382,11 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  height: 100%;
+}
+
+.posts-container.grid-layout-list .post-title {
+  height: min-content;
 }
 
 .post-meta {
@@ -393,16 +405,6 @@
 .post-meta .material-icons {
   font-size: 16px;
   margin-right: 2px;
-}
-
-.post-excerpt {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-bottom: 0;
 }
 
 /* Empty states */
@@ -691,4 +693,19 @@
   max-width: 300px;
   z-index: 9999;
   word-break: break-all;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.material-icons.rotating {
+  animation: rotate 1s linear infinite;
+  display: inline-block;
+}
+
+.follow-btn.loading {
+  opacity: 0.8;
+  cursor: wait;
 }

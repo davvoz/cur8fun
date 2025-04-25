@@ -17,7 +17,7 @@ class PostActions {
 
   render() {
     const postActions = document.createElement('div');
-    postActions.className = 'post-actions';
+    postActions.className = 'post-actions-post';
 
     // Creiamo il pulsante upvote con contatore cliccabile per mostrare i votanti
     const upvoteBtn = this.createUpvoteButtonWithClickableCount();

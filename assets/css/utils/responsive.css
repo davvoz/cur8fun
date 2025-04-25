@@ -1,9 +1,4 @@
-/* Responsive Styles */
-@media (max-width: 1200px) {
-    .content-wrapper {
-        padding: var(--space-lg) var(--space-md);
-    }
-}
+
 
 @media (max-width: 1024px) {
     #app {
@@ -104,10 +99,6 @@
         padding-bottom: 80px;
     }
 
-    .content-wrapper {
-        /* padding: var(--space-md) var(--space-sm); */
-        padding: var(--space-md)
-    }
 
     .nav-container {
         grid-template-columns: auto auto;

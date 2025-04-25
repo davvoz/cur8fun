@@ -16,7 +16,8 @@
 
 /* Mobile grid controller styles - updating to show grid controller on mobile */
 .grid-controller-container.mobile-hidden {
-  display: block; /* Show on mobile, removing the 'none' value */
+  display: block;
+  /* Show on mobile, removing the 'none' value */
 }
 
 .grid-controller {
@@ -40,10 +41,7 @@
   transition: all 0.2s ease;
 }
 
-.grid-controller-toggle:hover {
-  color: var(--color-primary);
-  background-color: var(--background-subtle);
-}
+
 
 .grid-controls {
   display: flex;
@@ -86,9 +84,7 @@
   overflow: hidden;
 }
 
-.grid-layout-option:hover {
-  background-color: rgba(var(--primary-color-rgb), 0.1);
-}
+
 
 .grid-layout-option.active {
   background-color: var(--primary-color);
@@ -137,10 +133,7 @@
   text-align: center;
 }
 
-.grid-size-option:hover {
-  background-color: var(--background-hover);
-  color: var(--text-color);
-}
+
 
 .grid-size-option.active {
   background-color: var(--color-primary-light);
@@ -167,10 +160,6 @@
   justify-content: center;
 }
 
-.grid-spacing-option:hover {
-  background-color: var(--background-hover);
-  color: var (--text-color);
-}
 
 .grid-spacing-option.active {
   background-color: var(--color-primary-light);
@@ -197,11 +186,7 @@
   font-size: 0.85rem;
 }
 
-.grid-control-reset:hover {
-  background-color: var(--color-danger-light);
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
+
 
 .grid-control-reset .material-icons {
   font-size: 1rem;
@@ -209,6 +194,7 @@
 
 /* Responsive handling - update for better mobile experience */
 @media (max-width: 768px) {
+
   /* Show the grid controller on mobile with compact layout */
   .grid-controller-container {
     display: block;
@@ -221,18 +207,18 @@
     gap: var(--space-xs);
     padding: var(--space-xs);
   }
-  
+
   .grid-controls {
     width: 100%;
     justify-content: center;
   }
-  
+
   /* Adjust layout for mobile posts */
   .posts-container {
     display: grid;
     gap: var(--space-sm);
   }
-  
+
   /* Mobile-optimized list layout */
   .posts-container.grid-layout-list .post-card {
     margin-bottom: var(--space-sm);
@@ -240,12 +226,12 @@
     flex-direction: column;
     border-radius: var(--radius-md);
   }
-  
+
   .posts-container.grid-layout-list .post-main-content {
     display: flex;
     flex-direction: row;
   }
-  
+
   .posts-container.grid-layout-list .post-image-container {
     width: 120px;
     height: 120px;
@@ -254,33 +240,34 @@
     overflow: hidden;
     margin: var(--space-xs);
   }
-  
+
   .posts-container.grid-layout-list .post-content-wrapper {
     flex: 1;
     padding: var(--space-xs);
   }
-  
+
   .posts-container.grid-layout-list .post-title {
     font-size: 1rem;
     margin-bottom: var(--space-xxs);
   }
-  
+
   /* Ensure actions are properly aligned on mobile */
   .posts-container.grid-layout-list .post-actions {
     padding: var(--space-xs);
     justify-content: space-between;
   }
-  
+
   /* Improve spacing on very small screens */
   @media (max-width: 480px) {
+
     .posts-container.grid-layout-list .post-card,
     .posts-container.grid-layout-compact .post-card {
       margin-bottom: var(--space-xs);
     }
-    
+
     .posts-container.grid-layout-list .post-image-container {
       width: 100%;
-      
+
     }
   }
 }
@@ -288,55 +275,69 @@
 /* Grid Layout Styles for Posts Container */
 .posts-container.grid-layout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: var(--space-lg);
 }
+
 /*grid-layout-grid su mobile deve avere solo 1 colonna*/
 
 @media (max-width: 768px) {
   .grid-layout-grid {
-    grid-template-columns: 1fr; /* Single column on mobile */
+    grid-template-columns: 1fr;
+    /* Single column on mobile */
   }
 }
 
-/* Enhanced post card styles with animations */
-.post-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--background-light);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--border-color-light);
-  height: 100%;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: fadeInUp 0.6s ease forwards;
-}
 
 /* Sequential appearance of cards */
-.posts-container .post-card:nth-child(1) { animation-delay: 0.1s; }
-.posts-container .post-card:nth-child(2) { animation-delay: 0.2s; }
-.posts-container .post-card:nth-child(3) { animation-delay: 0.3s; }
-.posts-container .post-card:nth-child(4) { animation-delay: 0.4s; }
-.posts-container .post-card:nth-child(5) { animation-delay: 0.5s; }
-.posts-container .post-card:nth-child(6) { animation-delay: 0.6s; }
-.posts-container .post-card:nth-child(7) { animation-delay: 0.7s; }
-.posts-container .post-card:nth-child(8) { animation-delay: 0.8s; }
-.posts-container .post-card:nth-child(9) { animation-delay: 0.9s; }
-.posts-container .post-card:nth-child(10) { animation-delay: 1.0s; }
-.posts-container .post-card:nth-child(11) { animation-delay: 1.1s; }
-.posts-container .post-card:nth-child(12) { animation-delay: 1.2s; }
-
-/* Enhanced card hover effect */
-.post-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-  border-color: var(--color-primary-light);
-  z-index: 1;
+.posts-container .post-card:nth-child(1) {
+  animation-delay: 0.1s;
 }
+
+.posts-container .post-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.posts-container .post-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.posts-container .post-card:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+.posts-container .post-card:nth-child(5) {
+  animation-delay: 0.5s;
+}
+
+.posts-container .post-card:nth-child(6) {
+  animation-delay: 0.6s;
+}
+
+.posts-container .post-card:nth-child(7) {
+  animation-delay: 0.7s;
+}
+
+.posts-container .post-card:nth-child(8) {
+  animation-delay: 0.8s;
+}
+
+.posts-container .post-card:nth-child(9) {
+  animation-delay: 0.9s;
+}
+
+.posts-container .post-card:nth-child(10) {
+  animation-delay: 1.0s;
+}
+
+.posts-container .post-card:nth-child(11) {
+  animation-delay: 1.1s;
+}
+
+.posts-container .post-card:nth-child(12) {
+  animation-delay: 1.2s;
+}
+
 
 /* Avatar glow effect */
 .avatar-container {
@@ -358,10 +359,7 @@
   pointer-events: none;
 }
 
-.post-card:hover .avatar-container .avatar-glow {
-  opacity: 1;
-  animation: pulse-glow 2s infinite alternate;
-}
+
 
 .post-main-content {
   display: flex;
@@ -385,7 +383,8 @@
 .posts-container.grid-layout-list .post-thumbnail {
   min-height: 150px;
   flex-shrink: 0;
-  display: block !important; /* Ensure thumbnail is always visible */
+  display: block !important;
+  /* Ensure thumbnail is always visible */
 }
 
 .posts-container.grid-layout-list .post-content {
@@ -417,7 +416,8 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 280px 1fr;
-    flex-direction: row; /* Overrides the column direction */
+    flex-direction: row;
+    /* Overrides the column direction */
     height: auto;
   }
 
@@ -456,7 +456,8 @@
 }
 
 .posts-container.grid-layout-compact .post-thumbnail {
-  display: block !important; /* Ensure thumbnail is always visible */
+  display: block !important;
+  /* Ensure thumbnail is always visible */
   width: 60px;
   height: 60px;
   min-width: 60px;
@@ -512,7 +513,7 @@
 
   /* Contenuto principale in formato a due colonne */
   .posts-container.grid-layout-list .post-main-content {
-    display: flex ;
+    display: flex;
     flex-direction: column;
     flex-grow: 1;
     padding: 0;
@@ -576,7 +577,7 @@
     border-top: 1px solid var(--border-color-light);
     padding: var(--space-sm) var(--space-md);
     margin-top: auto;
-    background-color: var(--background-subtle);
+   
   }
 
   /* Layout lista per schermi diversi (ma sempre desktop) */
@@ -584,11 +585,11 @@
     .posts-container.grid-layout-list .post-main-content {
       grid-template-columns: 200px 1fr;
     }
-    
+
     .posts-container.grid-layout-list .post-content-middle {
       padding: var(--space-sm);
     }
-    
+
     .posts-container.grid-layout-list .post-title {
       font-size: 1.2rem;
     }
@@ -665,10 +666,11 @@
 
 
 
- .error{
+.error {
   display: none;
   border-radius: 100%;
 }
+
 /* Contenuto con layout migliorato */
 .posts-container.grid-layout-list .post-content-wrapper {
   display: flex;
@@ -684,7 +686,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  max-width: 560px;
 }
 
 /* Titolo più grande e prominente */
@@ -708,7 +709,6 @@
   justify-content: flex-start;
   gap: var(--space-xl);
   padding: var(--space-sm);
-  background-color: var(--background-subtle);
 }
 
 /* Add ripple effect to action items */
@@ -722,9 +722,7 @@
   transition: all 0.2s ease;
 }
 
-.action-item.interactive:hover {
-  color: var(--color-primary);
-}
+
 
 /* Ripple effect for action buttons */
 .action-item.interactive::after {
@@ -756,7 +754,7 @@
   .posts-container.grid-layout-list .post-main-content {
     grid-template-columns: 240px 1fr;
   }
-  
+
   .posts-container.grid-layout-list .post-title {
     font-size: 1.2rem;
   }
@@ -766,7 +764,7 @@
   .posts-container.grid-layout-list .post-main-content {
     grid-template-columns: 200px 1fr;
   }
-  
+
   .posts-container.grid-layout-list .post-content-middle {
     padding: var(--space-sm);
   }
@@ -777,22 +775,23 @@
   .posts-container.grid-layout-list .post-card {
     grid-template-rows: auto auto auto;
   }
-  
+
   .posts-container.grid-layout-list .post-main-content {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
   }
-  
+
   .posts-container.grid-layout-list .post-image-container {
     border-right: none;
     border-bottom: 1px solid var(--border-color-light);
   }
-  
+
   .posts-container.grid-layout-list .post-item,
   .posts-container.grid-layout-compact .post-item {
-    flex-direction: row; /* Keep row direction on mobile too */
+    flex-direction: row;
+    /* Keep row direction on mobile too */
   }
-  
+
   .posts-container.grid-layout-compact .post-thumbnail {
     width: 50px;
     height: 50px;
@@ -804,18 +803,18 @@
   .posts-container.grid-layout-list .post-card {
     flex-direction: column;
   }
-  
+
   .posts-container.grid-layout-list .post-item {
     max-height: 150px;
   }
-  
+
 
 }
 
 /* Rimuovo stili duplicati e obsoleti */
 .posts-container.grid-layout-compact {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -872,25 +871,28 @@
 
 /* Improve mobile post layouts for all grid types */
 @media (max-width: 768px) {
+
   /* Grid layout on mobile */
   .posts-container.grid-layout-grid {
-    grid-template-columns: repeat(1, 1fr); /* Single column on mobile */
+    grid-template-columns: repeat(1, 1fr);
+    /* Single column on mobile */
     gap: var(--space-md);
   }
-  
+
   .posts-container.grid-layout-grid .post-card {
     max-width: none;
     width: 100%;
     margin: 0;
   }
-  
+
   /* Square images in grid layout */
   .posts-container.grid-layout-grid .post-image-container {
     height: 0;
-    padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
+    padding-bottom: 100%;
+    /* Aspect ratio 1:1 (quadrato) */
     position: relative;
   }
-  
+
   .posts-container.grid-layout-grid .post-image-container img {
     position: absolute;
     top: 0;
@@ -899,27 +901,27 @@
     height: 100%;
     object-fit: cover;
   }
-  
+
   /* List layout on mobile - improved card design */
   .posts-container.grid-layout-list .post-card {
     background-color: var(--background-light);
     box-shadow: var(--card-box-shadow-sm);
     overflow: hidden;
   }
-  
+
   .posts-container.grid-layout-list .post-header {
     padding: var(--space-sm);
     background-color: var(--background-subtle);
   }
-  
+
   .posts-container.grid-layout-list .post-main-content {
     padding: 0;
   }
-  
+
   .posts-container.grid-layout-list .post-content-middle {
     padding: var(--space-sm);
   }
-  
+
   /* Square images in list layout */
   .posts-container.grid-layout-list .post-thumbnail {
     min-height: 100px;
@@ -927,22 +929,291 @@
     width: 100px;
     aspect-ratio: 1/1;
   }
-  
+
   /* Compact layout on mobile - better spacing */
   .posts-container.grid-layout-compact {
-    grid-template-columns: 1fr; /* Single column for compact view */
+    grid-template-columns: 1fr;
+    /* Single column for compact view */
   }
-  
+
   /* Square images in compact layout */
   .posts-container.grid-layout-compact .post-image-container {
     height: 0;
-    padding-bottom: 100%; /* Aspect ratio 1:1 (quadrato) */
+    padding-bottom: 100%;
+    /* Aspect ratio 1:1 (quadrato) */
   }
-  
+
   .posts-container.grid-layout-compact .post-card {
     padding: var(--space-xs);
     background-color: var(--background-light);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color-light);
   }
+}
+
+/* Post Card Unified Layout - altezze fisse e layout uniforme */
+.post-card {
+  display: flex;
+  flex-direction: column;
+  height: 550px;
+  /* Altezza fissa totale */
+  background-color: var(--surface-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-box-shadow);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin: 0 auto;
+  /* Centrato orizzontalmente */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+  /* Larghezza uniforme */
+  max-width: 100%;
+}
+
+@media screen and (max-width: 768px) {
+  .post-card {
+    width: 100%;
+    /* Larghezza uniforme */
+    max-width: 100%;
+    height: 100%;
+    /* Altezza automatica per mobile */
+    margin: auto;
+    /* Centrato orizzontalmente */
+    padding: var(--space-sm);
+    /* Padding uniforme per mobile */
+    border-radius: var(--radius-sm);
+    box-shadow: var(--card-box-shadow-sm);
+    border: 1px solid var(--border-color-light);
+    background-color: var(--background-light);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+}
+
+
+/* Header a altezza fissa */
+.post-header {
+  height: 60px;
+  /* Altezza fissa per l'header */
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-color-light);
+  background-color: var(--background-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Body a altezza fissa con contenuto scrollabile se necessario */
+.post-main-content {
+  height: 300px;
+  /* Altezza fissa per il body */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Nasconde il contenuto che eccede */
+}
+
+/* Immagine a altezza fissa */
+.post-image-container {
+  height: auto;
+  /* Altezza fissa per l'immagine */
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.post-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/*list layout*/
+.posts-container.grid-layout-list .post-image-container {
+  height: 200px;
+  /* Altezza fissa per l'immagine */
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  margin: var(--space-xl);
+}
+.posts-container.grid-layout-list .post-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-box-shadow-sm);
+}
+
+/* Wrapper contenuto centrale a altezza fissa */
+.post-content-wrapper {
+  height: 100px;
+  /* Altezza fissa per la sezione di testo */
+  padding: var(--space-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm) var(--space-md);
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/*layout lista*/
+.posts-container.grid-layout-list .post-content-wrapper {
+  padding: var(--space-sm) var(--space-md);
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.post-content-middle {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Footer a altezza fissa */
+.post-actions {
+  height: 40px;
+  /* Altezza fissa per il footer */
+  padding: 0 var(--space-md);
+  border-top: 1px solid var(--border-color-light);
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--space-xl);
+  width: 100%;
+}
+
+/* Testo in titolo ed excerpt con troncamento controllato */
+.post-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-xxs);
+  color: var(--text-color);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  /* Limita a 2 righe */
+  line-clamp: 2;
+  /* Proprietà standard */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Modifica per il layout lista che mantiene l'uniformità */
+@media (min-width: 768px) {
+  .posts-container.grid-layout-list .post-card {
+    height: 400px;
+    /* Mantiene l'altezza totale coerente */
+    display: grid;
+    grid-template-rows: 60px 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .posts-container.grid-layout-list .post-main-content {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    display: flex
+;
+    grid-template-columns: 200px 1fr;
+    height: 340px;
+    flex-direction: row-reverse;
+  }
+
+  .posts-container.grid-layout-list .post-image-container {
+    height: 100%;
+    width: 200px;
+  }
+
+  .posts-container.grid-layout-list .post-content-wrapper {
+    height: 300px;
+    /* Altezza del blocco di testo */
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+  }
+
+
+}
+
+/* Centra le card su dispositivi mobili */
+@media (max-width: 768px) {
+  .posts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 var(--space-sm);
+  }
+
+
+  .post-main-content {
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .post-image-container {
+    height: 180px;
+    flex-shrink: 0;
+  }
+
+  .post-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .post-content-middle {
+    flex: 1;
+  }
+
+  /* Assicuriamoci che il footer sia sempre visibile */
+  .post-actions {
+    position: relative;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    width: 100%;
+  }
+}
+
+/* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
+.error.post-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background-subtle);
+}
+
+/* Assicura che le immagini di errore siano visualizzate correttamente */
+.post-image-container.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Rimuovi la classe 'display: none' per le immagini di errore */
+.error {
+  display: flex !important;
+  border-radius: 0;
+  background-color: var(--background-subtle);
 }

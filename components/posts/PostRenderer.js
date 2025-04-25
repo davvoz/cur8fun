@@ -18,13 +18,17 @@ export default class PostRenderer {
     const metadata = this.parseMetadata(post.json_metadata);
     const imageUrl = this.getBestImage(post, metadata);
 
+    // Header (60px)
     postItem.appendChild(this.createPostHeader(post));
 
+    // Body (Main content - 300px)
     const mainContent = document.createElement('div');
     mainContent.className = 'post-main-content';
 
+    // Immagine (200px)
     mainContent.appendChild(this.createPostImage(imageUrl, post.title));
 
+    // Contenuto testuale (100px)
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'post-content-wrapper';
 
@@ -46,9 +50,12 @@ export default class PostRenderer {
     }
 
     contentWrapper.appendChild(contentMiddle);
-    contentWrapper.appendChild(this.createPostActions(post));
     mainContent.appendChild(contentWrapper);
     postItem.appendChild(mainContent);
+    
+    // Footer (40px) - Separato dal main content per garantire la visibilità
+    const actions = this.createPostActions(post);
+    postItem.appendChild(actions);
 
     this.addPostNavigationHandler(postItem, post);
 
