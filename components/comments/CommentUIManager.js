@@ -2,6 +2,19 @@ import InfiniteScroll from '../../utils/InfiniteScroll.js';
 import LoadingIndicator from '../../components/LoadingIndicator.js';
 import ContentRenderer from '../ContentRenderer.js';
 
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, function (match) {
+    const escapeMap = {
+      '&': '&amp;',
+      '<': '&lt;',
+     '>': '&gt;',
+     '"': '&quot;',
+     "'": '&#39;'
+    };
+    return escapeMap[match];
+  });
+}
+
 export default class CommentUIManager {
   constructor(container, renderer) {
     this.container = container;
@@ -152,7 +165,7 @@ export default class CommentUIManager {
       <div class="comment-content">
         <div class="comment-header">
           <div class="comment-author">@${comment.author}</div>
-          <div class="comment-date">${formattedDate}</div>
+          <div class="comment-date">${escapeHTML(formattedDate)}</div>
         </div>
         ${parentInfo}
         <div class="comment-body markdown-content">
