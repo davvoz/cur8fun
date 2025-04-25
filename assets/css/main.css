@@ -9,6 +9,7 @@
 @import 'layout/navigation.css';
 @import 'layout/profile-cards.css';
 @import 'layout/sidebar.css';
+@import 'layout/sidebar-collapsed.css'; /* Aggiunto import per gli stili della sidebar collassata */
 
 /* Component styles */
 @import 'components/auth.css';

@@ -5,9 +5,26 @@ class NavigationManager {
   constructor() {
     this.isMobile = window.innerWidth < 768;
     this.menuOpen = false;
+    this.sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     this.initElements();
     this.initEventListeners();
     this.renderNavigation();
+    
+    // Setup sidebar toggle button click handler
+    const toggleRetractSidebarBtn = document.getElementById('toggle-btn-retract');
+    if (toggleRetractSidebarBtn) {
+      toggleRetractSidebarBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.toggleSidebar();
+      });
+    }
+    
+    // Applica lo stato della sidebar salvato al caricamento
+    if (this.sidebarCollapsed) {
+      this.collapseSidebar();
+    } else {
+      this.expandSidebar();
+    }
   }
   
   initElements() {
@@ -262,6 +279,13 @@ class NavigationManager {
       this.sideNav.classList.remove('mobile');
       this.sideNav.classList.remove('hidden');
       this.sideNav.classList.remove('visible');
+      
+      // Ripristina lo stato della sidebar se necessario
+      if (this.sidebarCollapsed) {
+        this.collapseSidebar();
+      } else {
+        this.expandSidebar();
+      }
     }
     if (this.bottomNav) this.bottomNav.classList.add('hidden');
     if (this.app) this.app.classList.remove('mobile-layout');
@@ -348,6 +372,83 @@ class NavigationManager {
         }
       }
     });
+  }
+  
+  /**
+   * Configura il pulsante e la funzionalità per la sidebar retrattile
+   */
+  setupSidebarToggle() {
+    if (!this.sideNav || this.isMobile) return;
+    
+    // Crea il pulsante toggle
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'toggle-sidebar-btn';
+    toggleBtn.setAttribute('aria-label', 'Toggle sidebar');
+    toggleBtn.setAttribute('title', 'Toggle sidebar');
+    
+    // Imposta l'icona iniziale basata sullo stato della sidebar
+    let iconDirection = this.sidebarCollapsed ? 'chevron_left' : 'chevron_right';
+    toggleBtn.innerHTML = `<span class="material-icons">${iconDirection}</span>`;
+    
+    // Aggiungi il pulsante alla sidebar
+    this.sideNav.appendChild(toggleBtn);
+    
+    // Aggiungi attributi data-tooltip ai menu items per i tooltip quando la sidebar è collassata
+    const menuItems = this.sideNav.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+      const label = item.querySelector('.label');
+      if (label) {
+        item.setAttribute('data-tooltip', label.textContent);
+      }
+    });
+    
+    // Aggiungi event listener al pulsante
+    toggleBtn.addEventListener('click', () => {
+      this.toggleSidebar();
+    });
+  }
+  
+  /**
+   * Mostra o nasconde la sidebar
+   */
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    
+    if (this.sidebarCollapsed) {
+      this.collapseSidebar();
+    } else {
+      this.expandSidebar();
+    }
+    
+    // Aggiorna l'icona di toggle in base allo stato
+    const toggleBtn = document.getElementById('toggle-btn-retract');
+    if (toggleBtn) {
+      const iconElement = toggleBtn.querySelector('.material-icons');
+      if (iconElement) {
+        iconElement.textContent = this.sidebarCollapsed ? 'chevron_right' : 'chevron_left';
+      }
+    }
+    
+    // Salva lo stato della sidebar in localStorage
+    localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
+  }
+  
+  /**
+   * Collassa la sidebar
+   */
+  collapseSidebar() {
+    if (!this.sideNav) return;
+    this.sideNav.classList.add('collapsed');
+    if (this.app) this.app.classList.add('sidebar-collapsed');
+  }
+  
+  /**
+   * Espande la sidebar
+   */
+  expandSidebar() {
+    if (!this.sideNav) return;
+    this.sideNav.classList.remove('collapsed');
+    if (this.app) this.app.classList.remove('sidebar-collapsed');
   }
 }
 

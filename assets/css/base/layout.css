@@ -8,4 +8,24 @@
     grid-template-rows: var(--nav-height) 1fr;
     height: 100vh;
     overflow: hidden;
+    transition: grid-template-columns 0.3s ease;
+}
+
+#app.sidebar-collapsed {
+    grid-template-columns: 60px 1fr;
+}
+
+@media (max-width: 768px) {
+    #app {
+        grid-template-areas: 
+            "nav"
+            "main";
+        grid-template-columns: 1fr;
+        grid-template-rows: var(--nav-height) 1fr;
+        height: 100vh;
+    }
+    
+    #app.sidebar-collapsed {
+        grid-template-columns: 1fr;
+    }
 }
