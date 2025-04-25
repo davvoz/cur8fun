@@ -174,8 +174,10 @@ class FollowersModal {
         
         // Use setTimeout to ensure modal closing animation completes
         setTimeout(() => {
+            // Sanitize the username before navigating
+            const sanitizedUsername = encodeURIComponent(username);
             // Navigate to the profile page
-            router.navigate(`/@${username}`);
+            router.navigate(`/@${sanitizedUsername}`);
         }, 300);
     }
 }
