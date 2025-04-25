@@ -106,8 +106,8 @@
 /*mobile view*/
 @media (max-width: 768px) {
     .login-container {
-        width: 98%;
-        padding: 0;
+        width: 100%;
+        padding: 10px;
     }
 }
 

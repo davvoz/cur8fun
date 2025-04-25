@@ -167,18 +167,7 @@ function renderUnauthenticatedNav(container) {
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
   
-  // Mobile Theme Toggle button - aggiunto all'inizio
-  const mobileThemeToggle = document.createElement('button');
-  mobileThemeToggle.className = 'theme-toggle-btn mobile-theme-toggle';
-  mobileThemeToggle.setAttribute('aria-label', 'Toggle theme');
-  mobileThemeToggle.title = 'Toggle light/dark theme';
-  
-  const themeIcon = document.createElement('span');
-  themeIcon.className = 'material-icons';
-  themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcon
-  mobileThemeToggle.appendChild(themeIcon);
-  
-  navActions.appendChild(mobileThemeToggle);
+
   
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
