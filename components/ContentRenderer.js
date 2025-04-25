@@ -172,7 +172,8 @@ class ContentRenderer {
       // Convert youtube.com URLs to youtube-nocookie.com for privacy and to prevent redirects
       let modifiedUrl = url;
       if (modifiedUrl.includes('youtube.com')) {
-        modifiedUrl = modifiedUrl.replace('youtube.com', 'youtube-nocookie.com');
+        // Use regular expression to handle all possible variations of youtube.com in URLs
+        modifiedUrl = modifiedUrl.replace(/([^.]+\.)*youtube\.com/g, 'youtube-nocookie.com');
       }
       
       const urlObj = new URL(modifiedUrl);
