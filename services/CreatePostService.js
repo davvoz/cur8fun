@@ -1,6 +1,7 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
+import crypto from 'crypto';
 
 /**
  * Service for creating and editing posts
@@ -307,7 +308,8 @@ class CreatePostService {
       .trim();
       
     // Add random suffix to prevent duplicates
-    const randomChars = Math.random().toString(36).substring(2, 8);
+    const randomBytes = crypto.randomBytes(3); // Generate 3 random bytes
+    const randomChars = randomBytes.toString('hex'); // Convert to a hex string
     permlink = `${permlink}-${randomChars}`;
     
     return permlink.substring(0, 255); // Ensure permlink isn't too long
