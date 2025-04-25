@@ -130,7 +130,7 @@ class ContentRenderer {
     iframes.forEach(iframe => {
       // Check if it's a YouTube embed
       const src = iframe.getAttribute('src') || '';
-      if (src.includes('youtube.com') || src.includes('youtu.be')) {
+      if (this.isValidYouTubeUrl(src)) {
         // Create a responsive container for the iframe
         const wrapper = document.createElement('div');
         wrapper.className = 'youtube-embed-container';
@@ -309,6 +309,21 @@ class ContentRenderer {
       
       document.head.appendChild(script);
     });
+  }
+  /**
+   * Validates if a given URL belongs to YouTube
+   * @param {string} url - The URL to validate
+   * @returns {boolean} - True if the URL is a valid YouTube URL, false otherwise
+   */
+  isValidYouTubeUrl(url) {
+    try {
+      const parsedUrl = new URL(url);
+      const allowedHosts = ['www.youtube.com', 'youtu.be'];
+      return allowedHosts.includes(parsedUrl.hostname);
+    } catch (e) {
+      // If URL parsing fails, it's not a valid YouTube URL
+      return false;
+    }
   }
 }
 
