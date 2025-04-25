@@ -15,7 +15,10 @@
             // Environment detection
             const environments = {
                 'github': {
-                    detect: () => location.hostname.endsWith('github.io'),
+                    detect: () => {
+                        const allowedHostnames = ['github.io'];
+                        return allowedHostnames.includes(location.hostname);
+                    },
                     getBasePath: () => {
                         const pathParts = location.pathname.split('/');
                         return pathParts.length >= 2 ? '/' + pathParts[1] : '';
