@@ -44,6 +44,7 @@
 @import 'pages/followers-modal.css';
 @import 'pages/following-modal.css';
 @import 'pages/nested-comments.css'; /* Added import for nested comments styling */
+@import 'pages/menu.css'; /* Aggiunto import per gli stili della pagina menu */
 
 /* Utility styles */
 @import 'utils/content.css';
