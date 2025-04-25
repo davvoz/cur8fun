@@ -171,9 +171,18 @@ class ContentRenderer {
     try {
       // Convert youtube.com URLs to youtube-nocookie.com for privacy and to prevent redirects
       let modifiedUrl = url;
-      if (modifiedUrl.includes('youtube.com')) {
-        // Use regular expression to handle all possible variations of youtube.com in URLs
-        modifiedUrl = modifiedUrl.replace(/([^.]+\.)*youtube\.com/g, 'youtube-nocookie.com');
+      try {
+        const urlObj = new URL(modifiedUrl);
+        const allowedHosts = ['www.youtube.com', 'youtube.com', 'youtu.be'];
+        if (allowedHosts.includes(urlObj.host)) {
+          // Convert youtube.com URLs to youtube-nocookie.com for privacy
+          if (urlObj.host === 'www.youtube.com' || urlObj.host === 'youtube.com') {
+            urlObj.host = 'www.youtube-nocookie.com';
+          }
+          modifiedUrl = urlObj.toString();
+        }
+      } catch (e) {
+        console.warn('Failed to parse YouTube URL:', e);
       }
       
       const urlObj = new URL(modifiedUrl);
