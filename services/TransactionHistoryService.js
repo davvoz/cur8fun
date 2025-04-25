@@ -29,7 +29,7 @@ class TransactionHistoryService {
         });
       });
     } catch (error) {
-      console.error(`Error fetching transaction history for ${username}:`, error);
+      console.error('Error fetching transaction history for %s:', username, error);
       return [];
     }
   }
