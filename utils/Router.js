@@ -95,7 +95,7 @@ class Router {
       pattern = new RegExp(
         '^' + path
           .replace(/:\w+/g, '([^/]+)')
-          .replace(/\*/, '.*') + 
+          .replace(/\*/g, '.*') + 
         '$'
       );
     } else {
