@@ -548,7 +548,7 @@ class CommunityService {
       
       return communities;
     } catch (error) {
-      console.error(`Error fetching subscribed communities for ${username}:`, error);
+      console.error('Error fetching subscribed communities for %s:', username, error);
       
       // Fallback in caso di errore
       return [];
