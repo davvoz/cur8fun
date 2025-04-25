@@ -1,6 +1,7 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
+import telegramService from './TelegramService.js';
 
 /**
  * Service for creating and editing posts
@@ -173,6 +174,10 @@ class CreatePostService {
   }
 
   emitSuccessEvent(postDetails) {
+    // Send Telegram notification after successful post creation using the centralized service
+    telegramService.sendPostNotification(postDetails)
+      .catch(error => console.error('Error sending Telegram notification:', error));
+    
     eventEmitter.emit('post:creation-completed', {
       success: true,
       author: postDetails.username,
