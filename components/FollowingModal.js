@@ -153,7 +153,8 @@ class FollowingModal {
             followingItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const username = item.getAttribute('data-username');
-                    this.navigateToProfile(username);
+                    const sanitizedUsername = encodeURIComponent(username);
+                    this.navigateToProfile(sanitizedUsername);
                 });
             });
         } else if (!this.isLoading && !this.error) {

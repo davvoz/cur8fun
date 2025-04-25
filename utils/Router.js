@@ -145,7 +145,7 @@ class Router {
     
     if (this.useHashRouting) {
       // For hash routing, update the URL hash (no need to include basePath in hash)
-      const targetHash = `#${path}`;
+      const targetHash = `#${decodeURIComponent(path)}`;
       if (replaceState) {
         window.location.replace(targetHash);
       } else {
