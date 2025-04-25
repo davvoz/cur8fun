@@ -297,7 +297,11 @@ class EditProfileView extends View {
         const processedUrl = this.getProxyImageUrl(imageUrl);
 
         if (targetId === 'profile-image') {
-            previewContainer.innerHTML = `<img src="${processedUrl}" alt="Profile image preview">`;
+            const imgElement = document.createElement('img');
+            imgElement.src = processedUrl;
+            imgElement.alt = "Profile image preview";
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(imgElement);
         } else if (targetId === 'cover-image') {
             previewContainer.style.backgroundImage = `url(${processedUrl})`;
         }
