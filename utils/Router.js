@@ -42,7 +42,8 @@ class Router {
   detectBasePath() {
     // Check if we're on GitHub Pages
     const hostname = window.location.hostname;
-    if (hostname.endsWith('github.io')) {
+    const hostnameParts = hostname.split('.');
+    if (hostnameParts.length >= 2 && hostnameParts.slice(-2).join('.') === 'github.io') {
       // Extract the repository name from the pathname, not from the hash
       const pathParts = window.location.pathname.split('/');
       if (pathParts.length >= 2 && pathParts[1]) {
