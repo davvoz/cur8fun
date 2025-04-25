@@ -56,7 +56,6 @@
 .post-title {
   font-size: 1.8rem;
   /* Reduced from 2.2rem */
-  font-weight: 700;
   margin: var(--space-sm) 0;
   color: var(--text-heading);
   line-height: 1.3;

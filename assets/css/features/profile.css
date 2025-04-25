@@ -373,17 +373,7 @@
   flex-direction: column;
 }
 
-.post-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-top: 0;
-  margin-bottom: var(--space-xs);
-  color: var(--text-heading);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  height: 100%;
-}
+
 
 .posts-container.grid-layout-list .post-title {
   height: min-content;

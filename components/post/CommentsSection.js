@@ -393,191 +393,19 @@ class CommentsSection {
       
       const commentDiv = document.createElement('div');
       commentDiv.className = 'comment';
-      commentDiv.setAttribute('data-depth', commentDepth); // Add data-depth attribute for CSS styling
-      
-      // Detect mobile view with correct media query
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-      
-      // Apply appropriate indentation based on device type
-      // Mobile: drastically reduced indentation to prevent overflow
-      if (isMobile) {
-        // Usa indentazione minima per commenti annidati su mobile
-        // Usa un valore fisso molto piccolo invece di moltiplicare per la profondità
-        const mobileIndent = 1; // Valore fisso di 4px per tutti i livelli di nidificazione
-        
-        if (commentDepth > 0) {
-          commentDiv.style.marginLeft = `${mobileIndent}px`; // Margine fisso piccolo
-          commentDiv.style.paddingLeft = `${mobileIndent}px`; // Padding fisso piccolo
-        } else {
-          // Per commenti di primo livello, nessun bordo o indentazione
-          commentDiv.style.borderLeft = 'none';
-          commentDiv.style.marginLeft = '0';
-          commentDiv.style.paddingLeft = '0';
-        }
-      } else {
-        // Desktop: normal indentation
-        commentDiv.style.marginLeft = `${Math.min(commentDepth * 2, 2)}px`; // Normal margin for desktop, max 40px
-        commentDiv.style.paddingLeft = `${Math.min(commentDepth * 1, 1)}px`; // Normal padding for desktop, max 20px
-      }
-      
-      // Add critical data attributes for finding this comment later
+      commentDiv.setAttribute('data-depth', commentDepth);
       commentDiv.setAttribute('data-author', comment.author);
       commentDiv.setAttribute('data-permlink', comment.permlink);
+      
+      this.applyCommentIndentation(commentDiv, commentDepth);
       
       if (comment.isNew) {
         commentDiv.classList.add('new-comment');
       }
 
-      // Comment header
-      const commentHeader = document.createElement('div');
-      commentHeader.className = 'comment-header';
-
-      // Author container
-      const authorContainer = document.createElement('div');
-      authorContainer.className = 'author-container';
-
-      const authorAvatar = document.createElement('img');
-      authorAvatar.className = 'author-avatar small';
-      authorAvatar.src = `https://steemitimages.com/u/${comment.author}/avatar`;
-      authorAvatar.alt = comment.author;
-      authorAvatar.loading = 'lazy'; // Add lazy loading for images
-
-      const authorName = document.createElement('a');
-      authorName.href = "javascript:void(0)";
-      authorName.className = 'author-name';
-      authorName.textContent = `@${comment.author}`;
-      authorName.setAttribute('aria-label', `View profile of ${comment.author}`);
-      authorName.addEventListener('click', (e) => {
-        e.preventDefault();
-        router.navigate(`/@${comment.author}`);
-      });
-
-      // Add replyCount only if there are any replies
-      if (comment.children && comment.children.length > 0) {
-        const replyCountBadge = document.createElement('span');
-        replyCountBadge.className = 'replies-count';
-        replyCountBadge.textContent = `${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}`;
-        authorContainer.appendChild(authorAvatar);
-        authorContainer.appendChild(authorName);
-        authorContainer.appendChild(replyCountBadge);
-      } else {
-        authorContainer.appendChild(authorAvatar);
-        authorContainer.appendChild(authorName);
-      }
-
-      // Date container
-      const dateContainer = document.createElement('div');
-      dateContainer.className = 'date-container';
-
- 
-      const commentDate = document.createElement('time');
-      commentDate.className = 'comment-date';
-      const postDate = new Date(comment.created);
-
-       // Calculate time elapsed since post creation in minutes
-       const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
-       if (timeElapsed < 60) {
-        commentDate.textContent = `${timeElapsed} min ago`;
-       } else if (timeElapsed < 24 * 60) {
-         // Convert minutes to hours
-         commentDate.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
-       } else if (timeElapsed < 30 * 24 * 60) {
-         // Convert minutes to days
-         commentDate.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
-       } else if (timeElapsed < 365 * 24 * 60) {
-         // Convert minutes to months
-         commentDate.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
-       } else {
-         date.textContent = postDate.toLocaleDateString(undefined, {
-           year: 'numeric',
-           month: 'short',
-           day: 'numeric'
-         });
-       }
-      dateContainer.appendChild(commentDate);
-      commentHeader.appendChild(authorContainer);
-      commentHeader.appendChild(dateContainer);
-
-      // Comment body
-      const commentBody = document.createElement('div');
-      commentBody.className = 'comment-body';
-
-      try {
-        if (!this.contentRenderer) {
-          throw new Error('ContentRenderer not available');
-        }
-        
-        const renderedComment = this.contentRenderer.render({
-          body: comment.body || ''
-        });
-        
-        if (renderedComment && renderedComment.container && 
-            renderedComment.container.nodeType === Node.ELEMENT_NODE) {
-          commentBody.appendChild(renderedComment.container);
-        } else {
-          throw new Error('Renderer did not return a valid node');
-        }
-      } catch (renderError) {
-        const fallbackContent = document.createElement('div');
-        fallbackContent.className = 'comment-text-fallback';
-        fallbackContent.textContent = comment.body || '';
-        commentBody.appendChild(fallbackContent);
-      }
-
-      // Comment actions
-      const commentActions = document.createElement('div');
-      commentActions.className = 'comment-actions';
-
-      const upvoteBtn = document.createElement('button');
-      upvoteBtn.className = 'action-btn upvote-btn';
-      upvoteBtn.setAttribute('aria-label', `Upvote comment by ${comment.author}`);
-      
-      const upvoteIcon = document.createElement('span');
-      upvoteIcon.className = 'material-icons';
-      upvoteIcon.textContent = 'thumb_up';
-      upvoteIcon.setAttribute('aria-hidden', 'true');
-      
-      const upvoteCount = document.createElement('span');
-      upvoteCount.className = 'count';
-      // Fix: Properly count and display the number of votes from active_votes array
-      const votesCount = Array.isArray(comment.active_votes) ? comment.active_votes.length : 0;
-      upvoteCount.textContent = votesCount;
-      
-      upvoteBtn.appendChild(upvoteIcon);
-      upvoteBtn.appendChild(upvoteCount);
-
-      const replyBtn = document.createElement('button');
-      replyBtn.className = 'action-btn reply-btn';
-      replyBtn.textContent = 'Reply';
-      replyBtn.setAttribute('aria-label', `Reply to ${comment.author}'s comment`);
-      replyBtn.setAttribute('aria-expanded', 'false');
-      replyBtn.dataset.author = comment.author; // Store for debugging
-
-      commentActions.appendChild(upvoteBtn);
-      commentActions.appendChild(replyBtn);
-
-      // Reply form with improved accessibility and functionality
-      const replyForm = document.createElement('div');
-      replyForm.className = 'reply-form';
-      replyForm.style.display = 'none';
-      
-      const replyTextarea = document.createElement('textarea');
-      replyTextarea.placeholder = `Reply to @${comment.author}...`;
-      replyTextarea.setAttribute('aria-label', `Reply to ${comment.author}`);
-      replyTextarea.id = `reply-textarea-${comment.author}-${Date.now()}`;
-
-      const submitReplyBtn = document.createElement('button');
-      submitReplyBtn.className = 'submit-reply';
-      submitReplyBtn.textContent = 'Post Reply';
-      submitReplyBtn.type = 'button'; // Explicit button type
-
-      replyForm.appendChild(replyTextarea);
-      replyForm.appendChild(submitReplyBtn);
-
-      // Initially disable form with inert attribute
-      if ('inert' in replyForm) {
-        replyForm.inert = true;
-      }
+      const commentHeader = this.createCommentHeader(comment);
+      const commentBody = this.createCommentBody(comment);
+      const { commentActions, replyForm, replyBtn, replyTextarea } = this.createCommentActions(comment);
 
       // Append all to comment div
       commentDiv.appendChild(commentHeader);
@@ -585,102 +413,323 @@ class CommentsSection {
       commentDiv.appendChild(commentActions);
       commentDiv.appendChild(replyForm);
 
-      // Add reply button handler with fixes for form display issues
-      replyBtn.addEventListener('click', (event) => {
-        event.preventDefault(); // Prevent default button behavior
-        
-        const isVisible = replyForm.style.display !== 'none';
-        
-        // Close any other open reply forms first
-        if (this.activeReplyForm && this.activeReplyForm !== replyForm) {
-          this.closeReplyForm(this.activeReplyForm);
-        }
-        
-        if (isVisible) {
-          this.closeReplyForm(replyForm, replyBtn);
-        } else {
-          this.openReplyForm(replyForm, replyBtn, replyTextarea);
-        }
-      });
+      // Configure reply button event handling
+      this.setupReplyButtonHandling(replyBtn, replyForm, replyTextarea);
 
-      // Add submit reply handler with improved reliability
-      if (this.handleReplyCallback) {
-        const submitReply = () => {
-          const replyText = replyTextarea.value.trim();
-          
-          if (replyText) {
-            try {
-              this.handleReplyCallback(comment, replyText);
-              replyTextarea.value = '';
-              this.closeReplyForm(replyForm, replyBtn);
-            } catch (error) {
-              console.error('Error submitting reply:', error);
-              alert('Sorry, there was an error submitting your reply. Please try again.');
-            }
-          }
-        };
-        
-        submitReplyBtn.addEventListener('click', submitReply);
-        
-        // Allow submitting with Ctrl+Enter
-        replyTextarea.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            submitReply();
-          }
-        });
-      } else {
-        submitReplyBtn.disabled = true;
-        submitReplyBtn.title = 'Reply functionality not available';
-      }
+      // Configure reply submission
+      this.setupReplySubmission(comment, replyForm, replyBtn, replyTextarea);
 
-      // Add upvote button handler
-      if (this.handleVoteCallback) {
-        upvoteBtn.addEventListener('click', () => {
-          this.handleVoteCallback(comment, upvoteBtn);
-        });
-      }
-
-      // Check if user has already voted
-      this.checkCommentVoteStatus(comment, upvoteBtn);
-
-      // Render child comments
+      // Render child comments if any
       if (comment.children && comment.children.length > 0) {
-        // Create replies container with proper structure for our CSS
-        const repliesContainer = document.createElement('div');
-        repliesContainer.className = 'replies';
-        
-        // IMPORTANTE: Aggiungo attributo data-level per controllare l'indentazione in CSS
-        repliesContainer.setAttribute('data-level', commentDepth); 
-        
-        // Create wrapper for replies as per our CSS
-        const repliesWrapper = document.createElement('div');
-        repliesWrapper.className = 'replies-wrapper';
-        
-        // Sort replies chronologically
-        const sortedReplies = [...comment.children].sort((a, b) => 
-          new Date(a.created) - new Date(b.created)
-        );
-
-        // IMPORTANTE: non incrementare la profondità quando creiamo gli elementi figlio
-        // Usiamo lo stesso commentDepth per tutti i figli, poiché l'indentazione viene
-        // gestita dalla struttura HTML e dal CSS
-        sortedReplies.forEach(reply => {
-          const replyElement = this.createCommentElement(reply, commentDepth + 1);
-          repliesWrapper.appendChild(replyElement);
-        });
-
-        repliesContainer.appendChild(repliesWrapper);
-        commentDiv.appendChild(repliesContainer);
+        this.appendChildComments(comment, commentDiv, commentDepth);
       }
 
       return commentDiv;
     } catch (error) {
       const errorElement = document.createElement('div');
       errorElement.className = 'comment-error';
-      errorElement.textContent = `Error displaying comment`;
+      errorElement.textContent = 'Error displaying comment';
       return errorElement;
     }
+  }
+  
+  applyCommentIndentation(commentDiv, commentDepth) {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    
+    if (isMobile) {
+      const mobileIndent = 1; // Fixed small value for mobile
+      
+      if (commentDepth > 0) {
+        commentDiv.style.marginLeft = `${mobileIndent}px`;
+        commentDiv.style.paddingLeft = `${mobileIndent}px`;
+      } else {
+        commentDiv.style.borderLeft = 'none';
+        commentDiv.style.marginLeft = '0';
+        commentDiv.style.paddingLeft = '0';
+      }
+    } else {
+      commentDiv.style.marginLeft = `${Math.min(commentDepth * 2, 2)}px`;
+      commentDiv.style.paddingLeft = `${Math.min(commentDepth * 1, 1)}px`;
+    }
+  }
+  
+  createCommentHeader(comment) {
+    const commentHeader = document.createElement('div');
+    commentHeader.className = 'comment-header';
+
+    // Author container with avatar, name and reply count
+    const authorContainer = document.createElement('div');
+    authorContainer.className = 'author-container';
+
+    const authorAvatar = document.createElement('img');
+    authorAvatar.className = 'author-avatar small';
+    authorAvatar.src = `https://steemitimages.com/u/${comment.author}/avatar`;
+    authorAvatar.alt = comment.author;
+    authorAvatar.loading = 'lazy';
+
+    const authorName = document.createElement('a');
+    authorName.href = "javascript:void(0)";
+    authorName.className = 'author-name';
+    authorName.textContent = `@${comment.author}`;
+    authorName.setAttribute('aria-label', `View profile of ${comment.author}`);
+    authorName.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate(`/@${comment.author}`);
+    });
+
+    authorContainer.appendChild(authorAvatar);
+    authorContainer.appendChild(authorName);
+
+    // Add reply count badge if there are replies
+    if (comment.children && comment.children.length > 0) {
+      const replyCountBadge = document.createElement('span');
+      replyCountBadge.className = 'replies-count';
+      replyCountBadge.textContent = `${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}`;
+      authorContainer.appendChild(replyCountBadge);
+    }
+
+    // Date container
+    const dateContainer = document.createElement('div');
+    dateContainer.className = 'date-container';
+
+    const commentDate = document.createElement('time');
+    commentDate.className = 'comment-date';
+    commentDate.textContent = this.formatCommentDate(comment.created);
+    
+    dateContainer.appendChild(commentDate);
+    
+    // Add to header
+    commentHeader.appendChild(authorContainer);
+    commentHeader.appendChild(dateContainer);
+    
+    return commentHeader;
+  }
+  
+  formatCommentDate(created) {
+    const postDate = new Date(created);
+    const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
+    
+    if (timeElapsed < 60) {
+      return `${timeElapsed} min ago`;
+    } 
+    if (timeElapsed < 24 * 60) {
+      return `${Math.floor(timeElapsed / 60)} hours ago`;
+    } 
+    if (timeElapsed < 30 * 24 * 60) {
+      return `${Math.floor(timeElapsed / (24 * 60))} days ago`;
+    } 
+    if (timeElapsed < 365 * 24 * 60) {
+      return `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
+    }
+    
+    return postDate.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+  
+  createCommentBody(comment) {
+    const commentBody = document.createElement('div');
+    commentBody.className = 'comment-body';
+
+    try {
+      if (!this.contentRenderer) {
+        throw new Error('ContentRenderer not available');
+      }
+      
+      const renderedComment = this.contentRenderer.render({
+        body: comment.body || ''
+      });
+      
+      if (renderedComment && renderedComment.container && 
+          renderedComment.container.nodeType === Node.ELEMENT_NODE) {
+        commentBody.appendChild(renderedComment.container);
+      } else {
+        throw new Error('Renderer did not return a valid node');
+      }
+    } catch (renderError) {
+      const fallbackContent = document.createElement('div');
+      fallbackContent.className = 'comment-text-fallback';
+      fallbackContent.textContent = comment.body || '';
+      commentBody.appendChild(fallbackContent);
+    }
+    
+    return commentBody;
+  }
+  
+  createCommentActions(comment) {
+    const commentActions = document.createElement('div');
+    commentActions.className = 'comment-actions';
+
+    // Upvote button
+    const upvoteBtn = this.createUpvoteButton(comment);
+    
+    // Reply button
+    const replyBtn = document.createElement('button');
+    replyBtn.className = 'action-btn reply-btn';
+    replyBtn.textContent = 'Reply';
+    replyBtn.setAttribute('aria-label', `Reply to ${comment.author}'s comment`);
+    replyBtn.setAttribute('aria-expanded', 'false');
+    replyBtn.dataset.author = comment.author;
+
+    commentActions.appendChild(upvoteBtn);
+    commentActions.appendChild(replyBtn);
+
+    // Reply form
+    const { replyForm, replyTextarea } = this.createReplyForm(comment);
+    
+    return { commentActions, replyForm, replyBtn, replyTextarea };
+  }
+  
+  createUpvoteButton(comment) {
+    const upvoteBtn = document.createElement('button');
+    upvoteBtn.className = 'action-btn upvote-btn';
+    upvoteBtn.setAttribute('aria-label', `Upvote comment by ${comment.author}`);
+    
+    const upvoteIcon = document.createElement('span');
+    upvoteIcon.className = 'material-icons';
+    upvoteIcon.textContent = 'thumb_up';
+    upvoteIcon.setAttribute('aria-hidden', 'true');
+    
+    const upvoteCount = document.createElement('span');
+    upvoteCount.className = 'count';
+    
+    // Fix for top-level comments: use net_votes if active_votes is not reliable
+    let votesCount = 0;
+    if (comment.net_votes !== undefined && !isNaN(comment.net_votes)) {
+      // Use net_votes as it's more reliable for top-level comments
+      votesCount = Math.max(0, parseInt(comment.net_votes, 10));
+    } else if (Array.isArray(comment.active_votes)) {
+      // Fallback to active_votes.length for replies
+      votesCount = comment.active_votes.length;
+    }
+    
+    upvoteCount.textContent = votesCount;
+    
+    upvoteBtn.appendChild(upvoteIcon);
+    upvoteBtn.appendChild(upvoteCount);
+    
+    // Add upvote handler
+    if (this.handleVoteCallback) {
+      upvoteBtn.addEventListener('click', () => {
+        this.handleVoteCallback(comment, upvoteBtn);
+      });
+    }
+    
+    // Check if user has already voted
+    this.checkCommentVoteStatus(comment, upvoteBtn);
+    
+    return upvoteBtn;
+  }
+  
+  createReplyForm(comment) {
+    const replyForm = document.createElement('div');
+    replyForm.className = 'reply-form';
+    replyForm.style.display = 'none';
+    
+    const replyTextarea = document.createElement('textarea');
+    replyTextarea.placeholder = `Reply to @${comment.author}...`;
+    replyTextarea.setAttribute('aria-label', `Reply to ${comment.author}`);
+    replyTextarea.id = `reply-textarea-${comment.author}-${Date.now()}`;
+
+    const submitReplyBtn = document.createElement('button');
+    submitReplyBtn.className = 'submit-reply';
+    submitReplyBtn.textContent = 'Post Reply';
+    submitReplyBtn.type = 'button';
+
+    replyForm.appendChild(replyTextarea);
+    replyForm.appendChild(submitReplyBtn);
+
+    // Initially disable form with inert attribute
+    if ('inert' in replyForm) {
+      replyForm.inert = true;
+    }
+    
+    return { replyForm, replyTextarea, submitReplyBtn };
+  }
+  
+  setupReplyButtonHandling(replyBtn, replyForm, replyTextarea) {
+    replyBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      
+      const isVisible = replyForm.style.display !== 'none';
+      
+      // Close any other open reply forms first
+      if (this.activeReplyForm && this.activeReplyForm !== replyForm) {
+        this.closeReplyForm(this.activeReplyForm);
+      }
+      
+      if (isVisible) {
+        this.closeReplyForm(replyForm, replyBtn);
+      } else {
+        this.openReplyForm(replyForm, replyBtn, replyTextarea);
+      }
+    });
+  }
+  
+  setupReplySubmission(comment, replyForm, replyBtn, replyTextarea) {
+    if (!this.handleReplyCallback) {
+      const submitBtn = replyForm.querySelector('.submit-reply');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.title = 'Reply functionality not available';
+      }
+      return;
+    }
+    
+    const submitReply = () => {
+      const replyText = replyTextarea.value.trim();
+      
+      if (replyText) {
+        try {
+          this.handleReplyCallback(comment, replyText);
+          replyTextarea.value = '';
+          this.closeReplyForm(replyForm, replyBtn);
+        } catch (error) {
+          console.error('Error submitting reply:', error);
+          alert('Sorry, there was an error submitting your reply. Please try again.');
+        }
+      }
+    };
+    
+    const submitBtn = replyForm.querySelector('.submit-reply');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', submitReply);
+    }
+    
+    // Allow submitting with Ctrl+Enter
+    replyTextarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        submitReply();
+      }
+    });
+  }
+  
+  appendChildComments(comment, commentDiv, commentDepth) {
+    // Create replies container
+    const repliesContainer = document.createElement('div');
+    repliesContainer.className = 'replies';
+    repliesContainer.setAttribute('data-level', commentDepth);
+    
+    // Create wrapper for replies
+    const repliesWrapper = document.createElement('div');
+    repliesWrapper.className = 'replies-wrapper';
+    
+    // Sort replies chronologically
+    const sortedReplies = [...comment.children].sort((a, b) => 
+      new Date(a.created) - new Date(b.created)
+    );
+
+    // Add each reply
+    sortedReplies.forEach(reply => {
+      const replyElement = this.createCommentElement(reply, commentDepth + 1);
+      repliesWrapper.appendChild(replyElement);
+    });
+
+    repliesContainer.appendChild(repliesWrapper);
+    commentDiv.appendChild(repliesContainer);
   }
   
   // Adding the missing renderReplies method

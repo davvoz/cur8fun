@@ -30,7 +30,7 @@ class PostHeader {
     postHeader.className = 'post-headero';
 
     const postTitle = document.createElement('h1');
-    postTitle.className = 'post-title';
+    postTitle.className = 'post-title-header';
     postTitle.textContent = this.post.title || 'Comment';
 
     //se title è Comment creimo un link al post originale

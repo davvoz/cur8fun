@@ -10,7 +10,14 @@
     top: 0;
     z-index: var(--z-nav);
 }
-
+@media (max-width: 768px) {
+  .main-nav {
+    position: sticky !important; /* Forza la proprietà anche su mobile */
+    top: 0 !important;
+    z-index: 100;
+    width: 100%; 
+  }
+}
 .nav-container {
     max-width: 1200px;
     margin: 0 auto;

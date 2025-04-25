@@ -814,7 +814,7 @@
 /* Rimuovo stili duplicati e obsoleti */
 .posts-container.grid-layout-compact {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -1029,7 +1029,38 @@
   object-fit: cover;
   object-position: center;
 }
-
+/*grid layout*/
+.posts-container.grid-layout-grid .post-image-container {
+  height: 420px;
+}
+.posts-container.grid-layout-grid .post-image-container img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-box-shadow-sm);
+}
+/*compact layout*/
+.posts-container.grid-layout-compact .post-image-container {
+  height: 200px;
+  /* Altezza fissa per l'immagine */
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  margin: var(--space-xs);
+}
+.posts-container.grid-layout-compact .post-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-box-shadow-sm);
+}
 /*list layout*/
 .posts-container.grid-layout-list .post-image-container {
   height: 200px;
@@ -1096,23 +1127,6 @@
   align-items: center;
   gap: var(--space-xl);
   width: 100%;
-}
-
-/* Testo in titolo ed excerpt con troncamento controllato */
-.post-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: var(--space-xxs);
-  color: var(--text-color);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  /* Limita a 2 righe */
-  line-clamp: 2;
-  /* Proprietà standard */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Modifica per il layout lista che mantiene l'uniformità */
@@ -1195,8 +1209,29 @@
     width: 100%;
   }
 }
+.post-content-middle{
+  font-size:   0.9rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-sm);
+  color: var(--text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  
+}
+.post-content-middle .post-title {
+  font-size: 1.2rem;
+  margin-bottom: var(--space-xs);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+}
 
-/* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
+  /* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
 .error.post-image-container {
   display: flex;
   align-items: center;
