@@ -107,29 +107,19 @@ class TagView extends BasePostView {
         this.loadPosts(1).then(hasMore => {
             // Initialize infinite scroll
             if (postsContainer) {
-                this.initInfiniteScroll();
+                this.infiniteScroll = new InfiniteScroll({
+                    container: postsContainer,
+                    loadMore: (page) => this.loadPosts(page),
+                    threshold: '200px',
+                    loadingMessage: 'Loading more posts...',
+                    endMessage: `No more posts with tag #${this.tag}`,
+                    errorMessage: 'Failed to load posts. Please check your connection.'
+                });
             }
         }).catch(error => {
             console.error('Error loading initial posts:', error);
             this.handleLoadError();
         });
-    }
-    
-    initInfiniteScroll() {
-        if (!this.infiniteScroll) {
-            // Get the posts container element
-            const postsContainer = document.getElementById('posts-container');
-            if (!postsContainer) return;
-            
-            this.infiniteScroll = new InfiniteScroll({
-                container: postsContainer,
-                loadMore: (page) => this.loadPosts(page),
-                threshold: '200px',
-                loadingMessage: 'Loading more posts...',
-                endMessage: `No more posts with tag #${this.tag}`,
-                errorMessage: 'Failed to load posts. Please check your connection.'
-            });
-        }
     }
     
     onBeforeUnmount() {
