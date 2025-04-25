@@ -49,7 +49,7 @@ class CreatePostService {
       await steemService.ensureLibraryLoaded();
       
       // Prepare post data
-      const postDetails = await this.preparePostDetails(postData, options);
+      const postDetails = this.preparePostDetails(postData, options);
       
       // Broadcast the post using available method
       const result = await this.broadcastUsingAvailableMethod(postDetails);
