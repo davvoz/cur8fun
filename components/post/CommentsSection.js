@@ -539,7 +539,9 @@ class CommentsSection {
       
       const upvoteCount = document.createElement('span');
       upvoteCount.className = 'count';
-      upvoteCount.textContent = comment.active_votes.length || 0;
+      // Fix: Properly count and display the number of votes from active_votes array
+      const votesCount = Array.isArray(comment.active_votes) ? comment.active_votes.length : 0;
+      upvoteCount.textContent = votesCount;
       
       upvoteBtn.appendChild(upvoteIcon);
       upvoteBtn.appendChild(upvoteCount);
