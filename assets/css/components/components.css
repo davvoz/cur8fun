@@ -77,12 +77,27 @@
 }
 
 .dropdown a {
-    display: block;
+    display: flex;
+    align-items: center;
     padding: var(--space-sm) var(--space-md);
     color: var(--text-color);
     text-decoration: none;
     transition: all var(--transition-fast);
 }
+
+.dropdown a .dropdown-icon {
+    margin-right: var(--space-sm);
+    font-size: 1.2rem;
+    width: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+
+.dropdown a:hover .dropdown-icon {
+    color: var(--primary-light);
+}
+
 .register-btn{
     display: none   ;
 }

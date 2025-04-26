@@ -298,14 +298,59 @@ function createUserMenu(user) {
   // Profile link
   const profileLink = document.createElement('a');
   profileLink.href = `/@${user.username}`;
-  profileLink.textContent = 'Profile';
+  
+  // Profile icon
+  const profileIcon = document.createElement('span');
+  profileIcon.className = 'material-icons dropdown-icon';
+  profileIcon.textContent = 'person';
+  profileLink.appendChild(profileIcon);
+  
+  profileLink.appendChild(document.createTextNode('Profile'));
   dropdown.appendChild(profileLink);
+  
+  // Add Account button
+  const addAccountBtn = document.createElement('a');
+  addAccountBtn.href = '/login';
+  
+  // Add Account icon
+  const addAccountIcon = document.createElement('span');
+  addAccountIcon.className = 'material-icons dropdown-icon';
+  addAccountIcon.textContent = 'person_add';
+  addAccountBtn.appendChild(addAccountIcon);
+  
+  addAccountBtn.appendChild(document.createTextNode('Add Account'));
+  dropdown.appendChild(addAccountBtn);
+
+  // Switch Account button
+  const switchAccountBtn = document.createElement('a');
+  switchAccountBtn.href = '#';
+  switchAccountBtn.className = 'switch-account-btn';
+  
+  // Switch Account icon
+  const switchAccountIcon = document.createElement('span');
+  switchAccountIcon.className = 'material-icons dropdown-icon';
+  switchAccountIcon.textContent = 'people';
+  switchAccountBtn.appendChild(switchAccountIcon);
+  
+  switchAccountBtn.appendChild(document.createTextNode('Switch Account'));
+  switchAccountBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    authService.showAccountSwitcher();
+  });
+  dropdown.appendChild(switchAccountBtn);
   
   // Logout button
   const logoutBtn = document.createElement('a');
   logoutBtn.href = '#';
   logoutBtn.className = 'logout-btn';
-  logoutBtn.textContent = 'Logout';
+  
+  // Logout icon
+  const logoutIcon = document.createElement('span');
+  logoutIcon.className = 'material-icons dropdown-icon';
+  logoutIcon.textContent = 'logout';
+  logoutBtn.appendChild(logoutIcon);
+  
+  logoutBtn.appendChild(document.createTextNode('Logout'));
   dropdown.appendChild(logoutBtn);
   
   // Add logout handler

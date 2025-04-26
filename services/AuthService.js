@@ -55,6 +55,8 @@ class AuthService {
 
     /**
      * Authenticate a user using SteemKeychain
+     * @param {string} username - Username
+     * @param {boolean} remember - Whether to remember the user for future sessions
      */
     async loginWithKeychain(username, remember = true) {
         try {
@@ -91,6 +93,9 @@ class AuthService {
                                 // Save to storage if remember is true
                                 if (remember) {
                                     localStorage.setItem('currentUser', JSON.stringify(user));
+                                    
+                                    // Salva un indicatore nel localStorage che questo utente ha usato Keychain
+                                    localStorage.setItem(`${username}_keychain_auth`, 'true');
                                 }
                                 
                                 // Emit auth changed event
@@ -380,6 +385,9 @@ class AuthService {
                     localStorage.removeItem(`${user.username}_posting_key_expiry`);
                     localStorage.removeItem(`${user.username}_active_key`);
                     localStorage.removeItem(`${user.username}_active_key_expiry`);
+                } else if (user.loginMethod === 'keychain') {
+                    // Per keychain, rimuoviamo solo il flag di autenticazione
+                    localStorage.removeItem(`${user.username}_keychain_auth`);
                 }
             }
             
@@ -812,6 +820,294 @@ class AuthService {
         } catch (error) {
             console.error('Error validating SteemLogin token:', error);
             return false;
+        }
+    }
+
+    /**
+     * Shows a modal dialog that allows users to switch between accounts
+     */
+    showAccountSwitcher() {
+        // Create modal container
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'auth-modal-overlay';
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'auth-modal-content account-switcher-modal';
+        
+        // Create header
+        const header = document.createElement('h3');
+        header.className = 'auth-modal-header';
+        header.textContent = 'Switch Account';
+        modalContent.appendChild(header);
+        
+        // Create accounts container
+        const accountsContainer = document.createElement('div');
+        accountsContainer.className = 'account-list';
+        
+        // Get the current user
+        const currentUser = this.getCurrentUser();
+        
+        // Try to get stored accounts from localStorage
+        const storedAccounts = this.getStoredAccounts();
+        
+        if (storedAccounts.length <= 1) {
+            const noAccountsMsg = document.createElement('p');
+            noAccountsMsg.className = 'no-accounts-message';
+            noAccountsMsg.textContent = 'No additional accounts available to switch to.';
+            accountsContainer.appendChild(noAccountsMsg);
+        } else {
+            // For each stored account, create an account item
+            storedAccounts.forEach(account => {
+                // Skip the current user
+                if (currentUser && account.username === currentUser.username) {
+                    return;
+                }
+                
+                const accountItem = this.createAccountItem(account);
+                accountsContainer.appendChild(accountItem);
+            });
+        }
+        
+        modalContent.appendChild(accountsContainer);
+        
+        // Add footer with cancel button
+        const footer = document.createElement('div');
+        footer.className = 'auth-modal-footer';
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'auth-btn auth-btn-secondary';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+        });
+        
+        const addAccountBtn = document.createElement('button');
+        addAccountBtn.className = 'auth-btn auth-btn-primary';
+        addAccountBtn.textContent = 'Add New Account';
+        addAccountBtn.addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+            window.location.href = '/#/login';
+        });
+        
+        footer.appendChild(cancelBtn);
+        footer.appendChild(addAccountBtn);
+        
+        modalContent.appendChild(footer);
+        
+        // Add modal to the page
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+        
+        // Add click event to close when clicking outside
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                document.body.removeChild(modalOverlay);
+            }
+        });
+    }
+
+    /**
+     * Creates an account item for the account switcher
+     * @param {Object} account - Account data with username
+     * @returns {HTMLElement} - The account item element
+     */
+    createAccountItem(account) {
+        const accountItem = document.createElement('div');
+        accountItem.className = 'account-item';
+        
+        // Create avatar
+        const avatar = document.createElement('img');
+        avatar.src = `https://steemitimages.com/u/${account.username}/avatar`;
+        avatar.alt = account.username;
+        avatar.className = 'account-avatar';
+        avatar.onerror = function() {
+            this.src = './assets/img/default-avatar.png';
+        };
+        accountItem.appendChild(avatar);
+        
+        // Create username
+        const username = document.createElement('div');
+        username.className = 'account-username';
+        username.textContent = account.username;
+        accountItem.appendChild(username);
+        
+        // Add click event to switch to this account
+        accountItem.addEventListener('click', () => {
+            this.switchToAccount(account);
+        });
+        
+        return accountItem;
+    }
+
+    /**
+     * Gets all stored accounts from localStorage
+     * @returns {Array} - Array of account objects
+     */
+    getStoredAccounts() {
+        try {
+            // Get current user first
+            const currentUser = this.getCurrentUser();
+            const accounts = [];
+            
+            if (currentUser) {
+                accounts.push(currentUser);
+            }
+            
+            // Check localStorage for other accounts
+            const userKeys = [];
+            
+            // Find all keys that might contain user data
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.includes('_posting_key') || key.includes('_active_key') || 
+                    key.includes('_steemlogin_token') || key.includes('_keychain_auth')) {
+                    const username = key.split('_')[0];
+                    if (!userKeys.includes(username)) {
+                        userKeys.push(username);
+                    }
+                }
+            }
+            
+            // For each username, check if we have a stored user
+            userKeys.forEach(username => {
+                // Skip current user
+                if (currentUser && username === currentUser.username) {
+                    return;
+                }
+                
+                // Try to build a user object
+                try {
+                    const hasPostingKey = localStorage.getItem(`${username}_posting_key`) !== null;
+                    const hasActiveKey = localStorage.getItem(`${username}_active_key`) !== null;
+                    const hasSteemLogin = localStorage.getItem(`${username}_steemlogin_token`) !== null;
+                    const hasKeychain = localStorage.getItem(`${username}_keychain_auth`) !== null;
+                    
+                    if (hasPostingKey || hasActiveKey || hasSteemLogin || hasKeychain) {
+                        accounts.push({
+                            username,
+                            avatar: `https://steemitimages.com/u/${username}/avatar`,
+                            hasPostingKey,
+                            hasActiveKey,
+                            hasSteemLogin,
+                            hasKeychain
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error processing stored account:', error);
+                }
+            });
+            
+            return accounts;
+        } catch (error) {
+            console.error('Error getting stored accounts:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Switches to a different account
+     * @param {Object} account - The account to switch to
+     */
+    switchToAccount(account) {
+        try {
+            // Based on available authentication methods, try to log in
+            if (account.hasSteemLogin) {
+                const tokenData = localStorage.getItem(`${account.username}_steemlogin_token`);
+                if (tokenData) {
+                    const parsedData = JSON.parse(tokenData);
+                    this.completeSteemLogin(parsedData.token)
+                        .then(() => {
+                            // Reload page to refresh with new account
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            console.error('Failed to switch account with SteemLogin:', error);
+                            this.showLoginFailedNotification();
+                        });
+                } else {
+                    this.showLoginFailedNotification();
+                }
+            } else if (account.hasKeychain) {
+                // Verifica innanzitutto che Keychain sia installato
+                if (!this.isKeychainInstalled()) {
+                    eventEmitter.emit('notification', {
+                        type: 'error',
+                        message: 'Steem Keychain extension is not installed. Please install it to login with this account.'
+                    });
+                    return;
+                }
+                
+                // Prova ad autenticare tramite Keychain
+                this.loginWithKeychain(account.username, true)
+                    .then(() => {
+                        // Reload page to refresh with new account
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        console.error('Failed to switch account with Keychain:', error);
+                        this.showLoginFailedNotification();
+                    });
+            } else if (account.hasPostingKey) {
+                const postingKey = localStorage.getItem(`${account.username}_posting_key`);
+                if (postingKey) {
+                    this.loginWithPostingKey(account.username, postingKey)
+                        .then(() => {
+                            // Reload page to refresh with new account
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            console.error('Failed to switch account with posting key:', error);
+                            this.showLoginFailedNotification();
+                        });
+                } else {
+                    this.showLoginFailedNotification();
+                }
+            } else if (account.hasActiveKey) {
+                const activeKey = localStorage.getItem(`${account.username}_active_key`);
+                if (activeKey) {
+                    this.loginWithActiveKey(account.username, activeKey)
+                        .then(() => {
+                            // Reload page to refresh with new account
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            console.error('Failed to switch account with active key:', error);
+                            this.showLoginFailedNotification();
+                        });
+                } else {
+                    this.showLoginFailedNotification();
+                }
+            } else {
+                // No valid authentication method found
+                this.showLoginFailedNotification();
+            }
+        } catch (error) {
+            console.error('Error switching account:', error);
+            this.showLoginFailedNotification();
+        }
+    }
+
+    /**
+     * Shows a notification when login fails
+     */
+    showLoginFailedNotification() {
+        const eventEmitter = window.eventEmitter || (typeof eventEmitter !== 'undefined' ? eventEmitter : null);
+        
+        if (eventEmitter) {
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: 'Failed to switch account. Please log in again.',
+                duration: 5000
+            });
+            
+            // Redirect to login
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+        } else {
+            alert('Failed to switch account. Please log in again.');
+            window.location.href = '/login';
         }
     }
 }

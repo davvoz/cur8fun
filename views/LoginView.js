@@ -18,8 +18,7 @@ class LoginView {
       handleSteemLogin: null
     };
     
-    // Rileva se ci sono parametri speciali nell'URL
-    this.useActiveKey = params.active === true;
+    // Rimuove il parametro useActiveKey poiché non ci serve più
     this.useKeychain = params.keychain === true;
   }
 
@@ -31,71 +30,110 @@ class LoginView {
     this.element = container;
 
     const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'content-wrappero';
+    contentWrapper.className = 'content-wrapper';
 
     const loginContainer = document.createElement('div');
     loginContainer.className = 'login-container';
+    // Aggiungiamo stile per rendere più attraente il container
+    loginContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)';
+    loginContainer.style.borderRadius = '12px';
+    loginContainer.style.overflow = 'hidden';
+    
+    // Aggiungiamo un bordo colorato in alto
+    const topBorder = document.createElement('div');
+    topBorder.style.height = '4px';
+    topBorder.style.background = 'linear-gradient(to right, var(--primary-color), var(--secondary-color))';
+    loginContainer.appendChild(topBorder);
 
     contentWrapper.appendChild(loginContainer);
 
-    loginContainer.appendChild(this.createHeading());
+    // Heading con stile migliorato
+    const heading = this.createHeading();
+    heading.style.padding = '24px 20px 10px';
+    heading.style.textAlign = 'center';
+    heading.style.borderBottom = 'none';
+    loginContainer.appendChild(heading);
+    
+    // Check for saved accounts
+    const savedAccounts = authService.getStoredAccounts();
+    const savedKeychainAccounts = savedAccounts.filter(account => account.hasKeychain);
+    
+    if (savedKeychainAccounts.length > 0) {
+      const savedAccountsSection = this.createSavedAccountsSection(savedKeychainAccounts);
+      savedAccountsSection.style.padding = '0 24px 20px';
+      loginContainer.appendChild(savedAccountsSection);
+      
+      const divider = this.createDivider('or login with a new account');
+      divider.style.margin = '10px 24px 20px';
+      loginContainer.appendChild(divider);
+    }
 
-    // SteemLogin section (temporarily hidden)
-    /* 
-    // Sezione login con SteemLogin e HiveSigner
-    const oauthSection = document.createElement('div');
-    oauthSection.className = 'auth-section oauth-section';
-    
-    // Pulsante SteemLogin
-    const steemLoginBtn = this.createButton(
-        'Login with SteemLogin', 
-        'button',
-        'btn-secondary steemlogin-btn full-width'
-    );
-    steemLoginBtn.id = 'steemlogin-btn';
-    
-    // Icona SteemLogin
-    const steemIcon = document.createElement('img');
-    steemIcon.src = 'assets/icons/steem-logo.png'; // Assicurati di avere questa immagine
-    steemIcon.alt = 'Steem';
-    steemIcon.className = 'oauth-icon';
-    steemLoginBtn.prepend(steemIcon);
-    
-    oauthSection.appendChild(steemLoginBtn);
-    
-    // Separatore
-    oauthSection.appendChild(this.createDivider());
-    
-    // Aggiungi la sezione di login OAuth
-    loginContainer.appendChild(oauthSection);
-    */
-    
-    // Resto del codice esistente (Keychain e login con password)
-    // Password form section
+    // Password form section con stile migliorato
     const passwordSection = document.createElement('div');
     passwordSection.className = 'auth-section password-section';
+    passwordSection.style.padding = '0 24px 24px';
 
     const form = document.createElement('form');
     form.id = 'login-form';
+    form.style.display = 'flex';
+    form.style.flexDirection = 'column';
+    form.style.gap = '16px';
 
-    // Move username field inside the form
+    // Username field con stile migliorato
     const usernameGroup = this.createFormGroup('username', 'Username', 'text');
     usernameGroup.className = 'form-group shared-username';
     form.appendChild(usernameGroup);
 
-    // Keychain login section (if available)
-    //controlliamo se siamo su mobile o se l'utente ha richiesto esplicitamente il login con Keychain
+    // Password field (posting key only) con stile migliorato
+    const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
+    form.appendChild(passwordGroup);
+    
+    // Remember me checkbox con stile migliorato
+    const rememberGroup = this.createRememberMeGroup();
+    rememberGroup.style.marginTop = '8px';
+    form.appendChild(rememberGroup);
+    
+    // Login button con stile migliorato
+    const loginButton = this.createButton('Login', 'submit', 'btn-primary full-width');
+    loginButton.style.marginTop = '16px';
+    loginButton.style.padding = '12px';
+    loginButton.style.fontWeight = 'bold';
+    loginButton.style.fontSize = '1rem';
+    form.appendChild(loginButton);
+
+    // Il pulsante Keychain viene ora aggiunto DOPO il pulsante login
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
     if (!isMobile || this.useKeychain) {
+        // Divider prima del bottone Keychain
+        const keychainDivider = this.createDivider('or');
+        keychainDivider.style.margin = '20px 0';
+        form.appendChild(keychainDivider);
+        
+        // Keychain button con stile migliorato
         const keychainButton = this.createButton(
             'Login with SteemKeychain',
             'button',
-            'btn-primary keychain-login-btn full-width'
+            'btn-secondary keychain-login-btn full-width'
         );
         keychainButton.id = 'keychain-login-btn';
+        keychainButton.style.display = 'flex';
+        keychainButton.style.alignItems = 'center';
+        keychainButton.style.justifyContent = 'center';
+        keychainButton.style.gap = '8px';
+        keychainButton.style.padding = '12px';
+        
+        // Aggiungi icona al bottone Keychain
+        const keychainIcon = document.createElement('img');
+        keychainIcon.src = 'https://steemkeychain.com/keychain_logo.png'; // URL del logo Keychain
+        keychainIcon.alt = 'Keychain';
+        keychainIcon.style.width = '20px';
+        keychainIcon.style.height = '20px';
+        keychainIcon.style.borderRadius = '50%';
+        keychainButton.prepend(keychainIcon);
+        
         form.appendChild(keychainButton);
-        form.appendChild(this.createDivider());
-        //aggiungi l'evento che controlla se l'estensione è installata
+        
+        // Listener per verificare se Keychain è installato
         keychainButton.addEventListener('click', async () => {
             if (authService.isKeychainInstalled()) {
                 keychainButton.disabled = false;
@@ -107,67 +145,22 @@ class LoginView {
         });
     }
 
-    // Key type selection field
-    const keyTypeGroup = document.createElement('div');
-    keyTypeGroup.className = 'form-group key-type-group';
-    
-    const keyTypeLabel = document.createElement('label');
-    keyTypeLabel.textContent = 'Key Type:';
-    keyTypeGroup.appendChild(keyTypeLabel);
-    
-    const keyTypeSelection = document.createElement('div');
-    keyTypeSelection.className = 'key-type-selection';
-    
-    const postingRadio = this.createRadioButton('keyType', 'posting', 'Posting Key', true);
-    const activeRadio = this.createRadioButton('keyType', 'active', 'Active Key', false);
-    
-    keyTypeSelection.appendChild(postingRadio);
-    keyTypeSelection.appendChild(activeRadio);
-    keyTypeGroup.appendChild(keyTypeSelection);
-    
-    form.appendChild(keyTypeGroup);
-
-    const passwordGroup = this.createFormGroup('password', this.useActiveKey ? 'Private Active Key' : 'Private Posting Key', 'password');
-    form.appendChild(passwordGroup);
-    form.appendChild(this.createRememberMeGroup());
-    form.appendChild(this.createButton('Login', 'submit', 'btn-primary full-width'));
-
-    // Aggiungi un link alla registrazione nella LoginView
+    // Registrazione link con stile migliorato
     const registerLink = document.createElement('div');
     registerLink.className = 'auth-link';
     registerLink.innerHTML = 'Don\'t have an account? <a href="/register">Create one here</a>';
+    registerLink.style.marginTop = '24px';
+    registerLink.style.textAlign = 'center';
+    registerLink.style.fontSize = '0.9rem';
     form.appendChild(registerLink);
-    
-    // Add warning for active key
-    const activeKeyWarning = document.createElement('div');
-    activeKeyWarning.className = 'active-key-warning';
-    activeKeyWarning.innerHTML = '<strong>Note:</strong> Use active key only when performing wallet operations. For regular browsing, posting key is safer.';
-    activeKeyWarning.style.display = this.useActiveKey ? 'block' : 'none';
-    activeKeyWarning.style.color = '#ff7700';
-    activeKeyWarning.style.fontSize = '0.85em';
-    activeKeyWarning.style.padding = '8px 0';
-    activeKeyWarning.style.marginTop = '10px';
-    form.appendChild(activeKeyWarning);
-    
-    // Add event listener for key type radio buttons
-    form.addEventListener('change', (e) => {
-      if (e.target.name === 'keyType') {
-        const passwordLabel = passwordGroup.querySelector('label');
-        if (e.target.value === 'active') {
-          passwordLabel.textContent = 'Private Active Key';
-          activeKeyWarning.style.display = 'block';
-        } else {
-          passwordLabel.textContent = 'Private Posting Key';
-          activeKeyWarning.style.display = 'none';
-        }
-      }
-    });
 
     passwordSection.appendChild(form);
     loginContainer.appendChild(passwordSection);
 
     // Error message section
-    loginContainer.appendChild(this.createMessageElement());
+    const messageEl = this.createMessageElement();
+    messageEl.style.margin = '20px 24px 0';
+    loginContainer.appendChild(messageEl);
 
     // Clear and append to container
     this.element.innerHTML = '';
@@ -181,6 +174,199 @@ class LoginView {
       if (usernameInput) usernameInput.focus();
     }, 100);
   }
+  
+  /**
+   * Creates a section for saved accounts
+   * @param {Array} accounts - Array of saved account objects
+   * @returns {HTMLElement} - The saved accounts section
+   */
+  createSavedAccountsSection(accounts) {
+    const section = document.createElement('div');
+    section.className = 'auth-section saved-accounts-section';
+    
+    const heading = document.createElement('h3');
+    heading.className = 'saved-accounts-heading';
+    heading.textContent = 'Saved Accounts';
+    heading.style.fontSize = '1.1rem';
+    heading.style.marginBottom = '15px';
+    heading.style.textAlign = 'center';
+    heading.style.color = 'var(--text-heading, #333)';
+    
+    section.appendChild(heading);
+    
+    const accountsList = document.createElement('div');
+    accountsList.className = 'saved-accounts-list';
+    
+    // Stile CSS inline per la lista degli account
+    accountsList.style.display = 'flex';
+    accountsList.style.flexDirection = 'column';
+    accountsList.style.gap = '10px';
+    accountsList.style.marginBottom = '10px';
+    
+    accounts.forEach(account => {
+      const accountItem = this.createSavedAccountItem(account);
+      accountsList.appendChild(accountItem);
+    });
+    
+    section.appendChild(accountsList);
+    return section;
+  }
+  
+  /**
+   * Creates an item for a saved account
+   * @param {Object} account - The account object
+   * @returns {HTMLElement} - The account item element
+   */
+  createSavedAccountItem(account) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'saved-account-item';
+    item.dataset.username = account.username;
+    
+    // Stili CSS inline per l'elemento account
+    item.style.display = 'flex';
+    item.style.alignItems = 'center';
+    item.style.padding = '12px 15px';
+    item.style.backgroundColor = 'var(--background-light, #f5f5f5)';
+    item.style.border = '1px solid var(--border-color, #ddd)';
+    item.style.borderRadius = '8px';
+    item.style.cursor = 'pointer';
+    item.style.width = '100%';
+    item.style.transition = 'all 0.3s ease';
+    
+    // Avatar
+    const avatar = document.createElement('img');
+    avatar.src = account.avatar || './assets/img/default-avatar.png';
+    avatar.alt = account.username;
+    avatar.className = 'saved-account-avatar';
+    avatar.style.width = '40px';
+    avatar.style.height = '40px';
+    avatar.style.borderRadius = '50%';
+    avatar.style.marginRight = '12px';
+    avatar.style.objectFit = 'cover';
+    avatar.style.border = '2px solid var(--primary-color, #ff7518)';
+    avatar.onerror = function() {
+      this.src = './assets/img/default-avatar.png';
+    };
+    
+    // Username and info
+    const accountInfo = document.createElement('div');
+    accountInfo.className = 'saved-account-info';
+    accountInfo.style.flex = '1';
+    
+    const username = document.createElement('div');
+    username.className = 'saved-account-username';
+    username.textContent = account.username;
+    username.style.fontWeight = 'bold';
+    username.style.color = 'var(--text-color, #333)';
+    
+    // Login method display
+    const loginMethod = document.createElement('div');
+    loginMethod.className = 'saved-account-method';
+    loginMethod.textContent = this.getLoginMethodText(account);
+    loginMethod.style.fontSize = '0.8rem';
+    loginMethod.style.color = 'var(--text-secondary, #666)';
+    
+    // Badge for Keychain
+    if (account.hasKeychain) {
+      const keychainBadge = document.createElement('span');
+      keychainBadge.className = 'keychain-badge';
+      keychainBadge.textContent = 'Keychain';
+      keychainBadge.style.backgroundColor = 'var(--primary-color, #ff7518)';
+      keychainBadge.style.color = '#fff';
+      keychainBadge.style.padding = '2px 6px';
+      keychainBadge.style.borderRadius = '4px';
+      keychainBadge.style.fontSize = '0.7rem';
+      keychainBadge.style.marginLeft = '5px';
+      loginMethod.appendChild(keychainBadge);
+    }
+    
+    accountInfo.appendChild(username);
+    accountInfo.appendChild(loginMethod);
+    
+    // Icon for login
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = 'login';
+    icon.style.marginLeft = 'auto';
+    icon.style.color = 'var(--primary-color, #ff7518)';
+    icon.style.opacity = '0.8';
+    icon.style.fontSize = '20px';
+    
+    // Assemble the item
+    item.appendChild(avatar);
+    item.appendChild(accountInfo);
+    item.appendChild(icon);
+    
+    // Add hover effects
+    item.addEventListener('mouseover', () => {
+      item.style.backgroundColor = 'var(--background-lighter, #eaeaea)';
+      item.style.transform = 'translateY(-2px)';
+      item.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+      icon.style.opacity = '1';
+    });
+    
+    item.addEventListener('mouseout', () => {
+      item.style.backgroundColor = 'var(--background-light, #f5f5f5)';
+      item.style.transform = 'translateY(0)';
+      item.style.boxShadow = 'none';
+      icon.style.opacity = '0.8';
+    });
+    
+    // Add click event to login
+    item.addEventListener('click', () => this.handleSavedAccountLogin(account));
+    
+    return item;
+  }
+  
+  /**
+   * Get descriptive text for an account's login method
+   * @param {Object} account - The account object
+   * @returns {string} - Description of login method
+   */
+  getLoginMethodText(account) {
+    const methods = [];
+    
+    if (account.hasKeychain) methods.push('Keychain');
+    if (account.hasPostingKey) methods.push('Posting Key');
+    if (account.hasSteemLogin) methods.push('SteemLogin');
+    
+    return methods.join(' • ');
+  }
+  
+  /**
+   * Handle click on a saved account item
+   * @param {Object} account - The account object
+   */
+  async handleSavedAccountLogin(account) {
+    try {
+      if (account.hasKeychain) {
+        if (!authService.isKeychainInstalled()) {
+          eventEmitter.emit('notification', {
+            type: 'error',
+            message: 'Steem Keychain extension is not installed. Please install it to login with this account.'
+          });
+          return;
+        }
+        
+        // Fill username field
+        const usernameInput = this.element.querySelector('#username');
+        if (usernameInput) {
+          usernameInput.value = account.username;
+        }
+        
+        await authService.loginWithKeychain(account.username, true);
+        this.handleLoginSuccess(account.username);
+      } else {
+        // Non è un account Keychain, usa switchToAccount standard
+        authService.switchToAccount(account);
+      }
+    } catch (error) {
+      console.error('Failed to login with saved account:', error);
+      const messageEl = this.element.querySelector('.login-message');
+      this.showError(messageEl, `Login failed: ${error.message || 'Authentication failed'}`);
+    }
+  }
 
   createHeading() {
     const headingContainer = document.createElement('div');
@@ -188,60 +374,35 @@ class LoginView {
 
     const heading = document.createElement('h2');
     heading.textContent = 'Login to cur8.fun';
+    heading.style.fontSize = '1.8rem';
+    heading.style.fontWeight = '600';
+    heading.style.color = 'var(--text-heading, #222)';
+    heading.style.margin = '0';
+    
+    const subheading = document.createElement('p');
+    subheading.textContent = 'Welcome back to the community';
+    subheading.style.fontSize = '1rem';
+    subheading.style.margin = '8px 0 0';
+    subheading.style.color = 'var(--text-secondary, #666)';
+    
     headingContainer.appendChild(heading);
+    headingContainer.appendChild(subheading);
 
     return headingContainer;
-  }
-  
-  createRadioButton(name, value, labelText, checked = false) {
-    const container = document.createElement('div');
-    container.className = 'radio-option';
-    
-    // Se il valore è 'active' e useActiveKey è true, impostiamo checked=true
-    // Oppure se il valore è 'posting' e useActiveKey è false, impostiamo checked=true
-    if ((value === 'active' && this.useActiveKey) || (value === 'posting' && !this.useActiveKey)) {
-      checked = true;
-    }
-    
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.id = `${name}-${value}`;
-    input.name = name;
-    input.value = value;
-    input.checked = checked;
-    
-    const label = document.createElement('label');
-    label.htmlFor = `${name}-${value}`;
-    label.textContent = labelText;
-    
-    // Migliore descrizione per ciascun tipo di chiave
-    const description = document.createElement('span');
-    description.className = 'key-type-description';
-    
-    if (value === 'posting') {
-      description.textContent = 'For general browsing, posting and voting';
-      description.style.color = '#449944'; // Verde per indicare opzione sicura
-    } else if (value === 'active') {
-      description.textContent = 'Required for wallet operations';
-      description.style.color = '#ff7700'; // Arancione per indicare maggiore cautela
-    }
-    
-    label.appendChild(document.createElement('br'));
-    label.appendChild(description);
-    
-    container.appendChild(input);
-    container.appendChild(label);
-    
-    return container;
   }
 
   createFormGroup(id, labelText, type, required = true) {
     const group = document.createElement('div');
     group.className = 'form-group';
+    group.style.marginBottom = '8px';
 
     const label = document.createElement('label');
     label.setAttribute('for', id);
     label.textContent = labelText;
+    label.style.display = 'block';
+    label.style.marginBottom = '6px';
+    label.style.fontWeight = '500';
+    label.style.fontSize = '0.95rem';
 
     const input = document.createElement('input');
     input.type = type;
@@ -249,12 +410,33 @@ class LoginView {
     input.name = id;
     input.required = required;
     input.className = 'form-control';
+    input.style.width = '100%';
+    input.style.padding = '12px';
+    input.style.borderRadius = '8px';
+    input.style.border = '1px solid var(--border-color, #ddd)';
+    input.style.fontSize = '1rem';
+    input.style.backgroundColor = 'var(--background-light, #f9f9f9)';
+    input.style.transition = 'border-color 0.3s, box-shadow 0.3s';
+    
+    // Add focus style for better UX
+    input.addEventListener('focus', () => {
+      input.style.outline = 'none';
+      input.style.borderColor = 'var(--primary-color, #ff7518)';
+      input.style.boxShadow = '0 0 0 2px rgba(255, 117, 24, 0.2)';
+    });
+    
+    input.addEventListener('blur', () => {
+      input.style.boxShadow = 'none';
+      if (!input.value) {
+        input.style.borderColor = 'var(--border-color, #ddd)';
+      }
+    });
     
     // For username field, enforce lowercase and add a tooltip
     if (id === 'username') {
       input.autocapitalize = 'none';
       input.autocomplete = 'username';
-      input.placeholder = 'lowercase username';
+      input.placeholder = 'Your Steem username';
       input.title = 'Steem usernames are lowercase only';
       
       // Add an input event listener to convert any uppercase to lowercase
@@ -266,6 +448,11 @@ class LoginView {
         e.target.setSelectionRange(start, end);
       });
     }
+    
+    // For password field, add a password-specific placeholder
+    if (type === 'password') {
+      input.placeholder = 'Enter your private posting key';
+    }
 
     group.appendChild(label);
     group.appendChild(input);
@@ -273,31 +460,27 @@ class LoginView {
     return group;
   }
 
-  createLoginForm() {
-    const form = document.createElement('form');
-    form.id = 'login-form';
-
-    form.appendChild(this.createFormGroup('username', 'Username', 'text'));
-    form.appendChild(this.createFormGroup('password', 'Private Posting Key', 'password'));
-    form.appendChild(this.createRememberMeGroup());
-    form.appendChild(this.createButton('Login'));
-
-    return form;
-  }
-
   createRememberMeGroup() {
     const group = document.createElement('div');
     group.className = 'form-group checkbox-group';
+    group.style.display = 'flex';
+    group.style.alignItems = 'center';
+    group.style.gap = '8px';
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = 'remember';
     checkbox.name = 'remember';
     checkbox.checked = true;
+    checkbox.style.width = '18px';
+    checkbox.style.height = '18px';
+    checkbox.style.accentColor = 'var(--primary-color, #ff7518)';
 
     const label = document.createElement('label');
     label.setAttribute('for', 'remember');
     label.textContent = 'Remember me';
+    label.style.fontSize = '0.95rem';
+    label.style.cursor = 'pointer';
 
     group.appendChild(checkbox);
     group.appendChild(label);
@@ -309,50 +492,85 @@ class LoginView {
     button.type = type;
     button.className = `btn ${className}`;
     button.textContent = text;
+    button.style.padding = '10px 16px';
+    button.style.borderRadius = '8px';
+    button.style.cursor = 'pointer';
+    button.style.border = 'none';
+    button.style.transition = 'all 0.3s ease';
+    
+    if (className.includes('btn-primary')) {
+      button.style.backgroundColor = 'var(--primary-color, #ff7518)';
+      button.style.color = '#fff';
+    } else if (className.includes('btn-secondary')) {
+      button.style.backgroundColor = '#f0f0f0';
+      button.style.color = '#333';
+      button.style.border = '1px solid #ddd';
+    }
+    
+    button.addEventListener('mouseover', () => {
+      if (className.includes('btn-primary')) {
+        button.style.backgroundColor = 'var(--primary-dark, #e66000)';
+        button.style.boxShadow = '0 4px 8px rgba(255, 117, 24, 0.3)';
+      } else if (className.includes('btn-secondary')) {
+        button.style.backgroundColor = '#e8e8e8';
+        button.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      }
+    });
+    
+    button.addEventListener('mouseout', () => {
+      if (className.includes('btn-primary')) {
+        button.style.backgroundColor = 'var(--primary-color, #ff7518)';
+      } else if (className.includes('btn-secondary')) {
+        button.style.backgroundColor = '#f0f0f0';
+      }
+      button.style.boxShadow = 'none';
+    });
+    
     return button;
   }
 
   createMessageElement() {
     const messageEl = document.createElement('p');
     messageEl.className = 'login-message';
+    messageEl.style.display = 'none';
+    messageEl.style.margin = '16px 0 0';
+    messageEl.style.fontSize = '0.9rem';
     return messageEl;
   }
 
-  createDivider() {
+  createDivider(text = 'or login with private key') {
     const divider = document.createElement('div');
     divider.className = 'login-divider';
-    divider.innerHTML = '<span>or login with private key</span>';
+    divider.style.display = 'flex';
+    divider.style.alignItems = 'center';
+    divider.style.textAlign = 'center';
+    divider.style.color = 'var(--text-secondary, #666)';
+    divider.style.fontSize = '0.9rem';
+    divider.style.margin = '20px 0';
+    
+    // Divider line before text
+    const lineLeft = document.createElement('div');
+    lineLeft.style.flex = '1';
+    lineLeft.style.height = '1px';
+    lineLeft.style.backgroundColor = 'var(--border-color, #ddd)';
+    lineLeft.style.marginRight = '15px';
+    
+    // Text in the middle
+    const textSpan = document.createElement('span');
+    textSpan.textContent = text;
+    
+    // Divider line after text
+    const lineRight = document.createElement('div');
+    lineRight.style.flex = '1';
+    lineRight.style.height = '1px';
+    lineRight.style.backgroundColor = 'var(--border-color, #ddd)';
+    lineRight.style.marginLeft = '15px';
+    
+    divider.appendChild(lineLeft);
+    divider.appendChild(textSpan);
+    divider.appendChild(lineRight);
+    
     return divider;
-  }
-
-  createKeychainElements() {
-    const keychainGroup = document.createElement('div');
-    keychainGroup.className = 'form-group keychain-group';
-
-    const keychainButton = this.createButton(
-      'Login with SteemKeychain',
-      'button',
-      'btn-primary keychain-login-btn'
-    );
-    keychainButton.id = 'keychain-login-btn';
-
-    const keychainMsg = document.createElement('p');
-    keychainMsg.id = 'keychain-status';
-    keychainMsg.className = 'keychain-status';
-
-    const divider = this.createDivider();
-
-    if (authService.isKeychainInstalled()) {
-      keychainGroup.appendChild(keychainButton);
-    } else {
-      keychainMsg.textContent = 'SteemKeychain extension not detected. Install it for easier login.';
-      keychainMsg.style.color = 'orange';
-      keychainButton.disabled = true;
-      keychainGroup.appendChild(keychainButton);
-      keychainGroup.appendChild(keychainMsg);
-    }
-
-    return { keychainGroup, divider };
   }
 
   bindEvents() {
@@ -387,8 +605,8 @@ class LoginView {
     const privateKey = passwordInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
 
-    // Get selected key type
-    const keyType = loginForm.querySelector('input[name="keyType"]:checked').value;
+    // Utilizziamo sempre posting key per il login tramite form
+    const keyType = 'posting';
 
     if (!username || !privateKey) {
       this.showError(messageEl, 'Please enter both username and private key');
@@ -407,7 +625,7 @@ class LoginView {
       // Add error styling to the password field for key-related errors
       if (error.message.includes('Invalid key')) {
         passwordInput.classList.add('input-error');
-        this.showError(messageEl, `The private ${keyType} key you entered appears to be invalid. Please check and try again.`);
+        this.showError(messageEl, `The private posting key you entered appears to be invalid. Please check and try again.`);
       } else if (error.message.includes('Account not found')) {
         loginForm.username.classList.add('input-error');
         this.showError(messageEl, `Account "${username}" was not found. Please check your username.`);
@@ -439,8 +657,8 @@ class LoginView {
     const username = usernameInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
     
-    // Get selected key type for Keychain - will use the most appropriate level
-    const keyType = loginForm.querySelector('input[name="keyType"]:checked').value;
+    // Utilizziamo sempre posting key per il login con Keychain
+    const keyType = 'posting';
 
     if (!username) {
       usernameInput.classList.add('input-error');
@@ -486,11 +704,14 @@ class LoginView {
     if (element) {
       element.textContent = message;
       element.classList.add('error');
+      element.style.display = 'block';
       
       // Make error more visible
-      element.style.padding = '10px';
-      element.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
-      element.style.borderRadius = '4px';
+      element.style.padding = '12px';
+      element.style.backgroundColor = 'rgba(255, 0, 0, 0.08)';
+      element.style.color = '#d32f2f';
+      element.style.borderRadius = '8px';
+      element.style.borderLeft = '4px solid #d32f2f';
     }
   }
 
