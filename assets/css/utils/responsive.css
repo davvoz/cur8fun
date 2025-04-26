@@ -105,6 +105,7 @@
         justify-content: space-between;
         padding: 0 var(--space-sm);
         position-anchor: fixed;
+        position: fixed;
         top: 0;
         left: 0;
         right: 0;
