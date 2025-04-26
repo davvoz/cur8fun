@@ -5,6 +5,13 @@
     padding: var(--space-md);
 }
 
+@media screen and (max-width: 768px) {
+    .notifications-view {
+        padding: 0;
+    }
+    
+}
+
 /* Handle case when notifications-view is applied to main-content */
 #main-content.notifications-view {
     padding: var(--space-md); /* Override the padding from content-wrapper */
