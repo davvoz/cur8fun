@@ -118,10 +118,13 @@ class ActiveKeyInputComponent extends Component {
                 });
             }
             
+            // Intercetta il tasto Escape ma impedisci la sua funzione predefinita
+            // senza eseguire alcuna azione (non chiudere il modal)
             const handleKeyDown = (e) => {
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     e.stopPropagation();
+                    // Non fare nulla quando viene premuto Escape
                 }
             };
             

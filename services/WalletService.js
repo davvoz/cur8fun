@@ -1,6 +1,7 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
+import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
 
 class WalletService {
   constructor() {
@@ -524,8 +525,7 @@ class WalletService {
             [claimRewardOp],
             "posting", // The key type needed for claiming rewards (posting is sufficient)
             function(response) {
-              console.log('Claim rewards response:', response);
-              
+
               if (response.success) {
                 resolve({ 
                   success: true,
@@ -1346,7 +1346,7 @@ async getUserBalances(username) {
  * @private
  * @param {Array} operations - Array of operations to broadcast
  * @param {string} requiredKey - Key type required ('posting' or 'active')
- * @param {Function} keychainMethod - Keychain method to use as fallback
+ * @param {Function} keychainMethod - Parametro mantenuto per compatibilità, non viene più utilizzato
  * @returns {Promise<Object>} Result of the operation
  */
 async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = null) {
@@ -1391,29 +1391,45 @@ async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = n
         );
       });
     } else {
-      // No private key available, fall back to Keychain method
-      console.log(`No ${requiredKey} key available, using Keychain for operation`);
+      // No private key available, richiediamo sempre la chiave all'utente
+      console.log(`No ${requiredKey} key available, requesting key from user`);
       
-      if (!keychainMethod) {
-        // Use generic requestBroadcast if no specific keychain method provided
-        return new Promise((resolve, reject) => {
-          window.steem_keychain.requestBroadcast(
-            this.currentUser,
-            operations,
-            requiredKey,
-            (response) => {
-              if (response.success) {
-                resolve(response);
-              } else {
-                reject(new Error(response.message || 'Operation failed'));
-              }
-            }
-          );
-        });
-      } else {
-        // Use the specific keychain method provided
-        return keychainMethod();
+      // Richiedi la chiave all'utente usando il componente ActiveKeyInputComponent
+      const operationName = operations[0][0] || 'transazione';
+      const activeKey = await activeKeyInput.promptForActiveKey(`Inserisci la tua ${requiredKey === 'posting' ? 'Posting' : 'Active'} Key per autorizzare questa operazione: ${operationName}`);
+      
+      // Se l'utente annulla l'inserimento, interrompi l'operazione
+      if (!activeKey) {
+        throw new Error('Operazione annullata dall\'utente');
       }
+      
+      // Usa la chiave fornita dall'utente per il broadcast
+      console.log(`Broadcasting operation with user-provided ${requiredKey} key`);
+      const steem = await steemService.ensureLibraryLoaded();
+      
+      return new Promise((resolve, reject) => {
+        // Prepare key object for broadcast
+        const keys = {};
+        keys[requiredKey] = activeKey;
+        
+        // Broadcast with provided key
+        steem.broadcast.send(
+          { operations, extensions: [] },
+          keys,
+          (err, result) => {
+            if (err) {
+              console.error('Broadcast error:', err);
+              reject(new Error(err.message || 'Operazione fallita'));
+            } else {
+              resolve({
+                success: true,
+                result: result,
+                operation: operations[0][0]
+              });
+            }
+          }
+        );
+      });
     }
   } catch (error) {
     console.error('Error broadcasting operation:', error);
