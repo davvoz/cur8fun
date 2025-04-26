@@ -89,6 +89,8 @@ class TransactionHistoryService {
         return data.delegator === username;
       case 'claim_reward_balance':
         return data.account === username;
+      case 'account_update':
+        return data.account === username;
       case 'custom_json':
         return Array.isArray(data.required_posting_auths) && 
                data.required_posting_auths.includes(username);
@@ -152,6 +154,8 @@ class TransactionHistoryService {
         return { icon: 'payment', iconClass: 'reward' };
       case 'delegate_vesting_shares':
         return { icon: 'share', iconClass: 'delegation' };
+      case 'account_update':
+        return { icon: 'manage_accounts', iconClass: 'account-update' };
       case 'custom_json':
         return { icon: 'code', iconClass: 'custom' };
       default:
@@ -253,6 +257,17 @@ class TransactionHistoryService {
           return `Reply to @${data.parent_author}/${data.parent_permlink.substring(0, 15)}...`;
         }
         return `Post: "${data.title || data.permlink.substring(0, 30)}"`;
+      
+      case 'account_update':
+        const updates = [];
+        if (data.owner) updates.push('owner keys');
+        if (data.active) updates.push('active keys');
+        if (data.posting) updates.push('posting keys');
+        if (data.memo_key) updates.push('memo key');
+        if (data.json_metadata) updates.push('profile info');
+        
+        const updateItems = updates.length > 0 ? updates.join(', ') : 'account details';
+        return `Updated ${updateItems}`;
         
       case 'claim_reward_balance':
         // Converti reward_vests in SP
