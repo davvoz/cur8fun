@@ -186,11 +186,18 @@
   /* Rendi il tooltip più ampio su mobile */
   .rewards-tooltip {
     width: 250px;
-    right: -100px; /* Centrato rispetto al pulsante */
+    right: 0; /* Allineato al bordo destro del pulsante invece che centrato */
+    transform: translateX(0); /* Nessuna traslazione */
   }
   
   .rewards-tooltip::before,
   .rewards-tooltip::after {
-    right: 115px; /* Centra la freccia rispetto al pulsante */
+    right: 15px; /* Freccia allineata con il pulsante */
+  }
+  
+  /* Assicurati che il tooltip non ecceda il viewport */
+  .wallet-rewards-component {
+    position: relative;
+    overflow: visible;
   }
 }
