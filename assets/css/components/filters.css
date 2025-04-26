@@ -266,6 +266,8 @@
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: background-color 0.2s;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .filter-select-btn:hover {
