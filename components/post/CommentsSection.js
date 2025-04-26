@@ -436,20 +436,59 @@ class CommentsSection {
   applyCommentIndentation(commentDiv, commentDepth) {
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
     
+    // Limitiamo la profondità massima a 3 livelli
+    const MAX_VISUAL_DEPTH = 3;
+    
+    // Usiamo la profondità effettiva per l'attributo data
+    commentDiv.setAttribute('data-depth', commentDepth);
+    
+    // Ma limitiamo la profondità visiva per il calcolo dell'indentazione
+    const visualDepth = Math.min(commentDepth, MAX_VISUAL_DEPTH);
+    
     if (isMobile) {
-      const mobileIndent = 1; // Fixed small value for mobile
-      
+      // Su mobile, profondità 0 = nessuna indentazione
+      // Profondità 1-3 = indentazione fissa di 10px x livello
       if (commentDepth > 0) {
-        commentDiv.style.marginLeft = `${mobileIndent}px`;
-        commentDiv.style.paddingLeft = `${mobileIndent}px`;
+        // Limitiamo l'indentazione massima su mobile
+        commentDiv.style.borderLeft = 'none'; // Rimuoviamo il bordo di default
+        
+        // Manteniamo un margine minimo sufficiente per vedere la linea verticale
+        commentDiv.style.marginLeft = '0';
+        commentDiv.style.paddingLeft = '0';
+        
+        // Applichiamo colori diversi in base alla profondità
+        if (commentDepth >= 3) {
+          // A partire dal terzo livello, usiamo un bordino laterale colorato
+          const borderColors = [
+            'var(--primary-color-light)',   // Livello 3
+            'var(--accent-color-light)',    // Livello 4
+            'var(--success-color-light)',   // Livello 5
+            'var(--warning-color-light)'    // Livello 6+
+          ];
+          const colorIndex = Math.min(commentDepth - 3, borderColors.length - 1);
+          commentDiv.style.borderLeft = `3px solid ${borderColors[colorIndex]}`;
+        }
       } else {
+        // Commento radice (profondità 0)
         commentDiv.style.borderLeft = 'none';
         commentDiv.style.marginLeft = '0';
         commentDiv.style.paddingLeft = '0';
       }
     } else {
-      commentDiv.style.marginLeft = `${Math.min(commentDepth * 2, 2)}px`;
-      commentDiv.style.paddingLeft = `${Math.min(commentDepth * 1, 1)}px`;
+      // Su desktop, applichiamo un'indentazione leggera ma limitata
+      commentDiv.style.marginLeft = `${visualDepth * 15}px`;
+      commentDiv.style.paddingLeft = '0';
+      
+      // Aggiungi sottile indicatore di profondità con colori diversi
+      if (commentDepth > 0) {
+        const borderColors = [
+          'var(--primary-color-light)',
+          'var(--accent-color-light)',
+          'var(--success-color-light)'
+        ];
+        const colorIndex = Math.min(visualDepth - 1, borderColors.length - 1);
+        commentDiv.style.borderLeft = `2px solid ${borderColors[colorIndex]}`;
+      }
     }
   }
   

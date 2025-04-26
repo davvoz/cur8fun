@@ -639,3 +639,102 @@
     font-size: 1rem;
   }
 }
+
+/* Comments Section */
+/* Nuovo sistema di thread per commenti annidati */
+.comments-section .comment {
+  position: relative;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+/* Stile per le risposte ai commenti */
+.comments-section .replies {
+  position: relative;
+  margin-left: 15px;
+  padding-left: 10px;
+}
+
+/* Linea verticale per mostrare la gerarchia dei thread */
+.comments-section .replies:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 20px; /* Spazio in basso per evitare che arrivi fino alla fine */
+  width: 2px;
+  background-color: var(--primary-color-light);
+  opacity: 0.7;
+  border-radius: 1px;
+}
+
+/* Colori diversi per differenti livelli di profondità */
+.comments-section .replies[data-level="1"]:before {
+  background-color: var(--primary-color-light);
+}
+
+.comments-section .replies[data-level="2"]:before {
+  background-color: var(--accent-color-light);
+}
+
+.comments-section .replies[data-level="3"]:before {
+  background-color: var(--success-color-light);
+}
+
+/* Stile per evidenziare nuovi commenti */
+.comments-section .comment.new-comment {
+  animation: highlight-new-comment 2s ease-in-out;
+  border-color: var(--accent-color);
+}
+
+@keyframes highlight-new-comment {
+  0%, 100% { border-color: var(--border-color); }
+  50% { border-color: var(--accent-color); background-color: rgba(var(--accent-color-rgb), 0.05); }
+}
+
+/* Responsive mobile fixes */
+@media (max-width: 768px) {
+  .comments-section .replies {
+    margin-left: 10px;
+    padding-left: 8px;
+  }
+  
+  /* Miglioramento thread per dispositivi mobili */
+  .comments-section .replies:before {
+    width: 3px; /* Linea più ampia per essere più visibile */
+  }
+
+  /* Miglioramento visualizzazione per thread molto profondi su mobile */
+  .comments-section .replies[data-level="3"] .replies,
+  .comments-section .replies[data-level="4"] .replies,
+  .comments-section .replies[data-level="5"] .replies,
+  .comments-section .replies[data-level="6"] .replies {
+    margin-left: 7px; /* Riduce ulteriormente il padding per thread profondi */
+    padding-left: 7px;
+  }
+
+  /* Aggiunge un colore di sfondo leggero per aiutare a distinguere la profondità */
+  .comments-section .replies[data-level="3"] .comment {
+    border-left: 3px solid var(--success-color-light);
+  }
+
+  .comments-section .replies[data-level="4"] .comment {
+    border-left: 3px solid var(--warning-color-light);
+  }
+
+  .comments-section .replies[data-level="5"] .comment,
+  .comments-section .replies[data-level="6"] .comment {
+    border-left: 3px solid var(--danger-color-light);
+  }
+
+  /* Assicura che il contenuto del commento non venga tagliato */
+  .comments-section .comment-body {
+    width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+  }
+}
