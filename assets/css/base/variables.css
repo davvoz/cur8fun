@@ -131,6 +131,8 @@
 
     --text-color-secondary : #6c757d; /* Scurito leggermente */
     --text-color : #343a40; /* Scurito leggermente */
+    
+    --nav-height: 60px; /* Height of the navigation bar */
 }
 
 /* Dark theme variables */
