@@ -1,4 +1,3 @@
-// filepath: c:\Temp\steemee\components\wallet\actions\WalletRewardsComponent.js
 import Component from '../../Component.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
@@ -17,11 +16,23 @@ export default class WalletRewardsComponent extends Component {
       sp: '0.000'
     };
     this.hasRewards = false;
+    this.tooltipVisible = false;
+    this.isMobileDevice = this.checkIfMobile();
     
     // Binding dei metodi
     this.checkForRewards = this.checkForRewards.bind(this);
     this.handleClaimRewards = this.handleClaimRewards.bind(this);
     this.handleBalancesUpdated = this.handleBalancesUpdated.bind(this);
+    this.toggleTooltip = this.toggleTooltip.bind(this);
+  }
+  
+  /**
+   * Rileva se l'utente sta usando un dispositivo mobile
+   * @returns {boolean} True se è un dispositivo mobile
+   */
+  checkIfMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           (window.innerWidth <= 768);
   }
   
   render() {
@@ -67,10 +78,23 @@ export default class WalletRewardsComponent extends Component {
     this.rewardsDetails.className = 'rewards-tooltip-details';
     this.tooltip.appendChild(this.rewardsDetails);
     
+    // Su mobile aggiungiamo un pulsante di claim nel tooltip
+    if (this.isMobileDevice) {
+      const claimButton = document.createElement('button');
+      claimButton.className = 'rewards-claim-button-mobile';
+      claimButton.textContent = 'Claim Rewards';
+      this.tooltip.appendChild(claimButton);
+      this.registerEventHandler(claimButton, 'click', this.handleClaimRewards);
+    }
+    
     this.rewardsButton.appendChild(this.tooltip);
     
-    // Registra handler per il pulsante
-    this.registerEventHandler(this.rewardsButton, 'click', this.handleClaimRewards);
+    // Registra handler per il pulsante - su mobile prima mostra il tooltip
+    if (this.isMobileDevice) {
+      this.registerEventHandler(this.rewardsButton, 'click', this.toggleTooltip);
+    } else {
+      this.registerEventHandler(this.rewardsButton, 'click', this.handleClaimRewards);
+    }
     
     // Aggiungi al contenitore
     this.element.appendChild(this.rewardsButton);
@@ -83,6 +107,38 @@ export default class WalletRewardsComponent extends Component {
     this.checkForRewards();
     
     return this.element;
+  }
+  
+  /**
+   * Mostra o nasconde il tooltip su dispositivi mobili
+   * @param {Event} event - Evento click
+   */
+  toggleTooltip(event) {
+    event.stopPropagation(); // Previene la propagazione dell'evento
+
+    if (!this.tooltipVisible && this.hasRewards) {
+      // Mostra il tooltip
+      this.tooltipVisible = true;
+      this.tooltip.classList.add('visible');
+      
+      // Registra handler per chiudere il tooltip quando si clicca altrove
+      setTimeout(() => {
+        document.addEventListener('click', this.closeTooltip = (e) => {
+          if (!this.tooltip.contains(e.target) && e.target !== this.rewardsButton) {
+            this.tooltip.classList.remove('visible');
+            this.tooltipVisible = false;
+            document.removeEventListener('click', this.closeTooltip);
+          }
+        });
+      }, 10);
+    } else {
+      // Nascondi il tooltip se è già visibile
+      this.tooltip.classList.remove('visible');
+      this.tooltipVisible = false;
+      if (this.closeTooltip) {
+        document.removeEventListener('click', this.closeTooltip);
+      }
+    }
   }
   
   /**
@@ -169,7 +225,17 @@ export default class WalletRewardsComponent extends Component {
    * @param {Event} event - Evento click
    */
   async handleClaimRewards(event) {
+    event.stopPropagation(); // Previene la propagazione dell'evento
     const button = event.currentTarget;
+    
+    // Chiudi il tooltip se visibile
+    if (this.tooltipVisible) {
+      this.tooltip.classList.remove('visible');
+      this.tooltipVisible = false;
+      if (this.closeTooltip) {
+        document.removeEventListener('click', this.closeTooltip);
+      }
+    }
     
     // Se non ci sono ricompense, non fare nulla
     if (!this.hasRewards) {
@@ -182,12 +248,18 @@ export default class WalletRewardsComponent extends Component {
     
     try {
       // Mostra stato di caricamento
-      button.classList.add('loading');
-      button.disabled = true;
+      const targetButton = this.isMobileDevice && button.classList.contains('rewards-claim-button-mobile') 
+        ? button 
+        : this.rewardsButton;
       
-      const icon = button.querySelector('i');
-      if (icon) {
-        icon.textContent = 'hourglass_bottom';
+      targetButton.classList.add('loading');
+      targetButton.disabled = true;
+      
+      if (!this.isMobileDevice || !button.classList.contains('rewards-claim-button-mobile')) {
+        const icon = targetButton.querySelector('i');
+        if (icon) {
+          icon.textContent = 'hourglass_bottom';
+        }
       }
       
       // Nascondi il badge durante il caricamento
@@ -222,11 +294,18 @@ export default class WalletRewardsComponent extends Component {
       });
       
       // Ripristina lo stato del pulsante
-      button.classList.remove('loading');
-      button.disabled = false;
-      const icon = button.querySelector('i');
-      if (icon) {
-        icon.textContent = 'card_giftcard';
+      const targetButton = this.isMobileDevice && button.classList.contains('rewards-claim-button-mobile') 
+        ? button 
+        : this.rewardsButton;
+      
+      targetButton.classList.remove('loading');
+      targetButton.disabled = false;
+      
+      if (!this.isMobileDevice || !button.classList.contains('rewards-claim-button-mobile')) {
+        const icon = targetButton.querySelector('i');
+        if (icon) {
+          icon.textContent = 'card_giftcard';
+        }
       }
       
       // Mostra nuovamente il badge se ci sono ricompense
@@ -247,6 +326,11 @@ export default class WalletRewardsComponent extends Component {
   destroy() {
     // Rimuovi gli event listener
     eventEmitter.off('wallet:balances-updated', this.handleBalancesUpdated);
+    
+    // Rimuovi il listener per chiudere il tooltip
+    if (this.closeTooltip) {
+      document.removeEventListener('click', this.closeTooltip);
+    }
     
     // Chiama il metodo destroy della classe parent
     super.destroy();

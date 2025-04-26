@@ -116,6 +116,12 @@
   opacity: 1;
 }
 
+/* Mostra il tooltip su mobile quando ha la classe 'visible' */
+.rewards-tooltip.visible {
+  display: block;
+  opacity: 1;
+}
+
 .rewards-tooltip-header {
   font-weight: 600;
   margin-bottom: var(--space-xs);
@@ -146,10 +152,45 @@
   color: var(--secondary-color, #2ecc71);
 }
 
+/* Pulsante Claim nel tooltip su mobile */
+.rewards-claim-button-mobile {
+  width: 100%;
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--secondary-color, #2ecc71);
+  color: var(--text-on-primary, #ffffff);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.rewards-claim-button-mobile:hover,
+.rewards-claim-button-mobile:focus {
+  background-color: var(--secondary-color-dark, #27ae60);
+}
+
+.rewards-claim-button-mobile.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .rewards-claim-button {
     width: 45px; /* Leggermente più piccolo su mobile */
     height: 45px; /* Leggermente più piccolo su mobile */
+  }
+  
+  /* Rendi il tooltip più ampio su mobile */
+  .rewards-tooltip {
+    width: 250px;
+    right: -100px; /* Centrato rispetto al pulsante */
+  }
+  
+  .rewards-tooltip::before,
+  .rewards-tooltip::after {
+    right: 115px; /* Centra la freccia rispetto al pulsante */
   }
 }
