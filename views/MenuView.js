@@ -17,15 +17,16 @@ class MenuView extends View {
       this.element.removeChild(this.element.firstChild);
     }
 
-    // Create menu container
+    // Create menu container with header
     const menuContainer = document.createElement('div');
     menuContainer.className = 'menu-container';
     
-    // Add Resources category
-    const resourcesCategory = this.createCategory('Resources');
-    menuContainer.appendChild(resourcesCategory);
     
-    // Add resources menu items
+    
+    // Add Account Tools category
+    const accountCategory = this.createCategory('Tools');
+    menuContainer.appendChild(accountCategory);
+    
     menuContainer.appendChild(this.createMenuItem(
       'faucet-link',
       'https://davvoz.github.io/steem-faucet-game/#/faucet',
@@ -34,58 +35,115 @@ class MenuView extends View {
       'Get free STEEM to start your journey'
     ));
     
-    menuContainer.appendChild(this.createMenuItem(
-      'docs-link',
-      'https://developers.steem.io/tutorials-javascript/getting_started',
-      'fa-book',
-      'Documentation',
-      'Learn about Steem blockchain'
-    ));
+   
     
-    // Add Tools category
-    const toolsCategory = this.createCategory('Tools');
-    menuContainer.appendChild(toolsCategory);
+    // Add Community category with social links
+    const socialCategory = this.createCategory('Connect With Us');
+    menuContainer.appendChild(socialCategory);
     
-    // Add tools menu items
-    menuContainer.appendChild(this.createMenuItem(
-      'wallet-link',
-      '/wallet',
-      'fa-wallet',
-      'Wallet',
-      'Manage your funds and rewards'
-    ));
+    // Add social links in a grid layout
+    const socialGrid = document.createElement('div');
+    socialGrid.className = 'social-links-grid';
     
-    menuContainer.appendChild(this.createMenuItem(
-      'explorer-link',
-      'https://steemscan.com/',
-      'fa-search',
-      'Block Explorer',
-      'Explore the Steem blockchain'
-    ));
-    
-    // Add Community category
-    const communityCategory = this.createCategory('Community');
-    menuContainer.appendChild(communityCategory);
-    
-    // Add community menu items
-    menuContainer.appendChild(this.createMenuItem(
-      'communities-link',
-      '/communities',
-      'fa-users',
-      'Communities',
-      'Explore Steem communities'
-    ));
-    
-    menuContainer.appendChild(this.createMenuItem(
+    socialGrid.appendChild(this.createSocialMenuItem(
       'discord-link',
-      'https://discord.gg/steem',
-      'fa-discord',
+      'https://discord.com/invite/hE7dB6wXb5',
+      'fa-brands fa-discord',
       'Discord',
       'Join the Steem Discord server'
     ));
     
+    socialGrid.appendChild(this.createSocialMenuItem(
+      'twitter-link',
+      'https://x.com/cur8_earn',
+      'fa-brands fa-x-twitter',
+      'X',
+      'Follow us on X (formerly Twitter)'
+    ));
+    
+    socialGrid.appendChild(this.createSocialMenuItem(
+      'instagram-link',
+      'https://www.instagram.com/stories/cur8_earn/',
+      'fa-brands fa-instagram',
+      'Instagram',
+      'Check out our Instagram stories'
+    ));
+    
+    socialGrid.appendChild(this.createSocialMenuItem(
+      'telegram-link',
+      'https://t.me/steemchat',
+      'fa-brands fa-telegram',
+      'Telegram'
+    ));
+    
+    menuContainer.appendChild(socialGrid);
+    
+    // Add Help & Support category
+    const helpCategory = this.createCategory('Help & Support');
+    menuContainer.appendChild(helpCategory);
+    
+    menuContainer.appendChild(this.createMenuItem(
+      'faq-link',
+      '/faq',
+      'fa-question-circle',
+      'FAQ',
+      'Frequently asked questions'
+    ));
+    
+    menuContainer.appendChild(this.createMenuItem(
+      'contact-link',
+      'mailto:support@cur8.fun',
+      'fa-envelope',
+      'Contact Support',
+      'Get help with your account or issues'
+    ));
+    
+    // Add footer with version info
+    const menuFooter = this.createMenuFooter();
+    menuContainer.appendChild(menuFooter);
+    
     // Append the menu container to the main element
     this.element.appendChild(menuContainer);
+  }
+  
+  /**
+   * Creates a menu header with logo
+   * @returns {HTMLElement} - The header element
+   */
+  createMenuHeader() {
+    const header = document.createElement('div');
+    header.className = 'menu-header';
+    
+    const logo = document.createElement('img');
+    logo.src = '/assets/img/logo_tra.png';
+    logo.alt = 'Cur8 Logo';
+    logo.className = 'menu-logo';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'cur8.fun';
+    title.className = 'menu-title';
+    
+    header.appendChild(logo);
+    header.appendChild(title);
+    
+    return header;
+  }
+  
+  /**
+   * Creates a menu footer with version info
+   * @returns {HTMLElement} - The footer element
+   */
+  createMenuFooter() {
+    const footer = document.createElement('div');
+    footer.className = 'menu-footer';
+    
+    const version = document.createElement('span');
+    version.textContent = 'Version 1.0.0';
+    version.className = 'menu-version';
+    
+    footer.appendChild(version);
+    
+    return footer;
   }
   
   /**
@@ -100,7 +158,12 @@ class MenuView extends View {
     const heading = document.createElement('h2');
     heading.textContent = title;
     
+    const divider = document.createElement('div');
+    divider.className = 'category-divider';
+    
     category.appendChild(heading);
+    category.appendChild(divider);
+    
     return category;
   }
   
@@ -120,7 +183,7 @@ class MenuView extends View {
     menuItem.className = `menu-item ${className || ''}`;
     
     // Set target="_blank" for external links
-    if (href.startsWith('http')) {
+    if (href.startsWith('http') || href.startsWith('mailto:')) {
       menuItem.target = '_blank';
       menuItem.rel = 'noopener noreferrer';
     }
@@ -131,7 +194,7 @@ class MenuView extends View {
     
     // Create and add the icon
     const icon = document.createElement('i');
-    icon.className = `fas ${iconClass}`;
+    icon.className = `${iconClass.startsWith('fa-brands') ? '' : 'fas '}${iconClass}`;
     iconContainer.appendChild(icon);
     
     // Create text content container
@@ -155,6 +218,35 @@ class MenuView extends View {
     // Assemble the menu item
     menuItem.appendChild(iconContainer);
     menuItem.appendChild(textContainer);
+    
+    return menuItem;
+  }
+
+  /**
+   * Creates a social media menu item with a simpler layout
+   * @param {string} className - Additional class for the menu item
+   * @param {string} href - The URL the menu item links to
+   * @param {string} iconClass - FontAwesome icon class
+   * @param {string} text - The text of the menu item
+   * @returns {HTMLElement} - The menu item element
+   */
+  createSocialMenuItem(className, href, iconClass, text) {
+    const menuItem = document.createElement('a');
+    menuItem.href = href;
+    menuItem.className = `social-item ${className || ''}`;
+    menuItem.target = '_blank';
+    menuItem.rel = 'noopener noreferrer';
+    
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    
+    const label = document.createElement('span');
+    label.className = 'social-label';
+    label.textContent = text;
+    
+    menuItem.appendChild(icon);
+    menuItem.appendChild(label);
     
     return menuItem;
   }
