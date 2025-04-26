@@ -63,14 +63,6 @@ class MenuView extends View {
       'Explore the Steem blockchain'
     ));
     
-    menuContainer.appendChild(this.createMenuItem(
-      'calculator-link',
-      'https://steemnow.com/calculator.html',
-      'fa-calculator',
-      'Rewards Calculator',
-      'Estimate your potential earnings'
-    ));
-    
     // Add Community category
     const communityCategory = this.createCategory('Community');
     menuContainer.appendChild(communityCategory);
