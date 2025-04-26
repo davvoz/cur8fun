@@ -379,8 +379,8 @@ class WalletService {
       // Define keychain method as fallback
       const keychainMethod = () => {
         return new Promise((resolve, reject) => {
+          // La firma corretta è: requestPowerDown(username, amount, function(response))
           window.steem_keychain.requestPowerDown(
-            this.currentUser,
             this.currentUser,
             parseFloat(amount).toFixed(3),
             function(response) {
