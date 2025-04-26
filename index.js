@@ -16,6 +16,7 @@ import TagView from './views/TagView.js';
 import SearchView from './views/SearchView.js';
 import CreatePostView from './views/CreatePostView.js';
 import MenuView from './views/MenuView.js';
+import FAQView from './views/FAQView.js';
 
 // Community views
 import CommunityView from './views/CommunityView.js';
@@ -52,6 +53,7 @@ router
   .addRoute('/communities', CommunitiesListView) 
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .addRoute('/menu', MenuView)
+  .addRoute('/faq', FAQView)
   .setNotFound(NotFoundView);
 
 // Auth guard middleware

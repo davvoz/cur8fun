@@ -104,6 +104,11 @@
         grid-template-columns: auto auto;
         justify-content: space-between;
         padding: 0 var(--space-sm);
+        position-anchor: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: var(--nav-height);
     }
 
     .nav-right {
