@@ -41,7 +41,7 @@ export default class PostRenderer {
       const excerpt = document.createElement('div');
       excerpt.className = 'post-excerpt';
       const textExcerpt = this.createExcerpt(post.body);
-      excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+      excerpt.textContent ='dioporco'+ textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
       contentMiddle.appendChild(excerpt);
     }
 

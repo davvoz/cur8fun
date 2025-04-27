@@ -325,7 +325,7 @@ class BasePostView {
     }
     
     // Return placeholder if no image is found
-    return './assets/img/placeholder.png';
+    return  null;
   }
 
   /**
@@ -603,19 +603,25 @@ class BasePostView {
     });
     
       // Calculate time elapsed since post creation in minutes
-      const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
+      // Calculate time elapsed since post creation in minutes, adjusting for timezone differences
+      const timeElapsed = Math.floor((Date.now() - new Date(post.created + "Z").getTime()) / (1000 * 60));
+
       if (timeElapsed < 60) {
-        date.textContent = `${timeElapsed} min ago`;
+        date.textContent = timeElapsed <= 1 ? 'Just now' : `${timeElapsed} min ago`;
       } else if (timeElapsed < 24 * 60) {
         // Convert minutes to hours
-        date.textContent = `${Math.floor(timeElapsed / 60)} hours ago`;
+        const hours = Math.floor(timeElapsed / 60);
+        date.textContent = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
       } else if (timeElapsed < 30 * 24 * 60) {
         // Convert minutes to days
-        date.textContent = `${Math.floor(timeElapsed / (24 * 60))} days ago`;
+        const days = Math.floor(timeElapsed / (24 * 60));
+        date.textContent = days === 1 ? '1 day ago' : `${days} days ago`;
       } else if (timeElapsed < 365 * 24 * 60) {
         // Convert minutes to months
-        date.textContent = `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
+        const months = Math.floor(timeElapsed / (30 * 24 * 60));
+        date.textContent = months === 1 ? '1 month ago' : `${months} months ago`;
       } else {
+        // Use locale date for anything older than a year
         date.textContent = postDate.toLocaleDateString(undefined, {
           year: 'numeric',
           month: 'short',
@@ -672,17 +678,17 @@ class BasePostView {
     content.className = 'post-image-container';
     content.classList.add('loading');
     
-    const image = document.createElement('img');
+    let image = document.createElement('img');
     image.alt = title || 'Post image';
     image.loading = 'lazy';
     image.decoding = 'async';
     
     // Check if we have a valid image URL before attempting to load
     if (!imageUrl || imageUrl === './assets/img/placeholder.png') {
-      // Skip the loading process entirely and use placeholder immediately
-      content.classList.remove('loading');
-      content.classList.add('error');
-      image.src = './assets/img/placeholder.png';
+      //image ora diventa un div 
+      image = document.createElement('div');
+      //background suraface
+      image.style.backgroundColor = 'var(--background-light)';
       content.appendChild(image);
       return content;
     }

@@ -1079,6 +1079,19 @@
   box-shadow: var(--card-box-shadow-sm);
 }
 
+.posts-container.grid-layout-grid .post-tags {
+  position: absolute;
+  bottom: 42px;
+  margin: auto 0 var(--space-sm);
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/*compact layout*/
+.posts-container.grid-layout-compact .post-excerpt{
+  display: none;
+}
 /* Wrapper contenuto centrale a altezza fissa */
 .post-content-wrapper {
   height: 100px;
@@ -1095,6 +1108,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /*layout lista*/
@@ -1120,7 +1134,6 @@
 .post-actions {
   height: 40px;
   /* Altezza fissa per il footer */
-  padding: 0 var(--space-md);
   border-top: 1px solid var(--border-color-light);
   display: flex;
   justify-content: flex-start;
@@ -1251,4 +1264,29 @@
   display: flex !important;
   border-radius: 0;
   background-color: var(--background-subtle);
+}
+
+/*list layout*/
+.posts-container.grid-layout-list .post-excerpt {
+  height: 50%;
+  font-size: 0.9rem;  
+}
+
+/*compact layout*/
+.posts-container.grid-layout-compact .post-card{
+  height: auto;
+}
+.posts-container.grid-layout-compact .post-community{
+  display: none;
+}
+.posts-container.grid-layout-compact .payout-actions {
+  display: none;
+  background-color: blue;
+}
+.posts-container.grid-layout-compact .post-actions{
+  gap: var(--space-sm);
+}
+
+.posts-container.grid-layout-list {
+  max-width: 80%;
 }
