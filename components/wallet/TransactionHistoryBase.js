@@ -510,21 +510,24 @@ export default class TransactionHistoryBase extends Component {
     directionElement.textContent = isActionByUser ? 'Out' : 'In';
     detailsElement.appendChild(directionElement);
     
-    const linkElement = document.createElement('a');
-    linkElement.className = 'transaction-link';
-    linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
-    linkElement.target = (tx.data.author && tx.data.permlink) ? '_self' : '_blank';
-    linkElement.rel = 'noopener noreferrer';
-    
-    const linkIcon = document.createElement('span');
-    linkIcon.className = 'material-icons';
-    linkIcon.textContent = 'open_in_new';
-    linkElement.appendChild(linkIcon);
-    
-    const linkText = document.createTextNode('View on Explorer');
-    linkElement.appendChild(linkText);
-    
-    detailsElement.appendChild(linkElement);
+    // Non mostrare il link al block explorer per le transazioni di tipo curation_reward
+    if (tx.type !== 'curation_reward') {
+      const linkElement = document.createElement('a');
+      linkElement.className = 'transaction-link';
+      linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
+      linkElement.target = (tx.data.author && tx.data.permlink) ? '_self' : '_blank';
+      linkElement.rel = 'noopener noreferrer';
+      
+      const linkIcon = document.createElement('span');
+      linkIcon.className = 'material-icons';
+      linkIcon.textContent = 'open_in_new';
+      linkElement.appendChild(linkIcon);
+      
+      const linkText = document.createTextNode('View on Explorer');
+      linkElement.appendChild(linkText);
+      
+      detailsElement.appendChild(linkElement);
+    }
     
     listItem.appendChild(detailsElement);
     
@@ -791,7 +794,93 @@ export default class TransactionHistoryBase extends Component {
     this.filters.dateRange.startDate = startDateValue || null;
     this.filters.dateRange.endDate = endDateValue || null;
     
-    this.renderTransactions();
+    // Se sono state specificate delle date, ricarichiamo i dati
+    if (startDateValue || endDateValue) {
+      this.reloadTransactionsWithDateFilter();
+    } else {
+      // Altrimenti applica il filtro normalmente
+      this.renderTransactions();
+    }
+  }
+  
+  async reloadTransactionsWithDateFilter() {
+    if (!this.username || this.isLoading || !this.transactionListElement) return;
+    
+    // Mostra indicatore di caricamento
+    this.isLoading = true;
+    this.showLoadingState();
+    
+    try {
+      const startDate = this.filters.dateRange.startDate ? new Date(this.filters.dateRange.startDate) : null;
+      const endDate = this.filters.dateRange.endDate ? new Date(this.filters.dateRange.endDate) : null;
+      
+      // Calcola l'intervallo di tempo in giorni
+      let daysRange = 30; // Default: 30 giorni se non specificate date
+      
+      if (startDate && endDate) {
+        const diffTime = Math.abs(endDate - startDate);
+        daysRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        daysRange = Math.max(daysRange, 7); // Minimo 7 giorni
+      }
+      
+      // Aumenta il limite in base alla dimensione dell'intervallo di date
+      const adjustedLimit = Math.max(50, Math.min(500, daysRange * 15));
+      
+      // Resetta lo stato
+      this.allTransactions = [];
+      this.page = 1;
+      this.hasMoreTransactions = true;
+      
+      // Carica le transazioni con un limite maggiore per coprire l'intervallo di tempo
+      const rawTransactions = await transactionHistoryService.getUserTransactionHistory(
+        this.username, 
+        adjustedLimit, 
+        -1
+      );
+      
+      if (rawTransactions && Array.isArray(rawTransactions) && rawTransactions.length > 0) {
+        let formattedTransactions = [];
+        for (const tx of rawTransactions) {
+          const formattedTx = await transactionHistoryService.formatTransaction(tx, this.username);
+          formattedTransactions.push(formattedTx);
+        }
+        
+        // Aggiorna le transazioni
+        this.allTransactions = formattedTransactions;
+        
+        // Estrai i tipi di transazione e aggiorna l'UI dei filtri
+        this.extractTransactionTypes();
+        this.updateFilterUI(true);
+        
+        // Renderizza le transazioni
+        this.renderTransactions();
+        
+        // Determina se ci sono altre transazioni da caricare
+        this.hasMoreTransactions = rawTransactions.length >= adjustedLimit;
+        
+        // Aggiorna lo scroll infinito
+        if (this.infiniteScroll) {
+          this.infiniteScroll.destroy();
+          this.infiniteScroll = null;
+        }
+        this.setupInfiniteScroll();
+        
+        // Notifica all'utente
+        if (window.eventEmitter) {
+          window.eventEmitter.emit('notification', {
+            type: 'success',
+            message: `Loaded ${rawTransactions.length} transactions for the selected date range`
+          });
+        }
+      } else {
+        this.showEmptyState();
+      }
+    } catch (error) {
+      console.error('Error loading transactions by date range:', error);
+      this.showErrorState(error.message || 'Failed to load transactions for the selected dates');
+    } finally {
+      this.isLoading = false;
+    }
   }
   
   resetDateRange() {
@@ -1080,7 +1169,7 @@ export default class TransactionHistoryBase extends Component {
       claim_reward_balance: 'card_giftcard',
       vote: 'thumb_up',
       comment: 'comment',
-      curation_reward: 'workspace_premium',
+      curation_reward: 'emoji_events', // Cambiato da workspace_premium a emoji_events (trofeo)
       author_reward: 'stars',
       delegate_vesting_shares: 'engineering',
       fill_order: 'shopping_cart',
