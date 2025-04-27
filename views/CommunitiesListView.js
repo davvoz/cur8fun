@@ -49,9 +49,6 @@ class CommunitiesListView {
     // Create categories filter
     this.renderCategories();
     
-    // Create featured communities section
-    this.renderFeaturedSection();
-    
     // Create content container
     const contentContainer = document.createElement('div');
     contentContainer.className = 'communities-content';
@@ -132,35 +129,6 @@ class CommunitiesListView {
     this.viewContainer.appendChild(categoriesContainer);
   }
 
-  /**
-   * Render featured section that will contain top communities
-   * More compact and better positioned
-   */
-  renderFeaturedSection() {
-    const featuredSection = document.createElement('div');
-    featuredSection.className = 'featured-communities compact';
-    featuredSection.id = 'featured-communities';
-    
-    // More subtle heading with better spacing
-    featuredSection.innerHTML = `
-      <div class="featured-header">
-        <h3 class="section-title">
-          <span class="material-icons">star</span>
-          Top Communities
-        </h3>
-      </div>
-      <div class="featured-communities-grid"></div>
-    `;
-    
-    // Insert after categories but before the main content
-    const categoriesContainer = this.viewContainer.querySelector('.community-categories');
-    if (categoriesContainer && categoriesContainer.nextSibling) {
-      this.viewContainer.insertBefore(featuredSection, categoriesContainer.nextSibling);
-    } else {
-      this.viewContainer.appendChild(featuredSection);
-    }
-  }
-
   async loadCommunities() {
     try {
       // Load communities with a single API call
@@ -180,9 +148,6 @@ class CommunitiesListView {
         }
       });
       
-      // Also update the featured section with top communities
-      this.updateFeaturedCommunities();
-      
       return this.communities;
     } catch (error) {
       console.error('Error loading communities:', error);
@@ -190,66 +155,6 @@ class CommunitiesListView {
     }
   }
   
-  /**
-   * Update or hide the featured communities section based on current filters
-   * Improved to handle layout better
-   */
-  updateFeaturedCommunities() {
-    const featuredSection = this.viewContainer.querySelector('#featured-communities');
-    if (!featuredSection) return;
-    
-    // Hide featured section if not on 'all' category or if searching
-    if (this.activeCategory !== 'all' || this.searchQuery) {
-      featuredSection.style.display = 'none';
-      return;
-    }
-    
-    // Show the section
-    featuredSection.style.display = 'block';
-    
-    // Get the grid container
-    const featuredGrid = featuredSection.querySelector('.featured-communities-grid');
-    if (!featuredGrid) return;
-    
-    // Clear existing content
-    featuredGrid.innerHTML = '';
-    
-    // Get top 3 communities by subscriber count (limit to 2 on smaller screens)
-    const maxFeatured = window.innerWidth < 768 ? 2 : 3;
-    
-    const topCommunities = [...this.communities]
-      .filter(community => {
-        // Better filtering for featured communities
-        const name = (community.name || '').toLowerCase();
-        const title = (community.title || '').toLowerCase();
-        const subscribers = community.subscribers || 0;
-        
-        const potentiallyNSFW = 
-          name.includes('nsfw') || 
-          title.includes('nsfw') ||
-          name.includes('adult') || 
-          title.includes('adult');
-          
-        // Must have meaningful subscriber count and not be NSFW
-        return !potentiallyNSFW && subscribers > 100;
-      })
-      .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0))
-      .slice(0, maxFeatured);
-    
-    // If no communities meet our criteria, hide the section
-    if (topCommunities.length === 0) {
-      featuredSection.style.display = 'none';
-      return;
-    }
-    
-    // Render each top community with a special featured card style
-    // Use a more compact style for featured cards
-    topCommunities.forEach(community => {
-      const communityCard = this.createCommunityCard(community, true);
-      featuredGrid.appendChild(communityCard);
-    });
-  }
-
   async loadUserSubscriptions() {
     if (!this.currentUser) return;
     
@@ -334,9 +239,6 @@ class CommunitiesListView {
     if (contentEl) {
       this.renderCommunities(contentEl);
     }
-    
-    // Also update featured section
-    this.updateFeaturedCommunities();
   }
   
   getCommunityTags(community) {
