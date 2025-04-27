@@ -1346,13 +1346,103 @@ async getUserBalances(username) {
  * @private
  * @param {Array} operations - Array of operations to broadcast
  * @param {string} requiredKey - Key type required ('posting' or 'active')
- * @param {Function} keychainMethod - Parametro mantenuto per compatibilità, non viene più utilizzato
+ * @param {Function} keychainMethod - Metodo Keychain alternativo per l'operazione
  * @returns {Promise<Object>} Result of the operation
  */
 async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = null) {
   if (!this.currentUser) throw new Error('Not logged in');
   try {
-    // Get the appropriate key based on the required key type
+    // 1. Verifica il metodo di login dell'utente
+    const user = authService.getCurrentUser();
+    const loginMethod = user?.loginMethod;
+    
+    // 1.1 Se l'utente è loggato con Keychain, usa sempre Keychain quando disponibile
+    if (loginMethod === 'keychain' && window.steem_keychain) {
+      console.log(`User logged in with Keychain, using it for ${operations[0][0]}`);
+      
+      try {
+        // 1.1.1 Se c'è un metodo keychain dedicato, usalo
+        if (keychainMethod) {
+          console.log(`Using dedicated Keychain method for ${operations[0][0]}`);
+          try {
+            const response = await keychainMethod();
+            return response;
+          } catch (error) {
+            // Se l'utente annulla l'operazione (errore di Keychain), non continuare con altri metodi
+            console.warn('Keychain operation was canceled or failed:', error);
+            
+            // Verifica se l'errore è dovuto all'annullamento da parte dell'utente
+            const cancelMessages = [
+              'Request canceled',
+              'User canceled',
+              'The user canceled the request',
+              'Request was rejected',
+              'canceled by user',
+              'annullato dall\'utente',
+              'cancelled by user'
+            ];
+            
+            const wasUserCancelled = cancelMessages.some(msg => 
+              error.message && error.message.toLowerCase().includes(msg.toLowerCase())
+            );
+            
+            if (wasUserCancelled) {
+              throw new Error('Operation cancelled by user');
+            }
+            
+            // IMPORTANTE: Non continuare a tentare altri metodi Keychain dopo che un metodo specifico ha fallito
+            // Il metodo specifico è più preciso e consente all'utente di verificare meglio i dettagli
+            throw new Error(`The operation could not be completed: ${error.message || 'Unknown error'}`);
+          }
+        }
+        
+        // 1.1.2 Se non c'è un metodo Keychain dedicato, utilizza il broadcast generico
+        console.log(`Using generic Keychain broadcast for ${operations[0][0]}`);
+        try {
+          return await new Promise((resolve, reject) => {
+            window.steem_keychain.requestBroadcast(
+              this.currentUser,
+              operations,
+              requiredKey,
+              function(response) {
+                if (response.success) {
+                  resolve({
+                    success: true,
+                    result: response,
+                    operation: operations[0][0]
+                  });
+                } else {
+                  reject(new Error(response.message || 'Keychain broadcast failed'));
+                }
+              }
+            );
+          });
+        } catch (error) {
+          // Se l'utente annulla il broadcast generico, termina l'operazione
+          console.warn('Generic Keychain broadcast failed:', error);
+          
+          // Verifica se l'errore è dovuto all'annullamento da parte dell'utente
+          if (error.message && (
+              error.message.toLowerCase().includes('canceled') ||
+              error.message.toLowerCase().includes('cancelled') ||
+              error.message.toLowerCase().includes('rejected') ||
+              error.message.toLowerCase().includes('annullato')
+          )) {
+            throw new Error('Operation cancelled by user');
+          }
+          
+          // IMPORTANTE: Per gli utenti Keychain, NON continuiamo con altri metodi se Keychain fallisce
+          throw new Error('Keychain operation failed. Please try again.');
+        }
+      } catch (error) {
+        // Per utenti Keychain, qualsiasi errore qui termina l'operazione
+        console.error('Keychain operation error:', error);
+        throw error; // Non continuare con altri metodi
+      }
+    }
+    
+    // 2. Per gli utenti NON loggati con Keychain, usa le chiavi private
+    // Continua con il comportamento normale per gli utenti con login a chiave privata
     let privateKey = null;
     if (requiredKey === 'active') {
       privateKey = authService.getActiveKey();
@@ -1360,19 +1450,16 @@ async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = n
       privateKey = authService.getPostingKey();
     }
     
-    // Check if we have the required private key available
+    // 2.1 Se abbiamo la chiave privata appropriata, usala
     if (privateKey) {
       console.log(`Using direct broadcast with ${requiredKey} key`);
       
-      // Load steem library
       const steem = await steemService.ensureLibraryLoaded();
       
       return new Promise((resolve, reject) => {
-        // Prepare key object for broadcast
         const keys = {};
         keys[requiredKey] = privateKey;
         
-        // Broadcast with private key
         steem.broadcast.send(
           { operations, extensions: [] },
           keys,
@@ -1390,47 +1477,46 @@ async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = n
           }
         );
       });
-    } else {
-      // No private key available, richiediamo sempre la chiave all'utente
-      console.log(`No ${requiredKey} key available, requesting key from user`);
-      
-      // Richiedi la chiave all'utente usando il componente ActiveKeyInputComponent
-      const operationName = operations[0][0] || 'transazione';
-      const activeKey = await activeKeyInput.promptForActiveKey(`Inserisci la tua ${requiredKey === 'posting' ? 'Posting' : 'Active'} Key per autorizzare questa operazione: ${operationName}`);
-      
-      // Se l'utente annulla l'inserimento, interrompi l'operazione
-      if (!activeKey) {
-        throw new Error('Operazione annullata dall\'utente');
-      }
-      
-      // Usa la chiave fornita dall'utente per il broadcast
-      console.log(`Broadcasting operation with user-provided ${requiredKey} key`);
-      const steem = await steemService.ensureLibraryLoaded();
-      
-      return new Promise((resolve, reject) => {
-        // Prepare key object for broadcast
-        const keys = {};
-        keys[requiredKey] = activeKey;
-        
-        // Broadcast with provided key
-        steem.broadcast.send(
-          { operations, extensions: [] },
-          keys,
-          (err, result) => {
-            if (err) {
-              console.error('Broadcast error:', err);
-              reject(new Error(err.message || 'Operazione fallita'));
-            } else {
-              resolve({
-                success: true,
-                result: result,
-                operation: operations[0][0]
-              });
-            }
-          }
-        );
-      });
     }
+    
+    // 3. Se non abbiamo la chiave privata, richiedi la chiave all'utente 
+    // (solo per utenti NON Keychain)
+    console.log(`No ${requiredKey} key available, requesting key from user`);
+    
+    // Richiedi la chiave all'utente usando il componente ActiveKeyInputComponent
+    const operationName = operations[0][0] || 'transazione';
+    const activeKey = await activeKeyInput.promptForActiveKey(`Inserisci la tua ${requiredKey === 'posting' ? 'Posting' : 'Active'} Key per autorizzare questa operazione: ${operationName}`);
+    
+    // Se l'utente annulla l'inserimento, interrompi l'operazione
+    if (!activeKey) {
+      throw new Error('Operazione annullata dall\'utente');
+    }
+    
+    // Usa la chiave fornita dall'utente per il broadcast
+    console.log(`Broadcasting operation with user-provided ${requiredKey} key`);
+    const steem = await steemService.ensureLibraryLoaded();
+    
+    return new Promise((resolve, reject) => {
+      const keys = {};
+      keys[requiredKey] = activeKey;
+      
+      steem.broadcast.send(
+        { operations, extensions: [] },
+        keys,
+        (err, result) => {
+          if (err) {
+            console.error('Broadcast error:', err);
+            reject(new Error(err.message || 'Operazione fallita'));
+          } else {
+            resolve({
+              success: true,
+              result: result,
+              operation: operations[0][0]
+            });
+          }
+        }
+      );
+    });
   } catch (error) {
     console.error('Error broadcasting operation:', error);
     throw error;
