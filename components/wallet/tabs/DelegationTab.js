@@ -156,12 +156,6 @@ export default class DelegationTab extends Component {
       return;
     }
     
-    // Check if Keychain is installed
-    if (typeof window.steem_keychain === 'undefined') {
-      this.showMessage('Steem Keychain extension is not installed. Please install it to use this feature.', false);
-      return;
-    }
-    
     // Get current user from auth service
     if (!this.currentUser) {
       this.showMessage('You need to be logged in to delegate', false);
@@ -174,32 +168,27 @@ export default class DelegationTab extends Component {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Processing...';
       
-      // Request delegation through Steem Keychain with properly formatted amount
-      window.steem_keychain.requestDelegation(
-        this.currentUser,  // From (current user)
-        delegatee,         // To (delegatee)
-        amount,            // Amount (now formatted with 3 decimals)
-        'SP',              // Unit (SP)
-        (response) => {    // Callback
-          if (response.success) {
-            this.showMessage('Delegation completed successfully!', true);
-            this.element.querySelector('#delegate-form').reset();
-            
-            // Update balances and delegations
-            walletService.updateBalances();
-            this.loadDelegations();
-            
-            // Emit event so other components can update
-            eventEmitter.emit('wallet:delegation-updated');
-          } else {
-            this.showMessage(`Delegation failed: ${response.message || 'Unknown error'}`, false);
-          }
-          
-          // Re-enable button
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Delegate';
-        }
-      );
+      // Use the centralized delegateSteemPower service method
+      const response = await walletService.delegateSteemPower(delegatee, amount);
+      
+      if (response.success) {
+        this.showMessage('Delegation completed successfully!', true);
+        this.element.querySelector('#delegate-form').reset();
+        
+        // Update balances and delegations
+        walletService.updateBalances();
+        this.loadDelegations();
+        
+        // Emit event so other components can update
+        eventEmitter.emit('wallet:delegation-updated');
+      } else {
+        this.showMessage(`Delegation failed: ${response.message || 'Unknown error'}`, false);
+      }
+      
+      // Re-enable button
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Delegate';
+      
     } catch (error) {
       console.error('Delegation error:', error);
       this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
@@ -346,29 +335,24 @@ export default class DelegationTab extends Component {
   async removeDelegation(delegatee) {
     if (confirm(`Are you sure you want to remove delegation to @${delegatee}?`)) {
       try {
-        // To remove a delegation, delegate 0 SP - with 3 decimal places
+        // To remove a delegation, delegate 0 SP
         const zeroAmount = "0.000"; // Properly formatted zero amount
         
-        window.steem_keychain.requestDelegation(
-          this.currentUser,
-          delegatee,
-          zeroAmount, // Using the properly formatted zero amount
-          'SP',
-          (response) => {
-            if (response.success) {
-              this.showMessage(`Delegation to @${delegatee} successfully removed`, true);
-              
-              // Update balances and delegations
-              walletService.updateBalances();
-              this.loadDelegations();
-              
-              // Emit event
-              eventEmitter.emit('wallet:delegation-updated');
-            } else {
-              this.showMessage(`Failed to remove delegation: ${response.message}`, false);
-            }
-          }
-        );
+        // Use the centralized delegateSteemPower service method with zero amount
+        const response = await walletService.delegateSteemPower(delegatee, zeroAmount);
+        
+        if (response.success) {
+          this.showMessage(`Delegation to @${delegatee} successfully removed`, true);
+          
+          // Update balances and delegations
+          walletService.updateBalances();
+          this.loadDelegations();
+          
+          // Emit event
+          eventEmitter.emit('wallet:delegation-updated');
+        } else {
+          this.showMessage(`Failed to remove delegation: ${response.message || 'Unknown error'}`, false);
+        }
       } catch (error) {
         console.error('Remove delegation error:', error);
         this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
