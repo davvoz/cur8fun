@@ -124,7 +124,7 @@ class LoginView {
         
         // Aggiungi icona al bottone Keychain
         const keychainIcon = document.createElement('img');
-        keychainIcon.src = 'https://steemkeychain.com/keychain_logo.png'; // URL del logo Keychain
+        keychainIcon.src = 'https://play-lh.googleusercontent.com/Yep_Oowoys6_hGqzWZZzY5nYNAB4pHdfQYK5Bp9bzQPbSg-dWAB2gPNQnyjnIXwNR7o=w240-h480-rw'; // URL del logo Keychain
         keychainIcon.alt = 'Keychain';
         keychainIcon.style.width = '20px';
         keychainIcon.style.height = '20px';
