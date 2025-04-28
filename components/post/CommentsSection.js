@@ -546,7 +546,7 @@ class CommentsSection {
   
   formatCommentDate(created) {
     const postDate = new Date(created);
-    const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / 1000 / 60);
+    const timeElapsed = Math.floor((Date.now() - new Date(created + "Z").getTime()) / (1000 * 60));
     
     if (timeElapsed < 60) {
       return `${timeElapsed} min ago`;
@@ -561,7 +561,7 @@ class CommentsSection {
       return `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
     }
     
-    return postDate.toLocaleDateString(undefined, {
+    postDate.textContent = new Date(created + "Z").toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
