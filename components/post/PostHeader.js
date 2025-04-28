@@ -114,7 +114,32 @@ class PostHeader {
 
     const postDate = document.createElement('span');
     postDate.className = 'post-date';
-    postDate.textContent = new Date(this.post.created).toLocaleString();
+    
+    //post date handling with time zone consideration
+    const timeElapsed = Math.floor((Date.now() - new Date(this.post.created + "Z").getTime()) / (1000 * 60));
+
+    if (timeElapsed < 60) {
+      postDate.textContent = timeElapsed <= 1 ? 'Just now' : `${timeElapsed} min ago`;
+    } else if (timeElapsed < 24 * 60) {
+      // Convert minutes to hours
+      const hours = Math.floor(timeElapsed / 60);
+      postDate.textContent = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    } else if (timeElapsed < 30 * 24 * 60) {
+      // Convert minutes to days
+      const days = Math.floor(timeElapsed / (24 * 60));
+      postDate.textContent = days === 1 ? '1 day ago' : `${days} days ago`;
+    } else if (timeElapsed < 365 * 24 * 60) {
+      // Convert minutes to months
+      const months = Math.floor(timeElapsed / (30 * 24 * 60));
+      postDate.textContent = months === 1 ? '1 month ago' : `${months} months ago`;
+    } else {
+      // Use locale date for anything older than a year
+      postDate.textContent = new Date(this.post.created + "Z").toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
 
     dataro.appendChild(postDate);
 
