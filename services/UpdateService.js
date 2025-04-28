@@ -193,8 +193,12 @@ class UpdateService {
     if (this.registration && this.registration.waiting) {
       // Invia un messaggio al service worker in attesa per attivarlo
       this.registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      // Reset the update flag
+      this.updateAvailable = false;
     } else {
       // Se non c'è un service worker in attesa, ricarica comunque per ottenere l'ultima versione
+      // Reset the update flag before reloading
+      this.updateAvailable = false;
       window.location.reload(true);
     }
   }
