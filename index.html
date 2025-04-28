@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2196f3">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/assets/img/pwa/icon-192x192.png">
     <title>cur8.fun</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -175,7 +176,36 @@
 
     <script type="module" src="index.js"></script>
 
-
+    <!-- PWA Service Worker Registration -->
+    <script>
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            // Only register service worker on secure origins (HTTPS or localhost) or allow HTTP for development
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                                window.location.hostname === '127.0.0.1' ||
+                                window.location.hostname.startsWith('192.168.') ||  // Local network
+                                window.location.hostname.startsWith('10.') ||       // Local network
+                                window.location.hostname.endsWith('.local');        // Local network
+            
+            const isSecureContext = window.location.protocol === 'https:' || isLocalhost;
+            
+            if (isSecureContext) {
+                window.addEventListener('load', () => {
+                    // Use relative path to avoid protocol issues
+                    const swUrl = '/sw.js';
+                    navigator.serviceWorker.register(swUrl)
+                        .then(registration => {
+                            console.log('Service Worker registered with scope:', registration.scope);
+                        })
+                        .catch(error => {
+                            console.error('Service Worker registration failed:', error);
+                        });
+                });
+            } else {
+                console.log('Service Worker not registered: Not a secure context. Use HTTPS or localhost for PWA features.');
+            }
+        }
+    </script>
 </body>
 
 </html>
