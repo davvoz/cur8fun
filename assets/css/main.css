@@ -38,6 +38,7 @@
 @import 'pages/community.css';
 @import 'pages/home.css';
 @import 'pages/tag.css';
+@import 'pages/settings.css'; /* Added import for settings page */
 @import 'pages/wallet/wallet.css'; 
 @import 'pages/wallet/curation.css'; /* Aggiunto import per gli stili della tab curazione */
 @import 'pages/communities-list.css';

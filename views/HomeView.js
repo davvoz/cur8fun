@@ -1,11 +1,38 @@
 import steemService from '../services/SteemService.js';
 import BasePostView from './BasePostView.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
+import userPreferencesService from '../services/UserPreferencesService.js';
+import eventEmitter from '../utils/EventEmitter.js';
 
 class HomeView extends BasePostView {
   constructor(params) {
     super(params);
-    this.tag = this.params.tag || 'trending';
+    // Check for view mode preference
+    const homeViewMode = userPreferencesService.getHomeViewMode();
+    // If we're in custom mode but have no preferred tags, fallback to trending
+    if (homeViewMode === 'custom' && userPreferencesService.getPreferredTags().length === 0) {
+      this.tag = 'trending';
+    } else if (homeViewMode === 'custom') {
+      this.tag = 'custom';
+    } else {
+      // Otherwise use the specified tag parameter or home view mode
+      this.tag = this.params.tag || homeViewMode;
+    }
+    
+    // Listen for preferences changes
+    this.setupPreferencesListener();
+  }
+  
+  setupPreferencesListener() {
+    // Listen for tag preference changes
+    eventEmitter.on('user:preferences:updated', () => {
+      if (this.tag === 'custom') {
+        // Reload posts with new preferences
+        this.posts = [];
+        this.renderedPostIds.clear();
+        this.loadPosts(1);
+      }
+    });
   }
 
   async loadPosts(page = 1) {
@@ -59,6 +86,19 @@ class HomeView extends BasePostView {
   }
 
   async fetchPostsByTag(page = 1) {
+    // If custom tag is selected, fetch by preferred tags
+    if (this.tag === 'custom') {
+      const preferredTags = userPreferencesService.getPreferredTags();
+      
+      if (preferredTags.length === 0) {
+        // Fallback to trending if no preferred tags
+        return steemService.getTrendingPosts(page);
+      }
+      
+      // Get posts for each preferred tag
+      return steemService.getPostsByPreferredTags(preferredTags, page);
+    }
+    
     // Use getPostsByTag for any custom tag not in the special list
     if (!['trending', 'hot', 'created', 'promoted'].includes(this.tag)) {
       return steemService.getPostsByTag(this.tag, page);
@@ -80,10 +120,27 @@ class HomeView extends BasePostView {
   }
 
   render(container) {
+    // Get view title based on tag
+    let viewTitle = `${this.formatTagName(this.tag)} Posts`;
+    
+    // Special handling for custom tag mode
+    if (this.tag === 'custom') {
+      const preferredTags = userPreferencesService.getPreferredTags();
+      if (preferredTags.length > 0) {
+        // Format tags for display with proper capitalization and commas
+        const formattedTags = preferredTags
+          .map(tag => this.formatTagName(tag))
+          .join(', ');
+        viewTitle = `Your Tags: ${formattedTags}`;
+      } else {
+        viewTitle = 'Trending Posts';
+      }
+    }
+    
     const { postsContainer } = this.renderBaseView(
       container,
-      `${this.formatTagName(this.tag)} Posts`,
-      { showSearchForm: false } // Add this parameter to indicate we don't want the search form
+      viewTitle,
+      { showSearchForm: false }
     );
     
     // Destroy existing infinite scroll if it exists
@@ -95,12 +152,23 @@ class HomeView extends BasePostView {
     this.loadPosts(1).then((hasMore) => {
       // Initialize infinite scroll after first page loads
       if (postsContainer) {
+        // Customize end message based on tag type
+        let endMessage = `No more ${this.formatTagName(this.tag)} posts to load`;
+        if (this.tag === 'custom') {
+          const preferredTags = userPreferencesService.getPreferredTags();
+          if (preferredTags.length > 0) {
+            endMessage = `No more posts with tags: ${preferredTags.join(', ')}`;
+          } else {
+            endMessage = 'No more posts to load';
+          }
+        }
+        
         this.infiniteScroll = new InfiniteScroll({
           container: postsContainer,
           loadMore: (page) => this.loadPosts(page),
           threshold: '200px',
           loadingMessage: 'Loading more posts...',
-          endMessage: `No more ${this.formatTagName(this.tag)} posts to load`,
+          endMessage,
           errorMessage: 'Failed to load posts. Please check your connection.'
         });
       }
@@ -113,6 +181,9 @@ class HomeView extends BasePostView {
         this.infiniteScroll.destroy();
         this.infiniteScroll = null;
     }
+    
+    // Remove event listeners
+    eventEmitter.off('user:preferences:updated');
   }
 
   /**

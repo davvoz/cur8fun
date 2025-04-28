@@ -1,0 +1,220 @@
+/* Settings page styles */
+
+
+.settings-view h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--heading-color);
+}
+
+.settings-section {
+  background-color: var(--background-light);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--subtle-shadow);
+}
+
+.settings-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--heading-color);
+}
+
+.settings-section h3 {
+  font-size: 1.2rem;
+  margin: 1.5rem 0 1rem;
+  color: var(--text-color);
+}
+
+.settings-section p {
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Home feed options styles */
+.feed-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background-color: var(--background);
+  transition: background-color 0.2s;
+}
+
+.radio-option:hover {
+  background-color: var(--background-hover);
+}
+
+.radio-option input[type="radio"] {
+  margin-top: 0.25rem;
+  margin-right: 0.75rem;
+}
+
+.radio-option label {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.option-label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.option-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Tag search styles */
+.tag-search-container {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.tag-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.tag-search-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.tag-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background-color: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: var(--dropdown-shadow);
+}
+
+.tag-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tag-result-item:hover {
+  background-color: var(--background-hover);
+}
+
+.tag-result-item.already-added {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tag-name {
+  font-weight: 500;
+}
+
+.tag-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background-color: var(--background-light);
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+}
+
+.loading-indicator, .no-results, .error-message {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.error-message {
+  color: var(--error-color);
+}
+
+/* Preferred tags list styles */
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.tag-pill {
+  display: flex;
+  align-items: center;
+  background-color: var(--background);
+  color: var(--text-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+}
+
+.tag-text {
+  margin-right: 0.5rem;
+}
+
+.tag-remove {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 0.75;
+  padding-top: 2px;
+  transition: color 0.2s;
+}
+
+.tag-remove:hover {
+  color: var(--error-color);
+}
+
+.empty-tags-message {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 1rem 0;
+}
+
+/* Save button */
+.save-settings-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  margin-top: 1rem;
+}
+
+/* Success message */
+.settings-success-message {
+  background-color: var(--success-background);
+  color: var(--success-color);
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.settings-success-message.show {
+  opacity: 1;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .settings-section {
+    padding: 1.25rem;
+  }
+}

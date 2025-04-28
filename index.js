@@ -19,6 +19,7 @@ import PostView from './views/PostView.js';
 import TagView from './views/TagView.js';
 import SearchView from './views/SearchView.js';
 import CreatePostView from './views/CreatePostView.js';
+import SettingsView from './views/SettingsView.js';
 import MenuView from './views/MenuView.js';
 import FAQView from './views/FAQView.js';
 
@@ -50,6 +51,7 @@ router
   .addRoute('/hot', HomeView, { tag: 'hot' })
   .addRoute('/new', HomeView, { tag: 'created' })
   .addRoute('/promoted', HomeView, { tag: 'promoted' })
+  .addRoute('/settings', SettingsView)
   .addRoute('/wallet', WalletView, { requiresAuth: true })
   .addRoute('/search', SearchView)
   .addRoute('/tag/:tag', TagView)
@@ -341,6 +343,19 @@ function createUserMenu(user) {
   
   profileLink.appendChild(document.createTextNode('Profile'));
   dropdown.appendChild(profileLink);
+  
+  // Settings link
+  const settingsLink = document.createElement('a');
+  settingsLink.href = '/settings';
+  
+  // Settings icon
+  const settingsIcon = document.createElement('span');
+  settingsIcon.className = 'material-icons dropdown-icon';
+  settingsIcon.textContent = 'settings';
+  settingsLink.appendChild(settingsIcon);
+  
+  settingsLink.appendChild(document.createTextNode('Settings'));
+  dropdown.appendChild(settingsLink);
   
   // Add Account button
   const addAccountBtn = document.createElement('a');

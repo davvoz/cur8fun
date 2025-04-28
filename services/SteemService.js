@@ -196,6 +196,61 @@ class SteemService {
             return {};
         }
     }
+
+    /**
+   * Get posts from multiple preferred tags, merging and sorting them
+   * @param {Array} tags Array of tag strings to fetch posts for
+   * @param {number} page Page number (1-based)
+   * @param {number} limit Posts per page
+   * @returns {Promise<Object>} Object with posts array and hasMore flag
+   */
+  async getPostsByPreferredTags(tags, page = 1, limit = 20) {
+    if (!Array.isArray(tags) || tags.length === 0) {
+      return this.getTrendingPosts(page, limit);
+    }
+
+    try {
+      // Create a promise for each tag using the established postService methods
+      const tagPromises = tags.map(tag => 
+        this.postService.getPostsByTag(tag, 1, limit * 2)
+      );
+
+      // Wait for all requests to complete
+      const results = await Promise.all(tagPromises);
+      
+      // Flatten and merge the arrays
+      let allPosts = [];
+      results.forEach(result => {
+        if (result && Array.isArray(result.posts)) {
+          allPosts = [...allPosts, ...result.posts];
+        }
+      });
+
+      // Remove duplicates (posts can appear in multiple tags)
+      const uniquePosts = allPosts.filter((post, index, self) => 
+        index === self.findIndex(p => p.author === post.author && p.permlink === post.permlink)
+      );
+
+      // Sort by date (newest first)
+      uniquePosts.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+      // Paginate the results
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedPosts = uniquePosts.slice(startIndex, endIndex);
+      
+      // Check if there are more posts
+      const hasMore = uniquePosts.length > endIndex;
+
+      return {
+        posts: paginatedPosts,
+        hasMore
+      };
+    } catch (error) {
+      console.error('Error fetching posts by preferred tags:', error);
+      return { posts: [], hasMore: false };
+    }
+  }
 }
 
 // Initialize singleton instance
