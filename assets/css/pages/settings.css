@@ -206,6 +206,17 @@
   margin-top: 1.5rem;
   opacity: 0;
   transition: opacity 0.3s;
+  position : absolute;
+    bottom: 0;
+
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: var(--popup-box-shadow);
+    border: 1px solid var(--success-border);
 }
 
 .settings-success-message.show {

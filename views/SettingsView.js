@@ -2,6 +2,7 @@ import View from './View.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import { SearchService } from '../services/SearchService.js';
+import { getAppVersion, getBuildTimestamp } from '../config/app-version.js';
 
 /**
  * View for user settings and preferences
@@ -36,6 +37,10 @@ class SettingsView extends View {
     // Create preferred tags section
     const tagsSection = this.createPreferredTagsSection();
     content.appendChild(tagsSection);
+
+    // Create app information section
+    const appInfoSection = this.createAppInfoSection();
+    content.appendChild(appInfoSection);
 
     // Add save button
     const saveButton = document.createElement('button');
@@ -342,6 +347,58 @@ class SettingsView extends View {
       searchResults.style.display = 'none';
     }
   }
+
+createAppInfoSection() {
+    const section = document.createElement('section');
+    section.className = 'settings-section app-info-section';
+
+    const sectionTitle = document.createElement('h2');
+    sectionTitle.textContent = 'App Information';
+    section.appendChild(sectionTitle);
+
+    // App version
+    const versionContainer = document.createElement('div');
+    versionContainer.className = 'app-info-item';
+
+    const versionLabel = document.createElement('span');
+    versionLabel.className = 'app-info-label';
+    versionLabel.textContent = 'Version:';
+    versionContainer.appendChild(versionLabel);
+
+    const versionValue = document.createElement('span');
+    versionValue.className = 'app-info-value';
+    versionValue.textContent = getAppVersion();
+    versionContainer.appendChild(versionValue);
+
+    section.appendChild(versionContainer);
+
+    // Last update date
+    const buildDateContainer = document.createElement('div');
+    buildDateContainer.className = 'app-info-item';
+
+    const buildDateLabel = document.createElement('span');
+    buildDateLabel.className = 'app-info-label';
+    buildDateLabel.textContent = 'Last update:';
+    buildDateContainer.appendChild(buildDateLabel);
+
+    const buildTimestamp = getBuildTimestamp();
+    const buildDate = new Date(buildTimestamp);
+    
+    const buildDateValue = document.createElement('span');
+    buildDateValue.className = 'app-info-value';
+    buildDateValue.textContent = buildDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    buildDateContainer.appendChild(buildDateValue);
+
+    section.appendChild(buildDateContainer);
+
+    return section;
+}
 }
 
 export default SettingsView;
