@@ -566,6 +566,9 @@ class CommentsSection {
       month: 'short',
       day: 'numeric'
     });
+
+    return postDate.textContent;
+
   }
   
   createCommentBody(comment) {
