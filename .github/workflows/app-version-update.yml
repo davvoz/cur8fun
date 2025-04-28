@@ -1,0 +1,113 @@
+name: Update App Version
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '**/*.js'
+      - '**/*.css'
+      - '**/*.html'
+      - '!.github/**'
+      - '!**/README.md'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Necessario per ottenere la history dei commit
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Check if version update is needed
+        id: check-changes
+        run: |
+          git diff --name-only HEAD~1 HEAD > changed_files.txt
+          # Controlla se ci sono modifiche significative nei file
+          NEEDS_VERSION_UPDATE=$(cat changed_files.txt | grep -v ".github/" | grep -v "README.md" | grep -E "\.js$|\.css$|\.html$" | wc -l)
+          echo "NEEDS_UPDATE=$NEEDS_VERSION_UPDATE" >> $GITHUB_ENV
+          if [ "$NEEDS_VERSION_UPDATE" -gt 0 ]; then
+            echo "Detected changes in code files. Version update needed."
+          else
+            echo "No significant changes detected. Skipping version update."
+          fi
+      
+      - name: Get current version
+        if: env.NEEDS_UPDATE > 0
+        id: get-version
+        run: |
+          # Estrai la versione attuale dal file app-version.js
+          CURRENT_VERSION=$(grep -o 'version: ['\''"][0-9]\+\.[0-9]\+\.[0-9]\+['\''"]' config/app-version.js | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into components
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "New version will be: $NEW_VERSION"
+      
+      - name: Update app-version.js
+        if: env.NEEDS_UPDATE > 0
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          sed -i "s/version: ['\"][0-9]\+\.[0-9]\+\.[0-9]\+['\"]/version: '${NEW_VERSION}'/g" config/app-version.js
+          sed -i "s/buildTimestamp: .*,/buildTimestamp: '${TIMESTAMP}',/g" config/app-version.js
+          echo "Updated app-version.js with version ${NEW_VERSION} and timestamp ${TIMESTAMP}"
+      
+      - name: Update service worker
+        if: env.NEEDS_UPDATE > 0
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Incrementa la versione della cache
+          CACHE_VERSION=$(grep -o "CACHE_NAME = ['\"].*['\"]" sw.js | sed -E "s/CACHE_NAME = ['\"](.*)['\"]$/\1/")
+          if [[ $CACHE_VERSION =~ v([0-9]+)\.([0-9]+) ]]; then
+            CACHE_MAJOR=${BASH_REMATCH[1]}
+            CACHE_MINOR=${BASH_REMATCH[2]}
+            NEW_CACHE_MINOR=$((CACHE_MINOR + 1))
+            NEW_CACHE_VERSION="v$CACHE_MAJOR.$NEW_CACHE_MINOR"
+            sed -i "s/CACHE_NAME = ['\"].*['\"]/CACHE_NAME = 'cur8-pwa-${NEW_CACHE_VERSION}'/g" sw.js
+          fi
+          
+          # Aggiorna la versione dell'app nel service worker
+          sed -i "s/APP_VERSION = ['\"][0-9]\+\.[0-9]\+\.[0-9]\+['\"]/APP_VERSION = '${NEW_VERSION}'/g" sw.js
+          
+          # Aggiorna il timestamp di build
+          sed -i "s/BUILD_TIMESTAMP = .*$/BUILD_TIMESTAMP = '${TIMESTAMP}';/g" sw.js
+          
+          echo "Updated service worker with version ${NEW_VERSION} and cache version ${NEW_CACHE_VERSION}"
+      
+      - name: Commit changes
+        if: env.NEEDS_UPDATE > 0
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add config/app-version.js sw.js
+          git commit -m "Auto-update app version to ${NEW_VERSION} [skip ci]"
+          
+          # Push changes
+          git push origin ${GITHUB_REF#refs/heads/}
+          
+          echo "Changes committed and pushed with new version ${NEW_VERSION}"
+          
+      - name: Create version tag
+        if: env.NEEDS_UPDATE > 0
+        run: |
+          git tag -a "v${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
+          echo "Created and pushed tag v${NEW_VERSION}"

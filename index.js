@@ -8,6 +8,10 @@ import themeManager from './utils/ThemeManager.js';
 import authService from './services/AuthService.js';
 import notificationsService from './services/NotificationsService.js';
 import communityService from './services/CommunityService.js';
+import updateService from './services/UpdateService.js';
+
+// Components
+import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
@@ -32,6 +36,9 @@ import WalletView from './views/WalletView.js';
 // Utility views
 import NotFoundView from './views/NotFoundView.js';
 import NotificationsView from './views/NotificationsView.js';
+
+// Versione corrente dell'applicazione
+const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
@@ -78,6 +85,33 @@ function initApp() {
   
   // Inizializzazione del router
   router.init();
+  
+  // Inizializza il service worker e il sistema di aggiornamenti
+  initPwaFeatures();
+}
+
+// Funzione per inizializzare le funzionalità PWA
+function initPwaFeatures() {
+  // Inizializza UpdateService che gestirà la registrazione del service worker
+  updateService.init()
+    .then(() => {
+      // Inizializza il componente di notifica aggiornamenti
+      initUpdateNotification();
+    })
+    .catch(error => {
+      console.error('Errore durante l\'inizializzazione delle funzionalità PWA:', error);
+    });
+}
+
+// Inizializza il componente di notifica degli aggiornamenti
+function initUpdateNotification() {
+  // Creiamo un elemento container per il componente
+  const updateNotificationContainer = document.createElement('div');
+  updateNotificationContainer.id = 'update-notification-container';
+  document.body.appendChild(updateNotificationContainer);
+  
+  // Inizializza il componente
+  new UpdateNotificationComponent(updateNotificationContainer);
 }
 
 function initNavigation() {

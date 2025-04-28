@@ -1,5 +1,8 @@
 // Service Worker for cur8.fun Social Network PWA
-const CACHE_NAME = 'cur8-pwa-v1';
+const CACHE_NAME = 'cur8-pwa-v1.1';
+const APP_VERSION = '1.1.0'; // Questa verrà sostituita automaticamente dal workflow
+const BUILD_TIMESTAMP = new Date().toISOString(); // Anche questo verrà sostituito dal workflow
+
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -35,8 +38,50 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      // Dopo aver pulito le vecchie cache, invia un messaggio a tutti i client
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'UPDATE_AVAILABLE',
+            version: APP_VERSION,
+            timestamp: BUILD_TIMESTAMP
+          });
+        });
+      });
+      return self.clients.claim();
+    })
   );
+});
+
+// Message event - Handle messages from clients
+self.addEventListener('message', event => {
+  if (!event.data || typeof event.data !== 'object') return;
+
+  switch (event.data.type) {
+    case 'CHECK_VERSION':
+      // Quando un client richiede di controllare la versione
+      event.source.postMessage({
+        type: 'VERSION_INFO',
+        version: APP_VERSION,
+        timestamp: BUILD_TIMESTAMP
+      });
+      break;
+    
+    case 'GET_VERSION_INFO':
+      // Invia informazioni sulla versione
+      event.source.postMessage({
+        type: 'VERSION_INFO',
+        version: APP_VERSION,
+        timestamp: BUILD_TIMESTAMP
+      });
+      break;
+    
+    case 'SKIP_WAITING':
+      // Attiva immediatamente il nuovo service worker
+      self.skipWaiting();
+      break;
+  }
 });
 
 // Fetch event - Serve from cache first, then network
