@@ -7,16 +7,22 @@ import eventEmitter from '../utils/EventEmitter.js';
 class HomeView extends BasePostView {
   constructor(params) {
     super(params);
-    // Check for view mode preference
-    const homeViewMode = userPreferencesService.getHomeViewMode();
-    // If we're in custom mode but have no preferred tags, fallback to trending
-    if (homeViewMode === 'custom' && userPreferencesService.getPreferredTags().length === 0) {
-      this.tag = 'trending';
-    } else if (homeViewMode === 'custom') {
-      this.tag = 'custom';
+    
+    // Se forceTag è true, usa sempre il tag specificato nei parametri
+    if (params.forceTag && params.tag) {
+      this.tag = params.tag;
     } else {
-      // Otherwise use the specified tag parameter or home view mode
-      this.tag = this.params.tag || homeViewMode;
+      // Altrimenti, considera le preferenze dell'utente
+      const homeViewMode = userPreferencesService.getHomeViewMode();
+      // If we're in custom mode but have no preferred tags, fallback to trending
+      if (homeViewMode === 'custom' && userPreferencesService.getPreferredTags().length === 0) {
+        this.tag = 'trending';
+      } else if (homeViewMode === 'custom') {
+        this.tag = 'custom';
+      } else {
+        // Otherwise use the specified tag parameter or home view mode
+        this.tag = this.params.tag || homeViewMode;
+      }
     }
     
     // Listen for preferences changes

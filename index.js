@@ -22,6 +22,7 @@ import CreatePostView from './views/CreatePostView.js';
 import SettingsView from './views/SettingsView.js';
 import MenuView from './views/MenuView.js';
 import FAQView from './views/FAQView.js';
+import NewReleasesView from './views/NewReleasesView.js'; // Importo la nuova vista
 
 // Community views
 import CommunityView from './views/CommunityView.js';
@@ -49,7 +50,7 @@ router
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/trending', HomeView, { tag: 'trending' })
   .addRoute('/hot', HomeView, { tag: 'hot' })
-  .addRoute('/new', HomeView, { tag: 'created' })
+  .addRoute('/new', NewReleasesView) // Usando la nuova vista dedicata invece di HomeView
   .addRoute('/promoted', HomeView, { tag: 'promoted' })
   .addRoute('/settings', SettingsView)
   .addRoute('/wallet', WalletView, { requiresAuth: true })
