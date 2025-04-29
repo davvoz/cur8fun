@@ -88,14 +88,13 @@ class NewReleasesView extends BasePostView {
       'New Releases 🆕', // Titolo modificato con emoji per renderlo visivamente distinguibile
       { showSearchForm: false }
     );
-    
  
     postsContainer.innerHTML = ''; // Clear previous posts
     
     this.postsContainer = postsContainer;
     this.postsContainer.classList.add('new-releases-view'); // Aggiungiamo una classe per lo stile
 
-    
+
     
     // Destroy existing infinite scroll if it exists
     if (this.infiniteScroll) {
