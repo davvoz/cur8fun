@@ -85,7 +85,7 @@ class NewReleasesView extends BasePostView {
     
     const { postsContainer } = this.renderBaseView(
       container,
-      'New Releases 🆕', // Titolo modificato con emoji per renderlo visivamente distinguibile
+      'New Releases', // Titolo modificato con emoji per renderlo visivamente distinguibile
       { showSearchForm: false }
     );
  
