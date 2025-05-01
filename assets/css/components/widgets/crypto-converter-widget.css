@@ -1,0 +1,99 @@
+/* Crypto Converter Widget Styles */
+.crypto-converter-widget .converter-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.crypto-converter-widget .converter-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.crypto-converter-widget label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.crypto-converter-widget .input-select-wrapper {
+    display: flex
+    ;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        background-color: var(--background);
+        flex-direction: row-reverse;
+        flex-wrap: nowrap;
+        justify-content: space-around;
+        align-items: baseline;
+}
+
+.crypto-converter-widget .converter-input {
+  flex: 1;
+  border: none;
+  padding: var(--space-sm);
+  background-color: var(--background);
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.crypto-converter-widget .converter-input:focus {
+  outline: none;
+}
+
+.crypto-converter-widget .converter-select {
+  width: 50%;
+  min-width: 120px;
+  border: none;
+  border-left: 1px solid var(--border-color);
+  padding: var(--space-sm);
+  background-color: var(--background-light);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.crypto-converter-widget .swap-button {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--background);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.crypto-converter-widget .swap-button:hover {
+  background-color: var(--background-lighter);
+  border-color: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.crypto-converter-widget .swap-button .material-icons {
+  font-size: 20px;
+}
+
+.crypto-converter-widget .last-updated {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}
+
+.crypto-converter-widget .last-updated.error {
+  color: var(--error-color);
+}
+
+.input-select-wrapper input[type="text"] {
+  width: 50%;
+}
+
+.input-select-wrapper select {
+  width: 50%;
+}

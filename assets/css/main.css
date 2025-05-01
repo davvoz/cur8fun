@@ -24,6 +24,9 @@
 @import 'components/beneficiary-autocomplete.css'; /* Added import for beneficiary autocomplete styles */
 @import 'components/payout-popup.css'; /* Aggiunto import per gli stili del popup dei payout */
 @import 'components/edit-profile-modals.css'; /* Added import for edit profile styling */
+@import 'components/widgets/widget-base.css'; /* Aggiunto import per gli stili base dei widget */
+@import 'components/widgets/steem-chart-widget.css'; /* Aggiunto import per il widget grafico Steem */
+@import 'components/widgets/crypto-converter-widget.css'; /* Aggiunto import per il widget convertitore crypto */
 
 /* Feature-specific styles */
 @import 'features/animations.css';

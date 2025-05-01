@@ -3,6 +3,9 @@ import BasePostView from './BasePostView.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 import eventEmitter from '../utils/EventEmitter.js';
+// Import dei widget
+import SteemChartWidget from '../components/widgets/SteemChartWidget.js';
+import CryptoConverterWidget from '../components/widgets/CryptoConverterWidget.js';
 
 class HomeView extends BasePostView {
   constructor(params) {
@@ -24,6 +27,13 @@ class HomeView extends BasePostView {
         this.tag = this.params.tag || homeViewMode;
       }
     }
+    
+    // Inizializzazione dei widget
+    this.steemChartWidget = new SteemChartWidget();
+    this.cryptoConverterWidget = new CryptoConverterWidget();
+    
+    // Widget sidebar state
+    this.isWidgetSidebarCollapsed = userPreferencesService.getWidgetSidebarState() === 'collapsed';
     
     // Listen for preferences changes
     this.setupPreferencesListener();
@@ -124,6 +134,69 @@ class HomeView extends BasePostView {
   getCurrentTag() {
     return this.tag;
   }
+  
+  /**
+   * Create widgets for the sidebar
+   */
+  createWidgets() {
+    const widgetsContainer = document.createElement('div');
+    widgetsContainer.className = 'home-widgets-container';
+    
+    // Widget 1: Steem Price Chart
+    const steemChartWidget = this.steemChartWidget.render();
+    widgetsContainer.appendChild(steemChartWidget);
+    
+    // Widget 2: Crypto Converter
+    const cryptoConverterWidget = this.cryptoConverterWidget.render();
+    widgetsContainer.appendChild(cryptoConverterWidget);
+    
+    return widgetsContainer;
+  }
+  
+  /**
+   * Create toggle button for widget sidebar
+   */
+  createWidgetToggleButton() {
+    const toggleButton = document.createElement('button');
+    toggleButton.className = 'widget-sidebar-toggle';
+    toggleButton.setAttribute('aria-label', this.isWidgetSidebarCollapsed ? 'Expand widgets sidebar' : 'Collapse widgets sidebar');
+    toggleButton.innerHTML = this.isWidgetSidebarCollapsed ? 
+      '<span class="material-icons">chevron_left</span>' : 
+      '<span class="material-icons">chevron_right</span>';
+    
+    toggleButton.addEventListener('click', () => this.toggleWidgetSidebar());
+    
+    return toggleButton;
+  }
+  
+  /**
+   * Toggle widget sidebar visibility
+   */
+  toggleWidgetSidebar() {
+    // Get elements
+    const layoutWrapper = document.querySelector('.home-layout-wrapper');
+    const widgetColumn = document.querySelector('.home-widget-column');
+    const toggleButton = document.querySelector('.widget-sidebar-toggle');
+    
+    if (!layoutWrapper || !widgetColumn || !toggleButton) return;
+    
+    // Toggle state
+    this.isWidgetSidebarCollapsed = !this.isWidgetSidebarCollapsed;
+    
+    // Update UI
+    if (this.isWidgetSidebarCollapsed) {
+      layoutWrapper.classList.add('widgets-collapsed');
+      toggleButton.innerHTML = '<span class="material-icons">chevron_left</span>';
+      toggleButton.setAttribute('aria-label', 'Expand widgets sidebar');
+    } else {
+      layoutWrapper.classList.remove('widgets-collapsed');
+      toggleButton.innerHTML = '<span class="material-icons">chevron_right</span>';
+      toggleButton.setAttribute('aria-label', 'Collapse widgets sidebar');
+    }
+    
+    // Save preference
+    userPreferencesService.saveWidgetSidebarState(this.isWidgetSidebarCollapsed ? 'collapsed' : 'expanded');
+  }
 
   render(container) {
     // Get view title based on tag
@@ -143,11 +216,40 @@ class HomeView extends BasePostView {
       }
     }
     
+    // Clear container first
+    container.innerHTML = '';
+    
+    // Create two-column layout wrapper
+    const layoutWrapper = document.createElement('div');
+    layoutWrapper.className = 'home-layout-wrapper';
+    if (this.isWidgetSidebarCollapsed) {
+      layoutWrapper.classList.add('widgets-collapsed');
+    }
+    container.appendChild(layoutWrapper);
+    
+    // Create content column container
+    const contentColumn = document.createElement('div');
+    contentColumn.className = 'home-content-column';
+    layoutWrapper.appendChild(contentColumn);
+    
+    // Create widget column container
+    const widgetColumn = document.createElement('div');
+    widgetColumn.className = 'home-widget-column';
+    layoutWrapper.appendChild(widgetColumn);
+    
+    // Render base view into the content column instead of main container
     const { postsContainer } = this.renderBaseView(
-      container,
+      contentColumn,
       viewTitle,
       { showSearchForm: false }
     );
+    
+    // Add toggle button for widget sidebar
+    const toggleButton = this.createWidgetToggleButton();
+    widgetColumn.appendChild(toggleButton);
+    
+    // Add widgets to widget column
+    widgetColumn.appendChild(this.createWidgets());
     
     // Destroy existing infinite scroll if it exists
     if (this.infiniteScroll) {
