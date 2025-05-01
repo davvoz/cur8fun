@@ -18,16 +18,14 @@ class UserPreferencesService {
                 // Default preferences
                 preferredTags: [],
                 homeViewMode: 'trending', // Default view mode (trending, hot, new, custom)
-                theme: 'light', // Default theme
-                widgetSidebarState: 'expanded' // Default widget sidebar state
+                theme: 'light' // Default theme
             };
         } catch (error) {
             console.error('Failed to load user preferences:', error);
             return {
                 preferredTags: [],
                 homeViewMode: 'trending',
-                theme: 'light',
-                widgetSidebarState: 'expanded'
+                theme: 'light'
             };
         }
     }
@@ -182,29 +180,6 @@ class UserPreferencesService {
         return this.preferences.homeViewMode === 'custom' && 
                this.preferences.preferredTags && 
                this.preferences.preferredTags.length > 0;
-    }
-
-    /**
-     * Get widget sidebar state
-     * @returns {string} Current widget sidebar state ('expanded' or 'collapsed')
-     */
-    getWidgetSidebarState() {
-        return this.preferences.widgetSidebarState || 'expanded';
-    }
-    
-    /**
-     * Save widget sidebar state
-     * @param {string} state - Widget sidebar state ('expanded' or 'collapsed')
-     * @returns {boolean} Success status
-     */
-    saveWidgetSidebarState(state) {
-        if (!['expanded', 'collapsed'].includes(state)) {
-            console.error('Invalid widget sidebar state:', state);
-            return false;
-        }
-        
-        this.preferences.widgetSidebarState = state;
-        return this.savePreferences();
     }
 }
 

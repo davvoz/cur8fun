@@ -39,7 +39,8 @@ import WalletView from './views/WalletView.js';
 import NotFoundView from './views/NotFoundView.js';
 import NotificationsView from './views/NotificationsView.js';
 
-
+// Versione corrente dell'applicazione
+const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
