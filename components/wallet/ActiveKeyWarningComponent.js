@@ -286,31 +286,41 @@ class ActiveKeyWarningComponent extends Component {
    */
   async handleKeychainLogin() {
     try {
-      // Store username before logout
+      // Store username before attempting keychain login
       const username = this.username;
       
-      // Logout
-      authService.logout();
+      if (!username) {
+        eventEmitter.emit('notification', {
+          type: 'error',
+          message: 'No user is currently logged in. Please login first.'
+        });
+        return;
+      }
       
-      if (username) {
-        // Show feedback to the user
-        this.showKeychainNotification();
-        
-        // Login with Keychain
+      // Show feedback to the user
+      this.showKeychainNotification();
+      
+      try {
+        // Login with Keychain without logging out first
         await authService.loginWithKeychain(username);
         
-        // Remove notification and reload page
+        // Se l'autenticazione Keychain ha successo, possiamo ricaricare la pagina
         this.removeKeychainNotification();
         window.location.reload();
-      } else {
-        // Use the router instead of window.location.href for consistency
-        router.navigate('/login', { 
-          keychain: true,
-          returnUrl: window.location.pathname
+      } catch (error) {
+        console.error('Keychain login failed:', error);
+        
+        // Remove the notification
+        this.removeKeychainNotification();
+        
+        // Show an error
+        eventEmitter.emit('notification', {
+          type: 'error',
+          message: `Keychain login failed: ${error.message || 'Unknown error'}`
         });
       }
     } catch (error) {
-      console.error('Keychain login failed:', error);
+      console.error('Error in Keychain login process:', error);
       
       // Remove the notification if present
       this.removeKeychainNotification();
@@ -318,7 +328,7 @@ class ActiveKeyWarningComponent extends Component {
       // Show an error
       eventEmitter.emit('notification', {
         type: 'error',
-        message: `Keychain login failed: ${error.message || 'Unknown error'}`
+        message: `Keychain authentication error: ${error.message || 'Unknown error'}`
       });
     }
   }
