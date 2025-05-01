@@ -523,7 +523,7 @@ class WalletService {
           window.steem_keychain.requestBroadcast(
             this.currentUser,
             [claimRewardOp],
-            "posting", // The key type needed for claiming rewards (posting is sufficient)
+            "posting", // Using posting key for claiming rewards
             function(response) {
 
               if (response.success) {
