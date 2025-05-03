@@ -518,6 +518,9 @@ export default class MarkdownEditor extends Component {
         // Mostra messaggio iniziale
         this.showUploadStatus(`Uploading ${files.length} image${files.length > 1 ? 's' : ''}...`, 'info');
         
+        // Crea un buffer di markup per tutte le immagini
+        let imagesMarkup = '';
+        
         // Processa ogni file
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
@@ -532,14 +535,42 @@ export default class MarkdownEditor extends Component {
             // Esegui upload
             const imageUrl = await imageUploadService.uploadImage(file, user.username);
             
-            // Inserisci l'immagine nell'editor
-            this.insertMarkdown(`![${file.name || 'Image'}](${imageUrl})`);
+            // Aggiungi l'immagine con spaziatura appropriata
+            if (i > 0) {
+              // Aggiungi una riga vuota tra le immagini per migliorare la leggibilità
+              imagesMarkup += '\n\n';
+            }
+            
+            imagesMarkup += `![${file.name || 'Image'}](${imageUrl})`;
             
           } catch (error) {
             console.error(`Failed to upload image ${file.name}:`, error);
             this.showUploadStatus(`Failed to upload ${file.name}: ${error.message}`, 'error');
             // Continua con altri file anche se uno fallisce
           }
+        }
+        
+        // Inserisci le immagini nell'editor con spaziatura intelligente
+        if (imagesMarkup) {
+          // Ottieni la posizione corrente del cursore
+          const cursorPos = this.textarea.selectionStart;
+          const text = this.textarea.value;
+          
+          // Controlla se dobbiamo aggiungere una riga vuota prima o dopo
+          let finalMarkup = imagesMarkup;
+          
+          // Se non siamo all'inizio del testo e non c'è già una riga vuota prima
+          if (cursorPos > 0 && text.charAt(cursorPos - 1) !== '\n') {
+            finalMarkup = '\n\n' + finalMarkup;
+          }
+          
+          // Se non siamo alla fine del testo e non c'è già una riga vuota dopo
+          if (cursorPos < text.length && text.charAt(cursorPos) !== '\n') {
+            finalMarkup = finalMarkup + '\n\n';
+          }
+          
+          // Inserisci il markup completo
+          this.insertTextAtSelection(finalMarkup);
         }
         
         // Mostra messaggio di successo finale
