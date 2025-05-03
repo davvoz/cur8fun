@@ -146,31 +146,42 @@ class CreatePostService {
 
   async broadcastUsingAvailableMethod(postDetails) {
     
+    // Verifica il metodo di login dell'utente
+    const user = authService.getCurrentUser();
+    const loginMethod = user?.loginMethod;
+    
     const postingKey = authService.getPostingKey();
     const hasKeychain = typeof window.steem_keychain !== 'undefined';
     const isMobile = this.isMobileDevice();
     
-    let result;
-    
-    if (postingKey) {
-      result = await this.broadcastPost({
-        ...postDetails,
-        postingKey
-      });
+    // Verifica il metodo di login e usa solo quello (nessun fallback)
+    if (loginMethod === 'keychain') {
+        // Se l'utente è loggato con Keychain, deve usare solo Keychain
+        if (!hasKeychain) {
+            throw new Error('You are logged in with Keychain, but the extension is not available. Please install or enable Steem Keychain extension.');
+        }
+        
+        if (isMobile && !window.steem_keychain) {
+            throw new Error('Steem Keychain is not available on this mobile browser. Please use a desktop browser.');
+        }
+        
+        return await this.broadcastPostWithKeychain(postDetails);
     } 
-    else if (hasKeychain) {
-      if (isMobile && !window.steem_keychain) {
-        throw new Error('Steem Keychain is not available on this mobile browser. Please use a desktop browser or log in with your posting key.');
-      }
-      
-      result = await this.broadcastPostWithKeychain(postDetails);
-    }
+    else if (loginMethod === 'privateKey' || loginMethod === 'steemlogin') {
+        // Se l'utente è loggato con chiave privata o steemlogin, deve avere una posting key
+        if (!postingKey) {
+            throw new Error('Posting key not available. Please log in again to refresh your credentials.');
+        }
+        
+        return await this.broadcastPost({
+            ...postDetails,
+            postingKey
+        });
+    } 
     else {
-      throw new Error('No valid posting credentials available. Please login with your posting key or install Steem Keychain.');
+        // Metodo di login sconosciuto o non specificato
+        throw new Error(`Unsupported login method: ${loginMethod || 'unknown'}. Please log in with a supported method.`);
     }
-    
-   
-    return result;
   }
 
   emitSuccessEvent(postDetails) {
