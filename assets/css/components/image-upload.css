@@ -208,13 +208,43 @@
 
 .upload-status-message {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 50%; 
+  left: 50%; 
+  transform: translate(-50%, 50%); 
   padding: 12px 20px;
   border-radius: 6px;
   z-index: 1001;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+  max-width: 90%;
+  text-align: center;
+  animation: status-appear 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  opacity: 0;
+}
+
+@keyframes status-appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 80%);
+    scale: 0.8;
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, 48%);
+    scale: 1.05;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 50%);
+    scale: 1;
+  }
+}
+
+/* Media query per dispositivi mobili */
+@media screen and (max-width: 768px) {
+  .upload-status-message {
+    bottom: 40%;
+    width: 80%;
+  }
 }
 
 .upload-status-message.info {

@@ -102,20 +102,21 @@ class ImageUploadService {
       throw new Error(`Image is too large. Maximum allowed size is ${this.MAX_FILE_SIZE_MB}MB.`);
     }
     
+    // Emetti un evento di notifica per l'inizio dell'upload
+    eventEmitter.emit('notification', {
+      type: 'info',
+      message: 'Uploading image...'
+    });
+    
     try {
       // Comprimi l'immagine
       const compressedFile = await this.compressImage(file);
-      
-      // Genera un nome file unico
-      const uniqueFilename = this.generateUniqueFilename(file);
       
       // Converti il file in base64
       const base64Data = await this.fileToBase64(compressedFile);
       
       // Prepara il payload per la richiesta
       const payload = {
-        // username: username || 'anonymous',
-        // filename: uniqueFilename,
         image_base64: base64Data
       };
       
@@ -143,6 +144,7 @@ class ImageUploadService {
         throw new Error('Invalid response: missing image URL');
       }
       
+      // Notifica di successo
       eventEmitter.emit('notification', {
         type: 'success',
         message: 'Image uploaded successfully!'
@@ -157,6 +159,7 @@ class ImageUploadService {
         errorMessage = 'The image is taking too long to load, check your connection and try again later.';
       }
       
+      // Notifica di errore
       eventEmitter.emit('notification', {
         type: 'error',
         message: `Upload failed: ${errorMessage}`
@@ -196,18 +199,6 @@ class ImageUploadService {
         reject(new Error('Error reading file: ' + error));
       };
     });
-  }
-  
-  /**
-   * Metodo fallback per upload con Keychain (opzionale)
-   */
-  async uploadWithKeychain(file, username, filename) {
-    if (!window.steem_keychain) {
-      throw new Error('Steem Keychain is not available');
-    }
-    
-    // ... (codice esistente per upload con Keychain) ...
-    // Mantieni questo metodo se vuoi un fallback in caso di problemi con l'API
   }
 }
 
