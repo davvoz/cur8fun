@@ -112,29 +112,31 @@ export default class VoteController {
           weight
         });
         
-        // Update UI - instead of replacing all HTML, handle each element individually
+        // Update UI using the same approach as setVoteSuccessState
+        upvoteBtn.classList.remove('voting');
         upvoteBtn.classList.add('voted');
-        upvoteBtn.innerHTML = '';  // Clear the button
+        upvoteBtn.disabled = false;
         
-        // Re-create each element to ensure proper structure
+        // Clear any existing content
+        upvoteBtn.innerHTML = '';
+        
+        // Add icon
         const iconElement = document.createElement('span');
         iconElement.className = 'material-icons';
         iconElement.textContent = 'thumb_up_alt';
         upvoteBtn.appendChild(iconElement);
         
-        // IMPORTANTE: Assicuriamoci di incrementare il contatore
-        const newCount = currentCount + 1;
-        
-        // Create new count element with the updated value
+        // Add count
         const newCountElement = document.createElement('span');
         newCountElement.className = 'count';
-        newCountElement.textContent = newCount;
+        newCountElement.textContent = currentCount + 1;
         upvoteBtn.appendChild(newCountElement);
         
-        // Add vote percentage indicator
+        // Add percentage indicator with proper formatting
         const percentIndicator = document.createElement('span');
         percentIndicator.className = 'vote-percent-indicator';
-        percentIndicator.textContent = `${weight / 100}%`;
+        const displayPercent = weight / 100;
+        percentIndicator.textContent = `${displayPercent}%`;
         upvoteBtn.appendChild(percentIndicator);
         
         this.addSuccessAnimation(upvoteBtn);
@@ -142,10 +144,10 @@ export default class VoteController {
         // Show success notification
         this.view.emit('notification', {
           type: 'success',
-          message: `Your ${weight / 100}% vote on this comment was recorded successfully!`
+          message: `Your ${displayPercent}% vote on this comment was recorded successfully!`
         });
         
-        // Aggiorniamo anche il valore nel modello del commento se disponibile
+        // Update the comment model if available
         if (commentParam && typeof commentParam === 'object') {
           if (!commentParam.active_votes) {
             commentParam.active_votes = [];
@@ -153,7 +155,7 @@ export default class VoteController {
           
           const user = authService.getCurrentUser();
           if (user) {
-            // Aggiungi il voto dell'utente all'array active_votes
+            // Add the user's vote to the active_votes array
             commentParam.active_votes.push({
               voter: user.username,
               percent: weight
@@ -216,11 +218,30 @@ export default class VoteController {
     button.classList.remove('voting');
     button.classList.add('voted');
 
-    button.innerHTML = `
-      <span class="material-icons">thumb_up_alt</span>
-      <span class="count">${currentCount + 1}</span>
-      <span class="vote-percent-indicator">${weight / 100}%</span>
-    `;
+    // Clear any existing content first
+    button.innerHTML = '';
+    
+    // Add icon
+    const iconElement = document.createElement('span');
+    iconElement.className = 'material-icons';
+    iconElement.textContent = 'thumb_up_alt';
+    button.appendChild(iconElement);
+    
+    // Add count
+    const countElement = document.createElement('span');
+    countElement.className = 'count';
+    countElement.textContent = currentCount + 1;
+    button.appendChild(countElement);
+    
+    // Add percentage indicator with proper formatting
+    const percentIndicator = document.createElement('span');
+    percentIndicator.className = 'vote-percent-indicator';
+    
+    // Ensure the percentage is displayed correctly
+    const displayPercent = weight / 100;
+    percentIndicator.textContent = `${displayPercent}%`;
+    
+    button.appendChild(percentIndicator);
 
     this.addSuccessAnimation(button);
   }
@@ -305,14 +326,27 @@ export default class VoteController {
         }
 
         if (vote.percent > 0) {
+          // Remove any existing percentage indicator first
+          const existingIndicator = upvoteBtn.querySelector('.vote-percent-indicator');
+          if (existingIndicator) {
+            existingIndicator.remove();
+          }
+          
           const percentIndicator = document.createElement('span');
           percentIndicator.className = 'vote-percent-indicator';
-          percentIndicator.textContent = `${vote.percent / 100}%`;
+          
+          // Make sure to properly format the percentage
+          const displayPercent = Math.abs(vote.percent) > 100 
+            ? (vote.percent / 100) 
+            : vote.percent;
+            
+          percentIndicator.textContent = `${displayPercent}%`;
           upvoteBtn.appendChild(percentIndicator);
         }
       }
     } catch (error) {
       // Silently fail on vote status check error
+      console.warn('Error checking vote status:', error);
     }
   }
   
