@@ -413,8 +413,9 @@ class NotificationsView {
                 break;
         }
         
-        // Format timestamp
-        const timestamp = new Date(notification.timestamp);
+        // Format timestamp - ensure proper timezone handling with the Z suffix
+        // Matches how dates are handled in BasePostView.js and PostHeader.js
+        const timestamp = notification.timestamp;
         const timeAgo = this.formatTimeAgo(timestamp);
         
         // Create notification inner HTML
@@ -458,23 +459,44 @@ class NotificationsView {
     }
     
     formatTimeAgo(date) {
-        const now = new Date();
-        const diffMs = now - date;
-        const diffSecs = Math.floor(diffMs / 1000);
-        const diffMins = Math.floor(diffSecs / 60);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
+        // Add "Z" suffix to ensure proper UTC time handling (just like in BasePostView.js)
+        let timestamp;
         
-        if (diffDays > 30) {
-            return date.toLocaleDateString();
-        } else if (diffDays > 0) {
-            return `${diffDays}d ago`;
-        } else if (diffHours > 0) {
-            return `${diffHours}h ago`;
-        } else if (diffMins > 0) {
-            return `${diffMins}m ago`;
+        if (typeof date === 'string') {
+            // If we have a string date, add Z suffix to ensure UTC time handling
+            timestamp = new Date(date + "Z");
+        } else if (date instanceof Date) {
+            // If we already have a Date object, create a new one from ISO string with Z
+            timestamp = new Date(date.toISOString());
         } else {
-            return 'just now';
+            // Fallback to current date
+            timestamp = new Date();
+        }
+        
+        // Calculate time elapsed since notification timestamp in minutes
+        const timeElapsed = Math.floor((Date.now() - timestamp.getTime()) / (1000 * 60));
+
+        if (timeElapsed < 60) {
+            return timeElapsed <= 1 ? 'Just now' : `${timeElapsed} min ago`;
+        } else if (timeElapsed < 24 * 60) {
+            // Convert minutes to hours
+            const hours = Math.floor(timeElapsed / 60);
+            return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+        } else if (timeElapsed < 30 * 24 * 60) {
+            // Convert minutes to days
+            const days = Math.floor(timeElapsed / (24 * 60));
+            return days === 1 ? '1 day ago' : `${days} days ago`;
+        } else if (timeElapsed < 365 * 24 * 60) {
+            // Convert minutes to months
+            const months = Math.floor(timeElapsed / (30 * 24 * 60));
+            return months === 1 ? '1 month ago' : `${months} months ago`;
+        } else {
+            // Use locale date for anything older than a year
+            return timestamp.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
         }
     }
     
@@ -679,7 +701,7 @@ class NotificationsView {
             this.emptyState.style.display = 'block';
             this.notificationsContainer.style.display = 'none';
         } else {
-            this.emptyState.style.display = 'none';
+            this.emptyState.style.display = 'block';
             this.notificationsContainer.style.display = 'block';
         }
     }
