@@ -224,8 +224,9 @@ export default class CommentUIManager {
 
       // Get the base URL (everything before the hash) to preserve deployment path
       const baseUrl = window.location.href.split('#')[0];
-      // Add # to the URL for proper routing
-      window.location.href = `${baseUrl}#/@${comment.author}/${comment.permlink}`;
+      
+      // Reindirizza alla nuova vista dedicata ai commenti
+      window.location.href = `${baseUrl}#/comment/@${comment.author}/${comment.permlink}`;
     });
 
     return item;

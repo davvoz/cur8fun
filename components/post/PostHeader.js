@@ -35,32 +35,7 @@ class PostHeader {
 
     //se title è Comment creimo un link al post originale
     if (postTitle.textContent === 'Comment') {
-      //estraiamo il permalink dal json_metadata
-      const metadata = this.parseMetadata(this.post.json_metadata);
-      //cerchiamo l'autor del post originale
-      const originalAuthor = metadata?.original_author || this.post.parent_author;
-      //ora costruiamo la destination
-      const destination =   '/@' + originalAuthor + '/' + this.post.parent_permlink;
-      //creiamo il link
-      const postLink = document.createElement('a');
-      postLink.href = "javascript:void(0)";
-      postLink.className = 'post-link';
-      postLink.textContent = "vedi post originale";
-      postLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        router.navigate(destination);
-      });
-      postTitle.textContent = '';
-      postTitle.appendChild(postLink);
-
-      postLink.appendChild(document.createTextNode(' '));
-      const icon = document.createElement('i');
-      icon.className = 'fa fa-link';
-      icon.style.fontSize = '0.8em';
-      icon.style.color = '#999';
-      icon.style.marginLeft = '5px';
-      icon.style.verticalAlign = 'middle';
-      postLink.appendChild(icon);
+      
     }
 
     const postMeta = document.createElement('div');

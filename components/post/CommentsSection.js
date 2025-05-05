@@ -68,6 +68,18 @@ class CommentsSection {
       const commentsHeader = document.createElement('h3');
       commentsHeader.textContent = `Comments (${this.comments.length})`;
 
+      // Add edit tips for logged in users
+      const currentUser = window.authService?.getCurrentUser?.();
+      if (currentUser) {
+        const editTip = document.createElement('div');
+        editTip.className = 'comment-edit-tip';
+        editTip.innerHTML = `
+          <span class="tip-icon material-icons">info</span>
+          <span class="tip-text">Puoi modificare i tuoi commenti cliccando sul pulsante <span class="material-icons inline-icon">edit</span> Edit nei tuoi commenti</span>
+        `;
+        commentsSection.appendChild(editTip);
+      }
+
       // Create a proper form element instead of div for better accessibility and form submission
       const commentForm = document.createElement('form');
       commentForm.className = 'comment-form';
@@ -617,6 +629,60 @@ class CommentsSection {
 
     commentActions.appendChild(upvoteBtn);
     commentActions.appendChild(replyBtn);
+    
+    // Add Edit button if comment is by current user
+    const currentUser = window.authService?.getCurrentUser?.();
+    if (currentUser && currentUser.username === comment.author) {
+      const editBtn = document.createElement('button');
+      editBtn.className = 'action-btn edit-btn';
+      
+      // Add an icon to the edit button for better visibility
+      const editIcon = document.createElement('span');
+      editIcon.className = 'material-icons edit-icon';
+      editIcon.textContent = 'edit';
+      editIcon.setAttribute('aria-hidden', 'true');
+      
+      // Add text after the icon
+      const editText = document.createTextNode(' Edit');
+      
+      // Add tooltip for clarity
+      editBtn.title = 'Edit your comment';
+      
+      // Set aria label for accessibility
+      editBtn.setAttribute('aria-label', 'Edit your comment');
+      
+      // Append icon and text to button
+      editBtn.appendChild(editIcon);
+      editBtn.appendChild(editText);
+      
+      // Add edit handler
+      editBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Find comment controller and call edit method
+        const commentController = 
+          // First try from Vue's current page/component commentController
+          window.router?.currentView?.commentController ||
+          // Then look for any potential parent view with a commentController
+          document.querySelector('[data-comment-controller="true"]')?.commentController;
+
+        if (commentController && typeof commentController.startEditComment === 'function') {
+          commentController.startEditComment(comment);
+        } else {
+          console.error('Comment controller not found or edit method not available');
+          // Try notifying the user about the issue
+          if (window.eventEmitter && typeof window.eventEmitter.emit === 'function') {
+            window.eventEmitter.emit('notification', {
+              type: 'error',
+              message: 'Si è verificato un errore durante la modifica del commento'
+            });
+          }
+        }
+      });
+      
+      commentActions.appendChild(editBtn);
+    }
 
     // Reply form
     const { replyForm, replyTextarea } = this.createReplyForm(comment);

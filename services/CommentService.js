@@ -227,6 +227,311 @@ class CommentService {
   }
 
   /**
+   * Update an existing comment
+   * @param {Object} commentData - Comment data to update
+   * @param {string} commentData.author - Author of the comment
+   * @param {string} commentData.permlink - Permlink of the comment to update
+   * @param {string} commentData.parentAuthor - Author of the parent post/comment
+   * @param {string} commentData.parentPermlink - Permlink of the parent post/comment
+   * @param {string} commentData.body - New content of the comment
+   * @param {Object} [commentData.metadata={}] - Metadata for the comment
+   * @returns {Promise<Object>} - Result of the operation
+   */
+  async updateComment(commentData) {
+    // Get current user
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('You must be logged in to edit a comment');
+    }
+
+    // Verify user is the comment author
+    if (currentUser.username !== commentData.author) {
+      throw new Error('You can only edit your own comments');
+    }
+
+    const username = currentUser.username;
+
+    // Generate comment identifier to prevent duplicates
+    const commentId = `edit_${username}_${commentData.permlink}_${Date.now()}`;
+
+    // Prevent duplicate edit operations
+    if (this.commentInProgress.has(commentId)) {
+      throw new Error('Edit operation already in progress');
+    }
+
+    try {
+      this.commentInProgress.add(commentId);
+      this.isProcessing = true;
+
+      // Validate data - reusing same validation as creating comments
+      this.validateCommentData(commentData);
+
+      // Prepare metadata
+      const metadata = {
+        app: 'cur8.fun/0.0.1',
+        format: 'markdown',
+        ...(commentData.metadata || {})
+      };
+
+      // Emit an event to update UI
+      eventEmitter.emit('comment:edit-started', {
+        author: commentData.author,
+        permlink: commentData.permlink
+      });
+
+      // Use the appropriate method based on login type
+      const loginMethod = currentUser.loginMethod || 'privateKey';
+      const isMobile = this.isMobileDevice();
+      
+      let result;
+
+      // Check for mobile + keychain case first
+      if (loginMethod === 'keychain' && isMobile && !this.isKeychainAvailable()) {
+        const postingKey = authService.getPostingKey();
+        if (!postingKey) {
+          throw new Error('Keychain not available and no posting key found. Please login again.');
+        }
+        
+        result = await this._commentWithKey({
+          postingKey,
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for edit
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      } else if (loginMethod === 'keychain' && this.isKeychainAvailable()) {
+        result = await this._commentWithKeychain({
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for edit
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      } else if (loginMethod === 'steemlogin') {
+        result = await this._commentWithSteemLogin({
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for edit
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      } else {
+        // Use direct posting key
+        const postingKey = authService.getPostingKey();
+        if (!postingKey) {
+          throw new Error('Posting key not available. Please login again.');
+        }
+
+        result = await this._commentWithKey({
+          postingKey,
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for edit
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      }
+
+      // Emit success event
+      eventEmitter.emit('comment:edited', {
+        author: username,
+        permlink: commentData.permlink,
+        parentAuthor: commentData.parentAuthor,
+        parentPermlink: commentData.parentPermlink,
+        body: commentData.body
+      });
+
+      return {
+        success: true,
+        author: username,
+        permlink: commentData.permlink,
+        body: commentData.body,
+        result: result
+      };
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      
+      // Elaborate error message based on context
+      let errorMessage = error.message || 'Failed to update comment';
+
+      // Handle specific Keychain errors
+      if (errorMessage.includes('user canceled')) {
+        errorMessage = 'Operation cancelled by user';
+        error.isCancelled = true;
+      }
+
+      // Emit error event
+      eventEmitter.emit('comment:edit-error', {
+        error: errorMessage,
+        permlink: commentData.permlink
+      });
+
+      throw error;
+    } finally {
+      this.isProcessing = false;
+      this.commentInProgress.delete(commentId);
+    }
+  }
+
+  /**
+   * Update an existing comment
+   * @param {Object} commentData - Comment data
+   * @param {string} commentData.author - Author of the comment (must be current user)
+   * @param {string} commentData.permlink - Permlink of the comment to update
+   * @param {string} commentData.parentAuthor - Author of the parent post/comment
+   * @param {string} commentData.parentPermlink - Permlink of the parent post/comment
+   * @param {string} commentData.body - Updated content of the comment
+   * @param {Object} [commentData.metadata={}] - Metadata for the comment
+   * @returns {Promise<Object>} - Result of the operation
+   */
+  async updateComment(commentData) {
+    // Get current user
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('You must be logged in to edit a comment');
+    }
+
+    const username = currentUser.username;
+
+    // Verify the user is updating their own comment
+    if (username !== commentData.author) {
+      throw new Error('You can only edit your own comments');
+    }
+
+    // Generate comment identifier to prevent duplicates
+    const commentId = `edit_${username}_${commentData.permlink}_${Date.now()}`;
+
+    // Prevent duplicate comment submissions
+    if (this.commentInProgress.has(commentId)) {
+      throw new Error('Comment update operation already in progress');
+    }
+
+    try {
+      this.commentInProgress.add(commentId);
+      this.isProcessing = true;
+
+      // Basic validation
+      if (!commentData.body || typeof commentData.body !== 'string') {
+        throw new Error('Comment body is required and must be a string');
+      }
+
+      if (commentData.body.trim().length < 3) {
+        throw new Error('Comment must be at least 3 characters');
+      }
+
+      if (commentData.body.length > 65535) {
+        throw new Error('Comment is too long (maximum 65535 characters)');
+      }
+
+      // Prepare metadata - maintain existing tags
+      const metadata = {
+        app: 'cur8.fun/0.0.1',
+        format: 'markdown',
+        ...(commentData.metadata || {})
+      };
+
+      await steemService.ensureLibraryLoaded();
+
+      // Determine login method and platform
+      const loginMethod = currentUser.loginMethod || 'privateKey';
+      const isMobile = this.isMobileDevice();
+
+      let result;
+      eventEmitter.emit('comment:update-started', {
+        author: commentData.author,
+        permlink: commentData.permlink
+      });
+
+      // Use the appropriate method based on login type - same as for createComment
+      if (loginMethod === 'keychain' && this.isKeychainAvailable()) {
+        result = await this._commentWithKeychain({
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for updates
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      } else if (loginMethod === 'steemlogin') {
+        result = await this._commentWithSteemLogin({
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for updates
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      } else {
+        // Use direct posting key
+        const postingKey = authService.getPostingKey();
+        if (!postingKey) {
+          throw new Error('Posting key not available. Please login again.');
+        }
+
+        result = await this._commentWithKey({
+          postingKey,
+          username,
+          parentAuthor: commentData.parentAuthor,
+          parentPermlink: commentData.parentPermlink,
+          permlink: commentData.permlink, // Use existing permlink for updates
+          title: commentData.title || '',
+          body: commentData.body,
+          metadata
+        });
+      }
+
+      // Emit success event
+      eventEmitter.emit('comment:updated', {
+        author: username,
+        permlink: commentData.permlink,
+        body: commentData.body
+      });
+
+      return {
+        success: true,
+        author: username,
+        permlink: commentData.permlink,
+        body: commentData.body,
+        result: result
+      };
+    } catch (error) {
+      console.error('Error updating comment:', error);
+
+      // Elaborate error message based on context
+      let errorMessage = error.message || 'Failed to update comment';
+
+      // Handle specific Keychain errors
+      if (errorMessage.includes('user canceled')) {
+        errorMessage = 'Operation cancelled by user';
+        error.isCancelled = true;
+      }
+
+      // Emit error event
+      eventEmitter.emit('comment:update-error', {
+        error: errorMessage,
+        author: commentData.author,
+        permlink: commentData.permlink
+      });
+
+      throw error;
+    } finally {
+      this.isProcessing = false;
+      this.commentInProgress.delete(commentId);
+    }
+  }
+
+  /**
    * Generate a unique permlink for a comment
    * @param {string} parentPermlink - Permlink of the parent post/comment
    * @returns {string} - Generated permlink

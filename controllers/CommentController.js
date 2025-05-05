@@ -424,22 +424,73 @@ export default class CommentController {
 
   /**
    * Find the comment element in the DOM
-   * @param {Object} parentComment - The parent comment data
+   * @param {Object} comment - The comment being edited
    * @returns {HTMLElement|null} The comment element or null if not found
    */
-  findCommentElement(parentComment) {
-    let commentElement = null;
-
-    // Try data attribute selector first (most reliable)
-    const dataSelector = `[data-author="${parentComment.author}"][data-permlink="${parentComment.permlink}"]`;
-    commentElement = this.view.element.querySelector(dataSelector);
-
-    if (commentElement) {
-      return commentElement;
+  findCommentElement(comment) {
+    // Per sicurezza, garantiamo che il parametro comment contenga i dati necessari
+    if (!comment || !comment.author || !comment.permlink) {
+      console.error('Invalid comment data for finding element:', comment);
+      return null;
     }
 
-    // If data attribute selector fails, try finding by author name
-    return this.findCommentElementByAuthor(parentComment.author);
+    console.log(`Cercando commento con author=${comment.author}, permlink=${comment.permlink}`);
+    
+    // CASO SPECIALE: Se siamo nella vista di un commento singolo (CommentView),
+    // dovremmo essere in grado di trovare direttamente il contenitore principale
+    if (this.view && this.view.constructor.name === 'CommentView') {
+      console.log('Siamo in CommentView, utilizziamo il contenitore principale');
+      
+      // In CommentView, il commento principale è il contenitore .comment-full-content
+      const mainCommentContainer = document.querySelector('.comment-full-content');
+      if (mainCommentContainer) {
+        console.log('Trovato contenitore principale del commento in CommentView');
+        return mainCommentContainer;
+      }
+    }
+    
+    // Strategia 1: Usa data-attributes (il metodo più affidabile)
+    let selector = `.comment[data-author="${comment.author}"][data-permlink="${comment.permlink}"]`;
+    let element = document.querySelector(selector);
+    
+    if (element) {
+      console.log('Trovato commento usando data-attributes');
+      return element;
+    }
+    
+    // Strategia 2: Cerca in tutto il DOM, non solo nel contenitore della view
+    selector = `[data-author="${comment.author}"][data-permlink="${comment.permlink}"]`;
+    element = document.querySelector(selector);
+    
+    if (element) {
+      console.log('Trovato commento usando data-attributes nel DOM globale');
+      return element;
+    }
+
+    // Strategia 3: cerca elementi con classe .comment che contengono il nome dell'autore
+    const comments = document.querySelectorAll('.comment');
+    
+    for (const commentEl of comments) {
+      const authorEl = commentEl.querySelector('.author-name');
+      if (authorEl && (authorEl.textContent === `@${comment.author}` || 
+                       authorEl.textContent === comment.author)) {
+        console.log('Trovato commento cercando il nome autore');
+        return commentEl;
+      }
+    }
+    
+    // Strategia 4: ultimo tentativo - usare il contenitore principale se siamo in una pagina di commento
+    if (window.location.pathname.includes(`/@${comment.author}/${comment.permlink}`)) {
+      console.log('Siamo nella pagina del commento specifico, proviamo a usare il contenitore principale');
+      const mainContainer = document.querySelector('.comment-view') || 
+                            document.querySelector('.comment-full-content');
+      if (mainContainer) {
+        return mainContainer;
+      }
+    }
+    
+    console.error('Nessun elemento commento trovato nel DOM');
+    return null;
   }
 
   /**
@@ -1111,5 +1162,304 @@ export default class CommentController {
       type: 'info',
       message: 'Your session has expired. Please login again to continue.'
     });
+  }
+
+  /**
+   * Start editing a comment
+   * @param {Object} comment - The comment data
+   * @returns {Promise<void>}
+   */
+  startEditComment(comment) {
+    if (!comment) return;
+
+    // Verifica che l'utente sia l'autore del commento
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser || currentUser.username !== comment.author) {
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Puoi modificare solo i tuoi commenti'
+      });
+      return;
+    }
+
+    // Trova l'elemento commento nel DOM
+    const commentElement = this.findCommentElement(comment);
+    if (!commentElement) {
+      console.error(`Impossibile trovare l'elemento commento per l'autore ${comment.author}`);
+      this.view.emit('notification', {
+        type: 'error',
+        message: 'Impossibile trovare il commento da modificare'
+      });
+      return;
+    }
+
+    // Crea il form di modifica se non esiste già
+    this.createOrShowEditForm(comment, commentElement);
+  }
+
+  /**
+   * Create or show the edit form for a comment
+   * @param {Object} comment - The comment data
+   * @param {HTMLElement} commentElement - The comment element in the DOM
+   */
+  createOrShowEditForm(comment, commentElement) {
+    // Check if edit form already exists
+    let editForm = commentElement.querySelector('.edit-comment-form');
+    
+    // If edit form exists, just show it
+    if (editForm) {
+      editForm.style.display = 'block';
+      const textarea = editForm.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+      return;
+    }
+    
+    // Get the comment body element - con miglior supporto per CommentView
+    let commentBody;
+    
+    // Caso speciale per CommentView (usa la struttura diversa)
+    if (this.view && this.view.constructor.name === 'CommentView') {
+      console.log('Trovando il contenitore del corpo del commento in CommentView');
+      
+      // In CommentView, il contenuto è nel contenitore post-content o comment-content-body
+      commentBody = commentElement.querySelector('.post-content') || 
+                    commentElement.querySelector('.comment-content-body') ||
+                    document.querySelector('.comment-content-body');
+      
+      if (!commentBody) {
+        // Se non troviamo il contenitore specifico, prova ad usare l'elemento principale
+        commentBody = commentElement; 
+        console.log('Usando l\'intero elemento come commentBody');
+      } else {
+        console.log('Trovato commentBody in CommentView');
+      }
+    } else {
+      // Caso normale, cerca comment-body come prima
+      commentBody = commentElement.querySelector('.comment-body');
+    }
+    
+    if (!commentBody) {
+      console.error('Could not find comment body element');
+      
+      // Fallback: usiamo l'intero commentElement se non troviamo il body
+      commentBody = commentElement;
+      console.log('Usando fallback: commentElement come commentBody');
+    }
+    
+    // Salva temporaneamente il contenuto HTML del commento originale
+    const originalContent = commentBody.innerHTML;
+    
+    // Hide the comment body while editing
+    commentBody.style.display = 'none';
+    
+    // Create edit form
+    editForm = document.createElement('form');
+    editForm.className = 'edit-comment-form';
+    editForm.dataset.originalCommentBody = originalContent; // Salva il contenuto originale
+    
+    // Create textarea
+    const textarea = document.createElement('textarea');
+    textarea.className = 'edit-comment-textarea';
+    textarea.value = comment.body || '';
+    textarea.rows = 6;
+    
+    // Create buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'edit-comment-buttons';
+    
+    // Create save button
+    const saveButton = document.createElement('button');
+    saveButton.type = 'button';
+    saveButton.className = 'save-edit-button';
+    saveButton.textContent = 'Save';
+    saveButton.addEventListener('click', () => this.saveCommentEdit(comment, commentElement, textarea, editForm, commentBody));
+    
+    // Create cancel button
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'cancel-edit-button';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.addEventListener('click', () => this.cancelCommentEdit(editForm, commentBody));
+    
+    // Assemble form
+    buttonsContainer.appendChild(saveButton);
+    buttonsContainer.appendChild(cancelButton);
+    editForm.appendChild(textarea);
+    editForm.appendChild(buttonsContainer);
+    
+    // Insert form after comment body
+    if (commentBody.parentNode) {
+      commentBody.parentNode.insertBefore(editForm, commentBody.nextSibling);
+    } else {
+      // Fallback per casi speciali
+      commentElement.appendChild(editForm);
+    }
+    
+    // Focus textarea
+    textarea.focus();
+  }
+  
+  /**
+   * Save an edited comment
+   * @param {Object} comment - The original comment data
+   * @param {HTMLElement} commentElement - The comment element in the DOM
+   * @param {HTMLElement} textarea - The textarea element
+   * @param {HTMLElement} editForm - The edit form element
+   * @param {HTMLElement} commentBody - The comment body element
+   * @returns {Promise<void>}
+   */
+  async saveCommentEdit(comment, commentElement, textarea, editForm, commentBody) {
+    const newBody = textarea.value.trim();
+    
+    // Verify the comment isn't empty
+    if (!newBody) {
+      textarea.classList.add('error-input');
+      setTimeout(() => textarea.classList.remove('error-input'), 1500);
+      return;
+    }
+    
+    // If no changes were made, just cancel
+    if (newBody === comment.body) {
+      this.cancelCommentEdit(editForm, commentBody);
+      return;
+    }
+    
+    // Set loading state
+    const saveButton = editForm.querySelector('.save-edit-button');
+    const cancelButton = editForm.querySelector('.cancel-edit-button');
+    
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = 'Saving...';
+    }
+    if (cancelButton) {
+      cancelButton.disabled = true;
+    }
+    
+    try {
+      // Call the updateComment method
+      const result = await commentService.updateComment({
+        author: comment.author,
+        permlink: comment.permlink,
+        parentAuthor: comment.parent_author,
+        parentPermlink: comment.parent_permlink,
+        body: newBody,
+        metadata: {
+          app: 'cur8.fun/1.0',
+          format: 'markdown',
+          tags: this.extractTags(newBody)
+        }
+      });
+      
+      // Update the UI with the edited comment
+      this.updateCommentInUI(comment, newBody, commentElement, commentBody);
+      
+      // Show success notification
+      this.view.emit('notification', {
+        type: 'success',
+        message: 'Comment updated successfully'
+      });
+      
+      // Remove edit form
+      editForm.remove();
+      
+      // Show the updated comment body
+      commentBody.style.display = 'block';
+      
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      
+      // Show error notification
+      this.view.emit('notification', {
+        type: 'error',
+        message: this.getErrorMessage(error)
+      });
+      
+      // Reset button states
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save';
+      }
+      if (cancelButton) {
+        cancelButton.disabled = false;
+      }
+    }
+  }
+  
+  /**
+   * Cancel editing a comment
+   * @param {HTMLElement} editForm - The edit form element
+   * @param {HTMLElement} commentBody - The comment body element
+   */
+  cancelCommentEdit(editForm, commentBody) {
+    // Remove edit form
+    editForm.remove();
+    
+    // Show the comment body again
+    commentBody.style.display = 'block';
+  }
+  
+  /**
+   * Update the comment in the UI
+   * @param {Object} comment - The original comment data
+   * @param {string} newBody - The new comment body
+   * @param {HTMLElement} commentElement - The comment element in the DOM
+   * @param {HTMLElement} commentBody - The comment body element
+   */
+  updateCommentInUI(comment, newBody, commentElement, commentBody) {
+    // Update the comment data in memory
+    comment.body = newBody;
+    
+    // Update the comment body in the DOM
+    try {
+      if (this.view.commentsSectionComponent && this.view.commentsSectionComponent.contentRenderer) {
+        // Render the updated content with the content renderer
+        const renderedContent = this.view.commentsSectionComponent.contentRenderer.render({
+          body: newBody
+        });
+        
+        // Clear current content
+        while (commentBody.firstChild) {
+          commentBody.removeChild(commentBody.firstChild);
+        }
+        
+        // Add new rendered content
+        if (renderedContent && renderedContent.container) {
+          commentBody.appendChild(renderedContent.container);
+        } else {
+          // Fallback to plain text if rendering fails
+          commentBody.textContent = newBody;
+        }
+      } else {
+        // Simple fallback if no renderer is available
+        commentBody.textContent = newBody;
+      }
+      
+      // Add a temporary highlight class to show it was updated
+      commentElement.classList.add('comment-updated');
+      setTimeout(() => {
+        commentElement.classList.remove('comment-updated');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error updating comment UI:', error);
+      commentBody.textContent = newBody; // Simple fallback
+    }
+  }
+
+  /**
+   * Gestisce l'editing di un commento
+   * @param {Object} comment - Il commento da modificare
+   */
+  handleEditComment(comment) {
+    // Verifica che l'utente sia loggato
+    
+    if (!this.checkLoggedIn()) {
+      return;
+    }
+    // Avvia l'editing del commento
+    this.startEditComment(comment);
   }
 }

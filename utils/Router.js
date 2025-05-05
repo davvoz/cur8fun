@@ -1,5 +1,6 @@
 import eventEmitter from './EventEmitter.js';
 import EditPostView from '../views/EditPostView.js';
+import CommentView from '../views/CommentView.js';
 
 /**
  * Client-side router for handling navigation
@@ -217,8 +218,8 @@ class Router {
           });
         } else if (route.path instanceof RegExp && match.length > 1) {
           // For regex routes, map captured groups to standard parameter names
-          // For the edit route specifically: /edit/@(author)/(permlink)
-          if (path.startsWith('/edit/@') && match.length >= 3) {
+          // For special routes like /edit/@author/permlink or /comment/@author/permlink
+          if ((path.startsWith('/edit/@') || path.startsWith('/comment/@')) && match.length >= 3) {
             params.author = match[1];
             params.permlink = match[2];
           } else {
@@ -367,6 +368,9 @@ class Router {
     
     // Add edit route - using the EditPostView class directly
     this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, EditPostView);
+    
+    // Aggiungi la rotta per la visualizzazione dei commenti
+    this.addRoute(/^\/comment\/@([^\/]+)\/(.+)$/, CommentView);
     
     // Handle initial route
     if (this.useHashRouting) {

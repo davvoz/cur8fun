@@ -153,7 +153,6 @@ class PostView extends View {
 
       // Add Open Graph meta tags for better sharing preview
       this.updateOpenGraphMetaTags();
-
       this.initComponents();
       await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);
@@ -456,15 +455,40 @@ class PostView extends View {
 
   /**
    * Handle edit button click
-   * Redirects the user to the edit page
+   * Redirects the user to the appropriate edit page based on content type
    */
   handleEdit() {
     const { author, permlink } = this.post;
-    router.navigate(`/edit/@${author}/${permlink}`);
+    
+    if (this.isComment()) {
+      // È un commento, gestisci l'editing del commento
+      this.handleCommentEdit();
+    } else {
+      // È un post, reindirizza alla pagina di modifica normale
+      router.navigate(`/edit/@${author}/${permlink}`);
+    }
   }
 
   /**
-   * Check if current user can edit the post
+   * Gestisce l'editing di un commento
+   * Apre una finestra di dialogo per modificare il commento invece di navigare
+   */
+  handleCommentEdit() {
+    if (this.commentController && typeof this.commentController.handleEditComment === 'function') {
+      this.commentController.handleEditComment(this.post);
+    } else {
+      console.error('CommentController non implementa handleEditComment');
+      
+      // Fallback: notifica all'utente
+      this.emit('notification', {
+        type: 'info',
+        message: 'L\'editing dei commenti sarà disponibile presto'
+      });
+    }
+  }
+
+  /**
+   * Check if current user can edit the content
    * @returns {boolean} true if user is the author
    */
   canEditPost() {
@@ -912,6 +936,14 @@ class PostView extends View {
     this.commentsSectionComponent = null;
     this.voteController = null;
     this.commentController = null;
+  }
+
+  /**
+   * Verifica se il contenuto è un commento invece di un post
+   * @returns {boolean} true se è un commento
+   */
+  isComment() {
+    return this.post && this.post.parent_author && this.post.parent_author !== '';
   }
 }
 
