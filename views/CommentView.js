@@ -322,16 +322,128 @@ export default class CommentView extends View {
    * Gestisce il pulsante di modifica
    */
   handleEdit() {
+    // Verifica che l'utente possa modificare il commento
+    if (!this.canEditComment()) {
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: 'Solo l\'autore può modificare questo commento'
+      });
+      return;
+    }
+    
+    // Prima di procedere, controlla se l'utente ha una posting key valida
+    const user = authService.getCurrentUser();
+    
+    // Per utenti Keychain, non è necessario verificare la scadenza
+    if (user?.loginMethod !== 'keychain') {
+      // Verifica scadenza della posting key
+      const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+      if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+        // La chiave è scaduta, rimuovila dallo storage
+        localStorage.removeItem(`${user.username}_posting_key`);
+        localStorage.removeItem(`${user.username}_posting_key_expiry`);
+        
+        // Mostra il dialog di errore per la posting key scaduta
+        this.showPostingErrorDialog();
+        return;
+      }
+    }
+    
     // Avvia la modifica del commento
     if (this.commentController) {
       this.commentController.handleEditComment(this.comment);
     } else {
       console.error('CommentController not available or handleEditComment method not found');
-      this.emit('notification', {
+      eventEmitter.emit('notification', {
         type: 'error',
         message: 'Si è verificato un errore durante la modifica del commento'
       });
     }
+  }
+  
+  /**
+   * Mostra un dialog per posting key scaduta
+   */
+  showPostingErrorDialog() {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'posting-error-overlay';
+
+    // Create dialog container
+    const dialog = document.createElement('div');
+    dialog.className = 'posting-error-dialog';
+    dialog.style.left = '50%';
+    dialog.style.top = '50%';
+
+    // Create dialog content
+    const title = document.createElement('h3');
+    title.className = 'posting-error-dialog-title';
+    title.textContent = 'Session Expired';
+
+    // Add icon container
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'posting-error-icon';
+    iconContainer.innerHTML = '<span class="material-icons">info</span>';
+
+    // Add message
+    const messageEl = document.createElement('p');
+    messageEl.className = 'posting-error-message';
+    messageEl.innerHTML = 'Your login session has expired for security reasons.<br>This helps keep your account safe by requiring periodic re-authentication.';
+
+    // Add additional explanation
+    const explainEl = document.createElement('p');
+    explainEl.className = 'posting-error-explanation';
+    explainEl.textContent = 'Please log in again to continue posting your comment.';
+
+    // Add login button
+    const loginBtn = document.createElement('button');
+    loginBtn.className = 'posting-error-login-btn';
+    loginBtn.textContent = 'Login Again';
+
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'posting-error-close-btn';
+    closeBtn.textContent = 'Close';
+
+    // Store current URL to return after login
+    const returnUrl = window.location.pathname + window.location.search;
+
+    // Login function
+    const goToLogin = () => {
+      closeDialog();
+      setTimeout(() => {
+        router.navigate('/login', { returnUrl });
+      }, 100);
+    };
+
+    // Close dialog function
+    const closeDialog = () => {
+      document.body.removeChild(overlay);
+      document.body.removeChild(dialog);
+    };
+
+    // Add event listeners
+    loginBtn.addEventListener('click', goToLogin);
+    closeBtn.addEventListener('click', closeDialog);
+    overlay.addEventListener('click', closeDialog);
+
+    // Add elements to dialog
+    dialog.appendChild(title);
+    dialog.appendChild(iconContainer);
+    dialog.appendChild(messageEl);
+    dialog.appendChild(explainEl);
+    dialog.appendChild(loginBtn);
+    dialog.appendChild(closeBtn);
+
+    // Add to body
+    document.body.appendChild(overlay);
+    document.body.appendChild(dialog);
+
+    // Also emit a regular notification
+    eventEmitter.emit('notification', {
+      type: 'info',
+      message: 'Your session has expired. Please login again to continue.'
+    });
   }
 
   /**
