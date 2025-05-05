@@ -523,9 +523,8 @@ class WalletService {
           window.steem_keychain.requestBroadcast(
             this.currentUser,
             [claimRewardOp],
-            "posting", // Using posting key for claiming rewards
+            "posting", // IMPORTANTE: Utilizzare sempre la posting key per claim_reward_balance
             function(response) {
-
               if (response.success) {
                 resolve({ 
                   success: true,
@@ -543,7 +542,8 @@ class WalletService {
         });
       };
       
-      // Use the _broadcastOperation method with posting key (sufficient for claim_reward_balance)
+      // Utilizziamo SEMPRE la posting key per claim_reward_balance
+      // La blockchain Steem richiede solo posting authority per questa operazione
       const response = await this._broadcastOperation([claimRewardOp], 'posting', keychainMethod);
       
       // If successful, add reward information to the response
@@ -1479,8 +1479,37 @@ async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = n
       });
     }
     
-    // 3. Se non abbiamo la chiave privata, richiedi la chiave all'utente 
-    // (solo per utenti NON Keychain)
+    // 3. Se non abbiamo la chiave privata, verifichiamo se siamo nel caso claim_reward_balance con posting key
+    if (requiredKey === 'posting' && operations[0][0] === 'claim_reward_balance') {
+      // Per claim_reward_balance, prima proviamo a vedere se possiamo ottenere la posting key
+      const userData = user && authService.getUserData();
+      if (userData && userData.posting) {
+        console.log('Using stored posting key for claim_reward operation');
+        const steem = await steemService.ensureLibraryLoaded();
+        
+        return new Promise((resolve, reject) => {
+          const keys = { posting: userData.posting };
+          steem.broadcast.send(
+            { operations, extensions: [] },
+            keys,
+            (err, result) => {
+              if (err) {
+                console.error('Broadcast error with stored posting key:', err);
+                reject(new Error(err.message || 'Claim rewards operation failed'));
+              } else {
+                resolve({
+                  success: true,
+                  result: result,
+                  operation: operations[0][0]
+                });
+              }
+            }
+          );
+        });
+      }
+    }
+    
+    // 4. Solo se tutto fallisce, richiedi la chiave all'utente
     console.log(`No ${requiredKey} key available, requesting key from user`);
     
     // Richiedi la chiave all'utente usando il componente ActiveKeyInputComponent
