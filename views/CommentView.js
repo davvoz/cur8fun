@@ -257,14 +257,21 @@ export default class CommentView extends View {
     icon.textContent = 'arrow_back';
     
     const linkText = document.createElement('span');
-    linkText.textContent = this.parentPost.title || 'Post padre';
+    linkText.textContent = this.parentPost.title || 'Parent';
     
     parentPostLink.appendChild(icon);
     parentPostLink.appendChild(linkText);
     
-    // Aggiungi l'evento click per navigare al post padre
+    // Aggiungi l'evento click per navigare al post o commento padre
     parentPostLink.addEventListener('click', () => {
-      router.navigate(`/@${this.parentPost.author}/${this.parentPost.permlink}`);
+      // Verifica se il parent è un commento (ha parent_author) o un post
+      if (this.parentPost.parent_author && this.parentPost.parent_author !== '') {
+        // È un commento, naviga alla CommentView
+        router.navigate(`/comment/@${this.parentPost.author}/${this.parentPost.permlink}`);
+      } else {
+        // È un post, naviga alla PostView
+        router.navigate(`/@${this.parentPost.author}/${this.parentPost.permlink}`);
+      }
     });
     
     this.parentPostReference.appendChild(parentPostLink);

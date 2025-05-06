@@ -286,7 +286,7 @@ class NotificationsService {
             
             for (const batchSize of historySizesUsed) {
                 try {
-                    this.updateBusyMessage(`Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}<br>Trovate ${allNotifications.length} notifiche`);
+                    //this.updateBusyMessage(`Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}<br>Trovate ${allNotifications.length} notifiche`);
                     
                     const history = await transactionHistoryService.getUserTransactionHistory(username, batchSize, lastId);
                     

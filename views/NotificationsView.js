@@ -374,7 +374,7 @@ class NotificationsView {
                 contentHtml = `
                     <a href="/@${data.author}" class="user">${data.author}</a>
                     replied to your 
-                    <a href="/@${data.author}/${data.permlink}" class="content-link">post</a>: 
+                    <a href="/comment/@${data.author}/${data.permlink}" class="content-link">post</a>: 
                     <span class="excerpt">${data.body}</span>
                 `;
                 break;
@@ -383,7 +383,7 @@ class NotificationsView {
                 contentHtml = `
                     <a href="/@${data.author}" class="user">${data.author}</a> 
                     mentioned you in a 
-                    <a href="/@${data.author}/${data.permlink}" class="content-link">comment</a>: 
+                    <a href="/comment/@${data.author}/${data.permlink}" class="content-link">comment</a>: 
                     <span class="excerpt">${data.body}</span>
                 `;
                 break;
@@ -399,7 +399,7 @@ class NotificationsView {
                 contentHtml = `
                     <a href="/@${data.voter}" class="user">${data.voter}</a> 
                     upvoted your 
-                    <a href="/@${authService.getCurrentUser().username}/${data.permlink}" class="content-link">post</a>
+                    <a href="/comment/@${authService.getCurrentUser().username}/${data.permlink}" class="content-link">post</a>
                     (${data.weight}%)
                 `;
                 break;
@@ -432,14 +432,17 @@ class NotificationsView {
             ${!isRead ? '<div class="unread-indicator"></div>' : ''}
         `;
         
-        // Add click handler to mark as read
+        // Add click handler to mark as read and navigation handling
         element.addEventListener('click', () => {
             this.markAsRead(notification, element);
             
             // Extract target link
             const contentLink = element.querySelector('.content-link');
             if (contentLink) {
-                router.navigate(contentLink.getAttribute('href'));
+                const href = contentLink.getAttribute('href');
+                if (href) {
+                    router.navigate(href);
+                }
             }
         });
         
