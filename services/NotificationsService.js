@@ -277,7 +277,7 @@ class NotificationsService {
         let continueSearch = true;
         let totalTransactions = 0;
         
-        this.showBusyMessage("RECUPERO STORICO NOTIFICHE IN CORSO...<br>Potrebbe richiedere qualche minuto");
+        //this.showBusyMessage("RECUPERO STORICO NOTIFICHE IN CORSO...<br>Potrebbe richiedere qualche minuto");
         
         // APPROCCIO MASSIVO:
         // Recupera lo storico ripetutamente con diverse dimensioni batch fino a ID=1
