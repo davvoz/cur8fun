@@ -115,6 +115,11 @@ jobs:
           # Sposta il file nella directory di distribuzione (se necessario)
           mv ./config.js ./formatted-results/config.js
           
+      - name: Debug config.js
+        run: |
+          echo "Contenuto di config.js:"
+          cat ./formatted-results/config.js || echo "config.js non trovato"
+          
       - name: Commit config.js for GitHub Pages
         run: |
           # Aggiungi il file config.js al commit
