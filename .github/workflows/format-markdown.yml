@@ -88,6 +88,7 @@ jobs:
           # Configura git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}
           
           # Crea cartella per i risultati se non esiste
           mkdir -p formatted-results
