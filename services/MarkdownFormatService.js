@@ -149,43 +149,20 @@ async dispatchWorkflow(text, style) {
     const apiUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/dispatches`;
     console.debug("URL API:", apiUrl);
     
-    // Ottieni il nome del branch default
-    let branchName = 'master';
-    try {
-      const repoResponse = await fetch(`${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}`, {
-        headers: {
-          'Authorization': `Bearer ${this.githubToken}`,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      });
-      
-      if (repoResponse.ok) {
-        const repoData = await repoResponse.json();
-        branchName = repoData.default_branch;
-        console.debug("Branch di default:", branchName);
-      }
-    } catch (error) {
-      console.warn("Impossibile ottenere il branch di default, uso 'master':", error.message);
-    }
-    
-    // Prepara i dati per la richiesta
+    // Prepara i dati per la richiesta usando direttamente 'master' come nel test funzionante
     const payload = {
-      ref: branchName, // Usa il branch di default trovato
+      ref: 'master',
       inputs: {
         text: text,
         style: style
       }
     };
     
-    // Usa il formato di autorizzazione corretto per i token a grana fine
-    // Per token a grana fine (inizia con github_pat_): Bearer
-    // Per token classic (inizia con ghp_): token
-    const authPrefix = this.githubToken.startsWith('github_pat_') ? 'Bearer' : 'token';
-    const authHeader = `${authPrefix} ${this.githubToken}`;
+    // Usa Bearer come formato di autorizzazione (come nel test funzionante)
+    const authHeader = `Bearer ${this.githubToken}`;
     
     // Esegui la richiesta con dettagli di debug completi
-    console.debug("Invio richiesta con payload:", JSON.stringify(payload, null, 2).substring(0, 100) + "...");
+    console.debug("Invio richiesta con payload:", JSON.stringify(payload, null, 2));
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -216,7 +193,7 @@ async dispatchWorkflow(text, style) {
     // Dopo aver avviato il workflow, dobbiamo ottenere l'ID del run
     // Recuperiamo l'ultimo run del workflow per il nostro branch
     const runsResponse = await fetch(
-      `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=${branchName}&per_page=1`,
+      `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=master&per_page=1`,
       {
         headers: {
           'Authorization': authHeader,
@@ -269,11 +246,15 @@ async dispatchWorkflow(text, style) {
       // Costruisci l'URL per ottenere lo stato del run
       const statusUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
       
-      // Esegui la richiesta
+      // Usa Bearer come formato di autorizzazione (come nel test funzionante)
+      const authHeader = `Bearer ${this.githubToken}`;
+      
+      // Esegui la richiesta con gli header aggiornati
       const response = await fetch(statusUrl, {
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
       
@@ -316,13 +297,17 @@ async dispatchWorkflow(text, style) {
     try {
       this.updateStatus('Download del testo formattato...', 'info');
       
+      // Usa Bearer come formato di autorizzazione (come nel test funzionante)
+      const authHeader = `Bearer ${this.githubToken}`;
+      
       // Ottieni i dettagli del run per verificare che sia completato con successo
       const runDetailsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
       
       const runResponse = await fetch(runDetailsUrl, {
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
       
@@ -342,8 +327,9 @@ async dispatchWorkflow(text, style) {
       
       const jobsResponse = await fetch(jobsUrl, {
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
       
@@ -372,8 +358,9 @@ async dispatchWorkflow(text, style) {
         
         const contentsResponse = await fetch(contentsUrl, {
           headers: {
-            'Authorization': `token ${this.githubToken}`,
-            'Accept': 'application/vnd.github.v3+json'
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
           }
         });
         

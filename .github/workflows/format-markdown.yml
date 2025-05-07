@@ -41,8 +41,10 @@ jobs:
           # Installa dipendenze
           npm install openai
           
-          # Crea file con il testo di input
-          echo '${{ github.event.inputs.text }}' > input.txt
+          # Crea file con il testo di input usando heredoc per evitare problemi con caratteri speciali
+          cat > input.txt << 'EOF'
+          ${{ github.event.inputs.text }}
+          EOF
           
           # Script per formattare
           node -e "
