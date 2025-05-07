@@ -244,9 +244,23 @@ class CreatePostView extends View {
     const contentGroup = document.createElement('div');
     contentGroup.className = 'form-group';
 
-    const contentLabel = document.createElement('label');
-    contentLabel.htmlFor = 'markdown-editor-container';
-    contentLabel.textContent = 'Content';
+    const contentLabel = document.createElement('div');
+    contentLabel.className = 'content-label-container';
+    
+    const labelText = document.createElement('label');
+    labelText.htmlFor = 'markdown-editor-container';
+    labelText.textContent = 'Content';
+    contentLabel.appendChild(labelText);
+    
+    // Aggiungi pulsante per la formattazione markdown
+    const formatMarkdownBtn = document.createElement('button');
+    formatMarkdownBtn.type = 'button';
+    formatMarkdownBtn.className = 'primary-btn format-markdown-btn';
+    formatMarkdownBtn.title = 'Format with AI';
+    formatMarkdownBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Format Markdown';
+    formatMarkdownBtn.addEventListener('click', () => this.showMarkdownFormatterDialog());
+    contentLabel.appendChild(formatMarkdownBtn);
+    
     contentGroup.appendChild(contentLabel);
 
     // Container per l'editor Markdown
@@ -2751,6 +2765,207 @@ class CreatePostView extends View {
         setTimeout(() => notification.remove(), 300);
       }
     }, type === 'error' ? 5000 : 3000);
+  }
+
+  /**
+   * Mostra il dialog per la formattazione Markdown usando l'AI
+   */
+  async showMarkdownFormatterDialog() {
+    try {
+      // Verifica che ci sia del contenuto da formattare
+      if (!this.postBody || this.postBody.trim() === '') {
+        this.showStatus('Non c\'è contenuto da formattare. Inserisci prima del testo.', 'error');
+        return;
+      }
+      
+      // Importa il servizio MarkdownFormatService
+      const MarkdownFormatService = await import('../services/MarkdownFormatService.js')
+        .then(module => module.default)
+        .catch(err => {
+          throw new Error('Impossibile caricare il servizio di formattazione Markdown: ' + err.message);
+        });
+      
+      // Crea un elemento dialog
+      const dialog = document.createElement('div');
+      dialog.className = 'markdown-formatter-dialog';
+      
+      const dialogContent = document.createElement('div');
+      dialogContent.className = 'dialog-content';
+      
+      // Header
+      const header = document.createElement('div');
+      header.className = 'dialog-header';
+      
+      const title = document.createElement('h3');
+      title.textContent = 'Markdown AI Formatter';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-button';
+      closeBtn.setAttribute('aria-label', 'Chiudi');
+      closeBtn.innerHTML = '<span class="material-icons">close</span>';
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      
+      // Body
+      const body = document.createElement('div');
+      body.className = 'dialog-body';
+      
+      // Informazioni sulla formattazione
+      const infoBox = document.createElement('div');
+      infoBox.className = 'info-box';
+      infoBox.innerHTML = `
+        <div class="experimental-banner">
+          <span class="material-icons warning-icon">science</span>
+          <h4>EXPERIMENTAL FEATURE</h4>
+        </div>
+        <div class="info-text">
+          <p><strong>⚠️ This feature is in early testing phase and may not work as expected!</strong></p>
+          <p>Text formatting is performed through GitHub Actions and uses artificial intelligence to improve the structure and readability of your content.</p>
+          <p>Remember that formatting will maintain the meaning of the original text but may modify its structure.</p>
+          <p class="experimental-note">By using this feature, you acknowledge it's experimental and results may vary.</p>
+        </div>
+      `;
+      
+      body.appendChild(infoBox);
+      
+      // Opzioni di stile
+      const styleGroup = document.createElement('div');
+      styleGroup.className = 'form-group';
+      
+      const styleLabel = document.createElement('label');
+      styleLabel.htmlFor = 'format-style';
+      styleLabel.textContent = 'Stile di formattazione:';
+      
+      const styleSelect = document.createElement('select');
+      styleSelect.id = 'format-style';
+      styleSelect.className = 'format-style-select';
+      
+      const styleOptions = [
+        { value: 'social', label: 'Social Media - Engaging style for social platforms' },
+        { value: 'technical', label: 'Technical Documentation - Structure with headings and code blocks' },
+        { value: 'blog', label: 'Blog Post - Well-structured with engaging titles' }
+      ];
+      
+      styleOptions.forEach(option => {
+        const optionEl = document.createElement('option');
+        optionEl.value = option.value;
+        optionEl.textContent = option.label;
+        styleSelect.appendChild(optionEl);
+      });
+      
+      styleGroup.appendChild(styleLabel);
+      styleGroup.appendChild(styleSelect);
+      
+      body.appendChild(styleGroup);
+      
+      // Preview del testo
+      const previewGroup = document.createElement('div');
+      previewGroup.className = 'form-group';
+      
+      const previewLabel = document.createElement('label');
+      previewLabel.textContent = 'Anteprima del contenuto:';
+      
+      const previewText = document.createElement('div');
+      previewText.className = 'preview-text';
+      
+      // Mostra i primi 300 caratteri come anteprima
+      const previewContent = this.postBody.substring(0, 300);
+      previewText.textContent = previewContent + (this.postBody.length > 300 ? '...' : '');
+      
+      previewGroup.appendChild(previewLabel);
+      previewGroup.appendChild(previewText);
+      
+      body.appendChild(previewGroup);
+      
+      // Pulsanti azione
+      const actions = document.createElement('div');
+      actions.className = 'dialog-actions';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn secondary-btn';
+      cancelBtn.textContent = 'Annulla';
+      
+      const formatBtn = document.createElement('button');
+      formatBtn.className = 'btn primary-btn';
+      formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Formatta';
+      
+      actions.appendChild(cancelBtn);
+      actions.appendChild(formatBtn);
+      
+      body.appendChild(actions);
+      
+      // Assembla il dialog
+      dialogContent.appendChild(header);
+      dialogContent.appendChild(body);
+      
+      dialog.appendChild(dialogContent);
+      
+      // Aggiungi il dialog al DOM
+      document.body.appendChild(dialog);
+      
+      // Event handlers
+      closeBtn.addEventListener('click', () => {
+        dialog.remove();
+      });
+      
+      cancelBtn.addEventListener('click', () => {
+        dialog.remove();
+      });
+      
+      formatBtn.addEventListener('click', async () => {
+        try {
+          // Disabilita il pulsante e mostra stato di caricamento
+          formatBtn.disabled = true;
+          formatBtn.innerHTML = '<span class="spinner"></span> Avvio formattazione...';
+          
+          // Ottieni lo stile selezionato
+          const style = styleSelect.value;
+          
+          // Avvia la formattazione
+          await MarkdownFormatService.formatMarkdown(this.postBody, style);
+          
+          // Rimuovi il dialog
+          dialog.remove();
+        } catch (error) {
+          console.error('Errore durante la formattazione:', error);
+          
+          // Mostra errore nel dialog
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'dialog-error';
+          errorDiv.textContent = `Errore: ${error.message}`;
+          
+          // Inserisci l'errore all'inizio del body
+          body.insertBefore(errorDiv, body.firstChild);
+          
+          // Ripristina il pulsante
+          formatBtn.disabled = false;
+          formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Riprova';
+        }
+      });
+      
+      // Chiudi con il tasto ESC
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') {
+          dialog.remove();
+          document.removeEventListener('keydown', keyHandler);
+        }
+      };
+      
+      document.addEventListener('keydown', keyHandler);
+      
+      // Chiudi con click fuori dal dialog
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          dialog.remove();
+          document.removeEventListener('keydown', keyHandler);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Errore nell\'apertura del formatter:', error);
+      this.showStatus(`Errore nell'apertura del formatter: ${error.message}`, 'error');
+    }
   }
 }
 

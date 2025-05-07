@@ -1,0 +1,87 @@
+name: Format Markdown
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: 'Testo da formattare'
+        required: true
+        type: string
+      style:
+        description: 'Stile di formattazione'
+        required: true
+        default: 'social'
+        type: choice
+        options:
+          - social
+          - technical
+          - blog
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Format Markdown
+        id: format
+        run: |
+          # Installa dipendenze
+          npm install openai
+          
+          # Crea file con il testo di input
+          echo '${{ github.event.inputs.text }}' > input.txt
+          
+          # Script per formattare
+          node -e "
+          const OpenAI = require('openai');
+          const fs = require('fs');
+          
+          async function formatText() {
+            const text = fs.readFileSync('input.txt', 'utf8');
+            const style = '${{ github.event.inputs.style }}';
+            
+            const endpoint = 'https://models.github.ai/inference/';
+            const modelName = 'openai/gpt-4o-mini';
+            
+            const client = new OpenAI({ 
+              baseURL: endpoint, 
+              apiKey: '${{ secrets.MY_PERSONAL_TOKEN }}' // Usa il tuo token personale
+            });
+            
+            let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
+            if (style === 'social') {
+              systemPrompt += ' Format for social media with engaging style.';
+            } else if (style === 'technical') {
+              systemPrompt += ' Format as technical documentation with proper headers and code blocks.';
+            } else {
+              systemPrompt += ' Format as a blog post with engaging headings and structure.';
+            }
+            
+            const completion = await client.chat.completions.create({
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: 'Transform this text into beautiful, well-formatted Markdown: ' + text }
+              ],
+              model: modelName
+            });
+            
+            const result = completion.choices[0].message.content;
+            fs.writeFileSync('formatted_result.md', result);
+            console.log('Formattazione completata!');
+          }
+          
+          formatText().catch(console.error);
+          "
+      
+      - name: Upload result as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatted-markdown
+          path: formatted_result.md

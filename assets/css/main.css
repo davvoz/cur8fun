@@ -33,6 +33,7 @@
 @import 'features/vote.css'; /* Aggiunto import per gli stili centralizzati dei voti */
 @import 'features/post.css';
 @import 'features/profile.css';
+@import 'features/markdown-formatter.css'; /* Corretto import per gli stili del markdown formatter */
 
 /* Page styles */
 @import 'pages/community.css';
