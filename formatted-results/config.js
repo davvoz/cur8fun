@@ -1,2 +1,2 @@
-// Rimuovo il contenuto del file config.js poiché non è più necessario generarlo
-const GITHUB_TOKEN = '';
+const GITHUB_TOKEN = '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';
+// Add any other configuration variables you need here
