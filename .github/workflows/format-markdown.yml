@@ -20,6 +20,8 @@ on:
 jobs:
   format:
     runs-on: ubuntu-latest
+    outputs:
+      result_path: ${{ steps.save_result.outputs.result_path }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -80,8 +82,42 @@ jobs:
           formatText().catch(console.error);
           "
       
-      - name: Upload result as artifact
+      - name: Save result to repository
+        id: save_result
+        run: |
+          # Configura git
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # Crea cartella per i risultati se non esiste
+          mkdir -p formatted-results
+          
+          # Genera nome file con timestamp
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          RESULT_FILE="formatted-results/${TIMESTAMP}.md"
+          
+          # Sposta il file nella cartella
+          mv formatted_result.md $RESULT_FILE
+          
+          # Commit e push
+          git add $RESULT_FILE
+          git commit -m "Add formatted markdown result [skip ci]"
+          git push
+          
+          # Salva il percorso per step successivi e lo espone come output del job
+          echo "result_path=${RESULT_FILE}" >> $GITHUB_OUTPUT
+          
+      - name: Generate config.js for GitHub Pages
+        run: |
+          # Crea il file config.js con il token GitHub
+          echo "const GITHUB_TOKEN = '${{ secrets.MY_PERSONAL_TOKEN }}';" > ./config.js
+          
+          # Sposta il file nella directory di distribuzione (se necessario)
+          mv ./config.js ./formatted-results/config.js
+          
+      # Manteniamo anche l'artifact per retrocompatibilità
+      - name: Upload result as artifact (legacy)
         uses: actions/upload-artifact@v4
         with:
           name: formatted-markdown
-          path: formatted_result.md
+          path: ${{ steps.save_result.outputs.result_path }}

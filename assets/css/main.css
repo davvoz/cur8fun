@@ -136,3 +136,11 @@ body:not(:has(style)) {
   background-color: var(--background-color, var(--fallback-background-color));
   color: var(--text-color, var(--fallback-text-color));
 }
+
+#toggle-btn-retract {
+
+  position: absolute;
+
+  bottom: 0;
+
+}
