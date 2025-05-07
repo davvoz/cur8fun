@@ -120,78 +120,131 @@ class MarkdownFormatService {
     }
   }
 
-  /**
-   * Avvia il workflow GitHub tramite API
-   * @param {string} text - Il testo da formattare
-   * @param {string} style - Lo stile di formattazione
-   * @returns {Promise<string>} - Il run ID
-   */
-  async dispatchWorkflow(text, style) {
+/**
+ * Avvia il workflow GitHub tramite API
+ * @param {string} text - Il testo da formattare
+ * @param {string} style - Lo stile di formattazione
+ * @returns {Promise<string>} - Il run ID
+ */
+async dispatchWorkflow(text, style) {
+  try {
+    this.updateStatus('Invio della richiesta al servizio di formattazione...', 'info');
+    
+    // Controlla se il token è disponibile e attendi il caricamento se necessario
+    if (!this.githubToken) {
+      await this.loadToken();
+      
+      // Verifica ancora una volta che il token sia caricato
+      if (!this.githubToken) {
+        throw new Error('Token GitHub non disponibile. Verificare il file config.js');
+      }
+    }
+    
+    // Debug del token (attenzione: mai loggare l'intero token in produzione)
+    console.debug("Token disponibile:", !!this.githubToken, 
+      "Prefisso:", this.githubToken?.substring(0, 4), 
+      "Suffisso:", this.githubToken?.substring(this.githubToken.length - 4));
+    
+    // Costruisci l'URL per l'API GitHub
+    const apiUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/dispatches`;
+    console.debug("URL API:", apiUrl);
+    
+    // Ottieni il nome del branch default
+    let branchName = 'master';
     try {
-      this.updateStatus('Invio della richiesta al servizio di formattazione...', 'info');
-      
-      // Costruisci l'URL per l'API GitHub
-      const apiUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/dispatches`;
-      
-      // Prepara i dati per la richiesta
-      const payload = {
-        ref: 'main', // branch di riferimento
-        inputs: {
-          text: text,
-          style: style
-        }
-      };
-      
-      // Esegui la richiesta
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const repoResponse = await fetch(`${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}`, {
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+          'Authorization': `Bearer ${this.githubToken}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
       });
       
-      // GitHub restituisce 204 No Content per le richieste workflow_dispatch riuscite
-      if (!response.ok) {
-        if (response.status !== 204) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`Errore nell'API GitHub (${response.status}): ${errorData.message || 'Errore sconosciuto'}`);
-        }
+      if (repoResponse.ok) {
+        const repoData = await repoResponse.json();
+        branchName = repoData.default_branch;
+        console.debug("Branch di default:", branchName);
       }
-      
-      // Dopo aver avviato il workflow, dobbiamo ottenere l'ID del run
-      // Recuperiamo l'ultimo run del workflow per il nostro branch
-      const runsResponse = await fetch(
-        `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=main&per_page=1`,
-        {
-          headers: {
-            'Authorization': `token ${this.githubToken}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      
-      if (!runsResponse.ok) {
-        throw new Error(`Impossibile ottenere lo stato del workflow (${runsResponse.status})`);
-      }
-      
-      const runsData = await runsResponse.json();
-      
-      if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
-        throw new Error('Nessun workflow run trovato');
-      }
-      
-      // Ottieni l'ID del run più recente
-      const runId = runsData.workflow_runs[0].id;
-      
-      return runId.toString();
     } catch (error) {
-      console.error('Errore nell\'avvio del workflow:', error);
-      throw new Error(`Impossibile avviare il workflow: ${error.message}`);
+      console.warn("Impossibile ottenere il branch di default, uso 'master':", error.message);
     }
+    
+    // Prepara i dati per la richiesta
+    const payload = {
+      ref: branchName, // Usa il branch di default trovato
+      inputs: {
+        text: text,
+        style: style
+      }
+    };
+    
+    // Usa il formato di autorizzazione corretto per i token a grana fine
+    // Per token a grana fine (inizia con github_pat_): Bearer
+    // Per token classic (inizia con ghp_): token
+    const authPrefix = this.githubToken.startsWith('github_pat_') ? 'Bearer' : 'token';
+    const authHeader = `${authPrefix} ${this.githubToken}`;
+    
+    // Esegui la richiesta con dettagli di debug completi
+    console.debug("Invio richiesta con payload:", JSON.stringify(payload, null, 2).substring(0, 100) + "...");
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    console.debug("Risposta API:", response.status, response.statusText);
+    
+    // GitHub restituisce 204 No Content per le richieste workflow_dispatch riuscite
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Testo risposta errore:", errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`Errore nell'API GitHub (${response.status}): ${errorData.message || 'Errore sconosciuto'}`);
+      } catch (jsonError) {
+        throw new Error(`Errore nell'API GitHub (${response.status}): ${errorText || response.statusText}`);
+      }
+    }
+    
+    // Dopo aver avviato il workflow, dobbiamo ottenere l'ID del run
+    // Recuperiamo l'ultimo run del workflow per il nostro branch
+    const runsResponse = await fetch(
+      `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=${branchName}&per_page=1`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    );
+    
+    if (!runsResponse.ok) {
+      throw new Error(`Impossibile ottenere lo stato del workflow (${runsResponse.status})`);
+    }
+    
+    const runsData = await runsResponse.json();
+    
+    if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
+      throw new Error('Nessun workflow run trovato');
+    }
+    
+    // Ottieni l'ID del run più recente
+    const runId = runsData.workflow_runs[0].id;
+    
+    return runId.toString();
+  } catch (error) {
+    console.error('Errore nell\'avvio del workflow:', error);
+    throw new Error(`Impossibile avviare il workflow: ${error.message}`);
   }
+}
 
   /**
    * Monitora lo stato del workflow GitHub Actions
@@ -346,7 +399,7 @@ class MarkdownFormatService {
       }
       
       // Ora che abbiamo il percorso del file, lo scarichiamo direttamente utilizzando l'URL raw di GitHub
-      const rawUrl = `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/main/${resultPath}`;
+      const rawUrl = `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/master/${resultPath}`;
       
       const fileResponse = await fetch(rawUrl);
       
