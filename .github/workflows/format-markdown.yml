@@ -1,5 +1,9 @@
 name: Format Markdown
 
+# Aggiungi questa dichiarazione di permessi prima di "on:"
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -85,10 +89,12 @@ jobs:
       - name: Save result to repository
         id: save_result
         run: |
-          # Configura git
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.MY_PERSONAL_TOKEN }}@github.com/${{ github.repository }}
+          # Configura git - MODIFICATO per usare il token predefinito
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Non serve più specificare il remote URL con token
+          # git remote set-url origin https://x-access-token:${{ secrets.MY_PERSONAL_TOKEN }}@github.com/${{ github.repository }}
           
           # Crea cartella per i risultati se non esiste
           mkdir -p formatted-results
@@ -111,10 +117,7 @@ jobs:
       - name: Generate config.js for GitHub Pages
         run: |
           # Crea il file config.js con il token GitHub
-          echo "const GITHUB_TOKEN = '${{ secrets.MY_PERSONAL_TOKEN }}';" > ./config.js
-          
-          # Sposta il file nella directory di distribuzione (se necessario)
-          mv ./config.js ./formatted-results/config.js
+          echo "const GITHUB_TOKEN = '${{ secrets.MY_PERSONAL_TOKEN }}';" > ./formatted-results/config.js
           
       - name: Debug config.js
         run: |
@@ -125,7 +128,7 @@ jobs:
         run: |
           # Aggiungi il file config.js al commit
           git add ./formatted-results/config.js
-          git commit -m "Add config.js for GitHub Pages [skip ci]"
+          git commit -m "Add config.js for GitHub Pages [skip ci]" || echo "Nessuna modifica da committare"
           git push
           
       # Manteniamo anche l'artifact per retrocompatibilità
