@@ -178,121 +178,63 @@ class PostView extends View {
   updateOpenGraphMetaTags() {
     if (!this.post) return;
     
-    // Helper function to create or update meta tags
-    const setMetaTag = (property, content) => {
-      // Remove existing meta tag first to avoid duplicates
-      const existingTag = document.querySelector(`meta[property="${property}"]`);
-      if (existingTag) {
-        existingTag.setAttribute('content', content);
-      } else {
-        const metaTag = document.createElement('meta');
-        metaTag.setAttribute('property', property);
-        metaTag.setAttribute('content', content);
-        document.head.appendChild(metaTag);
-      }
-    };
+    // STEP 1: Rimuovere i meta tag statici originali per evitare conflitti
+    this.removeStaticMetaTags();
     
-    // Helper function for Twitter Cards (uses name instead of property)
-    const setTwitterTag = (name, content) => {
-      // Remove existing Twitter tag
-      const existingTag = document.querySelector(`meta[name="${name}"]`);
-      if (existingTag) {
-        existingTag.setAttribute('content', content);
+    // Helper function to create or update meta tags
+    const createMetaTag = (property, content, useProperty = true) => {
+      const metaTag = document.createElement('meta');
+      
+      if (useProperty) {
+        metaTag.setAttribute('property', property);
       } else {
-        const twitterTag = document.createElement('meta');
-        twitterTag.setAttribute('name', name);
-        twitterTag.setAttribute('content', content);
-        document.head.appendChild(twitterTag);
+        metaTag.setAttribute('name', property);
       }
+      
+      metaTag.setAttribute('content', content);
+      document.head.appendChild(metaTag);
     };
     
     // Get image URL from post body or metadata with improved extraction
     const imageUrl = this.getPostImageUrl();
     console.log("Meta tag image URL:", imageUrl); // Debug: verifica l'URL dell'immagine estratta
     
-    // Basic Open Graph meta tags
-    setMetaTag('og:title', this.post.title || 'STEEM Post');
-    setMetaTag('og:type', 'article');
-    setMetaTag('og:url', window.location.href);
-    
-    // Update static meta tags in index.html
-    const ogTitle = document.getElementById('og-title');
-    const ogDesc = document.getElementById('og-desc');
-    const ogImage = document.getElementById('og-image');
-    const ogUrl = document.getElementById('og-url');
-    const twitterTitle = document.getElementById('twitter-title');
-    const twitterDesc = document.getElementById('twitter-desc');
-    const twitterImage = document.getElementById('twitter-image');
-    
     // Create description from post body (strip markdown and limit length)
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
-    setMetaTag('og:description', description);
+    
+    // STEP 2: Creare nuovi meta tag con i dati del post (più affidabile che aggiornare)
+    // Basic Open Graph meta tags
+    createMetaTag('og:title', this.post.title || 'STEEM Post');
+    createMetaTag('og:type', 'article');
+    createMetaTag('og:url', window.location.href);
+    createMetaTag('og:description', description);
+    createMetaTag('og:site_name', 'STEEM Social Network');
     
     // Set image URL - critical for WhatsApp and Telegram
     if (imageUrl) {
       // Set image multiple times with different properties to maximize compatibility
-      setMetaTag('og:image', imageUrl);
-      setMetaTag('og:image:url', imageUrl);
-      setMetaTag('og:image:secure_url', imageUrl);
+      createMetaTag('og:image', imageUrl);
+      createMetaTag('og:image:url', imageUrl);
+      createMetaTag('og:image:secure_url', imageUrl);
+      createMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
       
       // Try to determine image dimensions if possible
       const img = new Image();
       img.src = imageUrl;
       
-      // Set default dimensions while waiting for the actual dimensions
-      setMetaTag('og:image:width', '1200');
-      setMetaTag('og:image:height', '630');
+      // Set default dimensions for better previews
+      createMetaTag('og:image:width', '1200');
+      createMetaTag('og:image:height', '630');
       
-      // Update dimensions once image is loaded
-      img.onload = () => {
-        setMetaTag('og:image:width', img.width.toString());
-        setMetaTag('og:image:height', img.height.toString());
-      };
+      // WhatsApp specific tag
+      createMetaTag('og:image:type', 'image/jpeg');
       
-      setMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
+      // Twitter Card meta tags
+      createMetaTag('twitter:card', 'summary_large_image', false);
+      createMetaTag('twitter:image', imageUrl, false);
+      createMetaTag('twitter:image:alt', this.post.title || 'STEEM Post Image', false);
       
-      // Update the static elements if they exist
-      if (ogImage) ogImage.setAttribute('content', imageUrl);
-      if (twitterImage) twitterImage.setAttribute('content', imageUrl);
-    } else {
-      // Fallback to logo if no image is found
-      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
-      setMetaTag('og:image', logoUrl);
-      setMetaTag('og:image:url', logoUrl);
-      setMetaTag('og:image:secure_url', logoUrl);
-      
-      if (ogImage) ogImage.setAttribute('content', logoUrl);
-      if (twitterImage) twitterImage.setAttribute('content', logoUrl);
-    }
-    
-    // Update other static elements
-    if (ogTitle) ogTitle.setAttribute('content', this.post.title || 'STEEM Post');
-    if (ogDesc) ogDesc.setAttribute('content', description);
-    if (ogUrl) ogUrl.setAttribute('content', window.location.href);
-    if (twitterTitle) twitterTitle.setAttribute('content', this.post.title || 'STEEM Post');
-    if (twitterDesc) twitterDesc.setAttribute('content', description);
-    
-    // Additional meta tags for better previews
-    setMetaTag('og:site_name', 'STEEM Social Network');
-    setMetaTag('og:article:published_time', this.post.created);
-    setMetaTag('og:article:author', this.post.author);
-    
-    // Twitter Card meta tags for Twitter sharing
-    setTwitterTag('twitter:card', imageUrl ? 'summary_large_image' : 'summary');
-    setTwitterTag('twitter:title', this.post.title || 'STEEM Post');
-    setTwitterTag('twitter:description', description);
-    
-    if (imageUrl) {
-      setTwitterTag('twitter:image', imageUrl);
-      setTwitterTag('twitter:image:alt', this.post.title || 'STEEM Post Image');
-    }
-    
-    // Special meta tags specifically for WhatsApp and Telegram
-    if (imageUrl) {
-      // WhatsApp specific (some sources suggest this helps)
-      setMetaTag('og:image:type', 'image/jpeg');
-      
-      // Additional tags that help with Telegram
+      // Add image_src link for better compatibility
       const linkElem = document.querySelector('link[rel="image_src"]');
       if (linkElem) {
         linkElem.setAttribute('href', imageUrl);
@@ -304,18 +246,57 @@ class PostView extends View {
       }
       
       // Add itemprop for Google+ and some other platforms
-      let itemPropImg = document.querySelector('meta[itemprop="image"]');
-      if (itemPropImg) {
-        itemPropImg.setAttribute('content', imageUrl);
-      } else {
-        itemPropImg = document.createElement('meta');
-        itemPropImg.setAttribute('itemprop', 'image');
-        itemPropImg.setAttribute('content', imageUrl);
-        document.head.appendChild(itemPropImg);
-      }
+      createMetaTag('image', imageUrl, false);
+    } else {
+      // Fallback to logo if no image is found
+      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
+      createMetaTag('og:image', logoUrl);
+      createMetaTag('og:image:url', logoUrl);
+      createMetaTag('twitter:card', 'summary', false);
+      createMetaTag('twitter:image', logoUrl, false);
     }
+    
+    // Twitter basic meta tags
+    createMetaTag('twitter:title', this.post.title || 'STEEM Post', false);
+    createMetaTag('twitter:description', description, false);
+    
+    // Additional meta tags for better previews
+    createMetaTag('og:article:published_time', this.post.created);
+    createMetaTag('og:article:author', this.post.author);
   }
   
+  /**
+   * Rimuove i meta tag statici originali per evitare conflitti
+   */
+  removeStaticMetaTags() {
+    // Rimuovi i meta tag esistenti di Open Graph e Twitter
+    const metaSelectors = [
+      'meta[property^="og:"]',
+      'meta[name^="twitter:"]',
+      'meta[name="image"]',
+      'meta[itemprop="image"]'
+    ];
+    
+    metaSelectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(tag => {
+        tag.parentNode.removeChild(tag);
+      });
+    });
+    
+    // Assicuriamoci che anche i tag con ID specifici vengano rimossi
+    const specificIds = [
+      'og-title', 'og-desc', 'og-image', 'og-url',
+      'twitter-title', 'twitter-desc', 'twitter-image'
+    ];
+    
+    specificIds.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.parentNode.removeChild(element);
+      }
+    });
+  }
+
   /**
    * Extracts the first image URL from post body or metadata
    * @returns {string|null} Image URL or null if no image found
