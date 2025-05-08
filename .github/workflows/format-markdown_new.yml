@@ -1,0 +1,105 @@
+name: Format Markdown
+
+# Dichiarazione di permessi
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: 'Testo da formattare'
+        required: true
+        type: string
+      style:
+        description: 'Stile di formattazione'
+        required: true
+        default: 'social'
+        type: choice
+        options:
+          - social
+          - technical
+          - blog
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    outputs:
+      result_path: ${{ steps.save_result.outputs.result_path }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+      
+      - name: Format Markdown using GitHub Copilot
+        id: format
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Crea file con il testo di input
+          echo "${{ github.event.inputs.text }}" > input.txt
+          
+          # Crea il prompt per il Copilot
+          STYLE="${{ github.event.inputs.style }}"
+          TEXT=$(cat input.txt)
+          
+          # Crea il prompt con istruzioni di formattazione
+          PROMPT="Formatta questo testo Markdown in modo professionale"
+          if [ "$STYLE" = "social" ]; then
+            PROMPT="Formatta questo testo Markdown in uno stile coinvolgente per i social media con emoji e formattazione accattivante"
+          elif [ "$STYLE" = "technical" ]; then
+            PROMPT="Formatta questo testo Markdown come documentazione tecnica con intestazioni adeguate e blocchi di codice ben strutturati"
+          elif [ "$STYLE" = "blog" ]; then
+            PROMPT="Formatta questo testo Markdown come un post di blog con titoli coinvolgenti e struttura ben organizzata"
+          fi
+          
+          # Usa GitHub CLI per chiamare Copilot
+          RESPONSE=$(gh copilot suggest -t "$PROMPT. Ecco il testo: $TEXT")
+          
+          # Salva la risposta nel file di output
+          echo "$RESPONSE" > formatted_result.md
+          
+          # Informa l'utente
+          echo "Formattazione completata con successo!"
+      
+      - name: Save result to repository
+        id: save_result
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          mkdir -p formatted-results
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          RESULT_FILE="formatted-results/${TIMESTAMP}.md"
+          
+          # Controlla se il file esiste e crea un fallback se necessario
+          if [ -f "formatted_result.md" ]; then
+            mv formatted_result.md $RESULT_FILE
+          else
+            echo "# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo." > $RESULT_FILE
+            echo "Created fallback file due to missing formatted_result.md"
+          fi
+          
+          git add $RESULT_FILE
+          git commit -m "Add formatted markdown result [skip ci]"
+          git push
+          echo "result_path=${RESULT_FILE}" >> $GITHUB_OUTPUT
+          
+      # Manteniamo anche l'artifact per retrocompatibilità
+      - name: Upload result as artifact (legacy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatted-markdown
+          path: ${{ steps.save_result.outputs.result_path }}
