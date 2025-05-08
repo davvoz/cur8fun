@@ -47,7 +47,7 @@ jobs:
       - name: Format Markdown using GitHub Copilot
         id: format
         env:
-          GITHUB_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Crea file con il testo di input
           echo "${{ github.event.inputs.text }}" > input.txt
