@@ -1,6 +1,6 @@
 name: Format Markdown
 
-# Aggiungi questa dichiarazione di permessi prima di "on:"
+# Dichiarazione di permessi
 permissions:
   contents: write
 
@@ -34,82 +34,46 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
-      - name: Format Markdown
-        id: format
+
+      - name: Install GitHub CLI
         run: |
-          # Installa dipendenze
-          npm install openai
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+      
+      - name: Format Markdown using GitHub Copilot
+        id: format
+        env:
+          GITHUB_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
+        run: |
+          # Crea file con il testo di input
+          echo "${{ github.event.inputs.text }}" > input.txt
           
-          # Crea file con il testo di input usando heredoc per evitare problemi con caratteri speciali
-          cat > input.txt << 'EOF'
-          ${{ github.event.inputs.text }}
-          EOF
+          # Crea il prompt per il Copilot
+          STYLE="${{ github.event.inputs.style }}"
+          TEXT=$(cat input.txt)
           
-          # Script per formattare
-          node -e "
-          const OpenAI = require('openai');
-          const fs = require('fs');
+          # Crea il prompt con istruzioni di formattazione
+          PROMPT="Formatta questo testo Markdown in modo professionale"
+          if [ "$STYLE" = "social" ]; then
+            PROMPT="Formatta questo testo Markdown in uno stile coinvolgente per i social media con emoji e formattazione accattivante"
+          elif [ "$STYLE" = "technical" ]; then
+            PROMPT="Formatta questo testo Markdown come documentazione tecnica con intestazioni adeguate e blocchi di codice ben strutturati"
+          elif [ "$STYLE" = "blog" ]; then
+            PROMPT="Formatta questo testo Markdown come un post di blog con titoli coinvolgenti e struttura ben organizzata"
+          fi
           
-          async function formatText() {
-            try {
-              const text = fs.readFileSync('input.txt', 'utf8');
-              const style = '${{ github.event.inputs.style }}';
-              
-              console.log('Testo caricato, lunghezza:', text.length);
-              console.log('Stile selezionato:', style);
-              
-              const endpoint = 'https://models.github.ai/inference/';
-              const modelName = 'openai/gpt-4o-mini';
-              
-              console.log('Connessione al servizio API...');
-              
-              const client = new OpenAI({ 
-                baseURL: endpoint, 
-                apiKey: '${{ secrets.MY_PERSONAL_TOKEN }}' // Usa il tuo token personale
-              });
-              
-              let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
-              if (style === 'social') {
-                systemPrompt += ' Format for social media with engaging style.';
-              } else if (style === 'technical') {
-                systemPrompt += ' Format as technical documentation with proper headers and code blocks.';
-              } else {
-                systemPrompt += ' Format as a blog post with engaging headings and structure.';
-              }
-              
-              console.log('Inviando richiesta all\'API...');
-              
-              const completion = await client.chat.completions.create({
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  { role: 'user', content: 'Transform this text into beautiful, well-formatted Markdown: ' + text }
-                ],
-                model: modelName
-              });
-              
-              console.log('Risposta ricevuta dall\'API');
-              
-              if (completion && completion.choices && completion.choices.length > 0) {
-                const result = completion.choices[0].message.content;
-                console.log('Contenuto della risposta ricevuto, lunghezza:', result.length);
-                fs.writeFileSync('formatted_result.md', result);
-                console.log('File formatted_result.md scritto con successo');
-              } else {
-                console.error('Errore: risposta API non valida');
-                fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo.');
-              }
-            } catch (error) {
-              console.error('Errore durante la formattazione:', error);
-              fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo: ' + error.message);
-            }
-          }
+          # Usa GitHub CLI per chiamare Copilot
+          RESPONSE=$(gh copilot suggest -t "$PROMPT. Ecco il testo: $TEXT")
           
-          formatText().catch(error => {
-            console.error('Errore nel processo principale:', error);
-            fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo: ' + error.message);
-          });
-          "
+          # Salva la risposta nel file di output
+          echo "$RESPONSE" > formatted_result.md
+          
+          # Informa l'utente
+          echo "Formattazione completata con successo!"
       
       - name: Save result to repository
         id: save_result
@@ -119,7 +83,15 @@ jobs:
           mkdir -p formatted-results
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           RESULT_FILE="formatted-results/${TIMESTAMP}.md"
-          mv formatted_result.md $RESULT_FILE
+          
+          # Controlla se il file esiste e crea un fallback se necessario
+          if [ -f "formatted_result.md" ]; then
+            mv formatted_result.md $RESULT_FILE
+          else
+            echo "# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo." > $RESULT_FILE
+            echo "Created fallback file due to missing formatted_result.md"
+          fi
+          
           git add $RESULT_FILE
           git commit -m "Add formatted markdown result [skip ci]"
           git push

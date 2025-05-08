@@ -259,8 +259,6 @@ async dispatchWorkflow(text, style) {
   try {
     this.updateStatus('Invio della richiesta al servizio di formattazione...', 'info');
     
-
-    
     // Debug del token (attenzione: mai loggare l'intero token in produzione)
     console.debug("Token disponibile:", !!this.githubToken, 
       "Prefisso:", this.githubToken?.substring(0, 4), 
@@ -311,33 +309,68 @@ async dispatchWorkflow(text, style) {
       }
     }
     
+    // Attendiamo un breve periodo iniziale molto breve (500ms) prima di iniziare i tentativi
+    this.updateStatus('Dispatch eseguito, in attesa dell\'inizio del workflow...', 'info');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Dopo aver avviato il workflow, dobbiamo ottenere l'ID del run
-    // Recuperiamo l'ultimo run del workflow per il nostro branch
-    const runsResponse = await fetch(
-      `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=master&per_page=1`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
+    // Recuperiamo l'ultimo run del workflow per il nostro branch con un approccio più resiliente
+    let runId = null;
+    let maxRetries = 10; // Aumentiamo il numero massimo di tentativi
+    let retryCount = 0;
+    let backoffDelay = 500; // Iniziamo con 500ms e incrementiamo a ogni tentativo (backoff esponenziale)
+    
+    while (runId === null && retryCount < maxRetries) {
+      try {
+        // Incrementa il contatore tentativi
+        retryCount++;
+        
+        const runsResponse = await fetch(
+          `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=master&per_page=1`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28'
+            }
+          }
+        );
+        
+        if (!runsResponse.ok) {
+          throw new Error(`Impossibile ottenere lo stato del workflow (${runsResponse.status})`);
         }
+        
+        const runsData = await runsResponse.json();
+        
+        if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
+          console.debug(`Tentativo ${retryCount}/${maxRetries}: nessun workflow run trovato ancora, riprovo...`);
+          // Calcola il prossimo ritardo con backoff esponenziale (max 3 secondi)
+          backoffDelay = Math.min(backoffDelay * 1.5, 3000);
+          this.updateStatus(`In attesa dell'inizio del workflow (${retryCount}/${maxRetries})...`, 'info');
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+          continue;
+        }
+        
+        // Ottieni l'ID del run più recente
+        runId = runsData.workflow_runs[0].id.toString();
+        console.debug(`ID workflow ottenuto al tentativo ${retryCount}: ${runId}`);
+      } catch (error) {
+        console.error(`Errore nel tentativo ${retryCount} di ottenere l'ID del run:`, error);
+        if (retryCount >= maxRetries) {
+          throw error; // Rilancia l'errore solo se abbiamo finito i tentativi
+        }
+        // Calcola il prossimo ritardo con backoff esponenziale (max 3 secondi)
+        backoffDelay = Math.min(backoffDelay * 1.5, 3000);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
-    );
-    
-    if (!runsResponse.ok) {
-      throw new Error(`Impossibile ottenere lo stato del workflow (${runsResponse.status})`);
     }
     
-    const runsData = await runsResponse.json();
-    
-    if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
-      throw new Error('Nessun workflow run trovato');
+    if (runId === null) {
+      throw new Error(`Impossibile ottenere l'ID del workflow dopo ${maxRetries} tentativi`);
     }
     
-    // Ottieni l'ID del run più recente
-    const runId = runsData.workflow_runs[0].id;
-    
-    return runId.toString();
+    this.updateStatus(`Workflow avviato con ID: ${runId}`, 'success');
+    return runId;
   } catch (error) {
     console.error('Errore nell\'avvio del workflow:', error);
     throw new Error(`Impossibile avviare il workflow: ${error.message}`);
