@@ -41,8 +41,10 @@ jobs:
           # Installa dipendenze
           npm install openai
           
-          # Crea file con il testo di input
-          echo '${{ github.event.inputs.text }}' > input.txt
+          # Crea file con il testo di input usando heredoc per evitare problemi con caratteri speciali
+          cat > input.txt << 'EOF'
+          ${{ github.event.inputs.text }}
+          EOF
           
           # Script per formattare
           node -e "
@@ -50,40 +52,63 @@ jobs:
           const fs = require('fs');
           
           async function formatText() {
-            const text = fs.readFileSync('input.txt', 'utf8');
-            const style = '${{ github.event.inputs.style }}';
-            
-            const endpoint = 'https://models.github.ai/inference/';
-            const modelName = 'openai/gpt-4o-mini';
-            
-            const client = new OpenAI({ 
-              baseURL: endpoint, 
-              apiKey: '${{ secrets.MY_PERSONAL_TOKEN }}'
-            });
-            
-            let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
-            if (style === 'social') {
-              systemPrompt += ' Format for social media with engaging style.';
-            } else if (style === 'technical') {
-              systemPrompt += ' Format as technical documentation with proper headers and code blocks.';
-            } else {
-              systemPrompt += ' Format as a blog post with engaging headings and structure.';
+            try {
+              const text = fs.readFileSync('input.txt', 'utf8');
+              const style = '${{ github.event.inputs.style }}';
+              
+              console.log('Testo caricato, lunghezza:', text.length);
+              console.log('Stile selezionato:', style);
+              
+              const endpoint = 'https://models.github.ai/inference/';
+              const modelName = 'openai/gpt-4o-mini';
+              
+              console.log('Connessione al servizio API...');
+              
+              const client = new OpenAI({ 
+                baseURL: endpoint, 
+                apiKey: '${{ secrets.GITHUB_TOKEN }}' // Usa il tuo token personale
+              });
+              
+              let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
+              if (style === 'social') {
+                systemPrompt += ' Format for social media with engaging style.';
+              } else if (style === 'technical') {
+                systemPrompt += ' Format as technical documentation with proper headers and code blocks.';
+              } else {
+                systemPrompt += ' Format as a blog post with engaging headings and structure.';
+              }
+              
+              console.log('Inviando richiesta all\'API...');
+              
+              const completion = await client.chat.completions.create({
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: 'Transform this text into beautiful, well-formatted Markdown: ' + text }
+                ],
+                model: modelName
+              });
+              
+              console.log('Risposta ricevuta dall\'API');
+              
+              if (completion && completion.choices && completion.choices.length > 0) {
+                const result = completion.choices[0].message.content;
+                console.log('Contenuto della risposta ricevuto, lunghezza:', result.length);
+                fs.writeFileSync('formatted_result.md', result);
+                console.log('File formatted_result.md scritto con successo');
+              } else {
+                console.error('Errore: risposta API non valida');
+                fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo.');
+              }
+            } catch (error) {
+              console.error('Errore durante la formattazione:', error);
+              fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo: ' + error.message);
             }
-            
-            const completion = await client.chat.completions.create({
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: 'Transform this text into beautiful, well-formatted Markdown: ' + text }
-              ],
-              model: modelName
-            });
-            
-            const result = completion.choices[0].message.content;
-            fs.writeFileSync('formatted_result.md', result);
-            console.log('Formattazione completata!');
           }
           
-          formatText().catch(console.error);
+          formatText().catch(error => {
+            console.error('Errore nel processo principale:', error);
+            fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo: ' + error.message);
+          });
           "
       
       - name: Save result to repository
