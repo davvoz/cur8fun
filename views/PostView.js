@@ -183,13 +183,13 @@ class PostView extends View {
       // Remove existing meta tag first to avoid duplicates
       const existingTag = document.querySelector(`meta[property="${property}"]`);
       if (existingTag) {
-        existingTag.parentNode.removeChild(existingTag);
+        existingTag.setAttribute('content', content);
+      } else {
+        const metaTag = document.createElement('meta');
+        metaTag.setAttribute('property', property);
+        metaTag.setAttribute('content', content);
+        document.head.appendChild(metaTag);
       }
-      
-      const metaTag = document.createElement('meta');
-      metaTag.setAttribute('property', property);
-      metaTag.setAttribute('content', content);
-      document.head.appendChild(metaTag);
     };
     
     // Helper function for Twitter Cards (uses name instead of property)
@@ -197,22 +197,32 @@ class PostView extends View {
       // Remove existing Twitter tag
       const existingTag = document.querySelector(`meta[name="${name}"]`);
       if (existingTag) {
-        existingTag.parentNode.removeChild(existingTag);
+        existingTag.setAttribute('content', content);
+      } else {
+        const twitterTag = document.createElement('meta');
+        twitterTag.setAttribute('name', name);
+        twitterTag.setAttribute('content', content);
+        document.head.appendChild(twitterTag);
       }
-      
-      const twitterTag = document.createElement('meta');
-      twitterTag.setAttribute('name', name);
-      twitterTag.setAttribute('content', content);
-      document.head.appendChild(twitterTag);
     };
     
     // Get image URL from post body or metadata with improved extraction
     const imageUrl = this.getPostImageUrl();
+    console.log("Meta tag image URL:", imageUrl); // Debug: verifica l'URL dell'immagine estratta
     
     // Basic Open Graph meta tags
     setMetaTag('og:title', this.post.title || 'STEEM Post');
     setMetaTag('og:type', 'article');
     setMetaTag('og:url', window.location.href);
+    
+    // Update static meta tags in index.html
+    const ogTitle = document.getElementById('og-title');
+    const ogDesc = document.getElementById('og-desc');
+    const ogImage = document.getElementById('og-image');
+    const ogUrl = document.getElementById('og-url');
+    const twitterTitle = document.getElementById('twitter-title');
+    const twitterDesc = document.getElementById('twitter-desc');
+    const twitterImage = document.getElementById('twitter-image');
     
     // Create description from post body (strip markdown and limit length)
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
@@ -240,13 +250,27 @@ class PostView extends View {
       };
       
       setMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
+      
+      // Update the static elements if they exist
+      if (ogImage) ogImage.setAttribute('content', imageUrl);
+      if (twitterImage) twitterImage.setAttribute('content', imageUrl);
     } else {
       // Fallback to logo if no image is found
       const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
       setMetaTag('og:image', logoUrl);
       setMetaTag('og:image:url', logoUrl);
       setMetaTag('og:image:secure_url', logoUrl);
+      
+      if (ogImage) ogImage.setAttribute('content', logoUrl);
+      if (twitterImage) twitterImage.setAttribute('content', logoUrl);
     }
+    
+    // Update other static elements
+    if (ogTitle) ogTitle.setAttribute('content', this.post.title || 'STEEM Post');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+    if (ogUrl) ogUrl.setAttribute('content', window.location.href);
+    if (twitterTitle) twitterTitle.setAttribute('content', this.post.title || 'STEEM Post');
+    if (twitterDesc) twitterDesc.setAttribute('content', description);
     
     // Additional meta tags for better previews
     setMetaTag('og:site_name', 'STEEM Social Network');
