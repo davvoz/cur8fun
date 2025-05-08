@@ -214,9 +214,7 @@ class MarkdownFormatService {
       throw new Error('Nessun testo fornito per la formattazione.');
     }
 
-    if (!this.isAuthenticated()) {
-      throw new Error('Autenticazione GitHub richiesta. Usa initiateOAuth() per autenticarti.');
-    }
+   
 
     try {
       this.isFormatting = true;
@@ -261,10 +259,7 @@ async dispatchWorkflow(text, style) {
   try {
     this.updateStatus('Invio della richiesta al servizio di formattazione...', 'info');
     
-    // Verifica che il token sia disponibile
-    if (!this.isAuthenticated()) {
-      throw new Error('Token GitHub non disponibile. Autenticarsi prima di procedere.');
-    }
+
     
     // Debug del token (attenzione: mai loggare l'intero token in produzione)
     console.debug("Token disponibile:", !!this.githubToken, 
@@ -422,13 +417,13 @@ async dispatchWorkflow(text, style) {
   async downloadFormattedText(runId) {
     try {
       this.updateStatus('Download del testo formattato...', 'info');
-      
-      // Usa Bearer come formato di autorizzazione (come nel test funzionante)
+
+      // Usa Bearer come formato di autorizzazione
       const authHeader = `Bearer ${this.githubToken}`;
-      
+
       // Ottieni i dettagli del run per verificare che sia completato con successo
       const runDetailsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
-      
+
       const runResponse = await fetch(runDetailsUrl, {
         headers: {
           'Authorization': authHeader,
@@ -436,21 +431,21 @@ async dispatchWorkflow(text, style) {
           'X-GitHub-Api-Version': '2022-11-28'
         }
       });
-      
+
       if (!runResponse.ok) {
         throw new Error(`Impossibile ottenere i dettagli del run (${runResponse.status})`);
       }
-      
+
       const runData = await runResponse.json();
-      
+
       // Controlla che il run sia stato completato con successo
       if (runData.status !== 'completed' || runData.conclusion !== 'success') {
         throw new Error(`Il workflow non è stato completato con successo: ${runData.conclusion}`);
       }
-      
+
       // Ottieni gli step del job per trovare il percorso del file salvato
       const jobsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}/jobs`;
-      
+
       const jobsResponse = await fetch(jobsUrl, {
         headers: {
           'Authorization': authHeader,
@@ -458,14 +453,14 @@ async dispatchWorkflow(text, style) {
           'X-GitHub-Api-Version': '2022-11-28'
         }
       });
-      
+
       if (!jobsResponse.ok) {
         throw new Error(`Impossibile ottenere i jobs del run (${jobsResponse.status})`);
       }
-      
+
       const jobsData = await jobsResponse.json();
       let resultPath = null;
-      
+
       // Cerca negli output dei job il percorso del file risultato
       if (jobsData.jobs && jobsData.jobs.length > 0) {
         for (const job of jobsData.jobs) {
@@ -475,55 +470,24 @@ async dispatchWorkflow(text, style) {
           }
         }
       }
-      
-      // Se non troviamo il percorso negli output, possiamo cercare di fare una richiesta
-      // al repository per trovare il file più recente nella cartella formatted-results
-      if (!resultPath) {
-        // Otteniamo l'elenco dei file nella cartella formatted-results
-        const contentsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
-        
-        const contentsResponse = await fetch(contentsUrl, {
-          headers: {
-            'Authorization': authHeader,
-            'Accept': 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        });
-        
-        if (!contentsResponse.ok) {
-          throw new Error(`Impossibile ottenere i contenuti della cartella (${contentsResponse.status})`);
-        }
-        
-        const contents = await contentsResponse.json();
-        
-        // Trova il file più recente (i nomi file includono timestamp)
-        if (Array.isArray(contents) && contents.length > 0) {
-          const files = contents.filter(item => item.type === 'file' && item.name.endsWith('.md'));
-          if (files.length > 0) {
-            // Ordina per nome file (che include timestamp) in ordine decrescente
-            files.sort((a, b) => b.name.localeCompare(a.name));
-            resultPath = `formatted-results/${files[0].name}`;
-          }
-        }
-      }
-      
+
       if (!resultPath) {
         throw new Error('Impossibile trovare il percorso del file risultato');
       }
-      
+
       // Ora che abbiamo il percorso del file, lo scarichiamo direttamente utilizzando l'URL raw di GitHub
       const rawUrl = `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/master/${resultPath}`;
-      
+
       const fileResponse = await fetch(rawUrl);
-      
+
       if (!fileResponse.ok) {
         throw new Error(`Impossibile scaricare il file risultato (${fileResponse.status})`);
       }
-      
+
       const formattedText = await fileResponse.text();
-      
+
       this.updateStatus('Testo formattato scaricato con successo', 'success');
-      
+
       return formattedText;
     } catch (error) {
       console.error('Errore nel download del testo formattato:', error);
@@ -677,6 +641,192 @@ async dispatchWorkflow(text, style) {
       if (e.key === 'Escape' && document.body.contains(dialog)) {
         dialog.remove();
       }
+    });
+  }
+
+  /**
+   * Mostra un dialog per configurare il token GitHub
+   * @returns {Promise<boolean>} - Promise che si risolve con true se il token è stato salvato
+   */
+  showGitHubTokenDialog() {
+    return new Promise((resolve) => {
+      // Crea il dialog
+      const dialog = document.createElement('div');
+      dialog.className = 'github-token-dialog';
+      
+      const dialogContent = document.createElement('div');
+      dialogContent.className = 'dialog-content';
+      
+      // Header
+      const header = document.createElement('div');
+      header.className = 'dialog-header';
+      
+      const title = document.createElement('h3');
+      title.textContent = 'Configura Token GitHub';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-button';
+      closeBtn.innerHTML = '<span>✕</span>';
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      
+      // Body
+      const body = document.createElement('div');
+      body.className = 'dialog-body';
+      
+      // Spiegazione
+      const explanation = document.createElement('div');
+      explanation.className = 'token-explanation';
+      explanation.innerHTML = `
+        <p>Per utilizzare la funzione di formattazione Markdown, è necessario un token GitHub con permessi <code>repo</code> e <code>workflow</code>.</p>
+        <p>Per ottenere un token valido, ti invitiamo a contattarci:</p>
+        <ul>
+          <li>Visita <a href="https://cur8.fun" target="_blank">cur8.fun</a></li>
+          <li>Contattaci su Discord</li>
+          <li>Contattaci su Telegram</li>
+        </ul>
+        <p>Ti forniremo un token da incollare nel campo sottostante.</p>
+      `;
+      
+      body.appendChild(explanation);
+      
+      // Form per il token
+      const form = document.createElement('form');
+      form.className = 'token-form';
+      
+      const formGroup = document.createElement('div');
+      formGroup.className = 'form-group';
+      
+      const label = document.createElement('label');
+      label.htmlFor = 'github-token';
+      label.textContent = 'Token GitHub:';
+      
+      const input = document.createElement('input');
+      input.type = 'password';
+      input.id = 'github-token';
+      input.placeholder = 'Incolla qui il tuo token GitHub';
+      input.value = this.githubToken || '';
+      
+      const toggleVisibility = document.createElement('button');
+      toggleVisibility.type = 'button';
+      toggleVisibility.className = 'toggle-visibility-btn';
+      toggleVisibility.innerHTML = '<span class="material-icons">visibility</span>';
+      
+      formGroup.appendChild(label);
+      
+      const inputGroup = document.createElement('div');
+      inputGroup.className = 'input-group';
+      inputGroup.appendChild(input);
+      inputGroup.appendChild(toggleVisibility);
+      
+      formGroup.appendChild(inputGroup);
+      
+      const persistCheck = document.createElement('div');
+      persistCheck.className = 'persist-check';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = 'persist-token';
+      checkbox.checked = true;
+      
+      const checkLabel = document.createElement('label');
+      checkLabel.htmlFor = 'persist-token';
+      checkLabel.textContent = 'Ricorda il token (salva nel browser)';
+      
+      persistCheck.appendChild(checkbox);
+      persistCheck.appendChild(checkLabel);
+      
+      formGroup.appendChild(persistCheck);
+      
+      form.appendChild(formGroup);
+      
+      body.appendChild(form);
+      
+      // Buttons
+      const buttons = document.createElement('div');
+      buttons.className = 'dialog-buttons';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn secondary-btn';
+      cancelBtn.textContent = 'Annulla';
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'btn primary-btn';
+      saveBtn.textContent = 'Salva';
+      
+      buttons.appendChild(cancelBtn);
+      buttons.appendChild(saveBtn);
+      
+      body.appendChild(buttons);
+      
+      // Assembla il dialog
+      dialogContent.appendChild(header);
+      dialogContent.appendChild(body);
+      
+      dialog.appendChild(dialogContent);
+      
+      // Aggiungi al DOM
+      document.body.appendChild(dialog);
+      
+      // Event listeners
+      closeBtn.addEventListener('click', () => {
+        dialog.remove();
+        resolve(false);
+      });
+      
+      cancelBtn.addEventListener('click', () => {
+        dialog.remove();
+        resolve(false);
+      });
+      
+      toggleVisibility.addEventListener('click', () => {
+        if (input.type === 'password') {
+          input.type = 'text';
+          toggleVisibility.innerHTML = '<span class="material-icons">visibility_off</span>';
+        } else {
+          input.type = 'password';
+          toggleVisibility.innerHTML = '<span class="material-icons">visibility</span>';
+        }
+      });
+      
+      saveBtn.addEventListener('click', () => saveToken());
+      
+      const that = this; // Salva il riferimento 'this' per usarlo nella funzione di callback
+      
+      function saveToken() {
+        const token = input.value.trim();
+        const persist = checkbox.checked;
+        
+        if (token) {
+          dialog.remove();
+          // Salva il token
+          const success = that.saveToken(token, persist);
+          resolve(success);
+        } else {
+          input.classList.add('error');
+          setTimeout(() => input.classList.remove('error'), 3000);
+        }
+      }
+      
+      // Chiudi con click fuori
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          dialog.remove();
+          resolve(false);
+        }
+      });
+      
+      // Chiudi con ESC
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.body.contains(dialog)) {
+          dialog.remove();
+          resolve(false);
+        }
+      });
+      
+      // Focus sull'input
+      setTimeout(() => input.focus(), 100);
     });
   }
 

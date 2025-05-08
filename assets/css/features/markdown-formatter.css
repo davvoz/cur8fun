@@ -303,3 +303,245 @@
     width: 100%;
   }
 }
+
+/* GitHub Token Dialog */
+.github-token-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  
+}
+
+.github-token-dialog .dialog-content {
+  background-color: var(--modal-background);
+  border-radius: var(--radius-md);
+  box-shadow: var(--popup-box-shadow);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: dialogFadeIn 0.25s ease-in-out;
+}
+
+.github-token-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.github-token-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.github-token-dialog .close-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color var(--transition-fast);
+}
+
+.github-token-dialog .close-button:hover {
+  background-color: var(--background-hover);
+}
+
+.github-token-dialog .dialog-body {
+  padding: var(--space-lg);
+}
+
+.github-token-dialog .token-explanation {
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.github-token-dialog .token-explanation p {
+  margin-bottom: var(--space-md);
+  color: var(--text);
+}
+
+.github-token-dialog .token-explanation code {
+  background-color: var(--background-lighter);
+  padding: var(--space-xxs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.github-token-dialog .token-explanation ol {
+  margin-left: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.github-token-dialog .token-explanation ol li {
+  margin-bottom: var(--space-sm);
+}
+
+.github-token-dialog .token-explanation a {
+  color: var(--info-color);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.github-token-dialog .token-explanation a:hover {
+  text-decoration: underline;
+}
+
+.github-token-dialog .token-form {
+  margin-top: var(--space-lg);
+}
+
+.github-token-dialog .form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.github-token-dialog label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.github-token-dialog .input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.github-token-dialog input[type="password"],
+.github-token-dialog input[type="text"] {
+  width: 100%;
+  padding: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  padding-right: 40px;
+}
+
+.github-token-dialog input[type="password"]:focus,
+.github-token-dialog input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.github-token-dialog input.error {
+  border-color: var(--error-color);
+  animation: shake 0.4s ease-in-out;
+}
+
+.github-token-dialog .toggle-visibility-btn {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.github-token-dialog .toggle-visibility-btn:hover {
+  background-color: var(--background-hover);
+}
+
+.github-token-dialog .persist-check {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-md);
+}
+
+.github-token-dialog .persist-check input[type="checkbox"] {
+  margin-right: var(--space-sm);
+}
+
+.github-token-dialog .dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.github-token-dialog .dialog-error {
+  background-color: var(--error-light);
+  color: var(--error-color);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  border-left: 3px solid var(--error-color);
+}
+
+/* Animazione shake per l'errore */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Token status nella finestra del formatter */
+.token-config-container {
+  background-color: var(--background-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.token-config-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.token-status {
+  margin-top: var(--space-xs);
+  font-size: 0.9rem;
+}
+
+.token-configured {
+  color: var(--success-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.token-missing {
+  color: var(--error-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
