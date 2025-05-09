@@ -27,11 +27,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Format Markdown with curl
+      - name: Format Markdown with GitHub CLI
         id: format
         env:
-          # Usa un token personale per l'autenticazione
-          GITHUB_PERSONAL_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Crea file con il testo di input
           cat > input.txt << 'EOF'
@@ -50,18 +49,30 @@ jobs:
           # Formatta il prompt utente con il testo da input.txt
           USER_PROMPT="Transform this text into beautiful, well-formatted Markdown: $(cat input.txt)"
           
-          echo "Chiamata API GitHub Models con curl..."
+          echo "Chiamata API GitHub Models con CLI..."
           
-          # Escape dei caratteri speciali in SYSTEM_PROMPT e USER_PROMPT per JSON
-          SYSTEM_PROMPT_ESCAPED=$(echo "$SYSTEM_PROMPT" | sed 's/"/\\"/g')
-          USER_PROMPT_ESCAPED=$(echo "$USER_PROMPT" | sed 's/"/\\"/g')
+          # Crea un file JSON per la richiesta
+          cat > request.json << EOF
+          {
+            "model": "openai/gpt-4o-mini",
+            "messages": [
+              {
+                "role": "system",
+                "content": "$SYSTEM_PROMPT"
+              },
+              {
+                "role": "user",
+                "content": "$USER_PROMPT"
+              }
+            ]
+          }
+          EOF
           
-          # Usa curl per inviare la richiesta
-          curl -s -X POST \
-            -H "Authorization: Bearer $GITHUB_PERSONAL_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\n              \"model\": \"openai/gpt-4o-mini\",\n              \"messages\": [\n                {\n                  \"role\": \"system\",\n                  \"content\": \"$SYSTEM_PROMPT_ESCAPED\"\n                },\n                {\n                  \"role\": \"user\",\n                  \"content\": \"$USER_PROMPT_ESCAPED\"\n                }\n              ]\n            }" \
-            https://models.github.ai/inference > response.json
+          # Usa gh CLI con il file JSON come input
+          gh api \
+            --method POST \
+            https://models.github.ai/inference \
+            --input request.json > response.json
           
           # Estrai il contenuto della risposta
           cat response.json | jq -r '.choices[0].message.content' > formatted_result.md
