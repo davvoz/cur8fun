@@ -66,7 +66,7 @@ jobs:
               
               const client = new OpenAI({ 
                 baseURL: endpoint, 
-                apiKey: '${{ secrets.MY_PERSONAL_TOKEN }}' // Usa il tuo token personale
+                apiKey: '${{ env.GITHUB_TOKEN}}' // Usa il tuo token personale
               });
               
               let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
