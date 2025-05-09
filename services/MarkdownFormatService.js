@@ -199,8 +199,7 @@ class MarkdownFormatService {
     }
   }
   /**
-   * Formatta il testo markdown con l'AI tramite GitHub Actions
-   * @param {string} text - Il testo Markdown da formattare
+   * Formatta il testo markdown con l'AI tramite GitHub Actions   * @param {string} text - Il testo Markdown da formattare
    * @param {string} style - Lo stile di formattazione (social, technical, blog)
    * @returns {Promise} - Promise che si risolve quando la formattazione è completata
    */
@@ -213,14 +212,15 @@ class MarkdownFormatService {
       throw new Error('Nessun testo fornito per la formattazione.');
     }
 
-
-
     try {
       this.isFormatting = true;
       this.updateStatus('Avvio processo di formattazione...', 'info');
 
-      // Avvia il workflow
-      const runId = await this.dispatchWorkflow(text, style);
+      // Genera un nome file basato sul timestamp corrente (solo per passarlo al workflow)
+      const filename = `format_${Date.now()}`;
+
+      // Avvia il workflow con il nome file generato
+      const runId = await this.dispatchWorkflow(text, style, filename);
       this.updateStatus(`Workflow avviato con ID: ${runId}`, 'info');
 
       // Monitora lo stato del workflow
@@ -252,14 +252,14 @@ class MarkdownFormatService {
       this.isFormatting = false;
     }
   }
-
   /**
    * Avvia il workflow GitHub tramite API
    * @param {string} text - Il testo da formattare
    * @param {string} style - Lo stile di formattazione
+   * @param {string} filename - Il nome file desiderato per il risultato
    * @returns {Promise<string>} - Il run ID
    */
-  async dispatchWorkflow(text, style) {
+  async dispatchWorkflow(text, style, filename) {
     try {
       this.updateStatus('Invio della richiesta al servizio di formattazione...', 'info');
 
@@ -277,7 +277,8 @@ class MarkdownFormatService {
         ref: 'master',
         inputs: {
           text: text,
-          style: style
+          style: style,
+          filename: filename
         }
       };
 
@@ -446,7 +447,6 @@ class MarkdownFormatService {
     // Avvia il monitoraggio
     return checkStatus();
   }
-
   async downloadFormattedText(runId) {
     try {
       // Verifica che il workflow sia completato
@@ -464,18 +464,41 @@ class MarkdownFormatService {
       this.updateStatus('Workflow completato, attendo la propagazione del file...', 'info');
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Il nome del file è prevedibile (basato sul runID)
-      const filePath = `formatted-results/run-${runId}.md`;
-      const fileUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${filePath}`;
+      // Il nome del file ora contiene l'ID del run, possiamo fare una ricerca dei file nella cartella
+      this.updateStatus('Ricerca del file risultato...', 'info');
+
+      // Ottieni la lista dei file nella cartella formatted-results
+      const listUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
+      const listResponse = await fetch(listUrl, {
+        headers: {
+          'Authorization': `Bearer ${this.githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (!listResponse.ok) {
+        throw new Error(`Impossibile ottenere la lista dei file: ${listResponse.status}`);
+      }
+
+      const files = await listResponse.json();
+      
+      // Cerca il file che ha l'ID del run nel nome
+      const resultFile = files.find(file => 
+        file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
+      );
+
+      if (!resultFile) {
+        throw new Error(`File risultato non trovato per il run ID: ${runId}`);
+      }
 
       this.updateStatus('Scarico il risultato...', 'info');
 
       // Aggiungi parametro per evitare cache
-      const noCacheUrl = `${fileUrl}?t=${Date.now()}`;
+      const noCacheUrl = `${resultFile.url}?t=${Date.now()}`;
 
       const fileResponse = await fetch(noCacheUrl, {
         headers: {
-          'Authorization': `token ${this.token}`,
+          'Authorization': `Bearer ${this.githubToken}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       });

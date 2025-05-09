@@ -17,6 +17,10 @@ on:
           - social
           - technical
           - blog
+      filename:
+        description: 'Nome del file di output (senza estensione)'
+        required: false
+        type: string
 
 jobs:
   format:
@@ -111,24 +115,29 @@ jobs:
             echo "# Errore di formattazione" > formatted_result.md
             echo "" >> formatted_result.md
             echo "Si è verificato un errore durante la formattazione del testo." >> formatted_result.md
-          fi
-      
+          fi  
       - name: Save result to repository
         id: save_result
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           mkdir -p formatted-results
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          RESULT_FILE="formatted-results/${TIMESTAMP}.md"
+          
+          # Usa il nome file fornito come input o genera un timestamp
+          FILENAME=""
+          if [ -n "${{ github.event.inputs.filename }}" ]; then
+            # Usa il nome file fornito dall'utente
+            FILENAME="${{ github.event.inputs.filename }}"
+          else
+            # Usa un timestamp come nome file di default
+            FILENAME=$(date +%Y%m%d%H%M%S)
+          fi
+          
+          # Aggiungi l'ID del run al nome file per renderlo unico
+          RESULT_FILE="formatted-results/${FILENAME}-${GITHUB_RUN_ID}.md"
           mv formatted_result.md $RESULT_FILE
           git add $RESULT_FILE
-
-          # Crea un file marker con l'ID del run
-          echo "${RESULT_FILE}" > "formatted-results/run-${GITHUB_RUN_ID}.txt"
-      
-
-          git add $RESULT_FILE "formatted-results/run-${GITHUB_RUN_ID}.txt"
+          
           git commit -m "Add formatted markdown result [skip ci]"
           git push
           echo "result_path=${RESULT_FILE}" >> $GITHUB_OUTPUT
