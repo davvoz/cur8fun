@@ -442,91 +442,91 @@ async dispatchWorkflow(text, style) {
     return checkStatus();
   }
 
-  /**
-   * Scarica il testo formattato dal workflow GitHub Actions
-   * @param {string} runId - ID del workflow
-   * @returns {Promise<string>} - Testo formattato
-   */
-  async downloadFormattedText(runId) {
-    try {
-      this.updateStatus('Download del testo formattato...', 'info');
-
-      // Usa Bearer come formato di autorizzazione
-      const authHeader = `Bearer ${this.githubToken}`;
-
-      // Ottieni i dettagli del run per verificare che sia completato con successo
-      const runDetailsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
-
-      const runResponse = await fetch(runDetailsUrl, {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      });
-
-      if (!runResponse.ok) {
-        throw new Error(`Impossibile ottenere i dettagli del run (${runResponse.status})`);
+/**
+ * Scarica il testo formattato dal workflow GitHub Actions
+ * @param {string} runId - ID del workflow
+ * @returns {Promise<string>} - Testo formattato
+ */
+async downloadFormattedText(runId) {
+  try {
+    this.updateStatus('Download del testo formattato...', 'info');
+    
+    // Usa Bearer come formato di autorizzazione
+    const authHeader = `Bearer ${this.githubToken}`;
+    
+    // Ottieni i dettagli del run per verificare che sia completato con successo
+    const runDetailsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
+    
+    const runResponse = await fetch(runDetailsUrl, {
+      headers: {
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
       }
-
-      const runData = await runResponse.json();
-
-      // Controlla che il run sia stato completato con successo
-      if (runData.status !== 'completed' || runData.conclusion !== 'success') {
-        throw new Error(`Il workflow non è stato completato con successo: ${runData.conclusion}`);
-      }
-
-      // Ottieni gli step del job per trovare il percorso del file salvato
-      const jobsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}/jobs`;
-
-      const jobsResponse = await fetch(jobsUrl, {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      });
-
-      if (!jobsResponse.ok) {
-        throw new Error(`Impossibile ottenere i jobs del run (${jobsResponse.status})`);
-      }
-
-      const jobsData = await jobsResponse.json();
-      let resultPath = null;
-
-      // Cerca negli output dei job il percorso del file risultato
-      if (jobsData.jobs && jobsData.jobs.length > 0) {
-        for (const job of jobsData.jobs) {
-          if (job.outputs && job.outputs.result_path) {
-            resultPath = job.outputs.result_path;
-            break;
-          }
-        }
-      }
-
-      if (!resultPath) {
-        throw new Error('Impossibile trovare il percorso del file risultato');
-      }
-
-      // Ora che abbiamo il percorso del file, lo scarichiamo direttamente utilizzando l'URL raw di GitHub
-      const rawUrl = `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/master/${resultPath}`;
-
-      const fileResponse = await fetch(rawUrl);
-
-      if (!fileResponse.ok) {
-        throw new Error(`Impossibile scaricare il file risultato (${fileResponse.status})`);
-      }
-
-      const formattedText = await fileResponse.text();
-
-      this.updateStatus('Testo formattato scaricato con successo', 'success');
-
-      return formattedText;
-    } catch (error) {
-      console.error('Errore nel download del testo formattato:', error);
-      throw new Error(`Impossibile scaricare il testo formattato: ${error.message}`);
+    });
+    
+    if (!runResponse.ok) {
+      throw new Error(`Impossibile ottenere i dettagli del run (${runResponse.status})`);
     }
+    
+    const runData = await runResponse.json();
+    
+    // Controlla che il run sia stato completato con successo
+    if (runData.status !== 'completed' || runData.conclusion !== 'success') {
+      throw new Error(`Il workflow non è stato completato con successo: ${runData.conclusion || runData.status}`);
+    }
+    
+    // Ottieni l'elenco dei file nella cartella formatted-results
+    const contentsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
+    
+    const contentsResponse = await fetch(contentsUrl, {
+      headers: {
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    
+    if (!contentsResponse.ok) {
+      throw new Error(`Impossibile ottenere l'elenco dei file (${contentsResponse.status})`);
+    }
+    
+    const contentsData = await contentsResponse.json();
+    
+    // Filtra i file per assicurarci di prendere solo i file .md
+    const markdownFiles = contentsData.filter(file => 
+      file.name.endsWith('.md') && !file.name.includes('README')
+    );
+    
+    if (!markdownFiles || markdownFiles.length === 0) {
+      throw new Error('Nessun file Markdown di formattazione trovato nel repository');
+    }
+    
+    // Ordina i file per nome in ordine decrescente (i nomi contengono timestamp)
+    markdownFiles.sort((a, b) => b.name.localeCompare(a.name));
+    
+    // Prendi il file più recente
+    const latestFile = markdownFiles[0];
+    
+    console.debug('File Markdown più recente trovato:', latestFile.name, 'URL:', latestFile.download_url);
+    
+    // Scarica il contenuto del file
+    const fileResponse = await fetch(latestFile.download_url);
+    
+    if (!fileResponse.ok) {
+      throw new Error(`Impossibile scaricare il file risultato (${fileResponse.status})`);
+    }
+    
+    const formattedText = await fileResponse.text();
+    
+    this.updateStatus('Testo formattato scaricato con successo', 'success');
+    
+    return formattedText;
+  } catch (error) {
+    console.error('Errore nel download del testo formattato:', error);
+    throw new Error(`Impossibile scaricare il testo formattato: ${error.message}`);
   }
+}
 
   /**
    * Applica il testo formattato all'editor
