@@ -1,2 +1,2 @@
-const GITHUB_TOKEN = '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';
+const GITHUB_TOKEN = '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';
 // Add any other configuration variables you need here
