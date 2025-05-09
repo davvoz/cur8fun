@@ -8,14 +8,13 @@
  * Workflow GitHub Actions: https://github.com/davvoz/steemee/actions/workflows/format-markdown.yml
  */
 
-class MarkdownFormatService {
-  constructor() {
+class MarkdownFormatService {  constructor() {
     // Configurazione di base
     this.isFormatting = false;
     this.formatCallback = null;
     this.statusUpdateCallback = null;
-    this.pollInterval = 3000; // Intervallo di polling in ms
-    this.maxAttempts = 30; // Numero massimo di tentativi di polling
+    this.pollInterval = 5000; // Intervallo di polling in ms (aumentato a 5s)
+    this.maxAttempts = 40; // Numero massimo di tentativi di polling (aumentato a 40)
 
     // Configurazione dell'API GitHub
     this.githubApiBase = 'https://api.github.com';
@@ -197,9 +196,9 @@ class MarkdownFormatService {
       console.error('Errore nel processo OAuth:', error);
       throw error;
     }
-  }
-  /**
-   * Formatta il testo markdown con l'AI tramite GitHub Actions   * @param {string} text - Il testo Markdown da formattare
+  }  /**
+   * Formatta il testo markdown con l'AI tramite GitHub Actions
+   * @param {string} text - Il testo Markdown da formattare
    * @param {string} style - Lo stile di formattazione (social, technical, blog)
    * @returns {Promise} - Promise che si risolve quando la formattazione è completata
    */
@@ -216,32 +215,30 @@ class MarkdownFormatService {
       this.isFormatting = true;
       this.updateStatus('Avvio processo di formattazione...', 'info');
 
-      // Genera un nome file basato sul timestamp corrente (solo per passarlo al workflow)
-      const filename = `format_${Date.now()}`;
+      // Genera un nome file univoco basato sul timestamp corrente
+      const timestamp = Date.now();
+      const filename = `format_${timestamp}`;
 
       // Avvia il workflow con il nome file generato
       const runId = await this.dispatchWorkflow(text, style, filename);
-      this.updateStatus(`Workflow avviato con ID: ${runId}`, 'info');      // Monitora lo stato del workflow
-      const workflowResult = await this.pollWorkflowStatus(runId);
+      this.updateStatus(`Workflow GitHub Actions avviato con ID: ${runId}`, 'info');
 
-      if (workflowResult.success) {
-        // Nota: ora accettiamo anche risultati con avviso
-        if (workflowResult.hasWarning) {
-          this.updateStatus('Workflow completato con avvisi, tentativamente proseguiamo...', 'warning');
-        } else {
-          this.updateStatus('Workflow completato con successo!', 'success');
-        }
-
-        // Scarica il risultato
+      // Non c'è bisogno di monitorare separatamente lo stato del workflow qui
+      // Il metodo downloadFormattedText si occuperà di verificare lo stato e attendere il risultato
+      
+      try {
+        // Scarica il risultato (questo metodo ora include la verifica dello stato del workflow)
         const formattedText = await this.downloadFormattedText(runId);
-
+        
         // Applica la formattazione
         await this.applyFormatting(formattedText);
 
         this.updateStatus('Formattazione completata con successo!', 'success');
         return formattedText;
-      } else {
-        throw new Error('Il workflow non è riuscito: ' + workflowResult.conclusion);
+      } catch (downloadError) {
+        console.error('Errore durante il download del testo formattato:', downloadError);
+        this.updateStatus(`Errore nel recupero del risultato: ${downloadError.message}`, 'error');
+        throw new Error(`Impossibile recuperare il testo formattato: ${downloadError.message}`);
       }
     } catch (error) {
       this.updateStatus(`Errore: ${error.message}`, 'error');
@@ -249,8 +246,7 @@ class MarkdownFormatService {
     } finally {
       this.isFormatting = false;
     }
-  }
-  /**
+  }  /**
    * Avvia il workflow GitHub tramite API
    * @param {string} text - Il testo da formattare
    * @param {string} style - Lo stile di formattazione
@@ -283,179 +279,6 @@ class MarkdownFormatService {
       // Usa Bearer come formato di autorizzazione
       const authHeader = `Bearer ${this.githubToken}`;
 
-      // Esegui la richiesta
-      console.debug("Invio richiesta con payload:", JSON.stringify(payload, null, 2));
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      console.debug("Risposta API:", response.status, response.statusText);
-
-      // GitHub restituisce 204 No Content per le richieste workflow_dispatch riuscite
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Testo risposta errore:", errorText);
-
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(`Errore nell'API GitHub (${response.status}): ${errorData.message || 'Errore sconosciuto'}`);
-        } catch (jsonError) {
-          throw new Error(`Errore nell'API GitHub (${response.status}): ${errorText || response.statusText}`);
-        }
-      }
-
-      // Attendiamo un breve periodo iniziale molto breve (500ms) prima di iniziare i tentativi
-      this.updateStatus('Dispatch eseguito, in attesa dell\'inizio del workflow...', 'info');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Dopo aver avviato il workflow, dobbiamo ottenere l'ID del run
-      // Recuperiamo l'ultimo run del workflow per il nostro branch con un approccio più resiliente
-      let runId = null;
-      let maxRetries = 10; // Aumentiamo il numero massimo di tentativi
-      let retryCount = 0;
-      let backoffDelay = 500; // Iniziamo con 500ms e incrementiamo a ogni tentativo (backoff esponenziale)
-
-      while (runId === null && retryCount < maxRetries) {
-        try {
-          // Incrementa il contatore tentativi
-          retryCount++;
-
-          const runsResponse = await fetch(
-            `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=master&per_page=1`,
-            {
-              headers: {
-                'Authorization': authHeader,
-                'Accept': 'application/vnd.github+json',
-                'X-GitHub-Api-Version': '2022-11-28'
-              }
-            }
-          );
-
-          if (!runsResponse.ok) {
-            throw new Error(`Impossibile ottenere lo stato del workflow (${runsResponse.status})`);
-          }
-
-          const runsData = await runsResponse.json();
-
-          if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
-            console.debug(`Tentativo ${retryCount}/${maxRetries}: nessun workflow run trovato ancora, riprovo...`);
-            // Calcola il prossimo ritardo con backoff esponenziale (max 3 secondi)
-            backoffDelay = Math.min(backoffDelay * 1.5, 3000);
-            this.updateStatus(`In attesa dell'inizio del workflow (${retryCount}/${maxRetries})...`, 'info');
-            await new Promise(resolve => setTimeout(resolve, backoffDelay));
-            continue;
-          }
-
-          // Ottieni l'ID del run più recente
-          runId = runsData.workflow_runs[0].id.toString();
-          console.debug(`ID workflow ottenuto al tentativo ${retryCount}: ${runId}`);
-        } catch (error) {
-          console.error(`Errore nel tentativo ${retryCount} di ottenere l'ID del run:`, error);
-          if (retryCount >= maxRetries) {
-            throw error; // Rilancia l'errore solo se abbiamo finito i tentativi
-          }
-          // Calcola il prossimo ritardo con backoff esponenziale (max 3 secondi)
-          backoffDelay = Math.min(backoffDelay * 1.5, 3000);
-          await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        }
-      }
-
-      if (runId === null) {
-        throw new Error(`Impossibile ottenere l'ID del workflow dopo ${maxRetries} tentativi`);
-      }
-
-      this.updateStatus(`Workflow avviato con ID: ${runId}`, 'success');
-      return runId;
-    } catch (error) {
-      console.error('Errore nell\'avvio del workflow:', error);
-      throw new Error(`Impossibile avviare il workflow: ${error.message}`);
-    }
-  }  /**
-   * Monitora lo stato del workflow GitHub Actions
-   * @param {string} runId - ID del workflow da monitorare
-   * @returns {Promise<Object>} - Risultato del workflow
-   */
-  async pollWorkflowStatus(runId) {
-    this.updateStatus('Monitoraggio stato del workflow...', 'info');
-
-    // Numero di tentativi eseguiti
-    let attempts = 0;
-
-    // Funzione che controlla lo stato del workflow
-    const checkStatus = async () => {
-      attempts++;
-
-      // Se abbiamo superato il numero massimo di tentativi, termina con errore
-      if (attempts > this.maxAttempts) {
-        throw new Error(`Timeout raggiunto dopo ${this.maxAttempts} tentativi`);
-      }
-
-      // Costruisci l'URL per ottenere lo stato del run
-      const statusUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
-
-      // Usa Bearer come formato di autorizzazione 
-      const authHeader = `Bearer ${this.githubToken}`;
-
-      // Esegui la richiesta
-      const response = await fetch(statusUrl, {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Impossibile ottenere lo stato del run (${response.status})`);
-      }
-
-      const data = await response.json();
-
-      // Controlla lo stato del workflow
-      if (data.status === 'completed') {
-        if (data.conclusion === 'success') {
-          this.updateStatus('Workflow completato con successo', 'success');
-          return { success: true, conclusion: data.conclusion };
-        } else {
-          // Anche se il workflow ha fallito, continuiamo a restituire successo 
-          // così possiamo tentare di ottenere comunque il risultato
-          this.updateStatus(`Workflow completato con stato: ${data.conclusion}. Tentativo di recuperare risultato...`, 'warning');
-          return { success: true, conclusion: data.conclusion, hasWarning: true };
-        }
-      } else {
-        // Workflow ancora in esecuzione, attendi e riprova
-        this.updateStatus(`Workflow in esecuzione (tentativo ${attempts}/${this.maxAttempts})...`, 'info');
-
-        // Attendi l'intervallo di polling prima di riprovare
-        await new Promise(resolve => setTimeout(resolve, this.pollInterval));
-
-        // Riprova
-        return checkStatus();
-      }
-    };
-
-    // Avvia il monitoraggio
-    return checkStatus();
-  }  async downloadFormattedText(runId) {
-    try {
-      // Non abbiamo bisogno di verificare nuovamente lo stato del workflow
-      // Il metodo formatMarkdown() chiama questo metodo solo quando il workflow è già completato
-
-      // Attendi 5 secondi per dare tempo al commit di propagarsi (tempo aumentato da 3 a 5 secondi)
-      this.updateStatus('Workflow completato, attendo la propagazione del file...', 'info');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-
-      // Il nome del file ora contiene l'ID del run, possiamo fare una ricerca dei file nella cartella
-      this.updateStatus('Ricerca del file risultato...', 'info');
-
       // Helper per fare richieste fetch con timeout
       const fetchWithTimeout = async (url, options, timeout = 30000) => {
         const controller = new AbortController();
@@ -477,82 +300,408 @@ class MarkdownFormatService {
         }
       };
 
-      // Ottieni la lista dei file nella cartella formatted-results
-      const listUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
-      const listResponse = await fetchWithTimeout(
-        listUrl,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.githubToken}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-
-      if (!listResponse.ok) {
-        throw new Error(`Impossibile ottenere la lista dei file: ${listResponse.status}`);
-      }      const files = await listResponse.json();
+      // Esegui la richiesta con timeout
+      console.debug("Invio richiesta con payload:", JSON.stringify(payload, null, 2));
       
-      // Cerca il file che ha l'ID del run nel nome
-      let resultFile = files.find(file => 
-        file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
-      );
+      const response = await fetchWithTimeout(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }, 20000); // 20 secondi di timeout
 
-      // Se il file non è stato trovato, facciamo qualche tentativo extra
-      // GitHub può richiedere tempo per aggiornare i file dopo un commit
-      if (!resultFile) {
-        this.updateStatus('File non trovato al primo tentativo, provo ancora...', 'info');
+      console.debug("Risposta API:", response.status, response.statusText);      // GitHub restituisce 204 No Content per le richieste workflow_dispatch riuscite
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Testo risposta errore:", errorText);
+
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(`Errore nell'API GitHub (${response.status}): ${errorData.message || 'Errore sconosciuto'}`);
+        } catch (jsonError) {
+          throw new Error(`Errore nell'API GitHub (${response.status}): ${errorText || response.statusText}`);
+        }
+      }
+
+      // Dopo aver avviato il workflow, dobbiamo attendere che sia visibile nel sistema
+      // Può passare un momento prima che l'API di GitHub mostri il nuovo workflow
+      this.updateStatus('Dispatch eseguito, in attesa dell\'inizio del workflow...', 'info');
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Attesa iniziale di 1.5 secondi
+
+      // Recupera l'ID del run con strategia di retry più robusta
+      let runId = null;
+      let maxRetries = 12; // Aumentato il numero massimo di tentativi
+      let retryCount = 0;
+      let backoffDelay = 1000; // Parte da 1 secondo
+
+      // Funzione per ottenere l'ultimo workflow run
+      const getLatestWorkflowRun = async () => {
+        // Aggiungi timestamp per evitare caching
+        const timestamp = Date.now();
+        const url = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowFile}/runs?branch=master&per_page=5&timestamp=${timestamp}`;
         
-        // Facciamo fino a 10 tentativi aggiuntivi, aspettando 3 secondi tra ciascuno
-        // Questo dà a GitHub più tempo per elaborare il commit
-        for (let i = 0; i < 10; i++) {          await new Promise(resolve => setTimeout(resolve, 3000));
+        const runsResponse = await fetchWithTimeout(
+          url,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'Cache-Control': 'no-cache, no-store'
+            }
+          },
+          15000 // 15 secondi di timeout
+        );
+
+        if (!runsResponse.ok) {
+          throw new Error(`Impossibile ottenere i workflow runs (${runsResponse.status})`);
+        }
+
+        const runsData = await runsResponse.json();
+        return runsData;
+      };
+
+      while (runId === null && retryCount < maxRetries) {
+        try {
+          // Incrementa il contatore tentativi
+          retryCount++;
           
-          // Richiedi nuovamente la lista dei file
-          const retryResponse = await fetchWithTimeout(
-            `${listUrl}?t=${Date.now()}`,
+          // Log dettagliato
+          this.updateStatus(`Tentativo ${retryCount}/${maxRetries} di ottenere l'ID del run...`, 'info');
+          
+          const runsData = await getLatestWorkflowRun();
+
+          if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
+            console.debug(`Tentativo ${retryCount}/${maxRetries}: nessun workflow run trovato ancora, riprovo...`);
+            this.updateStatus(`In attesa dell'inizio del workflow (${retryCount}/${maxRetries})...`, 'info');
+          } else {
+            // Cerca tra i workflow run recenti (può esserci un piccolo ritardo tra runs)
+            // Cerchiamo tra i primi 5 workflow più recenti per sicurezza
+            const recentRuns = runsData.workflow_runs.slice(0, 5);
+            
+            // Debug info
+            console.debug("Workflow runs recenti:", recentRuns.map(run => ({
+              id: run.id,
+              status: run.status,
+              created_at: run.created_at,
+              updated_at: run.updated_at
+            })));
+            
+            // Ottieni il run più recente avviato negli ultimi 2 minuti
+            const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+            const recentRun = recentRuns.find(run => new Date(run.created_at) > new Date(twoMinutesAgo));
+            
+            if (recentRun) {
+              runId = recentRun.id.toString();
+              console.debug(`ID workflow ottenuto al tentativo ${retryCount}: ${runId} (creato il ${recentRun.created_at})`);
+              break;
+            } else {
+              console.debug(`Nessun workflow recente trovato al tentativo ${retryCount}, riprovo...`);
+            }
+          }
+          
+          // Calcola il prossimo ritardo con backoff esponenziale (max 5 secondi)
+          backoffDelay = Math.min(backoffDelay * 1.5, 5000);
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        } catch (error) {
+          console.error(`Errore nel tentativo ${retryCount} di ottenere l'ID del run:`, error);
+          
+          if (retryCount >= maxRetries) {
+            throw error; // Rilancia l'errore solo se abbiamo finito i tentativi
+          }
+          
+          // Calcola il prossimo ritardo con backoff esponenziale (max 5 secondi)
+          backoffDelay = Math.min(backoffDelay * 1.5, 5000);
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+      }
+
+      if (runId === null) {
+        throw new Error(`Impossibile ottenere l'ID del workflow dopo ${maxRetries} tentativi`);
+      }
+
+      this.updateStatus(`Workflow avviato con ID: ${runId}`, 'success');
+      return runId;    } catch (error) {
+      console.error('Errore nell\'avvio del workflow:', error);
+      
+      // Messaggi di errore più dettagliati e comprensibili
+      let errorMessage = 'Impossibile avviare il workflow';
+      
+      if (error.message.includes('API GitHub')) {
+        // Errori API di GitHub
+        if (error.message.includes('401')) {
+          errorMessage = 'Token GitHub non valido o scaduto. Riprova con un token valido.';
+        } else if (error.message.includes('403')) {
+          errorMessage = 'Permessi insufficienti per accedere al repository o avviare il workflow.';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Repository o workflow non trovato. Verifica le impostazioni.';
+        } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Timeout durante la comunicazione con GitHub. Riprova tra qualche istante.';
+        } else {
+          errorMessage = `Errore di GitHub: ${error.message}`;
+        }
+      } else if (error.message.includes('ID del workflow')) {
+        // Errori di recupero dell'ID del workflow
+        errorMessage = 'Impossibile ottenere l\'ID del workflow. Potrebbe esserci un problema di accesso o il servizio GitHub potrebbe essere temporaneamente non disponibile.';
+      } else if (error.message.includes('network') || error.message.includes('Network')) {
+        // Errori di rete
+        errorMessage = 'Errore di connessione alla rete. Verifica la tua connessione internet e riprova.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+  }  /**
+   * Monitora lo stato del workflow GitHub Actions
+   * @param {string} runId - ID del workflow da monitorare
+   * @returns {Promise<Object>} - Risultato del workflow
+   */
+  async pollWorkflowStatus(runId) {
+    this.updateStatus('Monitoraggio stato del workflow...', 'info');
+
+    // Numero di tentativi eseguiti
+    let attempts = 0;
+    
+    // Helper per fare richieste fetch con timeout
+    const fetchWithTimeout = async (url, options, timeout = 30000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        if (error.name === 'AbortError') {
+          throw new Error('Timeout della richiesta');
+        }
+        throw error;
+      }
+    };
+
+    // Funzione che controlla lo stato del workflow
+    const checkStatus = async () => {
+      attempts++;
+
+      // Se abbiamo superato il numero massimo di tentativi, termina con errore
+      if (attempts > this.maxAttempts) {
+        throw new Error(`Timeout raggiunto dopo ${this.maxAttempts} tentativi di controllo dello stato`);
+      }
+
+      // Costruisci l'URL per ottenere lo stato del run con parametro timestamp per evitare caching
+      const timestamp = Date.now();
+      const statusUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}?timestamp=${timestamp}`;
+
+      // Usa Bearer come formato di autorizzazione 
+      const authHeader = `Bearer ${this.githubToken}`;
+
+      try {
+        // Esegui la richiesta con timeout
+        const response = await fetchWithTimeout(
+          statusUrl, 
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'Cache-Control': 'no-cache, no-store'
+            }
+          },
+          15000 // 15 secondi di timeout
+        );
+
+        if (!response.ok) {
+          // Se siamo ai primi tentativi, riprova
+          if (attempts < this.maxAttempts / 2) {
+            console.warn(`Risposta non valida al tentativo ${attempts}, riprovo...`, response.status);
+            await new Promise(resolve => setTimeout(resolve, this.pollInterval));
+            return checkStatus();
+          }
+          throw new Error(`Impossibile ottenere lo stato del run (${response.status})`);
+        }
+
+        const data = await response.json();
+        
+        // Log dettagliato sullo stato corrente del workflow
+        console.debug(`Stato workflow #${attempts}: ${data.status} (${data.conclusion || 'in corso'})`);
+
+        // Controlla lo stato del workflow
+        if (data.status === 'completed') {
+          if (data.conclusion === 'success') {
+            this.updateStatus('Workflow completato con successo', 'success');
+            return { success: true, conclusion: data.conclusion };
+          } else if (data.conclusion === 'skipped' || data.conclusion === 'cancelled') {
+            this.updateStatus(`Workflow ${data.conclusion}. Riprova più tardi.`, 'warning');
+            return { success: false, conclusion: data.conclusion };
+          } else {
+            // Per altri stati conclusivi (failure, timed_out, etc.) continuiamo comunque 
+            // per provare a ottenere il risultato
+            this.updateStatus(`Workflow completato con stato: ${data.conclusion}. Tentativo di recuperare risultato...`, 'warning');
+            return { success: true, conclusion: data.conclusion, hasWarning: true };
+          }
+        } else if (data.status === 'queued') {
+          // Il workflow è in coda, potrebbe richiedere più tempo
+          this.updateStatus(`Workflow in coda su GitHub (tentativo ${attempts}/${this.maxAttempts})...`, 'info');
+        } else {
+          // Workflow ancora in esecuzione
+          this.updateStatus(`Workflow in esecuzione: ${data.status} (tentativo ${attempts}/${this.maxAttempts})...`, 'info');
+        }
+
+        // Attendi l'intervallo di polling prima di riprovare
+        // Aumenta progressivamente il tempo tra le richieste per non sovraccaricare l'API
+        const waitTime = Math.min(this.pollInterval, this.pollInterval + (attempts * 200));
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+
+        // Riprova
+        return checkStatus();
+      } catch (error) {
+        console.error(`Errore nel controllo dello stato (tentativo ${attempts}):`, error);
+        
+        // Per errori di connessione o temporanei, riprova se non abbiamo superato il limite
+        if (attempts < this.maxAttempts) {
+          // Attendi un po' più a lungo prima di riprovare dopo un errore
+          await new Promise(resolve => setTimeout(resolve, this.pollInterval * 1.5));
+          return checkStatus();
+        }
+        
+        throw error;
+      }
+    };
+
+    // Avvia il monitoraggio
+    return checkStatus();
+  }async downloadFormattedText(runId) {
+    try {
+      // Helper per fare richieste fetch con timeout
+      const fetchWithTimeout = async (url, options, timeout = 30000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          clearTimeout(id);
+          return response;
+        } catch (error) {
+          clearTimeout(id);
+          if (error.name === 'AbortError') {
+            throw new Error('Timeout della richiesta');
+          }
+          throw error;
+        }
+      };
+
+      // Prima verifichiamo che il workflow sia VERAMENTE completato e il file sia stato committato
+      this.updateStatus('Verifica stato completo del workflow...', 'info');
+      
+      // Controlla lo stato dettagliato del workflow e attendi il completamento effettivo
+      const workflowComplete = await this.waitForGitHubActionsCompletion(runId);
+      
+      if (!workflowComplete) {
+        throw new Error('Il workflow non è stato completato correttamente dopo numerosi tentativi');
+      }
+      
+      // Attendi che GitHub abbia effettivamente processato il commit
+      this.updateStatus('Workflow completato, attendo la propagazione del file nel repository...', 'info');
+      await new Promise(resolve => setTimeout(resolve, 8000)); // Attendi 8 secondi iniziali
+
+      // Funzione per cercare il file risultato
+      const findResultFile = async (attempt = 1, maxAttempts = 15) => {
+        if (attempt > maxAttempts) {
+          throw new Error(`File risultato non trovato dopo ${maxAttempts} tentativi`);
+        }
+        
+        this.updateStatus(`Ricerca del file risultato (tentativo ${attempt}/${maxAttempts})...`, 'info');
+        
+        // Aggiungi parametro di timestamp per evitare il caching
+        const timestamp = Date.now();
+        const listUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results?timestamp=${timestamp}`;
+        
+        try {
+          const listResponse = await fetchWithTimeout(
+            listUrl,
             {
               headers: {
                 'Authorization': `Bearer ${this.githubToken}`,
-                'Accept': 'application/vnd.github.v3+json'
+                'Accept': 'application/vnd.github.v3+json',
+                'Cache-Control': 'no-cache, no-store'
               }
             }
           );
           
-          if (retryResponse.ok) {
-            const retryFiles = await retryResponse.json();
-            resultFile = retryFiles.find(file => 
-              file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
-            );
-            
-            if (resultFile) {
-              this.updateStatus(`File trovato al tentativo ${i+2}!`, 'success');
-              break;
-            } else {
-              this.updateStatus(`Tentativo ${i+2}/11: file non ancora disponibile...`, 'info');
-            }
+          if (!listResponse.ok) {
+            throw new Error(`Impossibile ottenere la lista dei file: ${listResponse.status}`);
           }
+          
+          const files = await listResponse.json();
+          
+          // Cerca il file che ha l'ID del run nel nome
+          const resultFile = files.find(file => 
+            file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
+          );
+          
+          if (resultFile) {
+            this.updateStatus(`File trovato al tentativo ${attempt}!`, 'success');
+            return resultFile;
+          }
+          
+          // File non trovato, attendiamo e riproviamo
+          this.updateStatus(`File non ancora disponibile, attendo (${attempt}/${maxAttempts})...`, 'info');
+          
+          // Incrementa gradualmente il tempo di attesa tra i tentativi (backoff esponenziale)
+          const waitTime = Math.min(3000 + (attempt * 1000), 10000); // Da 4s a max 10s
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          
+          // Ricorsione: prova ancora
+          return findResultFile(attempt + 1, maxAttempts);
+        } catch (error) {
+          console.error(`Errore nel tentativo ${attempt}:`, error);
+          
+          if (attempt >= maxAttempts) {
+            throw error;
+          }
+          
+          // Attendi prima di riprovare
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return findResultFile(attempt + 1, maxAttempts);
         }
-      }
-
+      };
+      
+      // Cerca il file con tentativi multipli
+      const resultFile = await findResultFile();
+      
       if (!resultFile) {
-        throw new Error(`File risultato non trovato per il run ID: ${runId} dopo diversi tentativi`);
+        throw new Error(`File risultato non trovato per il run ID: ${runId} dopo numerosi tentativi`);
       }
 
-      this.updateStatus('Scarico il risultato...', 'info');      // Aggiungi parametro per evitare cache
-      const noCacheUrl = `${resultFile.url}?t=${Date.now()}`;
-
+      // Scarica il contenuto del file
+      this.updateStatus('File trovato! Scarico il risultato...', 'info');
+      
+      // Aggiungi parametro per evitare cache
+      const noCacheUrl = `${resultFile.url}?timestamp=${Date.now()}`;
+      
       const fileResponse = await fetchWithTimeout(
         noCacheUrl,
         {
           headers: {
             'Authorization': `Bearer ${this.githubToken}`,
-            'Accept': 'application/vnd.github.v3+json'
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache, no-store'
           }
         }
       );
 
       if (!fileResponse.ok) {
-        throw new Error(`File non trovato: ${fileResponse.status}`);
+        throw new Error(`Errore nel download del file: ${fileResponse.status}`);
       }
 
       const fileData = await fileResponse.json();
@@ -566,44 +715,156 @@ class MarkdownFormatService {
       throw error;
     }
   }
+  /**
+   * Attende che il workflow GitHub Actions sia completato e che i file siano stati committati
+   * @param {string} runId - ID del workflow da monitorare
+   * @returns {Promise<boolean>} - Promise che si risolve con true se il workflow è completato
+   */
+  async waitForGitHubActionsCompletion(runId) {
+    this.updateStatus('Verifica completamento effettivo di GitHub Actions...', 'info');
 
-  // Metodo helper per verificare se un file è stato creato dopo l'inizio del workflow
-  isFileCreatedAfterWorkflow(filename, workflowStartTime) {
-    try {
-      // Estrai la data dal nome del file (assumendo formato YYYYMMDDHHmmss.md)
-      const dateStr = filename.split('.')[0];
-      if (dateStr.length !== 14) {
-        console.debug(`Il file ${filename} non ha un formato di timestamp valido`);
-        return false; // Non è nel formato atteso
+    // Verifica iniziale dello stato del workflow
+    const workflowStatus = await this.getWorkflowStatus(runId);
+    if (!workflowStatus.success) {
+      this.updateStatus('Workflow risulta fallito, ma tentativo comunque di recuperare il risultato...', 'warning');
+    }
+
+    // Ora verifichiamo se i commit associati al workflow sono stati processati
+    const maxAttempts = 20;
+    const initialWaitTime = 2000;
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      this.updateStatus(`Verifica dei commit del workflow (${attempt}/${maxAttempts})...`, 'info');
+      
+      try {
+        // Ottieni i dettagli del workflow per trovare eventuali commit generati
+        const response = await fetch(
+          `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}?timestamp=${Date.now()}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.githubToken}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Cache-Control': 'no-cache, no-store'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Impossibile ottenere i dettagli del workflow: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Verifica se il workflow è in uno stato di conclusione
+        if (data.status === 'completed') {
+          // Verifica se ci sono commit associati al workflow
+          if (data.head_commit && data.head_commit.id) {
+            this.updateStatus('Commit rilevato, verifico disponibilità...', 'info');
+            
+            // Verifica l'esistenza dei commit nel repository
+            const commitCheck = await this.checkIfCommitIsAvailable(data.head_commit.id);
+            
+            if (commitCheck) {
+              this.updateStatus('Commit verificato e disponibile nel repository!', 'success');
+              return true;
+            }
+          } else if (attempt >= maxAttempts / 2) {
+            // Se siamo oltre metà dei tentativi e il workflow è completato, proviamo a proseguire comunque
+            this.updateStatus('Workflow completato, procedo al recupero del file...', 'info');
+            return true;
+          }
+        }
+        
+        // Incrementa gradualmente il tempo di attesa tra i tentativi (backoff esponenziale)
+        const waitTime = Math.min(initialWaitTime + (attempt * 500), 10000); // Da 2.5s a max 10s
+        this.updateStatus(`Attendo ${waitTime/1000} secondi prima del prossimo controllo...`, 'info');
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+      } catch (error) {
+        console.error(`Errore nel controllo del workflow (tentativo ${attempt}):`, error);
+        
+        if (attempt >= maxAttempts) {
+          this.updateStatus('Troppi errori nel controllo del workflow, tento comunque di recuperare il file...', 'warning');
+          return true; // Proseguiamo comunque come best effort
+        }
+        
+        // Attendi prima di riprovare
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
+    }
+    
+    // Se arriviamo qui dopo tutti i tentativi, procediamo comunque come best effort
+    this.updateStatus('Timeout nel controllo del workflow, tento comunque di recuperare il file...', 'warning');
+    return true;
+  }
 
-      const year = parseInt(dateStr.substring(0, 4));
-      const month = parseInt(dateStr.substring(4, 6)) - 1; // Mesi in JS sono 0-based
-      const day = parseInt(dateStr.substring(6, 8));
-      const hour = parseInt(dateStr.substring(8, 10));
-      const minute = parseInt(dateStr.substring(10, 12));
-      const second = parseInt(dateStr.substring(12, 14));
-
-      const fileDate = new Date(year, month, day, hour, minute, second);
-
-      // Aggiungi un buffer di tempo di 2 secondi per gestire eventuali imprecisioni di timestamp
-      const workflowWithBuffer = new Date(workflowStartTime.getTime() - 2000);
-
-      console.debug(`######## ANALISI FILE #########`);
-      console.debug(`File: ${filename}`);
-      console.debug(`- Data file: ${fileDate.toISOString()}`);
-      console.debug(`- Data workflow: ${workflowStartTime.toISOString()}`);
-      console.debug(`- Data workflow con buffer: ${workflowWithBuffer.toISOString()}`);
-
-      const isValid = fileDate > workflowWithBuffer;
-      console.debug(`- RISULTATO: Il file è ${isValid ? 'VALIDO ✓' : 'NON VALIDO ✗'} (${isValid ? 'più recente' : 'più vecchio'} del workflow)`);
-      console.debug(`################################`);
-
-      // Verifichiamo che il file sia stato creato dopo l'inizio del workflow (con buffer)
-      return isValid;
-    } catch (err) {
-      console.error(`Errore nel parsing della data del file ${filename}:`, err);
-      return false; // In caso di errore nel parsing, escludiamo il file
+  /**
+   * Verifica se un commit è disponibile nel repository
+   * @param {string} commitId - ID del commit da verificare
+   * @returns {Promise<boolean>} - Promise che si risolve con true se il commit è disponibile
+   */
+  async checkIfCommitIsAvailable(commitId) {
+    try {
+      const response = await fetch(
+        `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/commits/${commitId}?timestamp=${Date.now()}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache, no-store'
+          }
+        }
+      );
+      
+      return response.ok;
+    } catch (error) {
+      console.error('Errore nella verifica del commit:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Ottiene lo stato attuale di un workflow
+   * @param {string} runId - ID del workflow
+   * @returns {Promise<Object>} - Stato del workflow
+   */
+  async getWorkflowStatus(runId) {
+    try {
+      const response = await fetch(
+        `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}?timestamp=${Date.now()}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache, no-store'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Impossibile ottenere lo stato del workflow: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === 'completed') {
+        if (data.conclusion === 'success') {
+          return { success: true, conclusion: data.conclusion };
+        } else {
+          // Anche se il workflow ha fallito, continuiamo a restituire successo 
+          // così possiamo tentare di ottenere comunque il risultato
+          return { 
+            success: true, 
+            conclusion: data.conclusion, 
+            hasWarning: true 
+          };
+        }
+      } else {
+        return { success: false, status: data.status };
+      }
+    } catch (error) {
+      console.error('Errore nel recupero dello stato del workflow:', error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -941,14 +1202,15 @@ class MarkdownFormatService {
       setTimeout(() => input.focus(), 100);
     });
   }
-
   /**
    * Aggiorna lo stato corrente dell'operazione
    * @param {string} message - Messaggio di stato
-   * @param {string} type - Tipo di messaggio (info, error, success)
+   * @param {string} type - Tipo di messaggio (info, error, success, warning)
    */
   updateStatus(message, type = 'info') {
-    console.log(`[MarkdownFormatter] ${message}`);
+    // Timestamp per log più precisi
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[${timestamp}] [MarkdownFormatter] ${message}`);
 
     // Se è impostata una callback per l'aggiornamento dello stato, chiamala
     if (typeof this.statusUpdateCallback === 'function') {
@@ -959,11 +1221,61 @@ class MarkdownFormatService {
     const statusElement = document.querySelector('.markdown-formatter-status');
     if (statusElement) {
       // Rimuovi tutte le classi di stato precedenti
-      statusElement.classList.remove('info', 'error', 'success');
+      statusElement.classList.remove('info', 'error', 'success', 'warning');
       // Aggiungi la classe appropriata
       statusElement.classList.add(type);
       // Aggiorna il testo
       statusElement.textContent = message;
+      
+      // Aggiungi animazione per messaggi importanti
+      if (type === 'error' || type === 'success') {
+        statusElement.classList.add('highlight');
+        setTimeout(() => {
+          statusElement.classList.remove('highlight');
+        }, 2000);
+      }
+    }
+    
+    // Aggiorna anche eventuali elementi di stato nella UI
+    this.updateProgressUI(message, type);
+  }
+  
+  /**
+   * Aggiorna elementi di progresso nell'interfaccia utente
+   * @param {string} message - Messaggio di stato
+   * @param {string} type - Tipo di messaggio
+   */
+  updateProgressUI(message, type) {
+    // Trova elementi di progresso nella UI (se esistono)
+    const progressElement = document.querySelector('.markdown-format-progress');
+    const progressBarElement = document.querySelector('.markdown-format-progress-bar');
+    const progressTextElement = document.querySelector('.markdown-format-progress-text');
+    
+    if (progressElement) {
+      // Mostra l'elemento di progresso
+      progressElement.style.display = 'block';
+      
+      // Aggiorna lo stato visivo in base al tipo di messaggio
+      if (type === 'success') {
+        progressElement.classList.add('complete');
+        if (progressBarElement) progressBarElement.style.width = '100%';
+      } else if (type === 'error') {
+        progressElement.classList.add('error');
+      } else if (type === 'info' && message.includes('tentativo')) {
+        // Estrai informazioni sul tentativo dal messaggio (es: "tentativo 3/10")
+        const match = message.match(/tentativo (\d+)\/(\d+)/);
+        if (match && progressBarElement) {
+          const [, current, total] = match;
+          const percent = Math.min(Math.floor((parseInt(current) / parseInt(total)) * 100), 95);
+          progressBarElement.style.width = `${percent}%`;
+        }
+      }
+      
+      // Aggiorna il testo di progresso
+      if (progressTextElement) {
+        progressTextElement.textContent = message;
+        progressTextElement.className = `markdown-format-progress-text ${type}`;
+      }
     }
   }
 

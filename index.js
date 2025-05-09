@@ -12,6 +12,7 @@ import updateService from './services/UpdateService.js';
 
 // Components
 import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
+import './components/MarkdownFormatterUI.js';
 
 // Content views
 import HomeView from './views/HomeView.js';
