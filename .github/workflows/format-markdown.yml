@@ -1,5 +1,6 @@
 name: Format Markdown
-
+env:
+    API_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
 # Aggiungi questa dichiarazione di permessi prima di "on:"
 permissions:
   contents: write
@@ -66,7 +67,7 @@ jobs:
               
               const client = new OpenAI({ 
                 baseURL: endpoint, 
-                apiKey: '${{ env.GITHUB_TOKEN}}' // Usa il tuo token personale
+                apiKey: '${{ env.API_TOKEN}}' // Usa il tuo token personale
               });
               
               let systemPrompt = 'You are a helpful assistant specialized in Markdown formatting.';
