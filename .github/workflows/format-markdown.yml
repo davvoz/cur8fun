@@ -27,11 +27,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Format Markdown with GitHub CLI
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Format Markdown with OpenAI SDK
         id: format
         env:
-          GH_TOKEN: ${{ secrets.MODELS_AI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MODELS_AI_TOKEN }}
         run: |
+          # Installa le dipendenze necessarie
+          npm install openai
+          
           # Crea file con il testo di input
           cat > input.txt << 'EOF'
           ${{ github.event.inputs.text }}
@@ -46,49 +54,63 @@ jobs:
             SYSTEM_PROMPT="You are a helpful assistant specialized in Markdown formatting. Format as a blog post with engaging headings and structure."
           fi
           
-          # Formatta il prompt utente con il testo da input.txt
-          USER_PROMPT="Transform this text into beautiful, well-formatted Markdown: $(cat input.txt)"
-            echo "Chiamata API GitHub Models con CLI..."
-          echo "Token: Usando MODELS_AI_TOKEN (prime 3 caratteri: ${GH_TOKEN:0:3}...)"
+          # Leggi il testo di input
+          INPUT_TEXT=$(cat input.txt)
+          
+          echo "Chiamata API GitHub Models con OpenAI SDK..."
+          echo "Token: Usando MODELS_AI_TOKEN (prime 3 caratteri: ${GITHUB_TOKEN:0:3}...)"
           echo "SYSTEM_PROMPT: $SYSTEM_PROMPT"
-          echo "USER_PROMPT: $USER_PROMPT"
-          echo "Input text: $(cat input.txt)"
-
-          # Crea un file JSON per la richiesta
-          cat > request.json << EOF
-          {
-            "model": "openai/gpt-4o-mini",
-            "messages": [
-              {
-                "role": "system",
-                "content": "$SYSTEM_PROMPT"
-              },
-              {
-                "role": "user",
-                "content": "$USER_PROMPT"
-              }
-            ]
+          echo "Input text: $INPUT_TEXT"
+          
+          # Crea e esegui lo script Node.js
+          cat > format-script.mjs << EOF
+          import OpenAI from "openai";
+          import fs from 'fs';
+          
+          const token = process.env.GITHUB_TOKEN;
+          const endpoint = "https://models.github.ai/inference/";
+          const modelName = "openai/gpt-4o-mini";
+          
+          async function formatMarkdown() {
+            try {
+              const client = new OpenAI({ baseURL: endpoint, apiKey: token });
+              
+              const completion = await client.chat.completions.create({
+                messages: [
+                  { role: "system", content: "$SYSTEM_PROMPT" },
+                  { role: "user", content: "Transform this text into beautiful, well-formatted Markdown: $INPUT_TEXT" }
+                ],
+                model: modelName
+              });
+              
+              return completion.choices[0].message.content;
+            } catch (error) {
+              console.error("Error calling GitHub Models API:", error);
+              throw error;
+            }
           }
+          
+          formatMarkdown()
+            .then(result => {
+              fs.writeFileSync('formatted_result.md', result);
+              console.log("Formattazione completata con successo!");
+            })
+            .catch(err => {
+              console.error("Errore durante la formattazione:", err);
+              fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo.');
+              process.exit(1);
+            });
           EOF
           
-          # Usa gh CLI con il file JSON come input
-          gh api \
-            --method POST \
-            https://models.github.ai/inference \
-            --input request.json > response.json
-          
-          # Estrai il contenuto della risposta
-          cat response.json | jq -r '.choices[0].message.content' > formatted_result.md
+          # Esegui lo script
+          node format-script.mjs
           
           # Verifica che il risultato sia stato generato correttamente
           if [ ! -s formatted_result.md ]; then
-            echo "ERRORE: Risposta API non valida"
-            cat response.json
+            echo "ERRORE: Risultato non generato"
             echo "# Errore di formattazione" > formatted_result.md
             echo "" >> formatted_result.md
             echo "Si è verificato un errore durante la formattazione del testo." >> formatted_result.md
-          else
-            echo "Formattazione completata con successo!"
           fi
       
       - name: Save result to repository
