@@ -30,7 +30,7 @@ jobs:
       - name: Format Markdown with curl
         id: format
         env:
-          # Usando un token personale per l'autenticazione
+          # Usa un token personale per l'autenticazione
           GITHUB_PERSONAL_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
         run: |
           # Crea file con il testo di input
@@ -60,24 +60,8 @@ jobs:
           curl -s -X POST \
             -H "Authorization: Bearer $GITHUB_PERSONAL_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"model\": \"openai/gpt-4o-mini\",
-              \"messages\": [
-                {
-                  \"role\": \"system\",
-                  \"content\": \"$SYSTEM_PROMPT_ESCAPED\"
-                },
-                {
-                  \"role\": \"user\",
-                  \"content\": \"$USER_PROMPT_ESCAPED\"
-                }
-              ]
-            }" \
+            -d "{\n              \"model\": \"openai/gpt-4o-mini\",\n              \"messages\": [\n                {\n                  \"role\": \"system\",\n                  \"content\": \"$SYSTEM_PROMPT_ESCAPED\"\n                },\n                {\n                  \"role\": \"user\",\n                  \"content\": \"$USER_PROMPT_ESCAPED\"\n                }\n              ]\n            }" \
             https://models.github.ai/inference > response.json
-          
-          # Stampa la risposta per debug
-          echo "Risposta API:"
-          cat response.json
           
           # Estrai il contenuto della risposta
           cat response.json | jq -r '.choices[0].message.content' > formatted_result.md
