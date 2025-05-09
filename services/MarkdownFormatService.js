@@ -379,8 +379,7 @@ class MarkdownFormatService {
       console.error('Errore nell\'avvio del workflow:', error);
       throw new Error(`Impossibile avviare il workflow: ${error.message}`);
     }
-  }
-  /**
+  }  /**
    * Monitora lo stato del workflow GitHub Actions
    * @param {string} runId - ID del workflow da monitorare
    * @returns {Promise<Object>} - Risultato del workflow
@@ -481,12 +480,36 @@ class MarkdownFormatService {
 
       // Timestamp di inizio del workflow - useremo questo per trovare file creati dopo l'avvio
       const workflowStartTime = new Date(runData.created_at);
-      console.debug('Workflow avviato il:', workflowStartTime.toISOString());
-
-      // Controlla lo stato del run, ma continua anche se non ha avuto "success"
+      console.debug('Workflow avviato il:', workflowStartTime.toISOString());      // Controlla lo stato del run, ma continua anche se non ha avuto "success"
       // Questo ci permette di recuperare il file anche se il workflow ha dato errori non critici
       if (runData.status !== 'completed') {
-        throw new Error(`Il workflow non è stato ancora completato: ${runData.status}`);
+        this.updateStatus('Il workflow non è ancora completato, attendo...', 'info');
+        
+        // Attendiamo che il workflow sia completato prima di cercare il file
+        await this.waitForWorkflowCompletion(runId);
+        
+        // Ricarica i dati del run dopo l'attesa
+        const updatedRunResponse = await fetch(runDetailsUrl, {
+          headers: standardHeaders
+        });
+        
+        if (!updatedRunResponse.ok) {
+          throw new Error(`Impossibile ottenere i dettagli aggiornati del run (${updatedRunResponse.status})`);
+        }
+        
+        const updatedRunData = await updatedRunResponse.json();
+        
+        // Aggiorna il timestamp di fine del workflow
+        const workflowEndTime = new Date(updatedRunData.updated_at);
+        console.debug('Workflow completato il:', workflowEndTime.toISOString());
+        
+        // Avvisa ma non fallire se il workflow non è stato completato con successo
+        if (updatedRunData.conclusion !== 'success') {
+          console.warn(`Il workflow ha concluso con stato: ${updatedRunData.conclusion}, ma tentiamo comunque di recuperare il risultato`);
+          this.updateStatus(`Attenzione: workflow completato con stato "${updatedRunData.conclusion}", ma tentiamo comunque di recuperare il risultato`, 'warning');
+        } else {
+          this.updateStatus('Workflow completato con successo', 'success');
+        }
       }
       
       // Avvisa ma non fallire se il workflow non è stato completato con successo
@@ -495,7 +518,9 @@ class MarkdownFormatService {
         this.updateStatus(`Attenzione: workflow completato con stato "${runData.conclusion}", ma tentiamo comunque di recuperare il risultato`, 'warning');
       }
 
+      // Attendiamo altri 2 secondi dopo il completamento del workflow per dare tempo al file di essere visibile
       this.updateStatus('Workflow completato, attendo che il file sia disponibile...', 'info');
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Implementa un polling per verificare quando il file diventa disponibile
       const maxAttempts = 100; // Numero massimo di tentativi
@@ -556,17 +581,28 @@ class MarkdownFormatService {
             continue;
           }
 
-          console.debug(`Trovati ${markdownFiles.length} file Markdown`);
-
-          // Prima prova: prendi semplicemente il file più recente
+          console.debug(`Trovati ${markdownFiles.length} file Markdown`);          // Prendi i file più recenti e verifica quali sono stati creati dopo l'inizio del workflow
           markdownFiles.sort((a, b) => b.name.localeCompare(a.name));
-          const latestFile = markdownFiles[0];
+          
+          // Cerca un file creato dopo l'inizio del workflow corrente
+          let validFile = null;
+          for (const file of markdownFiles) {
+            if (this.isFileCreatedAfterWorkflow(file.name, workflowStartTime)) {
+              validFile = file;
+              break;
+            }
+          }
+          
+          if (!validFile) {
+            this.updateStatus(`Nessun file recente trovato, riprovo (${attempts}/${maxAttempts})...`, 'info');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            continue;
+          }
+          
+          console.debug('File Markdown valido trovato:', validFile.name, 'URL:', validFile.download_url);
 
-          console.debug('File Markdown più recente trovato:', latestFile.name, 'URL:', latestFile.download_url);
-
-          // Ottieni il contenuto del file
-          // Ottieni il contenuto del file usando l'API GitHub (non raw.githubusercontent.com)
-          const fileContentUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${latestFile.path}`;
+          // Ottieni il contenuto del file usando l'API GitHub
+          const fileContentUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${validFile.path}`;
           const fileResponse = await fetch(addNoCacheParam(fileContentUrl), {
             headers: standardHeaders
           });
@@ -579,30 +615,15 @@ class MarkdownFormatService {
           // Il contenuto è in base64, dobbiamo decodificarlo
           const fileContent = atob(fileData.content);
 
-          if (!fileResponse.ok) {
-            throw new Error(`Impossibile scaricare il file risultato (${fileResponse.status})`);
-          }
-
-
-
-          const isRecentFile = this.isFileCreatedAfterWorkflow(latestFile.name, workflowStartTime);
-          if (isRecentFile) {
-            console.debug('File recente trovato, lo restituiamo come risultato valido');
-
-            // Se contiene un messaggio di errore, mostra un avviso ma comunque lo restituiamo
-            if (fileContent.includes('# Errore di formattazione') ||
-              fileContent.includes('Si è verificato un errore')) {
-              this.updateStatus('Il file contiene un errore di formattazione, ma lo mostro comunque', 'warning');
-            } else {
-              this.updateStatus('Testo formattato scaricato con successo', 'success');
-            }
-
-            contentFound = true;
-            return fileContent;
+          // Se contiene un messaggio di errore, mostra un avviso ma comunque lo restituiamo
+          if (fileContent.includes('# Errore di formattazione') ||
+            fileContent.includes('Si è verificato un errore')) {
+            this.updateStatus('Il file contiene un errore di formattazione, ma lo mostro comunque', 'warning');
+          } else {
+            this.updateStatus('Testo formattato scaricato con successo', 'success');
           }
 
           contentFound = true;
-          this.updateStatus('Testo formattato scaricato con successo', 'success');
           return fileContent;
 
         } catch (error) {
@@ -1056,6 +1077,60 @@ class MarkdownFormatService {
     if (typeof callback === 'function') {
       this.statusUpdateCallback = callback;
     }
+  }
+
+  /**
+   * Attende che il workflow sia completato
+   * @param {string} runId - ID del workflow da monitorare
+   * @returns {Promise<Object>} - Dettagli del workflow completato
+   */
+  async waitForWorkflowCompletion(runId) {
+    this.updateStatus('Attesa del completamento del workflow...', 'info');
+
+    let attempts = 0;
+    const maxAttempts = this.maxAttempts;
+    
+    // Funzione che controlla lo stato del workflow
+    const checkCompletion = async () => {
+      attempts++;
+
+      // Se abbiamo superato il numero massimo di tentativi, termina con errore
+      if (attempts > maxAttempts) {
+        throw new Error(`Timeout raggiunto dopo ${maxAttempts} tentativi`);
+      }
+
+      // Costruisci l'URL per ottenere lo stato del run
+      const statusUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/actions/runs/${runId}`;
+      const authHeader = `Bearer ${this.githubToken}`;
+
+      // Esegui la richiesta
+      const response = await fetch(statusUrl, {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Impossibile ottenere lo stato del run (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      // Controlla se il workflow è completato
+      if (data.status === 'completed') {
+        this.updateStatus(`Workflow completato con stato: ${data.conclusion}`, 'info');
+        return data;
+      } else {
+        // Workflow ancora in esecuzione, attendiamo e riproviamo
+        this.updateStatus(`Workflow in esecuzione (tentativo ${attempts}/${maxAttempts})...`, 'info');
+        await new Promise(resolve => setTimeout(resolve, this.pollInterval));
+        return checkCompletion();
+      }
+    };
+
+    return checkCompletion();
   }
 }
 
