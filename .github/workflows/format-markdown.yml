@@ -51,11 +51,11 @@ jobs:
           
           # Determina il prompt di sistema in base allo stile
           if [ "${{ github.event.inputs.style }}" = "social" ]; then
-            SYSTEM_PROMPT="Don't nested into markdown quotes! You are a helpful assistant specialized in Markdown formatting. Format for social media with engaging style."
+            SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format with an engaging, social media friendly style using appropriate headings, emphasis, and lists. Never wrap your response in markdown code blocks or quotes."
           elif [ "${{ github.event.inputs.style }}" = "technical" ]; then
-            SYSTEM_PROMPT="Don't nested into markdown quotes! You are a helpful assistant specialized in Markdown formatting. Format as technical documentation"
+            SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format in a technical documentation style with proper headings, code blocks, tables, and lists as appropriate. Never wrap your response in markdown code blocks or quotes."
           else
-            SYSTEM_PROMPT="Don't nested into markdown quotes! Transform this text into an elaborate markdown"
+            SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format in a blog style with engaging headings, emphasis, and good paragraph structure. Never wrap your response in markdown code blocks or quotes."
           fi
           
           # Leggi il testo di input
@@ -82,7 +82,7 @@ jobs:
               const completion = await client.chat.completions.create({
                 messages: [
                   { role: "system", content: "$SYSTEM_PROMPT" },
-                  { role: "user", content: "Transform this text into beautiful, well-formatted Markdown: $INPUT_TEXT" }
+                  { role: "user", content: "Apply proper Markdown formatting to this text. Do not add any commentary or extra content - ONLY format what I provide: $INPUT_TEXT" }
                 ],
                 model: modelName
               });
