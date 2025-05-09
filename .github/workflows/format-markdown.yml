@@ -27,11 +27,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Format Markdown with GitHub CLI
+      - name: Format Markdown with curl
         id: format
         env:
-          # Qui usiamo il token integrato di GitHub Actions che funziona con models.github.ai
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Usando un token personale per l'autenticazione
+          GITHUB_PERSONAL_TOKEN: ${{ secrets.MY_PERSONAL_TOKEN }}
         run: |
           # Crea file con il testo di input
           cat > input.txt << 'EOF'
@@ -50,17 +50,34 @@ jobs:
           # Formatta il prompt utente con il testo da input.txt
           USER_PROMPT="Transform this text into beautiful, well-formatted Markdown: $(cat input.txt)"
           
-          echo "Chiamata API GitHub Models con CLI..."
+          echo "Chiamata API GitHub Models con curl..."
           
-          # Usa gh CLI con flag multipli per costruire la richiesta
-          gh api \
-            --method POST \
-            https://models.github.ai/inference \
-            -f model="openai/gpt-4o-mini" \
-            -f messages[0].role="system" \
-            -f messages[0].content="$SYSTEM_PROMPT" \
-            -f messages[1].role="user" \
-            -f messages[1].content="$USER_PROMPT" > response.json
+          # Escape dei caratteri speciali in SYSTEM_PROMPT e USER_PROMPT per JSON
+          SYSTEM_PROMPT_ESCAPED=$(echo "$SYSTEM_PROMPT" | sed 's/"/\\"/g')
+          USER_PROMPT_ESCAPED=$(echo "$USER_PROMPT" | sed 's/"/\\"/g')
+          
+          # Usa curl per inviare la richiesta
+          curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_PERSONAL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"openai/gpt-4o-mini\",
+              \"messages\": [
+                {
+                  \"role\": \"system\",
+                  \"content\": \"$SYSTEM_PROMPT_ESCAPED\"
+                },
+                {
+                  \"role\": \"user\",
+                  \"content\": \"$USER_PROMPT_ESCAPED\"
+                }
+              ]
+            }" \
+            https://models.github.ai/inference > response.json
+          
+          # Stampa la risposta per debug
+          echo "Risposta API:"
+          cat response.json
           
           # Estrai il contenuto della risposta
           cat response.json | jq -r '.choices[0].message.content' > formatted_result.md
