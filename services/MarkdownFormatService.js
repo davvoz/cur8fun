@@ -198,7 +198,6 @@ class MarkdownFormatService {
       throw error;
     }
   }
-
   /**
    * Formatta il testo markdown con l'AI tramite GitHub Actions
    * @param {string} text - Il testo Markdown da formattare
@@ -228,7 +227,12 @@ class MarkdownFormatService {
       const workflowResult = await this.pollWorkflowStatus(runId);
 
       if (workflowResult.success) {
-        this.updateStatus('Workflow completato con successo!', 'success');
+        // Nota: ora accettiamo anche risultati con avviso
+        if (workflowResult.hasWarning) {
+          this.updateStatus('Workflow completato con avvisi, tentativamente proseguiamo...', 'warning');
+        } else {
+          this.updateStatus('Workflow completato con successo!', 'success');
+        }
 
         // Scarica il risultato
         const formattedText = await this.downloadFormattedText(runId);
@@ -376,7 +380,6 @@ class MarkdownFormatService {
       throw new Error(`Impossibile avviare il workflow: ${error.message}`);
     }
   }
-
   /**
    * Monitora lo stato del workflow GitHub Actions
    * @param {string} runId - ID del workflow da monitorare
@@ -424,7 +427,10 @@ class MarkdownFormatService {
           this.updateStatus('Workflow completato con successo', 'success');
           return { success: true, conclusion: data.conclusion };
         } else {
-          return { success: false, conclusion: data.conclusion };
+          // Anche se il workflow ha fallito, continuiamo a restituire successo 
+          // così possiamo tentare di ottenere comunque il risultato
+          this.updateStatus(`Workflow completato con stato: ${data.conclusion}. Tentativo di recuperare risultato...`, 'warning');
+          return { success: true, conclusion: data.conclusion, hasWarning: true };
         }
       } else {
         // Workflow ancora in esecuzione, attendi e riprova
@@ -441,7 +447,6 @@ class MarkdownFormatService {
     // Avvia il monitoraggio
     return checkStatus();
   }
-
   /**
    * Scarica il testo formattato dal workflow GitHub Actions
    * @param {string} runId - ID del workflow
@@ -478,9 +483,16 @@ class MarkdownFormatService {
       const workflowStartTime = new Date(runData.created_at);
       console.debug('Workflow avviato il:', workflowStartTime.toISOString());
 
-      // Controlla che il run sia stato completato con successo
-      if (runData.status !== 'completed' || runData.conclusion !== 'success') {
-        throw new Error(`Il workflow non è stato completato con successo: ${runData.conclusion || runData.status}`);
+      // Controlla lo stato del run, ma continua anche se non ha avuto "success"
+      // Questo ci permette di recuperare il file anche se il workflow ha dato errori non critici
+      if (runData.status !== 'completed') {
+        throw new Error(`Il workflow non è stato ancora completato: ${runData.status}`);
+      }
+      
+      // Avvisa ma non fallire se il workflow non è stato completato con successo
+      if (runData.conclusion !== 'success') {
+        console.warn(`Il workflow ha concluso con stato: ${runData.conclusion}, ma tentiamo comunque di recuperare il risultato`);
+        this.updateStatus(`Attenzione: workflow completato con stato "${runData.conclusion}", ma tentiamo comunque di recuperare il risultato`, 'warning');
       }
 
       this.updateStatus('Workflow completato, attendo che il file sia disponibile...', 'info');
@@ -598,9 +610,7 @@ class MarkdownFormatService {
           // Se ci sono errori di rete o altri problemi, attendiamo e riproveremo
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
-      }
-
-      // Se siamo qui e non abbiamo ancora trovato un file valido, proviamo un approccio diverso
+      }      // Se siamo qui e non abbiamo ancora trovato un file valido, proviamo un approccio diverso
       if (!contentFound) {
         this.updateStatus('Tentativo alternativo: scarico il primo file disponibile...', 'info');
 
@@ -628,13 +638,16 @@ class MarkdownFormatService {
 
           console.debug('Ultimo tentativo con file:', firstFile.name);
 
-          // Scarica il contenuto
-          const fileResponse = await fetch(addNoCacheParam(firstFile.download_url), {
+          // Scarica il contenuto tramite API per decodificare il base64
+          const fileContentUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${firstFile.path}`;
+          const fileResponse = await fetch(addNoCacheParam(fileContentUrl), {
             headers: standardHeaders
           });
 
           if (fileResponse.ok) {
-            const fileContent = await fileResponse.text();
+            const fileData = await fileResponse.json();
+            const fileContent = atob(fileData.content);
+            
             this.updateStatus('Testo scaricato con approccio alternativo', 'warning');
             return fileContent;
           }
