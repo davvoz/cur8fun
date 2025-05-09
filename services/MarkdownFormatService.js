@@ -221,9 +221,7 @@ class MarkdownFormatService {
 
       // Avvia il workflow con il nome file generato
       const runId = await this.dispatchWorkflow(text, style, filename);
-      this.updateStatus(`Workflow avviato con ID: ${runId}`, 'info');
-
-      // Monitora lo stato del workflow
+      this.updateStatus(`Workflow avviato con ID: ${runId}`, 'info');      // Monitora lo stato del workflow
       const workflowResult = await this.pollWorkflowStatus(runId);
 
       if (workflowResult.success) {
@@ -446,62 +444,112 @@ class MarkdownFormatService {
 
     // Avvia il monitoraggio
     return checkStatus();
-  }
-  async downloadFormattedText(runId) {
+  }  async downloadFormattedText(runId) {
     try {
-      // Verifica che il workflow sia completato
-      const runData = await this.pollWorkflowStatus(runId);
+      // Non abbiamo bisogno di verificare nuovamente lo stato del workflow
+      // Il metodo formatMarkdown() chiama questo metodo solo quando il workflow è già completato
 
-      if (runData.status !== 'completed') {
-        throw new Error(`Workflow non completato (stato: ${runData.status})`);
-      }
-
-      if (runData.conclusion !== 'success') {
-        throw new Error(`Workflow fallito con stato: ${runData.conclusion}`);
-      }
-
-      // Attendi 3 secondi per dare tempo al commit di propagarsi
+      // Attendi 5 secondi per dare tempo al commit di propagarsi (tempo aumentato da 3 a 5 secondi)
       this.updateStatus('Workflow completato, attendo la propagazione del file...', 'info');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       // Il nome del file ora contiene l'ID del run, possiamo fare una ricerca dei file nella cartella
       this.updateStatus('Ricerca del file risultato...', 'info');
 
+      // Helper per fare richieste fetch con timeout
+      const fetchWithTimeout = async (url, options, timeout = 30000) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          clearTimeout(id);
+          return response;
+        } catch (error) {
+          clearTimeout(id);
+          if (error.name === 'AbortError') {
+            throw new Error('Timeout della richiesta');
+          }
+          throw error;
+        }
+      };
+
       // Ottieni la lista dei file nella cartella formatted-results
       const listUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
-      const listResponse = await fetch(listUrl, {
-        headers: {
-          'Authorization': `Bearer ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+      const listResponse = await fetchWithTimeout(
+        listUrl,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.githubToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
         }
-      });
+      );
 
       if (!listResponse.ok) {
         throw new Error(`Impossibile ottenere la lista dei file: ${listResponse.status}`);
-      }
-
-      const files = await listResponse.json();
+      }      const files = await listResponse.json();
       
       // Cerca il file che ha l'ID del run nel nome
-      const resultFile = files.find(file => 
+      let resultFile = files.find(file => 
         file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
       );
 
+      // Se il file non è stato trovato, facciamo qualche tentativo extra
+      // GitHub può richiedere tempo per aggiornare i file dopo un commit
       if (!resultFile) {
-        throw new Error(`File risultato non trovato per il run ID: ${runId}`);
+        this.updateStatus('File non trovato al primo tentativo, provo ancora...', 'info');
+        
+        // Facciamo fino a 10 tentativi aggiuntivi, aspettando 3 secondi tra ciascuno
+        // Questo dà a GitHub più tempo per elaborare il commit
+        for (let i = 0; i < 10; i++) {          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Richiedi nuovamente la lista dei file
+          const retryResponse = await fetchWithTimeout(
+            `${listUrl}?t=${Date.now()}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${this.githubToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            }
+          );
+          
+          if (retryResponse.ok) {
+            const retryFiles = await retryResponse.json();
+            resultFile = retryFiles.find(file => 
+              file.name.endsWith('.md') && file.name.includes(`-${runId}.md`)
+            );
+            
+            if (resultFile) {
+              this.updateStatus(`File trovato al tentativo ${i+2}!`, 'success');
+              break;
+            } else {
+              this.updateStatus(`Tentativo ${i+2}/11: file non ancora disponibile...`, 'info');
+            }
+          }
+        }
       }
 
-      this.updateStatus('Scarico il risultato...', 'info');
+      if (!resultFile) {
+        throw new Error(`File risultato non trovato per il run ID: ${runId} dopo diversi tentativi`);
+      }
 
-      // Aggiungi parametro per evitare cache
+      this.updateStatus('Scarico il risultato...', 'info');      // Aggiungi parametro per evitare cache
       const noCacheUrl = `${resultFile.url}?t=${Date.now()}`;
 
-      const fileResponse = await fetch(noCacheUrl, {
-        headers: {
-          'Authorization': `Bearer ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+      const fileResponse = await fetchWithTimeout(
+        noCacheUrl,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.githubToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
         }
-      });
+      );
 
       if (!fileResponse.ok) {
         throw new Error(`File non trovato: ${fileResponse.status}`);
