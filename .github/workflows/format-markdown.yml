@@ -50,6 +50,10 @@ jobs:
           USER_PROMPT="Transform this text into beautiful, well-formatted Markdown: $(cat input.txt)"
           
           echo "Chiamata API GitHub Models con CLI..."
+          echo "secrets.GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+          echo "SYSTEM_PROMPT: $SYSTEM_PROMPT"
+          echo "USER_PROMPT: $USER_PROMPT"
+          echo "Input text: $(cat input.txt)"
           
           # Crea un file JSON per la richiesta
           cat > request.json << EOF
