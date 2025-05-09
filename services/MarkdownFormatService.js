@@ -538,6 +538,49 @@ class MarkdownFormatService {
       }      // Helper per aggiungere un parametro anti-cache all'URL
       const addNoCacheParam = (url) => `${url}?_=${Date.now()}`;
 
+      // Prima di tutto, controlliamo se esiste un file marker con l'ID del run
+      try {
+        const markerUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results/run-${runId}.txt`;
+        
+        this.updateStatus('Ricerca del file marker specifico per questo run...', 'info');
+        console.debug('Cerco il file marker:', markerUrl);
+        
+        const markerResponse = await fetch(addNoCacheParam(markerUrl), {
+          headers: standardHeaders
+        });
+        
+        if (markerResponse.ok) {
+          const markerData = await markerResponse.json();
+          const resultFilePath = atob(markerData.content).trim();
+          
+          console.debug('✅ File marker trovato! Percorso del risultato:', resultFilePath);
+          this.updateStatus('File marker trovato, scarico il risultato direttamente...', 'success');
+          
+          // Scarica direttamente il file risultato
+          const fileContentUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${resultFilePath}`;
+          const fileResponse = await fetch(addNoCacheParam(fileContentUrl), {
+            headers: standardHeaders
+          });
+          
+          if (fileResponse.ok) {
+            const fileData = await fileResponse.json();
+            const fileContent = atob(fileData.content);
+            
+            this.updateStatus('Testo formattato scaricato con successo tramite marker', 'success');
+            return fileContent;
+          } else {
+            console.warn('Marker trovato ma impossibile scaricare il file:', resultFilePath);
+            this.updateStatus('File marker trovato ma non è stato possibile scaricare il file - proseguo con metodo alternativo', 'warning');
+            // Continua con il metodo di fallback
+          }
+        } else {
+          console.debug('File marker non trovato, proseguo con metodo standard');
+        }
+      } catch (err) {
+        console.debug('Errore nella ricerca del file marker:', err);
+        // Continuiamo con il polling normale in caso di errore
+      }
+
       // Prima di tutto, proviamo a vedere se abbiamo già un file valido nel repository
       try {
         const contentsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;

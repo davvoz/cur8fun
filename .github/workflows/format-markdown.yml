@@ -123,6 +123,12 @@ jobs:
           RESULT_FILE="formatted-results/${TIMESTAMP}.md"
           mv formatted_result.md $RESULT_FILE
           git add $RESULT_FILE
+
+          # Crea un file marker con l'ID del run
+          echo "${RESULT_FILE}" > "formatted-results/run-${GITHUB_RUN_ID}.txt"
+      
+
+          git add $RESULT_FILE "formatted-results/run-${GITHUB_RUN_ID}.txt"
           git commit -m "Add formatted markdown result [skip ci]"
           git push
           echo "result_path=${RESULT_FILE}" >> $GITHUB_OUTPUT
