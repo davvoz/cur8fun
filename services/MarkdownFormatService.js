@@ -1211,7 +1211,7 @@ class MarkdownFormatService {  constructor() {
     // Timestamp per log più precisi
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[${timestamp}] [MarkdownFormatter] ${message}`);
-
+    this.showToast(message, type);
     // Se è impostata una callback per l'aggiornamento dello stato, chiamala
     if (typeof this.statusUpdateCallback === 'function') {
       this.statusUpdateCallback(message, type);
@@ -1240,6 +1240,29 @@ class MarkdownFormatService {  constructor() {
     this.updateProgressUI(message, type);
   }
   
+  showToast(message, type) {
+    // Crea un toast
+    const toast = document.createElement('div');
+    toast.className ='toast';
+    toast.classList.add(type);
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    
+    
+    
+    // Aggiungi il toast al body
+    document.body.appendChild(toast);
+
+
+    // Rimuovi il toast dopo 3 secondi
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
+  }
+
   /**
    * Aggiorna elementi di progresso nell'interfaccia utente
    * @param {string} message - Messaggio di stato
