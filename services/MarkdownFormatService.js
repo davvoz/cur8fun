@@ -518,20 +518,72 @@ class MarkdownFormatService {
         this.updateStatus(`Attenzione: workflow completato con stato "${runData.conclusion}", ma tentiamo comunque di recuperare il risultato`, 'warning');
       }
 
-      // Attendiamo altri 2 secondi dopo il completamento del workflow per dare tempo al file di essere visibile
-      this.updateStatus('Workflow completato, attendo che il file sia disponibile...', 'info');
+      // Attendiamo altri 2 secondi dopo il completamento del workflow per dare tempo al file di essere visibile      this.updateStatus('Workflow completato, attendo che il file sia disponibile...', 'info');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Implementa un polling per verificare quando il file diventa disponibile
-      const maxAttempts = 100; // Numero massimo di tentativi
+      const maxAttempts = 20; // Riduciamo il numero massimo di tentativi per evitare loop troppo lunghi
       let attempts = 0;
       let contentFound = false;
-
-      // Helper per aggiungere un parametro anti-cache all'URL
+      
+      // Verifichiamo se abbiamo file locali nella cartella formatted-results
+      // che possiamo usare direttamente (utile per sviluppo locale)
+      try {
+        // Controllo se siamo in un ambiente browser
+        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+          console.debug('Ambiente locale rilevato, potremmo usare file locali');
+        }
+      } catch (err) {
+        console.debug('Non in ambiente browser o errore nel controllo:', err);
+      }      // Helper per aggiungere un parametro anti-cache all'URL
       const addNoCacheParam = (url) => `${url}?_=${Date.now()}`;
 
-      while (!contentFound && attempts < maxAttempts) {
+      // Prima di tutto, proviamo a vedere se abbiamo già un file valido nel repository
+      try {
+        const contentsUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/formatted-results`;
+        const contentsResponse = await fetch(addNoCacheParam(contentsUrl), {
+          headers: standardHeaders
+        });
+        
+        if (contentsResponse.ok) {
+          const contentsData = await contentsResponse.json();
+          if (Array.isArray(contentsData) && contentsData.length > 0) {
+            const markdownFiles = contentsData
+              .filter(file => file.name.endsWith('.md') && !file.name.includes('README'))
+              .sort((a, b) => b.name.localeCompare(a.name));
+            
+            if (markdownFiles.length > 0) {
+              for (const file of markdownFiles) {
+                if (this.isFileCreatedAfterWorkflow(file.name, workflowStartTime)) {
+                  console.debug('File valido trovato immediatamente:', file.name);
+                  // Ottieni direttamente il contenuto
+                  const fileContentUrl = `${this.githubApiBase}/repos/${this.repoOwner}/${this.repoName}/contents/${file.path}`;
+                  const fileResponse = await fetch(addNoCacheParam(fileContentUrl), {
+                    headers: standardHeaders
+                  });
+                  
+                  if (fileResponse.ok) {
+                    const fileData = await fileResponse.json();
+                    const fileContent = atob(fileData.content);
+                    this.updateStatus('Testo formattato trovato immediatamente', 'success');
+                    return fileContent;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.debug('Errore nel controllo iniziale dei file:', err);
+        // Continuiamo con il polling normale in caso di errore
+      }      while (!contentFound && attempts < maxAttempts) {
         attempts++;
+        
+        // Esci dal ciclo se abbiamo superato tentativi massimi o se abbiamo già trovato un contenuto
+        if (contentFound) {
+          console.debug('Contenuto trovato, esco dal ciclo di polling');
+          break;
+        }
 
         try {
           // Ottieni l'elenco dei file nella cartella formatted-results
@@ -547,7 +599,9 @@ class MarkdownFormatService {
           // Se la cartella non esiste ancora, attendiamo
           if (contentsResponse.status === 404) {
             this.updateStatus(`Attendo la creazione della cartella (tentativo ${attempts}/${maxAttempts})...`, 'info');
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Attendi meno tempo nei primi tentativi, più tempo nei successivi
+            const waitTime = Math.min(1000 + (attempts * 200), 3000);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
 
@@ -563,9 +617,7 @@ class MarkdownFormatService {
             console.warn('Risposta non valida:', contentsData);
             await new Promise(resolve => setTimeout(resolve, 1500));
             continue;
-          }
-
-          console.debug(`Trovati ${contentsData.length} file nella cartella formatted-results`);
+          }          console.debug(`Trovati ${contentsData.length} file nella cartella formatted-results`);
           contentsData.forEach(file => {
             console.debug(`- ${file.name} (${file.type})`);
           });
@@ -581,7 +633,12 @@ class MarkdownFormatService {
             continue;
           }
 
-          console.debug(`Trovati ${markdownFiles.length} file Markdown`);          // Prendi i file più recenti e verifica quali sono stati creati dopo l'inizio del workflow
+          console.debug(`Trovati ${markdownFiles.length} file Markdown nella cartella formatted-results:`);
+          markdownFiles.forEach(file => {
+            console.debug(`- ${file.name}`);
+          });
+          
+          // Prendi i file più recenti e verifica quali sono stati creati dopo l'inizio del workflow
           markdownFiles.sort((a, b) => b.name.localeCompare(a.name));
           
           // Cerca un file creato dopo l'inizio del workflow corrente
@@ -589,14 +646,28 @@ class MarkdownFormatService {
           for (const file of markdownFiles) {
             if (this.isFileCreatedAfterWorkflow(file.name, workflowStartTime)) {
               validFile = file;
+              console.debug(`File valido trovato: ${file.name} creato dopo l'inizio del workflow`);
               break;
+            } else {
+              console.debug(`File scartato: ${file.name} creato prima dell'inizio del workflow`);
             }
-          }
-          
-          if (!validFile) {
-            this.updateStatus(`Nessun file recente trovato, riprovo (${attempts}/${maxAttempts})...`, 'info');
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            continue;
+          }          if (!validFile) {
+            // Se dopo 5 tentativi non abbiamo ancora trovato un file valido,
+            // proviamo a prendere il file più recente a prescindere dalla data
+            if (attempts > 5 && markdownFiles.length > 0) {
+              console.debug('⚠️ FALLBACK: Nessun file valido trovato dopo 5 tentativi');
+              console.debug('Provando con il fallback: utilizzo il file più recente indipendentemente dal timestamp');
+              console.debug(`File selezionato per fallback: ${markdownFiles[0].name}`);
+              
+              this.updateStatus('Nessun file con timestamp valido, prendo il più recente...', 'warning');
+              validFile = markdownFiles[0]; // Prendi semplicemente il file più recente
+              console.debug('Usando file più recente come fallback:', validFile.name);
+            } else {
+              this.updateStatus(`Nessun file recente trovato, riprovo (${attempts}/${maxAttempts})...`, 'info');
+              console.debug(`❌ Tentativo ${attempts}: nessun file valido trovato, continuo con il polling...`);
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              continue;
+            }
           }
           
           console.debug('File Markdown valido trovato:', validFile.name, 'URL:', validFile.download_url);
@@ -613,9 +684,7 @@ class MarkdownFormatService {
 
           const fileData = await fileResponse.json();
           // Il contenuto è in base64, dobbiamo decodificarlo
-          const fileContent = atob(fileData.content);
-
-          // Se contiene un messaggio di errore, mostra un avviso ma comunque lo restituiamo
+          const fileContent = atob(fileData.content);          // Se contiene un messaggio di errore, mostra un avviso ma comunque lo restituiamo
           if (fileContent.includes('# Errore di formattazione') ||
             fileContent.includes('Si è verificato un errore')) {
             this.updateStatus('Il file contiene un errore di formattazione, ma lo mostro comunque', 'warning');
@@ -623,6 +692,13 @@ class MarkdownFormatService {
             this.updateStatus('Testo formattato scaricato con successo', 'success');
           }
 
+          // Interrompiamo immediatamente il ciclo e restituiamo il contenuto
+          console.debug('=======================================================');
+          console.debug(`✅ FILE VALIDO TROVATO! Interrompo il polling al tentativo ${attempts}/${maxAttempts}`);
+          console.debug(`File: ${validFile.name}`);
+          console.debug(`Download URL: ${validFile.download_url}`);
+          console.debug('=======================================================');
+          
           contentFound = true;
           return fileContent;
 
@@ -680,14 +756,15 @@ class MarkdownFormatService {
       console.error('Errore nel download del testo formattato:', error);
       throw new Error(`Impossibile scaricare il testo formattato: ${error.message}`);
     }
-  }
-
-  // Metodo helper per verificare se un file è stato creato dopo l'inizio del workflow
+  }  // Metodo helper per verificare se un file è stato creato dopo l'inizio del workflow
   isFileCreatedAfterWorkflow(filename, workflowStartTime) {
     try {
       // Estrai la data dal nome del file (assumendo formato YYYYMMDDHHmmss.md)
       const dateStr = filename.split('.')[0];
-      if (dateStr.length !== 14) return false; // Non è nel formato atteso
+      if (dateStr.length !== 14) {
+        console.debug(`Il file ${filename} non ha un formato di timestamp valido`);
+        return false; // Non è nel formato atteso
+      }
 
       const year = parseInt(dateStr.substring(0, 4));
       const month = parseInt(dateStr.substring(4, 6)) - 1; // Mesi in JS sono 0-based
@@ -697,14 +774,24 @@ class MarkdownFormatService {
       const second = parseInt(dateStr.substring(12, 14));
 
       const fileDate = new Date(year, month, day, hour, minute, second);
-      console.debug('Data file:', fileDate.toISOString());
-      console.debug('Data workflow:', workflowStartTime.toISOString());
-      console.debug('Il file è più recente del workflow?', fileDate > workflowStartTime);
+      
+      // Aggiungi un buffer di tempo di 2 secondi per gestire eventuali imprecisioni di timestamp
+      const workflowWithBuffer = new Date(workflowStartTime.getTime() - 2000);
+      
+      console.debug(`######## ANALISI FILE #########`);
+      console.debug(`File: ${filename}`);
+      console.debug(`- Data file: ${fileDate.toISOString()}`);
+      console.debug(`- Data workflow: ${workflowStartTime.toISOString()}`);
+      console.debug(`- Data workflow con buffer: ${workflowWithBuffer.toISOString()}`);
+      
+      const isValid = fileDate > workflowWithBuffer;
+      console.debug(`- RISULTATO: Il file è ${isValid ? 'VALIDO ✓' : 'NON VALIDO ✗'} (${isValid ? 'più recente' : 'più vecchio'} del workflow)`);
+      console.debug(`################################`);
 
-      // Verifichiamo che il file sia stato creato dopo l'inizio del workflow
-      return fileDate > workflowStartTime;
+      // Verifichiamo che il file sia stato creato dopo l'inizio del workflow (con buffer)
+      return isValid;
     } catch (err) {
-      console.error('Errore nel parsing della data del file:', err);
+      console.error(`Errore nel parsing della data del file ${filename}:`, err);
       return false; // In caso di errore nel parsing, escludiamo il file
     }
   }
