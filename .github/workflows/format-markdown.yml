@@ -30,7 +30,7 @@ jobs:
       - name: Format Markdown with GitHub CLI
         id: format
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELS_AI_TOKEN }}
         run: |
           # Crea file con il testo di input
           cat > input.txt << 'EOF'
@@ -48,13 +48,12 @@ jobs:
           
           # Formatta il prompt utente con il testo da input.txt
           USER_PROMPT="Transform this text into beautiful, well-formatted Markdown: $(cat input.txt)"
-          
-          echo "Chiamata API GitHub Models con CLI..."
-          echo "secrets.GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+            echo "Chiamata API GitHub Models con CLI..."
+          echo "Token: Usando MODELS_AI_TOKEN (prime 3 caratteri: ${GH_TOKEN:0:3}...)"
           echo "SYSTEM_PROMPT: $SYSTEM_PROMPT"
           echo "USER_PROMPT: $USER_PROMPT"
           echo "Input text: $(cat input.txt)"
-          
+
           # Crea un file JSON per la richiesta
           cat > request.json << EOF
           {
