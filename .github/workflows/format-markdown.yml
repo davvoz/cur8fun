@@ -36,40 +36,6 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Sanitize input text
-        run: |
-          # Script per bonificare il testo di input
-          cat > sanitize-input.mjs << 'EOF'
-          import fs from 'fs';
-
-          try {
-            // Leggi il file con encoding UTF-8
-            const rawInput = fs.readFileSync('input.txt', 'utf8');
-
-            // Normalizza caratteri speciali
-            const sanitized = rawInput
-              // Normalizza sequenze Unicode (NFC)
-              .normalize('NFC')
-              // Rimuove caratteri di controllo non stampabili
-              .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-              // Rimuove altri caratteri invisibili
-              .replace(/[\u00AD\u200B-\u200F\u2028-\u202E\u2060-\u206F]/g, '');
-
-            // Scrivi il file bonificato
-            fs.writeFileSync('sanitized_input.txt', sanitized, 'utf8');
-            console.log("Bonifica input completata");
-          } catch (error) {
-            console.error("Errore durante la bonifica:", error);
-            process.exit(1);
-          }
-          EOF
-
-          # Esegui la bonifica
-          node sanitize-input.mjs
-
-          # Leggi il testo bonificato
-          INPUT_TEXT=$(cat sanitized_input.txt)
-
       - name: Format Markdown with OpenAI SDK
         id: format
         env:
@@ -77,81 +43,79 @@ jobs:
         run: |
           # Installa le dipendenze necessarie
           npm install openai
-
+          
+          # Crea file con il testo di input
+          cat > input.txt << 'EOF'
+          ${{ github.event.inputs.text }}
+          EOF
+          
           # Determina il prompt di sistema in base allo stile
           if [ "${{ github.event.inputs.style }}" = "social" ]; then
-            SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format with an engaging, social media friendly style using appropriate headings , emoji, emphasis, and lists. Never wrap your response in markdown code blocks or quotes."
+            SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format with an engaging, social media friendly style using appropriate headings, emphasis, and lists. Never wrap your response in markdown code blocks or quotes."
           elif [ "${{ github.event.inputs.style }}" = "technical" ]; then
             SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format in a technical documentation style with proper headings, code blocks, tables, and lists as appropriate. Never wrap your response in markdown code blocks or quotes."
           else
             SYSTEM_PROMPT="You are a formatting tool that converts plain text to clean Markdown. Your ONLY job is to format the provided text - do not add any comments, opinions, or extra content of your own. Use standard Markdown syntax without special characters. Format in a blog style with engaging headings, emphasis, and good paragraph structure. Never wrap your response in markdown code blocks or quotes."
           fi
-
-          # Salva il prompt di sistema in un file
-          echo "$SYSTEM_PROMPT" > system_prompt.txt
-
+          
+          # Leggi il testo di input
+          INPUT_TEXT=$(cat input.txt)
+          
+          echo "Chiamata API GitHub Models con OpenAI SDK..."
+          echo "Token: Usando MODELS_AI_TOKEN (prime 3 caratteri: ${GITHUB_TOKEN:0:3}...)"
+          echo "SYSTEM_PROMPT: $SYSTEM_PROMPT"
+          echo "Input text: $INPUT_TEXT"
+          
           # Crea e esegui lo script Node.js
-          cat > format-script.mjs << 'EOF'
+          cat > format-script.mjs << EOF
           import OpenAI from "openai";
           import fs from 'fs';
-
+          
           const token = process.env.GITHUB_TOKEN;
           const endpoint = "https://models.github.ai/inference/";
           const modelName = "openai/gpt-4o";
-
+          
           async function formatMarkdown() {
             try {
-              const systemPrompt = fs.readFileSync('system_prompt.txt', 'utf8');
-              const inputText = fs.readFileSync('sanitized_input.txt', 'utf8');
-
               const client = new OpenAI({ baseURL: endpoint, apiKey: token });
-
+              
               const completion = await client.chat.completions.create({
                 messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: `Apply proper Markdown formatting to this text. Do not add any commentary or extra content - ONLY format what I provide: ${inputText}` }
+                  { role: "system", content: "$SYSTEM_PROMPT" },
+                  { role: "user", content: "Apply proper Markdown formatting to this text. Do not add any commentary or extra content - ONLY format what I provide: $INPUT_TEXT" }
                 ],
                 model: modelName
               });
-
+              
               return completion.choices[0].message.content;
             } catch (error) {
               console.error("Error calling GitHub Models API:", error);
               throw error;
             }
-          }          formatMarkdown()
+          }
+          
+          formatMarkdown()
             .then(result => {
-              // Sanitizzazione dell'output
-              const sanitizedOutput = result
-                // Normalizza sequenze Unicode (NFC)
-                .normalize('NFC')
-                // Rimuove caratteri di controllo non stampabili
-                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-                // Rimuove altri caratteri invisibili problematici
-                .replace(/[\u00AD\u200B-\u200F\u2028-\u202E\u2060-\u206F]/g, '');
-              
-              // Scrivi il file sanitizzato
-              fs.writeFileSync('formatted_result.md', sanitizedOutput, 'utf8');
-              console.log("Formattazione e sanitizzazione completate con successo!");
+              fs.writeFileSync('formatted_result.md', result);
+              console.log("Formattazione completata con successo!");
             })
             .catch(err => {
               console.error("Errore durante la formattazione:", err);
-              fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo.', 'utf8');
+              fs.writeFileSync('formatted_result.md', '# Errore di formattazione\n\nSi è verificato un errore durante la formattazione del testo.');
               process.exit(1);
             });
           EOF
-
+          
           # Esegui lo script
           node format-script.mjs
-
+          
           # Verifica che il risultato sia stato generato correttamente
           if [ ! -s formatted_result.md ]; then
             echo "ERRORE: Risultato non generato"
             echo "# Errore di formattazione" > formatted_result.md
             echo "" >> formatted_result.md
             echo "Si è verificato un errore durante la formattazione del testo." >> formatted_result.md
-          fi
-          
+          fi  
       - name: Save result to repository
         id: save_result
         run: |
