@@ -157,6 +157,8 @@ body:not(:has(style)) {
   animation: toast-in-out 3s ease-in-out forwards;
   transform: translateX(100%);
   opacity: 0;
+  background: var(--background-color);
+  color: var(--text-color);
 }
 
 @keyframes toast-in-out {
