@@ -1,0 +1,8 @@
+/**
+ * Stili per il componente di formattazione Markdown
+ */
+
+/* Stile per lo stato del formatter */
+.format-markdown-btn{
+  display:none;
+}

@@ -2825,6 +2825,18 @@ class CreatePostView extends View {
           <p>Remember that formatting will maintain the meaning of the original text but may modify its structure.</p>
           <p class="experimental-note">By using this feature, you acknowledge it's experimental and results may vary.</p>
         </div>
+        
+        <!-- Token configuration button -->
+        <div class="token-config-container">
+          <button type="button" class="token-config-btn secondary-btn" id="github-token-config-btn">
+            <span class="material-icons">vpn_key</span> Configure GitHub Token
+          </button>
+          <p class="token-status" id="token-status">
+            ${this.isGitHubTokenConfigured() ? 
+              '<span class="token-configured"><span class="material-icons">check_circle</span> Token configured</span>' : 
+              '<span class="token-missing"><span class="material-icons">error</span> GitHub token required</span>'}
+          </p>
+        </div>
       `;
       
       body.appendChild(infoBox);
@@ -2944,6 +2956,27 @@ class CreatePostView extends View {
         }
       });
       
+      // Aggiungi event listener per il pulsante di configurazione del token GitHub
+      const tokenConfigBtn = dialog.querySelector('#github-token-config-btn');
+      if (tokenConfigBtn) {
+        tokenConfigBtn.addEventListener('click', async () => {
+          try {
+            // Mostra la finestra di dialogo per la configurazione del token
+            const tokenDialogResult = await MarkdownFormatService.showGitHubTokenDialog();
+            
+            // Aggiorna lo stato del token nella UI
+            const tokenStatus = dialog.querySelector('#token-status');
+            if (tokenStatus) {
+              tokenStatus.innerHTML = MarkdownFormatService.isAuthenticated() 
+                ? '<span class="token-configured"><span class="material-icons">check_circle</span> Token configured</span>'
+                : '<span class="token-missing"><span class="material-icons">error</span> GitHub token required</span>';
+            }
+          } catch (error) {
+            console.error('Errore durante la configurazione del token:', error);
+          }
+        });
+      }
+      
       // Chiudi con il tasto ESC
       const keyHandler = (e) => {
         if (e.key === 'Escape') {
@@ -2965,6 +2998,27 @@ class CreatePostView extends View {
     } catch (error) {
       console.error('Errore nell\'apertura del formatter:', error);
       this.showStatus(`Errore nell'apertura del formatter: ${error.message}`, 'error');
+    }
+  }
+
+  /**
+   * Verifica se il token GitHub è configurato
+   * @returns {boolean} - true se il token è configurato
+   */
+  isGitHubTokenConfigured() {
+    // Import dinamico del servizio MarkdownFormatService
+    try {
+      // Non possiamo usare require nel browser, utilizziamo una referenza globale
+      // o controlliamo manualmente nel localStorage/sessionStorage
+      if (window.MarkdownFormatService) {
+        return window.MarkdownFormatService.isAuthenticated();
+      }
+      
+      // Fallback: controlla direttamente nello storage
+      return !!(localStorage.getItem('github_oauth_token') || sessionStorage.getItem('github_oauth_token'));
+    } catch (error) {
+      console.error('Errore nel controllo del token GitHub:', error);
+      return false;
     }
   }
 }
