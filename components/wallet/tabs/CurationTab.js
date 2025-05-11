@@ -61,14 +61,28 @@ export default class CurationTab extends Component {
     usernameLabel.className = 'form-label';
     usernameLabel.textContent = 'Account to analyze:';
     usernameGroup.appendChild(usernameLabel);
-    
-    const usernameInput = document.createElement('input');
+      const usernameInput = document.createElement('input');
     usernameInput.type = 'text';
     usernameInput.id = 'curator-username';
     usernameInput.className = 'form-control';
     usernameInput.value = this.currentUsername;
     usernameInput.placeholder = 'Enter Steem username';
-    this.registerEventHandler(usernameInput, 'input', this.handleUsernameChange);
+    
+    // Force lowercase input for usernames
+    this.registerEventHandler(usernameInput, 'input', (e) => {
+      // Store current cursor position
+      const cursorPos = e.target.selectionStart;
+      
+      // Set the value to lowercase
+      e.target.value = e.target.value.toLowerCase();
+      
+      // Restore cursor position
+      e.target.setSelectionRange(cursorPos, cursorPos);
+      
+      // Call original handler to update the internal state
+      this.handleUsernameChange(e);
+    });
+    
     usernameGroup.appendChild(usernameInput);
     
     controlsDiv.appendChild(usernameGroup);

@@ -49,12 +49,24 @@ export default class DelegationTab extends Component {
     this.registerEventHandler(form, 'submit', this.handleDelegateSubmit);
     
     // Recipient input group
-    const toGroup = this.createFormGroup('Delegate to');
-    const toInput = document.createElement('input');
+    const toGroup = this.createFormGroup('Delegate to');    const toInput = document.createElement('input');
     toInput.type = 'text';
     toInput.id = 'delegate-to';
     toInput.placeholder = 'Username';
     toInput.required = true;
+    
+    // Force lowercase input for usernames
+    this.registerEventHandler(toInput, 'input', (e) => {
+      // Store current cursor position
+      const cursorPos = e.target.selectionStart;
+      
+      // Set the value to lowercase
+      e.target.value = e.target.value.toLowerCase();
+      
+      // Restore cursor position
+      e.target.setSelectionRange(cursorPos, cursorPos);
+    });
+    
     toGroup.appendChild(toInput);
     form.appendChild(toGroup);
     
@@ -129,11 +141,10 @@ export default class DelegationTab extends Component {
     
     return delegationsContainer;
   }
-  
-  async handleDelegateSubmit(e) {
+    async handleDelegateSubmit(e) {
     e.preventDefault();
     
-    const delegatee = this.element.querySelector('#delegate-to').value;
+    const delegatee = this.element.querySelector('#delegate-to').value.trim().toLowerCase();
     let amount = this.element.querySelector('#delegate-amount').value;
     const messageEl = this.element.querySelector('#delegate-message');
     
@@ -323,26 +334,26 @@ export default class DelegationTab extends Component {
     // Find delegation data
     const delegation = this.delegations.find(d => d.delegatee === delegatee);
     if (!delegation) return;
-    
-    // Fill form with delegation data
-    this.element.querySelector('#delegate-to').value = delegatee;
+      // Fill form with delegation data
+    this.element.querySelector('#delegate-to').value = delegatee.toLowerCase();
     this.element.querySelector('#delegate-amount').value = delegation.sp_amount;
     
     // Scroll to form
     this.element.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
   }
-  
-  async removeDelegation(delegatee) {
-    if (confirm(`Are you sure you want to remove delegation to @${delegatee}?`)) {
+    async removeDelegation(delegatee) {
+    // Ensure delegatee is in lowercase
+    const delegateeLower = delegatee.toLowerCase();
+    
+    if (confirm(`Are you sure you want to remove delegation to @${delegateeLower}?`)) {
       try {
         // To remove a delegation, delegate 0 SP
         const zeroAmount = "0.000"; // Properly formatted zero amount
         
         // Use the centralized delegateSteemPower service method with zero amount
-        const response = await walletService.delegateSteemPower(delegatee, zeroAmount);
-        
-        if (response.success) {
-          this.showMessage(`Delegation to @${delegatee} successfully removed`, true);
+        const response = await walletService.delegateSteemPower(delegateeLower, zeroAmount);
+          if (response.success) {
+          this.showMessage(`Delegation to @${delegateeLower} successfully removed`, true);
           
           // Update balances and delegations
           walletService.updateBalances();
