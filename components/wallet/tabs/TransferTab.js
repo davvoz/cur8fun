@@ -72,12 +72,24 @@ export default class TransferTab extends Component {
     label.setAttribute('for', 'transfer-to');
     label.textContent = 'Send to';
     group.appendChild(label);
-    
-    const input = document.createElement('input');
+      const input = document.createElement('input');
     input.type = 'text';
     input.id = 'transfer-to';
     input.placeholder = 'Username';
     input.required = true;
+    
+    // Force lowercase input for usernames
+    this.registerEventHandler(input, 'input', (e) => {
+      // Store current cursor position
+      const cursorPos = e.target.selectionStart;
+      
+      // Set the value to lowercase
+      e.target.value = e.target.value.toLowerCase();
+      
+      // Restore cursor position
+      e.target.setSelectionRange(cursorPos, cursorPos);
+    });
+    
     group.appendChild(input);
     
     return group;
@@ -213,11 +225,10 @@ export default class TransferTab extends Component {
     
     return group;
   }
-  
-  async handleTransferSubmit(e) {
+    async handleTransferSubmit(e) {
     e.preventDefault();
     
-    const to = this.element.querySelector('#transfer-to').value.trim();
+    const to = this.element.querySelector('#transfer-to').value.trim().toLowerCase();
     let amount = this.element.querySelector('#transfer-amount').value;
     const currency = this.element.querySelector('#transfer-currency').value;
     const memo = this.element.querySelector('#transfer-memo').value;
