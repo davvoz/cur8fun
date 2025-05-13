@@ -90,6 +90,9 @@ function initApp() {
   // Inizializzazione del router
   router.init();
   
+  // Inizializza l'ascoltatore per eventi di logout richiesto (token scaduto)
+  initSessionExpiryHandler();
+  
   // Inizializza il service worker e il sistema di aggiornamenti
   initPwaFeatures();
 }
@@ -105,6 +108,35 @@ function initPwaFeatures() {
     .catch(error => {
       console.error('Errore durante l\'inizializzazione delle funzionalità PWA:', error);
     });
+}
+
+/**
+ * Inizializza il gestore per eventi di sessione scaduta
+ * Risponde all'evento auth:logout-required reindirizzando al login
+ * e mostrando una notifica appropriata all'utente
+ */
+function initSessionExpiryHandler() {
+  eventEmitter.on('auth:logout-required', (data) => {
+    console.log('Session expiry detected, redirecting to login');
+    
+    // Esegui il logout per pulire lo stato
+    authService.logout();
+    
+    // Memorizza l'URL corrente per tornare dopo il login
+    const currentPath = window.location.pathname;
+    
+    // Mostra notifica all'utente
+    eventEmitter.emit('notification', {
+      type: 'warning',
+      message: data.message || 'La tua sessione è scaduta. Effettua nuovamente il login.',
+      duration: 6000 // Mostra la notifica per 6 secondi
+    });
+    
+    // Reindirizza al login con returnUrl
+    setTimeout(() => {
+      router.navigate('/login', { returnUrl: currentPath });
+    }, 300);
+  });
 }
 
 // Inizializza il componente di notifica degli aggiornamenti

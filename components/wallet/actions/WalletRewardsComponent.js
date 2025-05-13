@@ -219,8 +219,7 @@ export default class WalletRewardsComponent extends Component {
     
     return item;
   }
-  
-  /**
+    /**
    * Gestisce il click sul pulsante di claim rewards
    * @param {Event} event - Evento click
    */
@@ -235,6 +234,21 @@ export default class WalletRewardsComponent extends Component {
       if (this.closeTooltip) {
         document.removeEventListener('click', this.closeTooltip);
       }
+    }
+    
+    // Verifica che l'utente sia autenticato
+    if (!authService.isAuthenticated()) {
+      eventEmitter.emit('notification', {
+        type: 'warning',
+        message: 'Devi effettuare il login per reclamare le rewards'
+      });
+      
+      // Reindirizza al login
+      const currentPath = window.location.pathname;
+      setTimeout(() => {
+        window.location.href = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
+      }, 300);
+      return;
     }
     
     // Se non ci sono ricompense, non fare nulla
@@ -288,10 +302,28 @@ export default class WalletRewardsComponent extends Component {
       }
     } catch (error) {
       console.error('Error claiming rewards:', error);
-      eventEmitter.emit('notification', {
-        type: 'error',
-        message: `Failed to claim rewards: ${error.message}`
-      });
+      
+      // Controlla se l'errore è relativo all'autenticazione
+      if (error.message && (
+          error.message.includes('login') || 
+          error.message.includes('sessione') || 
+          error.message.includes('scaduta') || 
+          error.message.includes('autenticazione') ||
+          error.message.includes('Non sei loggato')
+      )) {
+        // Se è un errore di autenticazione, lasciamo che venga gestito dall'evento auth:logout-required
+        // emesso dal WalletService._broadcastOperation
+        eventEmitter.emit('notification', {
+          type: 'warning',
+          message: 'Sessione scaduta, verrai reindirizzato al login'
+        });
+      } else {
+        // Per altri tipi di errori, mostriamo una notifica normale
+        eventEmitter.emit('notification', {
+          type: 'error',
+          message: `Failed to claim rewards: ${error.message}`
+        });
+      }
       
       // Ripristina lo stato del pulsante
       const targetButton = this.isMobileDevice && button.classList.contains('rewards-claim-button-mobile') 

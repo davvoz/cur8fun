@@ -1350,11 +1350,22 @@ async getUserBalances(username) {
  * @returns {Promise<Object>} Result of the operation
  */
 async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = null) {
-  if (!this.currentUser) throw new Error('Not logged in');
+  if (!this.currentUser) {
+    // Utente non loggato, reindirizza al login
+    eventEmitter.emit('auth:logout-required', { message: 'Sessione scaduta, effettua nuovamente il login' });
+    throw new Error('Non sei loggato. Effettua il login per continuare.');
+  }
+  
   try {
-    // 1. Verifica il metodo di login dell'utente
+    // Verifica esplicita che l'utente sia ancora autenticato
     const user = authService.getCurrentUser();
-    const loginMethod = user?.loginMethod;
+    if (!user) {
+      // Utente non più autenticato, reindirizza al login
+      eventEmitter.emit('auth:logout-required', { message: 'Sessione scaduta, effettua nuovamente il login' });
+      throw new Error('La tua sessione è scaduta. Effettua nuovamente il login per continuare.');
+    }
+    
+    const loginMethod = user.loginMethod;
     
     // 1.1 Se l'utente è loggato con Keychain, usa sempre Keychain quando disponibile
     if (loginMethod === 'keychain' && window.steem_keychain) {
@@ -1440,14 +1451,28 @@ async _broadcastOperation(operations, requiredKey = 'active', keychainMethod = n
         throw error; // Non continuare con altri metodi
       }
     }
-    
-    // 2. Per gli utenti NON loggati con Keychain, usa le chiavi private
+      // 2. Per gli utenti NON loggati con Keychain, usa le chiavi private
     // Continua con il comportamento normale per gli utenti con login a chiave privata
     let privateKey = null;
     if (requiredKey === 'active') {
       privateKey = authService.getActiveKey();
     } else if (requiredKey === 'posting') {
       privateKey = authService.getPostingKey();
+    }
+    
+    // Verifica se la chiave è stata ottenuta o se è scaduta
+    if (!privateKey) {
+      console.log(`${requiredKey} key not available or expired`);
+      // Verifica se le chiavi sono scadute (controlliamo il timestamp di scadenza)
+      const keyExpiry = localStorage.getItem(`${user.username}_${requiredKey}_key_expiry`);
+      if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
+        console.log('Key is expired, redirecting to login');
+        // La chiave è scaduta, notifichiamo l'utente e reindirizziamo al login
+        eventEmitter.emit('auth:logout-required', { 
+          message: 'La tua chiave di autenticazione è scaduta. Effettua nuovamente il login per continuare.'
+        });
+        throw new Error('La tua sessione è scaduta. Effettua nuovamente il login.');
+      }
     }
     
     // 2.1 Se abbiamo la chiave privata appropriata, usala
