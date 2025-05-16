@@ -757,7 +757,7 @@ class AuthService {
             // Memorizza insieme a un timestamp di scadenza (24 ore)
             const tokenData = {
                 token: token,
-                expires: Date.now() + (24 * 60 * 60 * 1000)
+                expires: Date.now() + (30 * 24 * 60 * 60 * 1000)
             };
             
             // Memorizza sia in session che in localStorage se richiesto
