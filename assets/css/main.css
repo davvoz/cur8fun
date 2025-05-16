@@ -180,3 +180,53 @@ body:not(:has(style)) {
     opacity: 0;
   }
 }
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: var(--background-color);
+  z-index: 9999;
+  color: var(--text-color);
+  font-size: 24px;
+  font-weight: bold;
+  animation: fade-in 0.5s ease-in-out;
+}
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+/* Spinner animation */
+@keyframes spinner {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.spinner::before {
+  content: '';
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--text-color);
+  border-top: 5px solid transparent;
+  border-radius: 50%;
+  animation: spinner 1s linear infinite;
+}
+/* Spinner text */
+.spinner-text {
+  margin-top: 10px;
+  font-size: 18px;
+  color: var(--text-color);
+}
+/* Spinner text */

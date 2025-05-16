@@ -262,18 +262,18 @@
   color: #dc3545;
 }
 
-.image-upload-dialog .spinner-container {
+.image-upload-dialog  {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 15px;
 }
 
-.image-upload-dialog .spinner-container.hide {
+.image-upload-dialog {
   display: none;
 }
 
-.image-upload-dialog .spinner-container .spinner {
+.image-upload-dialog  {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 117, 24, 0.2);

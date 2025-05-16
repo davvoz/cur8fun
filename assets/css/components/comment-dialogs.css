@@ -13,7 +13,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  backdrop-filter: blur(2px);
   animation: fadeIn 0.2s ease-out;
 }
 

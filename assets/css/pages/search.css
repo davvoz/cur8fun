@@ -72,8 +72,6 @@ input[data-search-input="true"] {
     color: var(--text-color);
     font-size: 1.2rem;
     transition: all var(--transition-normal);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 .search-input:focus {
@@ -495,8 +493,6 @@ input[data-search-input="true"] {
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
 }
 
 .filter-button::after {
@@ -554,23 +550,6 @@ input[data-search-input="true"] {
     animation: fadeIn 0.3s ease-in;
 }
 
-/* Loading animation migliorata */
-.loading-indicator {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: var(--space-xl);
-}
-
-.loading-indicator::after {
-    content: '';
-    width: 40px;
-    height: 40px;
-    border: 4px solid var(--background-lighter);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
 
 @keyframes spin {
     to {

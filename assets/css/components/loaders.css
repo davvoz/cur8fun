@@ -22,14 +22,6 @@
     padding: var(--space-lg);
 }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255, 117, 24, 0.1);
-    border-radius: 50%;
-    border-top-color: var(--primary-color);
-    animation: spin 1s ease-in-out infinite;
-}
 
 @keyframes spin {
     to { transform: rotate(360deg); }

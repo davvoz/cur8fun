@@ -476,12 +476,7 @@
   }
 }
 
-.loading-indicator {
-  animation: pulse 1.5s infinite ease-in-out;
-  color: var(--text-secondary);
-  text-align: center;
-  padding: var(--space-md);
-}
+
 
 /* Edit Profile Form Styling */
 .edit-profile-container {

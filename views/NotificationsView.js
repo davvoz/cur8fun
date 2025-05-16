@@ -16,7 +16,9 @@ class NotificationsView {
 
     async render(container) {
         this.container = container;
-        this.container.classList.add('notifications-view');
+        const notContainer = document.createElement('div');
+        notContainer.classList.add('notifications-view');
+        container.appendChild(notContainer);
         
         // Check if user is authenticated
         const currentUser = authService.getCurrentUser();
@@ -25,48 +27,102 @@ class NotificationsView {
             return;
         }
         
-        // Create main view structure
-        this.container.innerHTML = `
-            <h1 class="view-title">Notifications</h1>
-            
-            <div class="notification-filters">
-                <button class="filter-btn ${this.activeFilter === TYPES.ALL ? 'active' : ''}" data-filter="${TYPES.ALL}">All</button>
-                <button class="filter-btn ${this.activeFilter === TYPES.REPLIES ? 'active' : ''}" data-filter="${TYPES.REPLIES}">Replies</button>
-                <button class="filter-btn ${this.activeFilter === TYPES.MENTIONS ? 'active' : ''}" data-filter="${TYPES.MENTIONS}">Mentions</button>
-                <button class="filter-btn ${this.activeFilter === TYPES.UPVOTES ? 'active' : ''}" data-filter="${TYPES.UPVOTES}">Upvotes</button>
-                <button class="filter-btn ${this.activeFilter === TYPES.FOLLOWS ? 'active' : ''}" data-filter="${TYPES.FOLLOWS}">Follows</button>
-                <button class="filter-btn ${this.activeFilter === TYPES.RESTEEMS ? 'active' : ''}" data-filter="${TYPES.RESTEEMS}">Resteems</button>
-            </div>
-            
-            <div class="action-bar">
-                <button class="mark-read-btn" title="Mark all as read">
-                    <span class="material-icons">done_all</span>
-                    <span>Mark all as read</span>
-                </button>
-            </div>
-            
-            <div class="notifications-container"></div>
-            <div class="loading-indicator"><div class="spinner"></div></div>
-            <div class="empty-state" style="display:none;">
-                <div class="empty-icon">
-                    <span class="material-icons">notifications_off</span>
-                </div>
-                <h3>No notifications</h3>
-                <p>When you have new notifications, you'll see them here.</p>
-            </div>
-        `;
+        // Create title
+        const title = document.createElement('h1');
+        title.className = 'view-title';
+        title.textContent = 'Notifications';
+        notContainer.appendChild(title);
+        
+        // Create notification filters
+        const notificationFilters = document.createElement('div');
+        notificationFilters.className = 'notification-filters';
+        
+        // Create filter buttons
+        const filterTypes = [TYPES.ALL, TYPES.REPLIES, TYPES.MENTIONS, TYPES.UPVOTES, TYPES.FOLLOWS, TYPES.RESTEEMS];
+       const modificaReply = (type) => {
+            if (type === TYPES.REPLIES) {
+                return 'replys';
+            }
+            return type;
+        }
+        filterTypes.forEach(type => {
+            const button = document.createElement('button');
+            button.className = `filter-btn ${this.activeFilter ===type ? 'active' : ''}`;
+            button.setAttribute('data-filter', type);
+            const custom  = modificaReply(type);
+            button.textContent = custom.charAt(0).toUpperCase() + custom.slice(1);
+            notificationFilters.appendChild(button);
+        });
+        notContainer.appendChild(notificationFilters);
+        
+        // Create action bar
+        const actionBar = document.createElement('div');
+        actionBar.className = 'action-bar';
+        
+        // Create mark as read button
+        const markReadBtn = document.createElement('button');
+        markReadBtn.className = 'mark-read-btn';
+        markReadBtn.title = 'Mark all as read';
+        
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'material-icons';
+        iconSpan.textContent = 'done_all';
+        markReadBtn.appendChild(iconSpan);
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = 'Mark all as read';
+        markReadBtn.appendChild(textSpan);
+        
+        actionBar.appendChild(markReadBtn);
+        notContainer.appendChild(actionBar);
+        
+        // Create notifications container
+        const notificationsContainer = document.createElement('div');
+        notificationsContainer.className = 'notifications-container';
+        notContainer.appendChild(notificationsContainer);
+        
+        // Create empty state
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.style.display = 'none';
+        
+        const emptyIcon = document.createElement('div');
+        emptyIcon.className = 'empty-icon';
+        
+        const emptyIconSpan = document.createElement('span');
+        emptyIconSpan.className = 'material-icons';
+        emptyIconSpan.textContent = 'notifications_off';
+        emptyIcon.appendChild(emptyIconSpan);
+        
+        const emptyTitle = document.createElement('h3');
+        emptyTitle.textContent = 'No notifications';
+        
+        const emptyText = document.createElement('p');
+        emptyText.textContent = 'When you have new notifications, you\'ll see them here.';
+        
+        emptyState.appendChild(emptyIcon);
+        emptyState.appendChild(emptyTitle);
+        emptyState.appendChild(emptyText);
+        
+        notContainer.appendChild(emptyState);
+        
+        // Create a custom loading element for showing/hiding
+        this.loadingIndicator = document.createElement('div');
+        this.loadingIndicator.className = 'loading-indicator';
+        this.loadingIndicator.innerHTML = '<div class="spinner"></div>';
+        this.loadingIndicator.style.display = 'none';
+        notContainer.appendChild(this.loadingIndicator);
         
         // Setup event listeners
         this.setupEventListeners();
         
         // Get containers
-        this.notificationsContainer = this.container.querySelector('.notifications-container');
-        this.loadingIndicator = this.container.querySelector('.loading-indicator');
-        this.emptyState = this.container.querySelector('.empty-state');
+        this.notificationsContainer = notContainer.querySelector('.notifications-container');
+        this.emptyState = notContainer.querySelector('.empty-state');
         
         // Se siamo nella vista upvotes, aggiungiamo un pulsante speciale per il recupero completo
         if (this.activeFilter === TYPES.UPVOTES) {
-            const actionBar = this.container.querySelector('.action-bar');
+            const actionBar = notContainer.querySelector('.action-bar');
             const loadAllDiv = document.createElement('div');
             loadAllDiv.className = 'load-all-buttons';
             loadAllDiv.style.margin = '20px 0';
@@ -107,7 +163,7 @@ class NotificationsView {
             
             // Add click event listener to the button
             loadAllBtn.addEventListener('click', () => {
-                this.loadAllHistoricalUpvotes();
+            this.loadAllHistoricalUpvotes();
             });
             
             // Assemble the components
@@ -115,11 +171,10 @@ class NotificationsView {
             loadAllDiv.appendChild(descriptionP);
             loadAllDiv.appendChild(buttonContainer);
             
-            this.container.insertBefore(loadAllDiv, this.notificationsContainer);
+            notContainer.insertBefore(loadAllDiv, this.notificationsContainer);
         }
         
         // Aggiungi un pulsante EFFICACE per forzare recupero completo
-        const actionBar = this.container.querySelector('.action-bar');
         const forceButton = document.createElement('button');
         forceButton.className = 'force-load-btn';
         forceButton.innerHTML = '<span class="material-icons">restart_alt</span>';
@@ -698,13 +753,12 @@ class NotificationsView {
             }
         }, 500);
     }
-    
-    updateEmptyState() {
+      updateEmptyState() {
         if (this.notifications.length === 0) {
             this.emptyState.style.display = 'block';
             this.notificationsContainer.style.display = 'none';
         } else {
-            this.emptyState.style.display = 'block';
+            this.emptyState.style.display = 'none';
             this.notificationsContainer.style.display = 'block';
         }
     }

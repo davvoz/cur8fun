@@ -235,7 +235,6 @@
   .posts-container.grid-layout-list .post-image-container {
     width: 120px;
     height: 120px;
-    min-height: auto;
     border-radius: var(--radius-sm);
     overflow: hidden;
     margin: var(--space-xs);
@@ -558,7 +557,6 @@
 
   /* Mostra l'estratto nel layout lista */
   .posts-container.grid-layout-list .post-content-middle .post-excerpt {
-    display: block;
     font-size: 0.95rem;
     line-height: 1.5;
     margin-bottom: var(--space-sm);
@@ -893,15 +891,6 @@
     position: relative;
   }
 
-  .posts-container.grid-layout-grid .post-image-container img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
   /* List layout on mobile - improved card design */
   .posts-container.grid-layout-list .post-card {
     background-color: var(--background-light);
@@ -1196,7 +1185,6 @@
   }
 
   .post-image-container {
-    height: 180px;
     flex-shrink: 0;
   }
 
@@ -1289,4 +1277,5 @@
 
 .posts-container.grid-layout-list {
   max-width: 80%;
+  margin: 0 auto;
 }

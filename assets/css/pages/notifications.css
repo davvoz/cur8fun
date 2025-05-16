@@ -7,23 +7,8 @@
 
 @media screen and (max-width: 768px) {
     .notifications-view {
-        padding: 0;
+        padding: var(--space-sm);
     }
-    
-}
-
-/* General styles */
-
-/* Ensure the padding is applied correctly */
-#main-content.notifications-view .view-title,
-#main-content.notifications-view .notification-filters,
-#main-content.notifications-view .action-bar,
-#main-content.notifications-view .notifications-container,
-#main-content.notifications-view .loading-indicator,
-#main-content.notifications-view .empty-state {
-    max-width: var(--content-max-width);
-    margin-left: auto;
-    margin-right: auto;
 }
 
 /* Header and title */
@@ -49,13 +34,10 @@
 /* Filter buttons */
 .notification-filters {
     display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-wrap: nowrap;    overflow-x: auto;
     gap: var(--space-sm);
     margin-bottom: var(--space-lg);
     padding-bottom: var(--space-sm);
-    scrollbar-width: thin;
-    scrollbar-color: var(--text-muted) transparent;
 }
 
 .notification-filters::-webkit-scrollbar {
@@ -83,12 +65,14 @@
 .notification-filters .filter-btn:hover {
     background: var(--background-lighter);
     border-color: var(--border-light);
+    transform: translateY(-1px);
 }
 
 .notification-filters .filter-btn.active {
     background: var(--primary-color);
     color: var(--text-on-primary);
     border-color: var(--primary-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Action bar */
@@ -125,6 +109,7 @@
 .action-bar button:hover {
     background: var(--background-lighter);
     border-color: var(--border-light);
+    transform: translateY(-1px);
 }
 
 .action-bar .mark-read-btn {
@@ -152,11 +137,13 @@
     cursor: pointer;
     transition: all 0.2s;
     flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .force-load-btn:hover {
     background-color: #d35400;
-    transform: rotate(180deg);
+    transform: rotate(180deg) translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Individual notification styles */
@@ -164,6 +151,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+    padding: 0 var(--space-xs);
 }
 
 .notification {
@@ -172,55 +160,80 @@
     padding: var(--space-md);
     background: var(--surface-color);
     border-radius: var(--radius-md);
-    border-left: 3px solid transparent;
+    border-left: 4px solid transparent;
     gap: var(--space-md);
     transition: all var(--transition-normal);
     position: relative;
     cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .notification:hover {
     background: var(--background-lighter);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--subtle-shadow);
 }
 
 /* Different colors for different notification types */
-.notification.replies {
+.notification.replies-notification {
     border-left-color: #3498db; /* Blue for replies */
+    background-image: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent 30%);
 }
 
 .notification.mentions {
     border-left-color: #9b59b6; /* Purple for mentions */
+    background-image: linear-gradient(to right, rgba(155, 89, 182, 0.05), transparent 30%);
 }
 
 .notification.follows {
     border-left-color: var(--secondary-color); /* Green for follows */
+    background-image: linear-gradient(to right, rgba(46, 204, 113, 0.05), transparent 30%);
 }
 
 .notification.upvotes {
     border-left-color: #e74c3c; /* Red for upvotes */
+    background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent 30%);
 }
 
 .notification.resteems {
     border-left-color: #f39c12; /* Orange for resteems */
+    background-image: linear-gradient(to right, rgba(243, 156, 18, 0.05), transparent 30%);
 }
 
 /* Read vs unread state */
 .notification.read {
     opacity: 0.85;
     background: var(--surface-color);
-    border-left-color: transparent;
+    background-image: none;
+    box-shadow: none;
 }
 
 /* Make upvotes always have their distinctive color, even when read */
 .notification.upvotes.read {
-    border-left-color: #e74c3c; /* Red for upvotes */
+    border-left-color: var(--secondary-color);
+    background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent 30%);
     opacity: 0.7;
+}
+
+.notification.mentions.read {
+    border-left-color: rgba(155, 89, 182, 0.4); /* Keep a hint of mentions color */
+}
+
+.notification.follows.read {
+    border-left-color: rgba(46, 204, 113, 0.4); /* Keep a hint of follows color */
+}
+
+.notification.replies-.notification.read {
+    border-left-color: rgba(52, 152, 219, 0.4); /* Keep a hint of replies color */
+}
+
+.notification.resteems.read {
+    border-left-color: rgba(243, 156, 18, 0.4); /* Keep a hint of resteems color */
 }
 
 .notification.unread {
     background: var(--background-light);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .notification .unread-indicator {
@@ -231,21 +244,64 @@
     height: 8px;
     border-radius: 50%;
     background: var(--primary-color);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 
 .notification .notification-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: var(--background-lighter);
+    transition: all var(--transition-normal);
 }
 
-.notification .notification-icon .material-icons {
-    font-size: 1.2rem;
+.notification.replies-notification {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.notification.mentions {
+    background-color: rgba(155, 89, 182, 0.1);
+}
+
+.notification.follows {
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+
+.notification.resteems  {
+    background-color: rgba(243, 156, 18, 0.1);
+}
+
+.notification:hover  {
+    transform: scale(1.1);
+}
+
+.notification .material-icons {
+    font-size: 1.3rem;
     color: var(--text-secondary);
+}
+
+.notification.replies-notification .notification-icon .material-icons {
+    color: #3498db;
+}
+
+.notification.mentions .notification-icon .material-icons {
+    color: #9b59b6;
+}
+
+.notification.follows .notification-icon .material-icons {
+    color: var(--secondary-color);
+}
+
+.notification.upvotes .notification-icon .material-icons {
+    color: var(--secondary-color);
+}
+
+.notification.resteems .notification-icon .material-icons {
+    color: #f39c12;
 }
 
 .notification .notification-content {
@@ -263,17 +319,30 @@
 .notification .notification-time {
     color: var(--text-muted);
     font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .notification .user {
     color: var(--primary-light);
     font-weight: 500;
     text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.notification .user:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
 }
 
 .notification .content-link {
     color: var(--text-secondary);
     text-decoration: underline;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.notification .content-link:hover {
+    color: var(--primary-color);
 }
 
 .notification .excerpt {
@@ -285,6 +354,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    padding: 4px 8px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 4px;
+    font-size: 0.9em;
 }
 
 /* Observer target for infinite scroll */
@@ -320,23 +393,6 @@
     margin-top: var(--space-md);
     color: var(--text-muted);
     font-style: italic;
-}
-
-/* Loading indicator */
-.loading-indicator {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: var(--space-xl);
-}
-
-.loading-indicator .spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--background-light);
-    border-top: 3px solid var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
@@ -433,12 +489,13 @@
     border-radius: 10px;
     z-index: 9999;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    text-align: center;
-    min-width: 350px;
+    text-align: center;    min-width: 350px;
     max-width: 90vw;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
 }
 
-#notifications-busy-message .spinner {
+#notifications-busy-message  {
     width: 60px;
     height: 60px;
     margin: 0 auto 20px;
@@ -456,6 +513,8 @@
     
     .notification {
         grid-template-columns: auto 1fr;
+        padding: var(--space-sm) var(--space-md);
+        gap: var(--space-sm);
     }
     
     .notification .notification-content {
@@ -464,6 +523,46 @@
     
     .action-bar .mark-read-btn span:not(.material-icons) {
         display: none;
+    }
+    
+    /* Additional mobile improvements */
+    .notifications-view .view-title {
+        font-size: 1.5rem;
+        margin-bottom: var(--space-md);
+    }
+    
+    .notification-filters .filter-btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .notification-filters::-webkit-scrollbar {
+        height: 2px;
+    }
+    
+    /* Give more breathing room on mobile */
+    .notifications-container {
+        gap: var(--space-sm);
+    }
+    
+    .load-all-buttons {
+        margin: 15px 0 !important;
+    }
+    
+    .load-all-buttons p {
+        font-size: 0.9rem;
+        margin-bottom: 8px !important;
+    }
+    
+    /* Make the force load button more accessible on mobile */
+    .force-load-btn {
+        width: 32px;
+        height: 32px;
+    }
+    
+    /* Improve notification display */
+    .notification .excerpt {
+        max-width: 250px;
     }
 }
 
@@ -480,5 +579,137 @@
 @keyframes notifications-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Small mobile screens */
+@media (max-width: 480px) {
+    #notifications-busy-message {
+        min-width: auto;
+        width: 85%;
+        padding: 20px;
+        font-size: 0.9rem;
+    }
+    
+    #notifications-busy-message  {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 15px;
+        border-width: 3px;
+    }
+    
+    .load-all-btn {
+        width: 100%;
+        padding: 12px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .load-all-btn .material-icons {
+        font-size: 1.2rem;
+    }
+    
+    .notification {
+        padding: 10px;
+        gap: 8px;
+        border-left-width: 3px;
+    }
+    
+    .notification .notification-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .notification .notification-icon .material-icons {
+        font-size: 1.1rem;
+    }
+    
+    .notification .notification-content {
+        font-size: 0.9rem;
+    }
+    
+    .notification .excerpt {
+        max-width: 200px;
+        font-size: 0.85em;
+        padding: 3px 6px;
+    }
+    
+    /* Action bar adjustments for mobile */
+    .action-bar {
+        flex-wrap: wrap;
+    }
+    
+    .action-bar button {
+        font-size: 0.85rem;
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .load-all-buttons {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .load-all-buttons p {
+        margin-bottom: 5px !important;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 375px) {
+    .notification .notification-icon {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .notification .notification-icon .material-icons {
+        font-size: 1rem;
+    }
+    
+    .notification {
+        padding: 8px;
+        gap: 6px;
+        border-left-width: 3px;
+    }
+    
+    .notification .notification-text {
+        font-size: 0.85rem;
+        line-height: 1.3;
+    }
+    
+    .notification .notification-time {
+        font-size: 0.7rem;
+    }
+    
+    .notification-filters {
+        gap: 5px;
+    }
+    
+    .notification-filters .filter-btn {
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
+    
+    #notifications-busy-message {
+        width: 90%;
+        padding: 15px;
+        font-size: 0.8rem;
+    }
+    
+    .empty-state h3 {
+        font-size: 1.2rem;
+    }
+    
+    .empty-state p {
+        font-size: 0.9rem;
+    }
+    
+    .view-title {
+        font-size: 1.3rem !important;
+    }
+    
+    .notification .unread-indicator {
+        width: 6px;
+        height: 6px;
+        top: 8px;
+        right: 8px;
+    }
 }
 

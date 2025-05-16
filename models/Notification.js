@@ -1,6 +1,6 @@
 export const TYPES = {
     ALL : 'all',
-    REPLIES : 'replies',
+    REPLIES : 'replies-notification',
     MENTIONS : 'mentions',
     FOLLOWS : 'follows',
     UPVOTES : 'upvotes',
