@@ -1,11 +1,10 @@
 import View from './View.js';
 import router from '../utils/Router.js';
-import LoadingIndicator from '../components/LoadingIndicator.js';
+import LoadingIndicator from '../components/LoadingIndicator.js'; 
 import ContentRenderer from '../components/ContentRenderer.js';
-import steemService from '../services/SteemService.js';
+import steemService from '../services/SteemService.js'; 
 import communityService from '../services/CommunityService.js';
 import authService from '../services/AuthService.js';
-import eventEmitter from '../utils/EventEmitter.js';
 
 // Import components
 import PostHeader from '../components/post/PostHeader.js';
@@ -17,8 +16,6 @@ import CommentsSection from '../components/post/CommentsSection.js';
 // Import controllers and helpers
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
-import ReblogService from '../services/ReblogService.js';
-import PostReblogHandler from '../components/post/PostReblogHandler.js';
 
 class PostView extends View {
   constructor(params = {}) {
@@ -31,21 +28,22 @@ class PostView extends View {
     this.comments = [];
     this.element = null;
     this.loadingIndicator = new LoadingIndicator('spinner');
-
+    
 
     this.postContent = null;
     this.errorMessage = null;
     this.commentsContainer = null;
-
+    
     // Component instances
     this.postHeaderComponent = null;
     this.postContentComponent = null;
     this.postActionsComponent = null;
     this.postTagsComponent = null;
-    this.commentsSectionComponent = null;    // Controllers
+    this.commentsSectionComponent = null;
+    
+    // Controllers
     this.voteController = new VoteController(this);
     this.commentController = new CommentController(this);
-    this.reblogHandler = new PostReblogHandler(); // Aggiungo il gestore dei reblog
 
     // Content renderer for post body
     this.initializeContentRenderer();
@@ -179,31 +177,31 @@ class PostView extends View {
    */
   updateOpenGraphMetaTags() {
     if (!this.post) return;
-
+    
     // STEP 1: Rimuovere i meta tag statici originali per evitare conflitti
     this.removeStaticMetaTags();
-
+    
     // Helper function to create or update meta tags
     const createMetaTag = (property, content, useProperty = true) => {
       const metaTag = document.createElement('meta');
-
+      
       if (useProperty) {
         metaTag.setAttribute('property', property);
       } else {
         metaTag.setAttribute('name', property);
       }
-
+      
       metaTag.setAttribute('content', content);
       document.head.appendChild(metaTag);
     };
-
+    
     // Get image URL from post body or metadata with improved extraction
     const imageUrl = this.getPostImageUrl();
     console.log("Meta tag image URL:", imageUrl); // Debug: verifica l'URL dell'immagine estratta
-
+    
     // Create description from post body (strip markdown and limit length)
     const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
-
+    
     // STEP 2: Creare nuovi meta tag con i dati del post (più affidabile che aggiornare)
     // Basic Open Graph meta tags
     createMetaTag('og:title', this.post.title || 'STEEM Post');
@@ -211,7 +209,7 @@ class PostView extends View {
     createMetaTag('og:url', window.location.href);
     createMetaTag('og:description', description);
     createMetaTag('og:site_name', 'STEEM Social Network');
-
+    
     // Set image URL - critical for WhatsApp and Telegram
     if (imageUrl) {
       // Set image multiple times with different properties to maximize compatibility
@@ -219,23 +217,23 @@ class PostView extends View {
       createMetaTag('og:image:url', imageUrl);
       createMetaTag('og:image:secure_url', imageUrl);
       createMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
-
+      
       // Try to determine image dimensions if possible
       const img = new Image();
       img.src = imageUrl;
-
+      
       // Set default dimensions for better previews
       createMetaTag('og:image:width', '1200');
       createMetaTag('og:image:height', '630');
-
+      
       // WhatsApp specific tag
       createMetaTag('og:image:type', 'image/jpeg');
-
+      
       // Twitter Card meta tags
       createMetaTag('twitter:card', 'summary_large_image', false);
       createMetaTag('twitter:image', imageUrl, false);
       createMetaTag('twitter:image:alt', this.post.title || 'STEEM Post Image', false);
-
+      
       // Add image_src link for better compatibility
       const linkElem = document.querySelector('link[rel="image_src"]');
       if (linkElem) {
@@ -246,7 +244,7 @@ class PostView extends View {
         link.setAttribute('href', imageUrl);
         document.head.appendChild(link);
       }
-
+      
       // Add itemprop for Google+ and some other platforms
       createMetaTag('image', imageUrl, false);
     } else {
@@ -257,16 +255,16 @@ class PostView extends View {
       createMetaTag('twitter:card', 'summary', false);
       createMetaTag('twitter:image', logoUrl, false);
     }
-
+    
     // Twitter basic meta tags
     createMetaTag('twitter:title', this.post.title || 'STEEM Post', false);
     createMetaTag('twitter:description', description, false);
-
+    
     // Additional meta tags for better previews
     createMetaTag('og:article:published_time', this.post.created);
     createMetaTag('og:article:author', this.post.author);
   }
-
+  
   /**
    * Rimuove i meta tag statici originali per evitare conflitti
    */
@@ -278,19 +276,19 @@ class PostView extends View {
       'meta[name="image"]',
       'meta[itemprop="image"]'
     ];
-
+    
     metaSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(tag => {
         tag.parentNode.removeChild(tag);
       });
     });
-
+    
     // Assicuriamoci che anche i tag con ID specifici vengano rimossi
     const specificIds = [
       'og-title', 'og-desc', 'og-image', 'og-url',
       'twitter-title', 'twitter-desc', 'twitter-image'
     ];
-
+    
     specificIds.forEach(id => {
       const element = document.getElementById(id);
       if (element) {
@@ -305,29 +303,29 @@ class PostView extends View {
    */
   getPostImageUrl() {
     if (!this.post) return null;
-
+    
     try {
       // First check json_metadata for image
       const metadata = this.parseMetadata(this.post.json_metadata);
-
+      
       // Check if there's an explicit image property or images array in metadata
       if (metadata && metadata.image && metadata.image.length > 0) {
         return this.ensureAbsoluteUrl(metadata.image[0]);
       }
-
+      
       // Check for other common metadata image formats
       if (metadata) {
         // Check for thumbnail property
         if (metadata.thumbnail) {
           return this.ensureAbsoluteUrl(metadata.thumbnail);
         }
-
+        
         // Check for featured_image property
         if (metadata.featured_image) {
           return this.ensureAbsoluteUrl(metadata.featured_image);
         }
       }
-
+      
       // Fallback to searching the post body for images - regex patterns
       // 1. First look for Markdown images ![alt](url)
       const markdownImgRegex = /!\[.*?\]\((.*?)(?:\s+["'].*?["'])?\)/;
@@ -335,21 +333,21 @@ class PostView extends View {
       if (mdMatch && mdMatch[1]) {
         return this.ensureAbsoluteUrl(mdMatch[1]);
       }
-
+      
       // 2. Look for HTML img tags
       const htmlImgRegex = /<img.*?src=["'](.*?)["']/i;
       const htmlMatch = this.post.body.match(htmlImgRegex);
       if (htmlMatch && htmlMatch[1]) {
         return this.ensureAbsoluteUrl(htmlMatch[1]);
       }
-
+      
       // 3. Check for image URLs directly (common formats)
       const urlRegex = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i;
       const urlMatch = this.post.body.match(urlRegex);
       if (urlMatch && urlMatch[1]) {
         return this.ensureAbsoluteUrl(urlMatch[1]);
       }
-
+      
       // 4. Last resort: Try to extract images using a more general approach
       // from steem avators or similar URLs
       const generalImgRegex = /https?:\/\/(?:steemitimages\.com|images\.hive\.blog|gateway\.pinata\.cloud)\/\S+/i;
@@ -357,14 +355,14 @@ class PostView extends View {
       if (generalMatch && generalMatch[0]) {
         return this.ensureAbsoluteUrl(generalMatch[0]);
       }
-
+      
       return null;
     } catch (error) {
       console.error('Error extracting post image URL:', error);
       return null;
     }
   }
-
+  
   /**
    * Ensures that a URL is absolute
    * @param {string} url - The URL to process
@@ -372,17 +370,17 @@ class PostView extends View {
    */
   ensureAbsoluteUrl(url) {
     if (!url) return null;
-
+    
     // If the URL is already absolute, return it
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-
+    
     // Handle protocol-relative URLs
     if (url.startsWith('//')) {
       return `https:${url}`;
     }
-
+    
     // Handle relative URLs - try different approaches
     // First, try steemitimages which is commonly used for STEEM content
     if (url.startsWith('/')) {
@@ -402,7 +400,7 @@ class PostView extends View {
    */
   stripMarkdown(markdown) {
     if (!markdown) return '';
-
+    
     return markdown
       .replace(/!\[.*?\]\(.*?\)/g, '') // Remove images
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Replace links with just the text
@@ -419,34 +417,33 @@ class PostView extends View {
 
   initComponents() {
     if (!this.post) return;
-
+    
     const communityTag = this.getCommunityTag();
-
+    
     this.postHeaderComponent = new PostHeader(
       this.post,
       (community) => this.renderCommunityBadge(community)
     );
-
+    
     this.postContentComponent = new PostContent(
-      this.post,
+      this.post, 
       this.contentRenderer
     );
-
+    
     // Pass canEditPost() result to PostActions component
     this.postActionsComponent = new PostActions(
       this.post,
-      () => this.voteController.handlePostVote(this.post),
-      () => this.commentController.handleNewComment(this.post),
+      () => this.voteController.handlePostVote(this.post),       
+      () => this.commentController.handleNewComment(this.post),  
       () => this.handleShare(),
       () => this.handleEdit(),
-      () => this.handleReblog(),
-      this.canEditPost()
+      this.canEditPost()                                  
     );
-
+    
     this.postTagsComponent = new PostTags(
       this.getPostTags() // Questa ora filtrerà correttamente il tag community
     );
-
+    
     this.commentsSectionComponent = new CommentsSection(
       this.comments,
       this.post,
@@ -454,7 +451,7 @@ class PostView extends View {
       (commentEl, voteBtn) => this.voteController.handleCommentVote(commentEl, voteBtn),
       this.contentRenderer
     );
-
+    
     // Se abbiamo un tag community valido, passiamolo a PostHeaderComponent
     if (communityTag) {
       this.postHeaderComponent.setCommunity(communityTag);
@@ -467,7 +464,7 @@ class PostView extends View {
    */
   handleEdit() {
     const { author, permlink } = this.post;
-
+    
     if (this.isComment()) {
       // È un commento, gestisci l'editing del commento
       this.handleCommentEdit();
@@ -476,49 +473,6 @@ class PostView extends View {
       router.navigate(`/edit/@${author}/${permlink}`);
     }
   }
-
-  handleReblog() {
-    if (!this.post) {
-      console.error('Nessun post disponibile per il reblog');
-      return;
-    }
-    
-    const currentUser = authService.getCurrentUser();
-    
-    if (!currentUser) {
-      // Mostra notifica se l'utente non è autenticato
-      eventEmitter.emit('notification', {
-        type: 'info',
-        message: 'Devi effettuare il login per rebloggare un post',
-        duration: 3000
-      });
-      
-      // Redirect alla pagina di login
-      router.navigate('/login');
-      return;
-    }
-    
-    // Crea la callback di reblog che si occupa di aggiornare lo stato UI
-    const reblogCallback = this.reblogHandler.createReblogCallback(
-      this.post,
-      (hasReblogged) => {
-        // Aggiorna lo stato dell'interfaccia dopo reblog
-        if (this.postActionsComponent && 
-            typeof this.postActionsComponent.updateReblogState === 'function') {
-          this.postActionsComponent.updateReblogState(hasReblogged);
-        }
-      }
-    );
-    
-    // Esegue immediatamente la callback di reblog
-    // Il primo parametro simula l'evento click
-    reblogCallback({
-      preventDefault: () => {},
-      stopPropagation: () => {},
-      currentTarget: document.querySelector('.reblog-btn')
-    });
-  }
-
 
   /**
    * Gestisce l'editing di un commento
@@ -529,7 +483,7 @@ class PostView extends View {
       this.commentController.handleEditComment(this.post);
     } else {
       console.error('CommentController non implementa handleEditComment');
-
+      
       // Fallback: notifica all'utente
       this.emit('notification', {
         type: 'info',
@@ -550,7 +504,7 @@ class PostView extends View {
   // Update this method to be async and handle asynchronous component rendering
   async renderComponents() {
     if (!this.post) return;
-
+    
     while (this.postContent.firstChild) {
       this.postContent.removeChild(this.postContent.firstChild);
     }
@@ -561,10 +515,10 @@ class PostView extends View {
       this.postContent.appendChild(this.postContentComponent.render());
       this.postContent.appendChild(this.postActionsComponent.render());
       this.postContent.appendChild(this.postTagsComponent.render());
-
+      
       // Handle CommentsSection separately since it's async
       const commentsElement = await this.commentsSectionComponent.render();
-
+      
       // Make sure what we're appending is actually a DOM node
       if (commentsElement && commentsElement.nodeType === Node.ELEMENT_NODE) {
         this.postContent.appendChild(commentsElement);
@@ -633,16 +587,16 @@ class PostView extends View {
    */
   isValidCommunityTag(tag) {
     if (!tag || typeof tag !== 'string') return false;
-
+    
     // La maggior parte delle community Hive hanno un formato hive-NUMERO
     if (tag.startsWith('hive-')) {
       // Estrai la parte dopo "hive-"
       const communityId = tag.substring(5);
-
+      
       // Le community valide hanno generalmente ID numerico
       return /^\d+$/.test(communityId);
     }
-
+    
     return false;
   }
 
@@ -652,32 +606,32 @@ class PostView extends View {
    */
   getCommunityTag() {
     if (!this.post) return null;
-
+    
     try {
       const metadata = this.parseMetadata(this.post.json_metadata);
-
+      
       // Cerca nella proprietà community (più affidabile)
       if (metadata && metadata.community) {
-        const communityTag = metadata.community.startsWith('hive-')
-          ? metadata.community
+        const communityTag = metadata.community.startsWith('hive-') 
+          ? metadata.community 
           : `hive-${metadata.community}`;
-
+          
         if (this.isValidCommunityTag(communityTag)) {
           return communityTag;
         }
       }
-
+      
       // Come fallback, cerca nei tag
       if (metadata && Array.isArray(metadata.tags)) {
-        const communityTag = metadata.tags.find(tag =>
+        const communityTag = metadata.tags.find(tag => 
           tag && typeof tag === 'string' && this.isValidCommunityTag(tag)
         );
-
+        
         if (communityTag) {
           return communityTag;
         }
       }
-
+      
       return null;
     } catch (error) {
       console.error('Error extracting community tag:', error);
@@ -698,16 +652,16 @@ class PostView extends View {
 
       if (metadata && Array.isArray(metadata.tags)) {
         return metadata.tags
-          .filter(tag =>
-            typeof tag === 'string' &&
-            tag.trim() !== '' &&
+          .filter(tag => 
+            typeof tag === 'string' && 
+            tag.trim() !== '' && 
             (!communityTag || tag !== communityTag) // Escludi il tag community
           )
           .slice(0, 10);
       }
 
-      if (this.post.category && typeof this.post.category === 'string' &&
-        (!communityTag || this.post.category !== communityTag)) {
+      if (this.post.category && typeof this.post.category === 'string' && 
+          (!communityTag || this.post.category !== communityTag)) {
         return [this.post.category];
       }
     } catch (error) {
@@ -738,149 +692,149 @@ class PostView extends View {
 
   async renderCommunityBadge(community) {
     if (!community) return null;
-
+    
     const baseDisplayName = this.getCommunityBaseDisplayName(community);
     const communitySlug = community.replace(/^hive-/, '');
     const container = this.createCommunityContainerStructure(baseDisplayName);
-
+    
     const { communityContainer, communityIcon, communityInfo, loadingSpinner } = container;
-
+    
     // Check if this is a valid community with a numeric ID
     if (!this.isValidCommunityTag(community)) {
       // Per non-valid communities, display as "blog" instead of hiding
       this.clearElement(communityInfo);
-
+      
       const blogLabel = document.createElement('div');
       blogLabel.className = 'community-title';
       blogLabel.textContent = 'blog';
-
+      
       communityInfo.appendChild(blogLabel);
-
+      
       // Use blog icon instead of group
       communityIcon.textContent = 'rss_feed';
-
+      
       return communityContainer;
     }
-
+    
     try {
       // Show loading state
       communityIcon.style.display = 'none';
       communityContainer.insertBefore(loadingSpinner, communityInfo);
-
+      
       const communityData = await communityService.findCommunityByName(community);
-
+      
       // Remove loading spinner and show icon
       this.removeElementIfExists(loadingSpinner);
       communityIcon.style.display = 'inline-flex';
-
+      
       this.updateCommunityDisplay(communityInfo, communityIcon, communityData, baseDisplayName, communitySlug, communityContainer);
     } catch (error) {
       this.removeElementIfExists(loadingSpinner);
       communityIcon.style.display = 'inline-flex';
-
+      
       this.renderSimpleCommunityLink(communityInfo, baseDisplayName, communitySlug);
     }
-
+    
     return communityContainer;
   }
-
+  
   getCommunityBaseDisplayName(community) {
     return community.startsWith('hive-') ? community : `hive-${community}`;
   }
-
+  
   createCommunityContainerStructure(baseDisplayName) {
     const communityContainer = document.createElement('div');
     communityContainer.className = 'community-container';
-
+    
     const communityIcon = document.createElement('span');
     communityIcon.className = 'material-icons community-icon';
     communityIcon.textContent = 'group';
-
+    
     const loadingSpinner = document.createElement('div');
     loadingSpinner.className = 'community-loading-spinner';
-
+    
     const communityInfo = document.createElement('div');
     communityInfo.className = 'community-info-container';
-
+    
     const communityId = document.createElement('div');
     communityId.className = 'community-id';
     communityId.textContent = baseDisplayName;
-
+    
     communityInfo.appendChild(communityId);
     communityContainer.appendChild(communityIcon);
     communityContainer.appendChild(communityInfo);
-
+    
     return { communityContainer, communityIcon, communityInfo, loadingSpinner };
   }
-
+  
   removeElementIfExists(element) {
     if (element.parentNode) {
       element.parentNode.removeChild(element);
     }
   }
-
+  
   updateCommunityDisplay(infoContainer, iconElement, communityData, baseDisplayName, communitySlug, container) {
     this.clearElement(infoContainer);
-
+    
     if (communityData) {
       this.renderDetailedCommunityInfo(
-        infoContainer,
-        iconElement,
-        communityData,
-        baseDisplayName,
-        communitySlug,
+        infoContainer, 
+        iconElement, 
+        communityData, 
+        baseDisplayName, 
+        communitySlug, 
         container
       );
     } else {
       this.renderSimpleCommunityLink(infoContainer, baseDisplayName, communitySlug);
     }
   }
-
+  
   renderDetailedCommunityInfo(infoContainer, iconElement, communityData, baseDisplayName, communitySlug, container) {
     const communityTitle = this.createLinkElement(
       communityData.title || baseDisplayName,
       'community-title'
     );
-
+    
     const communityIdLink = this.createLinkElement(baseDisplayName, 'community-id');
-
+    
     infoContainer.appendChild(communityTitle);
     infoContainer.appendChild(communityIdLink);
-
+    
     const navigateHandler = this.createCommunityNavigationHandler(communitySlug);
     communityTitle.addEventListener('click', navigateHandler);
     communityIdLink.addEventListener('click', navigateHandler);
-
+    
     if (communityData.about) {
       container.title = communityData.about;
     }
-
+    
     if (communityData.avatar_url) {
       this.renderCommunityAvatar(iconElement, communityData);
     }
   }
-
+  
   renderCommunityAvatar(iconElement, communityData) {
     iconElement.textContent = '';
-
+    
     const avatarImg = document.createElement('img');
     avatarImg.src = communityData.avatar_url;
     avatarImg.alt = communityData.title || '';
     avatarImg.className = 'community-avatar-img';
-
+    
     iconElement.appendChild(avatarImg);
   }
-
+  
   renderSimpleCommunityLink(infoContainer, baseDisplayName, communitySlug) {
     this.clearElement(infoContainer);
-
+    
     const communityIdLink = this.createLinkElement(baseDisplayName, 'community-id');
     infoContainer.appendChild(communityIdLink);
-
+    
     const navigateHandler = this.createCommunityNavigationHandler(communitySlug);
     communityIdLink.addEventListener('click', navigateHandler);
   }
-
+  
   createLinkElement(text, className) {
     const link = document.createElement('a');
     link.href = "javascript:void(0)";
@@ -888,14 +842,14 @@ class PostView extends View {
     link.textContent = text;
     return link;
   }
-
+  
   createCommunityNavigationHandler(communitySlug) {
     return (e) => {
       e.preventDefault();
       router.navigate(`/community/${communitySlug}`);
     };
   }
-
+  
   clearElement(element) {
     while (element.firstChild) {
       element.removeChild(element.firstChild);
@@ -969,25 +923,24 @@ class PostView extends View {
       this.postTagsComponent,
       this.commentsSectionComponent
     ];
-
+    
     components.forEach(component => {
       if (component && typeof component.unmount === 'function') {
         component.unmount();
       }
-    });    this.voteController.cleanup();
+    });
+    
+    this.voteController.cleanup();
     this.commentController.cleanup();
-    if (this.reblogHandler && typeof this.reblogHandler.destroy === 'function') {
-      this.reblogHandler.destroy();
-    }
-
+    
     // Clear references
     this.postHeaderComponent = null;
     this.postContentComponent = null;
-    this.postActionsComponent = null;    this.postTagsComponent = null;
+    this.postActionsComponent = null;
+    this.postTagsComponent = null;
     this.commentsSectionComponent = null;
     this.voteController = null;
     this.commentController = null;
-    this.reblogHandler = null;
   }
 
   /**
