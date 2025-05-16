@@ -23,6 +23,7 @@
 @import 'components/beneficiary-autocomplete.css'; /* Added import for beneficiary autocomplete styles */
 @import 'components/payout-popup.css'; /* Aggiunto import per gli stili del popup dei payout */
 @import 'components/edit-profile-modals.css'; /* Added import for edit profile styling */
+@import 'components/reblog-button.css'; /* Aggiunto import per gli stili del pulsante reblog */
 
 /* Feature-specific styles */
 @import 'features/animations.css';

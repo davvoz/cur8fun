@@ -1,0 +1,17 @@
+/* Styles for reblog button */
+.reblog-btn {
+  position: relative;
+  transition: color 0.3s;
+}
+
+.reblog-btn.reblogged {
+  color: #1fca9c; /* Green color for reblogged state */
+}
+
+.reblog-btn:hover {
+  color: #1fca9c;
+}
+
+.reblog-btn:active {
+  transform: scale(1.1);
+}

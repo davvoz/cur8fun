@@ -2,6 +2,7 @@ import SteemCore from './steem-service-classes/SteemCore.js';
 import PostService from './steem-service-classes/PostService.js';
 import CommentService from './steem-service-classes/CommentService.js';
 import UserServiceCore from './steem-service-classes/UserServiceCore.js';
+import authService from './AuthService.js';
 
 /**
  * Main service facade that delegates to specialized services
@@ -184,6 +185,160 @@ class SteemService {
 
     async updateUserProfile(username, profile, activeKey = null) {
         return this.userService.updateUserProfile(username, profile, activeKey);
+    }
+
+    /**
+     * Reblog (resteem) a post
+     * @param {string} username - The username doing the reblog
+     * @param {string} author - The author of the post to reblog
+     * @param {string} permlink - The permlink of the post to reblog
+     * @returns {Promise<Object>} - Result of the operation
+     */
+    async reblogPost(username, author, permlink) {
+        await this.ensureLibraryLoaded();
+        
+        // Get authentication information
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser || currentUser.username !== username) {
+            throw new Error("You must be logged in to reblog a post");
+        }
+        
+        // Create the reblog operation using custom_json
+        const operations = [
+            ['custom_json', {
+                required_auths: [],
+                required_posting_auths: [username],
+                id: 'follow',
+                json: JSON.stringify([
+                    'reblog',
+                    {
+                        account: username,
+                        author: author,
+                        permlink: permlink
+                    }
+                ])
+            }]
+        ];
+        
+        // Determine login method and available authentication
+        const loginMethod = currentUser.loginMethod || 'privateKey';
+        const postingKey = authService.getPostingKey();
+        const hasKeychain = typeof window.steem_keychain !== 'undefined';
+        
+        // Broadcast using appropriate method
+        if (loginMethod === 'keychain' && hasKeychain) {
+            return await this.broadcastWithKeychain(operations, username);
+        } else if (postingKey) {
+            return await this.broadcastWithPostingKey(operations, postingKey);
+        } else {
+            throw new Error("No authentication method available");
+        }
+    }
+    
+    /**
+     * Helper method to broadcast operations using Steem Keychain
+     * @param {Array} operations - The operations to broadcast
+     * @param {string} username - The username to broadcast as
+     * @returns {Promise<Object>} - The result of the broadcast
+     */    async broadcastWithKeychain(operations, username) {
+        return new Promise((resolve, reject) => {
+            if (!window.steem_keychain) {
+                console.error("Steem Keychain not found");
+                reject(new Error('Steem Keychain extension not found'));
+                return;
+            }
+            
+            try {
+                window.steem_keychain.requestBroadcast(
+                    username,
+                    operations,
+                    'posting',
+                    (response) => {
+                        if (response.success) {
+                            console.log("Keychain broadcast successful:", response);
+                            resolve(response);
+                        } else {
+                            console.error("Keychain broadcast failed:", response);
+                            reject(new Error(response.message || 'Broadcast failed'));
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error("Keychain error:", error);
+                reject(error);
+            }
+        });
+    }
+    
+    /**
+     * Helper method to broadcast operations using posting key
+     * @param {Array} operations - The operations to broadcast
+     * @param {string} postingKey - The posting key to use
+     * @returns {Promise<Object>} - The result of the broadcast
+     */    async broadcastWithPostingKey(operations, postingKey) {
+        await this.ensureLibraryLoaded();
+        const steem = this.core.steem;
+        
+        return new Promise((resolve, reject) => {
+            steem.broadcast.send(
+                { operations, extensions: [] },
+                { posting: postingKey },
+                (err, result) => {
+                    if (err) {
+                        console.error("Broadcast error:", err);
+                        reject(err);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+        });
+    }
+    
+    /**
+     * Check if a post has been reblogged by a user
+     * @param {string} username - Username to check
+     * @param {string} author - Author of the post
+     * @param {string} permlink - Permlink of the post
+     * @returns {Promise<boolean>} - Whether the post has been reblogged
+     */    async hasReblogged(username, author, permlink) {
+        try {
+            await this.ensureLibraryLoaded();
+            
+            console.log(`[SteemService] Checking if ${username} has reblogged ${author}/${permlink}`);
+            
+            // Get account history with reblog operations
+            const accountHistory = await this.getAccountHistory(username, -1, 100);
+            
+            console.log(`[SteemService] Got account history: ${accountHistory?.length} entries`);
+            
+            // Look for reblog operations in the history
+            for (const historyItem of accountHistory) {
+                const [, operation] = historyItem;
+                
+                if (operation.op[0] === 'custom_json' && operation.op[1].id === 'follow') {
+                    try {
+                        const customData = JSON.parse(operation.op[1].json);
+                        if (Array.isArray(customData) && 
+                            customData[0] === 'reblog' && 
+                            customData[1] && 
+                            customData[1].author === author && 
+                            customData[1].permlink === permlink) {
+                            console.log(`[SteemService] Found reblog match in history!`);
+                            return true;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing reblog JSON:', e);
+                    }
+                }
+            }
+            
+            console.log(`[SteemService] No reblog found for ${username} on ${author}/${permlink}`);
+            return false;
+        } catch (error) {
+            console.error('Error checking if post was reblogged:', error);
+            return false;
+        }
     }
 
     parseMetadata(jsonMetadata) {
