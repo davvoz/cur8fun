@@ -12,12 +12,7 @@
     
 }
 
-/* Handle case when notifications-view is applied to main-content */
-#main-content.notifications-view {
-    padding: var(--space-md); /* Override the padding from content-wrapper */
-    max-width: none; /* Remove the max-width to let main-content control it */
-    margin: 0; /* Reset margin */
-}
+/* General styles */
 
 /* Ensure the padding is applied correctly */
 #main-content.notifications-view .view-title,

@@ -2,13 +2,15 @@ import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
 
 class PostActions {
-  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, canEdit = false) {
+  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false) {
     this.post = post;
     this.upvoteCallback = upvoteCallback;
     this.commentCallback = commentCallback;
     this.shareCallback = shareCallback;
     this.editCallback = editCallback; 
+    this.reblogCallback = reblogCallback;
     this.canEdit = canEdit; // Store whether current user can edit this post
+    this.hasReblogged = hasReblogged; // Store whether current user has reblogged this post
     
     // Bind methods
     this.handlePayoutClick = this.handlePayoutClick.bind(this);
@@ -24,6 +26,13 @@ class PostActions {
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
     
+    // Aggiungiamo il pulsante reblog (resteem)
+    const reblogBtn = this.createActionButton(
+      this.hasReblogged ? 'reblog-btn reblogged' : 'reblog-btn', 
+      'repeat', 
+      this.hasReblogged ? 'Reblogged' : 'Reblog'
+    );
+    
     // Rimuoviamo il pulsante votes-details-btn poiché ora il conteggio voti sarà cliccabile
 
     const payoutInfo = document.createElement('div');
@@ -33,6 +42,7 @@ class PostActions {
     
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
+    postActions.appendChild(reblogBtn);
     postActions.appendChild(shareBtn);
     postActions.appendChild(payoutInfo);
     
@@ -57,6 +67,10 @@ class PostActions {
     
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
+    }
+    
+    if (this.reblogCallback) {
+      reblogBtn.addEventListener('click', this.reblogCallback);
     }
 
     return postActions;

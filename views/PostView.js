@@ -16,9 +16,9 @@ import CommentsSection from '../components/post/CommentsSection.js';
 // Import controllers and helpers
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
+import PostReblogHandler from '../components/post/PostReblogHandler.js';
 
-class PostView extends View {
-  constructor(params = {}) {
+class PostView extends View {  constructor(params = {}) {
     super(params);
     this.steemService = steemService;
     this.post = null;
@@ -26,8 +26,14 @@ class PostView extends View {
     this.author = params.author;
     this.permlink = params.permlink;
     this.comments = [];
-    this.element = null;
-    this.loadingIndicator = new LoadingIndicator('spinner');
+    this.element = null;    this.loadingIndicator = new LoadingIndicator('spinner');
+    this.reblogHandler = new PostReblogHandler(); // Inizializzare il handler del reblog
+    
+    // Import the necessary CSS for reblog button
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/assets/css/components/reblog-button.css';
+    document.head.appendChild(link);
     
 
     this.postContent = null;
@@ -429,15 +435,16 @@ class PostView extends View {
       this.post, 
       this.contentRenderer
     );
-    
-    // Pass canEditPost() result to PostActions component
+      // Pass canEditPost() result to PostActions component
     this.postActionsComponent = new PostActions(
       this.post,
       () => this.voteController.handlePostVote(this.post),       
       () => this.commentController.handleNewComment(this.post),  
       () => this.handleShare(),
       () => this.handleEdit(),
-      this.canEditPost()                                  
+      () => this.handleReblog(),
+      this.canEditPost(),
+      false // hasReblogged sarà aggiornato dinamicamente                                  
     );
     
     this.postTagsComponent = new PostTags(
@@ -687,6 +694,53 @@ class PostView extends View {
           message: 'Link copied to clipboard'
         });
       }).catch(err => console.error('Could not copy link:', err));
+    }
+  }
+
+  /**
+   * Gestisci il reblog del post
+   */
+  async handleReblog() {
+    try {
+      // Verifica che l'utente sia loggato
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        this.emit('notification', {
+          type: 'info',
+          message: 'You must be logged in to reblog a post'
+        });
+        router.navigate('/login');
+        return;
+      }
+      
+      console.log(`Reblogging post by ${this.post.author}/${this.post.permlink}`);
+      
+      // Usa il servizio per effettuare il reblog
+      await steemService.reblogPost(currentUser.username, this.post.author, this.post.permlink);
+      
+      // Aggiorna lo stato del pulsante di reblog
+      if (this.postActionsComponent) {
+        const reblogBtn = this.element.querySelector('.reblog-btn');
+        if (reblogBtn) {
+          reblogBtn.classList.add('reblogged');
+          const textSpan = reblogBtn.querySelector('span:last-child');
+          if (textSpan) {
+            textSpan.textContent = 'Reblogged';
+          }
+        }
+      }
+      
+      // Notifica l'utente
+      this.emit('notification', {
+        type: 'success',
+        message: 'Post reblogged successfully!'
+      });
+    } catch (error) {
+      console.error('Error reblogging post:', error);
+      this.emit('notification', {
+        type: 'error',
+        message: error.message || 'Failed to reblog post'
+      });
     }
   }
 

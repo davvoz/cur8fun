@@ -215,15 +215,16 @@ export default class CommentView extends View {
       this.contentRenderer,
       true // Indica che è un commento
     );
-    
-    // Inizializza il componente per le azioni del commento (voto, risposta, ecc.)
+      // Inizializza il componente per le azioni del commento (voto, risposta, ecc.)
     this.commentActionsComponent = new PostActions(
       this.comment,
       () => this.voteController.handlePostVote(this.comment),
       () => this.commentController.handleNewComment(this.comment),
       () => this.handleShare(),
       () => this.handleEdit(),
-      this.canEditComment() // Verifica se l'utente può modificare questo commento
+      () => this.handleReblog(), // Aggiungiamo il callback per il reblog
+      this.canEditComment(), // Verifica se l'utente può modificare questo commento
+      false // Per ora impostiamo hasReblogged a false, aggiornare con verifica effettiva
     );
     
     // Inizializza il componente per le risposte
@@ -301,7 +302,7 @@ export default class CommentView extends View {
         }
       } else {
         // Se non ci sono risposte, mostra un messaggio
-        this.repliesContainer.innerHTML = '<div class="no-replies">Nessuna risposta a questo commento</div>';
+        this.repliesContainer.innerHTML = '<div class="no-replies">No replies yet.</div>';
       }
 
       // Mostra il contenuto
@@ -311,7 +312,7 @@ export default class CommentView extends View {
       // Gestisci l'errore di rendering
       const errorMessage = document.createElement('div');
       errorMessage.className = 'component-render-error';
-      errorMessage.textContent = 'Impossibile visualizzare i componenti del commento';
+      errorMessage.textContent = 'There was an error rendering the comment components. Please try again later.';
       this.commentContent.appendChild(errorMessage);
       this.commentContent.style.display = 'block';
     }
@@ -333,7 +334,7 @@ export default class CommentView extends View {
     if (!this.canEditComment()) {
       eventEmitter.emit('notification', {
         type: 'error',
-        message: 'Solo l\'autore può modificare questo commento'
+        message: 'Only the author can edit this comment.'
       });
       return;
     }
@@ -363,7 +364,7 @@ export default class CommentView extends View {
       console.error('CommentController not available or handleEditComment method not found');
       eventEmitter.emit('notification', {
         type: 'error',
-        message: 'Si è verificato un errore durante la modifica del commento'
+        message: 'There was an error starting the edit process.'
       });
     }
   }
@@ -472,6 +473,41 @@ export default class CommentView extends View {
           message: 'Link copiato negli appunti'
         });
       }).catch(err => console.error('Could not copy link:', err));
+    }
+  }
+
+  /**
+   * Gestisci il reblog del commento
+   */
+  async handleReblog() {
+    try {
+      // Verifica che l'utente sia loggato
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        this.emit('notification', {
+          type: 'info',
+          message: 'Devi essere loggato per rebloggare un commento'
+        });
+        router.navigate('/login');
+        return;
+      }
+      
+      console.log(`Reblogging comment by ${this.comment.author}/${this.comment.permlink}`);
+      
+      // Usa il servizio per effettuare il reblog
+      await steemService.reblogPost(currentUser.username, this.comment.author, this.comment.permlink);
+      
+      // Notifica l'utente del successo
+      this.emit('notification', {
+        type: 'success',
+        message: 'Commento rebloggato con successo!'
+      });
+    } catch (error) {
+      console.error('Error reblogging comment:', error);
+      this.emit('notification', {
+        type: 'error',
+        message: error.message || 'Errore durante il reblog del commento'
+      });
     }
   }
 
