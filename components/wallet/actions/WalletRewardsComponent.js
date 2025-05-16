@@ -2,6 +2,7 @@ import Component from '../../Component.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
+import router from '../../../utils/Router.js';
 
 /**
  * Componente per il pulsante di claim rewards
@@ -235,19 +236,12 @@ export default class WalletRewardsComponent extends Component {
         document.removeEventListener('click', this.closeTooltip);
       }
     }
-    
-    // Verifica che l'utente sia autenticato
+      // Verifica che l'utente sia autenticato
     if (!authService.isAuthenticated()) {
-      eventEmitter.emit('notification', {
-        type: 'warning',
-        message: 'Devi effettuare il login per reclamare le rewards'
-      });
-      
-      // Reindirizza al login
-      const currentPath = window.location.pathname;
-      setTimeout(() => {
-        window.location.href = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
-      }, 300);
+      this._showAuthErrorPopup(
+        'Access Required',
+        'You need to be logged in to claim rewards. Please log in to your account.' 
+      );
       return;
     }
     
@@ -302,8 +296,7 @@ export default class WalletRewardsComponent extends Component {
       }
     } catch (error) {
       console.error('Error claiming rewards:', error);
-      
-      // Controlla se l'errore è relativo all'autenticazione
+        // Controlla se l'errore è relativo all'autenticazione
       if (error.message && (
           error.message.includes('login') || 
           error.message.includes('sessione') || 
@@ -311,12 +304,11 @@ export default class WalletRewardsComponent extends Component {
           error.message.includes('autenticazione') ||
           error.message.includes('Non sei loggato')
       )) {
-        // Se è un errore di autenticazione, lasciamo che venga gestito dall'evento auth:logout-required
-        // emesso dal WalletService._broadcastOperation
-        eventEmitter.emit('notification', {
-          type: 'warning',
-          message: 'Sessione scaduta, verrai reindirizzato al login'
-        });
+        // Mostra il popup di errore di autenticazione
+        this._showAuthErrorPopup(
+          'Sessione Scaduta', 
+          'La tua sessione è scaduta. Effettua nuovamente il login per continuare.'
+        );
       } else {
         // Per altri tipi di errori, mostriamo una notifica normale
         eventEmitter.emit('notification', {
@@ -367,4 +359,7 @@ export default class WalletRewardsComponent extends Component {
     // Chiama il metodo destroy della classe parent
     super.destroy();
   }
+
+
+
 }
