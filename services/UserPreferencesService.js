@@ -5,21 +5,47 @@ class UserPreferencesService {
     constructor() {
         this.PREFERENCES_KEY = 'steemee_user_preferences';
         this.preferences = this.loadPreferences();
-    }
-
-    /**
+    }    /**
      * Loads user preferences from localStorage
      * @returns {Object} User preferences object
      */
     loadPreferences() {
         try {
             const storedPreferences = localStorage.getItem(this.PREFERENCES_KEY);
-            return storedPreferences ? JSON.parse(storedPreferences) : {
+            const defaultPreferences = {
                 // Default preferences
                 preferredTags: [],
                 homeViewMode: 'trending', // Default view mode (trending, hot, new, custom)
                 theme: 'light' // Default theme
             };
+            
+            const preferences = storedPreferences ? JSON.parse(storedPreferences) : defaultPreferences;
+            
+            // Safety check for null or undefined values
+            if (!preferences || typeof preferences !== 'object') {
+                console.warn('Invalid preferences format, using defaults');
+                return defaultPreferences;
+            }
+            
+            // Ensure all required keys exist with proper defaults
+            if (!Array.isArray(preferences.preferredTags)) {
+                preferences.preferredTags = [];
+            }
+            
+            if (!['trending', 'hot', 'new', 'custom'].includes(preferences.homeViewMode)) {
+                preferences.homeViewMode = 'trending';
+            }
+            
+            if (preferences.homeViewMode === 'custom' && preferences.preferredTags.length === 0) {
+                // Cannot have custom mode without tags
+                preferences.homeViewMode = 'trending';
+            }
+            
+            if (!preferences.theme) {
+                preferences.theme = 'light';
+            }
+            
+            return preferences;
         } catch (error) {
             console.error('Failed to load user preferences:', error);
             return {
@@ -28,19 +54,57 @@ class UserPreferencesService {
                 theme: 'light'
             };
         }
-    }
-
-    /**
+    }/**
      * Saves user preferences to localStorage
      * @returns {boolean} Success status
      */
     savePreferences() {
         try {
+            // Validate preferences before saving
+            this.validatePreferences();
+            
+            // Try to save to localStorage
             localStorage.setItem(this.PREFERENCES_KEY, JSON.stringify(this.preferences));
+            
+            // Verify the save was successful by reading it back
+            const saved = localStorage.getItem(this.PREFERENCES_KEY);
+            const parsed = JSON.parse(saved);
+            
+            if (!parsed) {
+                console.error('Preferences save verification failed: empty or invalid data');
+                return false;
+            }
+            
             return true;
         } catch (error) {
             console.error('Failed to save user preferences:', error);
             return false;
+        }
+    }
+    
+    /**
+     * Validates and repairs preferences object if needed
+     * @private
+     */
+    validatePreferences() {
+        // Ensure preferences object exists
+        if (!this.preferences) {
+            this.preferences = {};
+        }
+        
+        // Ensure preferredTags is an array
+        if (!Array.isArray(this.preferences.preferredTags)) {
+            this.preferences.preferredTags = [];
+        }
+        
+        // Validate homeViewMode is valid
+        if (!['trending', 'hot', 'new', 'custom'].includes(this.preferences.homeViewMode)) {
+            this.preferences.homeViewMode = 'trending';
+        }
+        
+        // If homeViewMode is custom but no tags, reset to trending
+        if (this.preferences.homeViewMode === 'custom' && this.preferences.preferredTags.length === 0) {
+            this.preferences.homeViewMode = 'trending';
         }
     }
 
@@ -149,9 +213,7 @@ class UserPreferencesService {
      */
     getHomeViewMode() {
         return this.preferences.homeViewMode || 'trending';
-    }
-
-    /**
+    }    /**
      * Set home view mode
      * @param {string} mode - View mode ('trending', 'hot', 'new', 'custom')
      * @returns {boolean} Success status
@@ -160,12 +222,14 @@ class UserPreferencesService {
         // Only allow setting to 'custom' if there are preferred tags
         if (mode === 'custom' && (!this.preferences.preferredTags || this.preferences.preferredTags.length === 0)) {
             console.error('Cannot set home view mode to custom without preferred tags');
-            return false;
+            // Fallback to trending if custom is invalid
+            mode = 'trending';
         }
         
         if (!['trending', 'hot', 'new', 'custom'].includes(mode)) {
             console.error('Invalid home view mode:', mode);
-            return false;
+            // Use a default value if invalid
+            mode = 'trending';
         }
         
         this.preferences.homeViewMode = mode;

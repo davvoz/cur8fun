@@ -4,8 +4,7 @@ import InfiniteScroll from '../utils/InfiniteScroll.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 
-class HomeView extends BasePostView {
-  constructor(params) {
+class HomeView extends BasePostView {  constructor(params) {
     super(params);
     
     // Se forceTag è true, usa sempre il tag specificato nei parametri
@@ -14,9 +13,15 @@ class HomeView extends BasePostView {
     } else {
       // Altrimenti, considera le preferenze dell'utente
       const homeViewMode = userPreferencesService.getHomeViewMode();
+      const preferredTags = userPreferencesService.getPreferredTags();
+      
       // If we're in custom mode but have no preferred tags, fallback to trending
-      if (homeViewMode === 'custom' && userPreferencesService.getPreferredTags().length === 0) {
+      if (homeViewMode === 'custom' && (!preferredTags || preferredTags.length === 0)) {
+        console.warn('Custom mode selected but no preferred tags found, falling back to trending');
         this.tag = 'trending';
+        
+        // Auto-correct the stored preference
+        userPreferencesService.setHomeViewMode('trending');
       } else if (homeViewMode === 'custom') {
         this.tag = 'custom';
       } else {
@@ -28,11 +33,17 @@ class HomeView extends BasePostView {
     // Listen for preferences changes
     this.setupPreferencesListener();
   }
-  
-  setupPreferencesListener() {
+    setupPreferencesListener() {
     // Listen for tag preference changes
     eventEmitter.on('user:preferences:updated', () => {
-      if (this.tag === 'custom') {
+      // Get current home view mode from preferences
+      const currentHomeViewMode = userPreferencesService.getHomeViewMode();
+      
+      // If we're currently in custom mode or the mode has changed
+      if (this.tag === 'custom' || this.tag !== currentHomeViewMode) {
+        // Update the current tag to match the new preference
+        this.tag = currentHomeViewMode;
+        
         // Reload posts with new preferences
         this.posts = [];
         this.renderedPostIds.clear();

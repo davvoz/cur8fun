@@ -17,6 +17,11 @@ class SettingsView extends View {
     this.searchResults = [];
     this.tagSearchTimeout = null;
   }
+  
+  // Add this new helper method
+  isCustomModeValid() {
+    return this.preferredTags && this.preferredTags.length > 0;
+  }
 
   render(container) {
     this.container = container;
@@ -62,17 +67,15 @@ class SettingsView extends View {
 
     const description = document.createElement('p');
     description.textContent = 'Choose what content you want to see on your home feed.';
-    section.appendChild(description);
-
-    const options = [
+    section.appendChild(description);    const options = [
         { id: 'trending', label: 'Trending', description: 'Posts that are trending on the platform' },
-      { id: 'custom', label: 'Custom Feed', description: 'Posts based on your preferred tags below' }
+        { id: 'hot', label: 'Hot', description: 'Posts that are currently hot on the platform' },
+        { id: 'new', label: 'New', description: 'Recently created posts' },
+        { id: 'custom', label: 'Custom Feed', description: 'Posts based on your preferred tags below' }
     ];
 
     const optionsContainer = document.createElement('div');
-    optionsContainer.className = 'feed-options';
-
-    options.forEach(option => {
+    optionsContainer.className = 'feed-options';    options.forEach(option => {
       const radioContainer = document.createElement('div');
       radioContainer.className = 'radio-option';
 
@@ -82,6 +85,12 @@ class SettingsView extends View {
       input.id = `feed-${option.id}`;
       input.value = option.id;
       input.checked = this.homeViewMode === option.id;
+      
+      // Disable custom option if no tags are available
+      if (option.id === 'custom' && !this.isCustomModeValid()) {
+        radioContainer.classList.add('disabled-option');
+        input.disabled = true;
+      }
 
       const label = document.createElement('label');
       label.htmlFor = `feed-${option.id}`;
@@ -94,7 +103,25 @@ class SettingsView extends View {
       const labelDescription = document.createElement('span');
       labelDescription.className = 'option-description';
       labelDescription.textContent = option.description;
+      
+      // Add warning for custom feed if no tags
+      if (option.id === 'custom' && !this.isCustomModeValid()) {
+        labelDescription.textContent += ' (Add preferred tags below to enable this option)';
+        labelDescription.style.color = '#ff6b6b';
+      }
+      
       label.appendChild(labelDescription);
+
+      // Add event listener for when user tries to click on a disabled custom option
+      if (option.id === 'custom') {
+        radioContainer.addEventListener('click', (e) => {
+          const radio = radioContainer.querySelector('input[type="radio"]');
+          if (radio && radio.disabled) {
+            e.preventDefault();
+            this.showErrorMessage('Please add at least one preferred tag below to enable the Custom Feed option.');
+          }
+        });
+      }
 
       radioContainer.appendChild(input);
       radioContainer.appendChild(label);
@@ -264,7 +291,6 @@ class SettingsView extends View {
     
     searchResults.style.display = 'block';
   }
-
   addPreferredTag(tag) {
     // Don't add if already in the list
     if (this.preferredTags.includes(tag)) {
@@ -285,8 +311,24 @@ class SettingsView extends View {
     // Clear search input
     const searchInput = this.container.querySelector('.tag-search-input');
     searchInput.value = '';
+    
+    // Enable custom feed option if this is the first tag
+    if (this.preferredTags.length === 1) {
+      const customRadio = this.container.querySelector('input[value="custom"]');
+      if (customRadio) {
+        customRadio.disabled = false;
+        const radioContainer = customRadio.closest('.radio-option');
+        if (radioContainer) {
+          radioContainer.classList.remove('disabled-option');
+          const description = radioContainer.querySelector('.option-description');
+          if (description) {
+            description.textContent = 'Posts based on your preferred tags below';
+            description.style.color = ''; // Reset color
+          }
+        }
+      }
+    }
   }
-
   removePreferredTag(tag) {
     // Remove from list
     this.preferredTags = this.preferredTags.filter(t => t !== tag);
@@ -294,19 +336,59 @@ class SettingsView extends View {
     // Update UI
     const tagsList = this.container.querySelector('#preferred-tags-list');
     this.renderPreferredTags(tagsList);
+    
+    // If all tags are removed, disable custom feed option and select trending
+    if (this.preferredTags.length === 0) {
+      const customRadio = this.container.querySelector('input[value="custom"]');
+      if (customRadio) {
+        customRadio.disabled = true;
+        
+        // If custom was selected, switch to trending
+        if (customRadio.checked) {
+          const trendingRadio = this.container.querySelector('input[value="trending"]');
+          if (trendingRadio) {
+            trendingRadio.checked = true;
+          }
+        }
+        
+        const radioContainer = customRadio.closest('.radio-option');
+        if (radioContainer) {
+          radioContainer.classList.add('disabled-option');
+          const description = radioContainer.querySelector('.option-description');
+          if (description) {
+            description.textContent = 'Posts based on your preferred tags below (Add preferred tags below to enable this option)';
+            description.style.color = '#ff6b6b';
+          }
+        }
+      }
+    }
   }
 
   getSelectedHomeViewMode() {
     const selectedOption = this.container.querySelector('input[name="feedType"]:checked');
     return selectedOption ? selectedOption.value : 'trending';
   }
-
   saveSettings() {
     // Get current settings
     const homeViewMode = this.getSelectedHomeViewMode();
     
-    // Save settings
+    // Save tags first
     userPreferencesService.setPreferredTags(this.preferredTags);
+
+    // Special handling for custom mode
+    if (homeViewMode === 'custom' && this.preferredTags.length === 0) {
+      // Show a message to the user
+      this.showErrorMessage('Custom feed requires at least one preferred tag. Please add tags or select another feed type.');
+      
+      // Find the trending radio button and select it
+      const trendingRadio = this.container.querySelector('input[value="trending"]');
+      if (trendingRadio) {
+        trendingRadio.checked = true;
+      }
+      return;
+    }
+    
+    // Save home view mode after tag validation
     userPreferencesService.setHomeViewMode(homeViewMode);
     
     // Emit event for views to update
@@ -315,7 +397,6 @@ class SettingsView extends View {
     // Show success message
     this.showSuccessMessage();
   }
-
   showSuccessMessage() {
     // Check if message already exists
     let message = this.container.querySelector('.settings-success-message');
@@ -333,6 +414,25 @@ class SettingsView extends View {
     setTimeout(() => {
       message.classList.remove('show');
     }, 3000);
+  }
+  
+  showErrorMessage(errorText) {
+    // Check if message already exists
+    let message = this.container.querySelector('.settings-error-message');
+    
+    if (!message) {
+      message = document.createElement('div');
+      message.className = 'settings-error-message';
+      this.container.querySelector('.content-wrapper').appendChild(message);
+    }
+    
+    message.textContent = errorText;
+    message.classList.add('show');
+    
+    // Hide message after 5 seconds
+    setTimeout(() => {
+      message.classList.remove('show');
+    }, 5000);
   }
 
   unmount() {
