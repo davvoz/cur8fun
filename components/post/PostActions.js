@@ -18,19 +18,20 @@ class PostActions {
   }
 
   render() {
+    const isMobile = window.innerWidth <= 768; // Check if the device is mobile
     const postActions = document.createElement('div');
     postActions.className = 'post-actions-post';
 
     // Creiamo il pulsante upvote con contatore cliccabile per mostrare i votanti
     const upvoteBtn = this.createUpvoteButtonWithClickableCount();
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
-    const shareBtn = this.createActionButton('share-btn', 'share', 'Share');
+    const shareBtn = this.createActionButton('share-btn', 'share', isMobile ? '' : 'Share');
     
     // Aggiungiamo il pulsante reblog (resteem)
     const reblogBtn = this.createActionButton(
       this.hasReblogged ? 'reblog-btn reblogged' : 'reblog-btn', 
       'repeat', 
-      this.hasReblogged ? 'Reblogged' : 'Reblog'
+      this.hasReblogged ? 'Reblogged' : isMobile ? '' : 'Reblog'
     );
     
     // Rimuoviamo il pulsante votes-details-btn poiché ora il conteggio voti sarà cliccabile
