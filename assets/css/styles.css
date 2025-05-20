@@ -1,3 +1,6 @@
+body {
+    -webkit-transform: translate3d(0,0,0);
+}
 /* Memo Key Modal */
 .memo-key-modal {
     position: fixed;
