@@ -575,7 +575,7 @@
     border-top: 1px solid var(--border-color-light);
     padding: var(--space-sm) var(--space-md);
     margin-top: auto;
-   
+
   }
 
   /* Layout lista per schermi diversi (ma sempre desktop) */
@@ -925,13 +925,6 @@
     /* Single column for compact view */
   }
 
-  /* Square images in compact layout */
-  .posts-container.grid-layout-compact .post-image-container {
-    height: 0;
-    padding-bottom: 100%;
-    /* Aspect ratio 1:1 (quadrato) */
-  }
-
   .posts-container.grid-layout-compact .post-card {
     padding: var(--space-xs);
     background-color: var(--background-light);
@@ -999,7 +992,6 @@
   /* Altezza fissa per il body */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   /* Nasconde il contenuto che eccede */
 }
 
@@ -1018,11 +1010,13 @@
   object-fit: cover;
   object-position: center;
 }
+
 /*grid layout*/
 .posts-container.grid-layout-grid .post-image-container {
   height: 420px;
 }
-.posts-container.grid-layout-grid .post-image-container img {
+
+.post-image-container img {
   position: absolute;
   top: 0;
   left: 0;
@@ -1030,9 +1024,8 @@
   height: 100%;
   object-fit: cover;
   object-position: center;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--card-box-shadow-sm);
 }
+
 /*compact layout*/
 .posts-container.grid-layout-compact .post-image-container {
   height: 200px;
@@ -1042,6 +1035,7 @@
   overflow: hidden;
   margin: var(--space-xs);
 }
+
 .posts-container.grid-layout-compact .post-image-container img {
   width: 100%;
   height: 100%;
@@ -1050,6 +1044,7 @@
   border-radius: var(--radius-sm);
   box-shadow: var(--card-box-shadow-sm);
 }
+
 /*list layout*/
 .posts-container.grid-layout-list .post-image-container {
   height: 200px;
@@ -1059,6 +1054,7 @@
   overflow: hidden;
   margin: var(--space-xl);
 }
+
 .posts-container.grid-layout-list .post-image-container img {
   width: 100%;
   height: 100%;
@@ -1078,15 +1074,16 @@
 }
 
 /*compact layout*/
-.posts-container.grid-layout-compact .post-excerpt{
+.posts-container.grid-layout-compact .post-excerpt {
   display: none;
 }
+
 /* Wrapper contenuto centrale a altezza fissa */
 .post-content-wrapper {
   height: 100px;
   /* Altezza fissa per la sezione di testo */
   padding: var(--space-sm);
-  overflow: hidden;
+
   display: flex;
   flex-direction: column;
   padding: var(--space-sm) var(--space-md);
@@ -1144,8 +1141,7 @@
   .posts-container.grid-layout-list .post-main-content {
     grid-row: 2;
     grid-column: 1 / -1;
-    display: flex
-;
+    display: flex;
     grid-template-columns: 200px 1fr;
     height: 340px;
     flex-direction: row-reverse;
@@ -1173,7 +1169,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-  
+
   }
 
 
@@ -1210,8 +1206,9 @@
     width: 100%;
   }
 }
-.post-content-middle{
-  font-size:   0.9rem;
+
+.post-content-middle {
+  font-size: 0.9rem;
   line-height: 1.5;
   margin-bottom: var(--space-sm);
   color: var(--text-color-secondary);
@@ -1219,8 +1216,9 @@
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  
+
 }
+
 .post-content-middle .post-title {
   font-size: 1.2rem;
   margin-bottom: var(--space-xs);
@@ -1232,7 +1230,7 @@
   display: -webkit-box;
 }
 
-  /* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
+/* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
 .error.post-image-container {
   display: flex;
   align-items: center;
@@ -1257,25 +1255,55 @@
 /*list layout*/
 .posts-container.grid-layout-list .post-excerpt {
   height: 50%;
-  font-size: 0.9rem;  
+  font-size: 0.9rem;
 }
 
 /*compact layout*/
-.posts-container.grid-layout-compact .post-card{
+.posts-container.grid-layout-compact .post-card {
   height: auto;
 }
-.posts-container.grid-layout-compact .post-community{
+
+.posts-container.grid-layout-compact .post-community {
   display: none;
 }
+
 .posts-container.grid-layout-compact .payout-actions {
   display: none;
   background-color: blue;
 }
-.posts-container.grid-layout-compact .post-actions{
+
+.posts-container.grid-layout-compact .post-actions {
   gap: var(--space-sm);
 }
 
 .posts-container.grid-layout-list {
   max-width: 80%;
   margin: 0 auto;
+}
+
+@supports (-webkit-touch-callout: none) {
+
+  /* Fix specifici per iOS */
+  .post-actions {
+    display: flex !important;
+  }
+
+  .post-content-wrapper {
+    /* Fallback for browsers that don't support overscroll-behavior */
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+
+  .post-main-content {
+    min-height: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}
+
+/* Apply overscroll-behavior only for browsers that support it */
+@supports (overscroll-behavior: contain) {
+  .post-content-wrapper {
+    overscroll-behavior: contain;
+  }
 }
