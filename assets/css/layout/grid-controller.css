@@ -1290,7 +1290,6 @@
 
   .post-content-wrapper {
     /* Fallback for browsers that don't support overscroll-behavior */
-    -webkit-overflow-scrolling: touch;
     overflow-y: auto;
   }
 
