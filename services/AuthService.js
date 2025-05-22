@@ -277,8 +277,8 @@ class AuthService {
                 // Store the key with key type indicator
                 localStorage.setItem(`${username}_${keyType}_key`, key);
                 
-                // Add expiry timestamp (24 hours)
-                const expiry = Date.now() + (24 * 60 * 60 * 1000);
+                // Add expiry timestamp (expiring in 2099)
+                const expiry = new Date('2099-12-31').getTime();
                 localStorage.setItem(`${username}_${keyType}_key_expiry`, expiry.toString());
             } catch (error) {
                 console.error(`Failed to store ${keyType} key:`, error);
