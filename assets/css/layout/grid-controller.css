@@ -1280,29 +1280,3 @@
   max-width: 80%;
   margin: 0 auto;
 }
-
-@supports (-webkit-touch-callout: none) {
-
-  /* Fix specifici per iOS */
-  .post-actions {
-    display: flex !important;
-  }
-
-  .post-content-wrapper {
-    /* Fallback for browsers that don't support overscroll-behavior */
-    overflow-y: auto;
-  }
-
-  .post-main-content {
-    min-height: 300px;
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-}
-
-/* Apply overscroll-behavior only for browsers that support it */
-@supports (overscroll-behavior: contain) {
-  .post-content-wrapper {
-    overscroll-behavior: contain;
-  }
-}
