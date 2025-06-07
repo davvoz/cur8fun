@@ -4,9 +4,9 @@ import authService from '../services/AuthService.js';
 import createPostService from '../services/CreatePostService.js';
 import communityService from '../services/CommunityService.js';
 import userService from '../services/UserService.js';
+import router from '../utils/Router.js';
 
-class CreatePostView extends View {
-  constructor(params = {}) {
+class CreatePostView extends View {  constructor(params = {}) {
     super(params);
     this.title = 'Create Post';
     this.user = authService.getCurrentUser();
@@ -17,6 +17,9 @@ class CreatePostView extends View {
     this.isSubmitting = false;
     this.markdownEditor = null;
     this.hasUnsavedChanges = false;
+    
+    // Handle draft editing via URL parameters
+    this.draftId = params.draftId;
     
     // Opzioni beneficiari - versione aggiornata con supporto multiplo
     this.includeBeneficiary = true;
@@ -69,11 +72,20 @@ class CreatePostView extends View {
     // Titolo 
     const heading = document.createElement('h1');
     heading.textContent = 'Create New Post';
-    header.appendChild(heading);
-
-    // Editor quick actions
+    header.appendChild(heading);    // Editor quick actions
     const quickActions = document.createElement('div');
     quickActions.className = 'editor-quick-actions';
+    
+    // View Drafts button
+    const draftsButton = document.createElement('button');
+    draftsButton.className = 'action-button drafts-button';
+    draftsButton.title = 'View Drafts';
+    draftsButton.innerHTML = '<span class="material-icons">draft</span>';
+    draftsButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate('/drafts');
+    });
+    quickActions.appendChild(draftsButton);
     
     // Save button
     const saveButton = document.createElement('button');
@@ -407,13 +419,16 @@ class CreatePostView extends View {
     postEditor.appendChild(form);
 
     // Add the container to the page
-    this.element.appendChild(postEditor);
-
-    // Inizializza l'editor Markdown
+    this.element.appendChild(postEditor);    // Inizializza l'editor Markdown
     this.initializeMarkdownEditor();
 
-    // Verifica se esiste una bozza e mostra il prompt
-    this.checkForDraft();
+    // Check if we're editing a specific draft
+    if (this.draftId) {
+      this.loadSpecificDraft(this.draftId);
+    } else {
+      // Verifica se esiste una bozza e mostra il prompt
+      this.checkForDraft();
+    }
     
     // Avvia il salvataggio automatico
     this.startAutoSave();
@@ -587,6 +602,75 @@ class CreatePostView extends View {
     const titleInput = document.getElementById('post-title');
     if (titleInput) {
       titleInput.focus();
+    }
+  }
+
+  /**
+   * Load a specific draft by ID
+   * @param {string} draftId - The ID of the draft to load
+   */
+  loadSpecificDraft(draftId) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return;
+      
+      const draftKey = `draft_${currentUser.username}_${draftId}`;
+      const draftData = localStorage.getItem(draftKey);
+      
+      if (!draftData) {
+        this.showError('Draft not found');
+        return;
+      }
+      
+      const draft = JSON.parse(draftData);
+      
+      // Load draft data into form fields
+      if (draft.title) {
+        this.postTitle = draft.title;
+        const titleInput = document.getElementById('post-title');
+        if (titleInput) titleInput.value = draft.title;
+      }
+      
+      if (draft.body) {
+        this.postBody = draft.body;
+        if (this.markdownEditor) {
+          if (typeof this.markdownEditor.setValue === 'function') {
+            this.markdownEditor.setValue(draft.body);
+          } else if (typeof this.markdownEditor.setContent === 'function') {
+            this.markdownEditor.setContent(draft.body);
+          }
+        }
+      }
+      
+      if (draft.tags && Array.isArray(draft.tags)) {
+        this.tags = draft.tags;
+        const tagsInput = document.getElementById('post-tags');
+        if (tagsInput) tagsInput.value = draft.tags.join(' ');
+      }
+      
+      if (draft.community) {
+        this.selectedCommunity = { name: draft.community };
+        const communitySearch = document.getElementById('community-search');
+        if (communitySearch) {
+          communitySearch.value = draft.community;
+          communitySearch.setAttribute('data-selected', 'true');
+        }
+        const clearBtn = document.getElementById('clear-community-btn');
+        if (clearBtn) clearBtn.classList.remove('hidden');
+      }
+      
+      // Mark as no unsaved changes since we just loaded
+      this.hasUnsavedChanges = false;
+      
+      // Update draft status
+      this.updateDraftStatus('Loaded');
+      
+      // Show success message
+      this.showStatus('Draft loaded successfully', 'success');
+      
+    } catch (error) {
+      console.error('Error loading specific draft:', error);
+      this.showError('Failed to load draft');
     }
   }
 
@@ -2116,7 +2200,7 @@ class CreatePostView extends View {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-button';
     closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '<span>✕</span>';
+    closeBtn.innerHTML = '<span class="material-icons">close</span>';
     
     header.appendChild(title);
     header.appendChild(closeBtn);

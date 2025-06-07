@@ -14,14 +14,22 @@ export const mainNavItems = [
     path: '/communities',
     showInBottom: true,
     showInSide: true
-  },
-  {
+  },  {
     id: 'new',
     label: 'New',
     icon: 'new_releases',
     path: '/new',
     showInSide: true,
     showInBottom: false
+  },
+  {
+    id: 'drafts',
+    label: 'Drafts',
+    icon: 'draft',
+    path: '/drafts',
+    showInSide: true,
+    showInBottom: false,
+    requiresAuth: true
   },
   {
     id: 'wallet',

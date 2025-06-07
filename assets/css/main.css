@@ -37,6 +37,7 @@
 
 /* Page styles */
 @import 'pages/community.css';
+@import 'pages/drafts.css';
 @import 'pages/home.css';
 @import 'pages/tag.css';
 @import 'pages/settings.css'; /* Added import for settings page */

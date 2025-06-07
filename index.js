@@ -20,6 +20,7 @@ import PostView from './views/PostView.js';
 import TagView from './views/TagView.js';
 import SearchView from './views/SearchView.js';
 import CreatePostView from './views/CreatePostView.js';
+import DraftsView from './views/DraftsView.js';
 import SettingsView from './views/SettingsView.js';
 import MenuView from './views/MenuView.js';
 import FAQView from './views/FAQView.js';
@@ -45,10 +46,10 @@ const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
-  .addRoute('/', HomeView, { tag: 'trending' })
-  .addRoute('/login', LoginView)
+  .addRoute('/', HomeView, { tag: 'trending' })  .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
+  .addRoute('/drafts', DraftsView, { requiresAuth: true })
   .addRoute('/trending', HomeView, { tag: 'trending' })
   .addRoute('/hot', HomeView, { tag: 'hot' })
   .addRoute('/new', NewReleasesView) // Usando la nuova vista dedicata invece di HomeView
