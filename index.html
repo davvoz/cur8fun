@@ -54,12 +54,17 @@
                         // Execute all handlers (they will only redirect if conditions match)
                         Object.values(routeHandlers).forEach(handler => handler());
                     }
-                },                'local': {
+                },
+                'local': {
                     detect: () => true, // Default fallback
                     getBasePath: () => '',
                     handleRoutes: () => {
-                        // For local development, don't redirect to hash routes
-                        // Just handle the initial routing in the router itself
+                        if (location.pathname !== '/' &&
+                            location.pathname !== '/index.html' &&
+                            !location.hash) {
+
+                            location.replace('/#' + location.pathname);
+                        }
                     }
                 }
             };
