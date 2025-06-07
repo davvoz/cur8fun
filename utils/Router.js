@@ -13,9 +13,8 @@ class Router {
     this.currentPath = null;
     this.beforeHooks = [];
     this.navigationHistory = [];
-    this.maxHistoryLength = 10;
-    this.viewContainer = null;
-    this.useHashRouting = true; // Enable hash-based routing by default
+    this.maxHistoryLength = 10;    this.viewContainer = null;
+    this.useHashRouting = false; // Use HTML5 History API for clean URLs
     this.basePath = ''; // Base path for GitHub Pages (e.g., '/repository-name')
     
     // Detect if we're on GitHub Pages and set the base path
