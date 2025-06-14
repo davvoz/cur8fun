@@ -275,14 +275,38 @@ class RegisterService {
           throw new Error(errorMessage);
         }
       }
+        // Extract keys from response or use placeholders for development
+      let keys = {};
       
-      // Extract keys from response or use placeholders for development
-      const keys = {
-        owner_key: response.owner_key || 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
-        active_key: response.active_key || 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
-        posting_key: response.posting_key || 'POSTING_KEY_PROVIDED_TO_TELEGRAM',
-        memo_key: response.memo_key || 'MEMO_KEY_PROVIDED_TO_TELEGRAM'
-      };
+      // Check if keys are in the response directly
+      if (response.owner_key || response.active_key || response.posting_key || response.memo_key) {
+        keys = {
+          owner_key: response.owner_key || 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
+          active_key: response.active_key || 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
+          posting_key: response.posting_key || 'POSTING_KEY_PROVIDED_TO_TELEGRAM',
+          memo_key: response.memo_key || 'MEMO_KEY_PROVIDED_TO_TELEGRAM'
+        };
+      } 
+      // Check if keys are in a nested 'keys' object
+      else if (response.keys && typeof response.keys === 'object') {
+        console.log('Found keys in nested object:', response.keys);
+        keys = {
+          owner_key: response.keys.owner_key || 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
+          active_key: response.keys.active_key || 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
+          posting_key: response.keys.posting_key || 'POSTING_KEY_PROVIDED_TO_TELEGRAM',
+          memo_key: response.keys.memo_key || 'MEMO_KEY_PROVIDED_TO_TELEGRAM',
+          master_key: response.keys.master_key || null
+        };
+      } 
+      // Default placeholders if no keys found
+      else {
+        keys = {
+          owner_key: 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
+          active_key: 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
+          posting_key: 'POSTING_KEY_PROVIDED_TO_TELEGRAM',
+          memo_key: 'MEMO_KEY_PROVIDED_TO_TELEGRAM'
+        };
+      }
       
       // In development mode, show more explicit key values
       if (isLocalDev) {

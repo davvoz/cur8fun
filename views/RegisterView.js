@@ -789,12 +789,15 @@ class RegisterView extends View {
           throw new Error(`Failed to create account: ${creationError.message || 'Unknown error'}`);
         }
       }
-      
-      // Step 5: Finalizing (100%)
+        // Step 5: Finalizing (100%)
       updateStatus('Account created successfully!', 100);
       
       // Get the created username from result if available
       const createdUsername = result.createdUsername || username;
+      
+      // Extract keys from result if available
+      const accountKeys = result.keys || null;
+      console.log('Account keys from API:', accountKeys);
       
       // Update status indicator with success message
       statusIndicator.style.backgroundColor = '#e8f5e9';
@@ -829,7 +832,7 @@ class RegisterView extends View {
       
       // Show success message in the form after a short delay
       setTimeout(() => {
-        this.showSuccessMessage(form, username, isInTelegram);
+        this.showSuccessMessage(form, createdUsername, isInTelegram, accountKeys);
       }, 1500);
       
     } catch (error) {
@@ -904,10 +907,16 @@ class RegisterView extends View {
           type: 'success',
           message: successMessage
         });
+          // Extract keys if present in the error object
+        let accountKeys = null;
+        if (error.keys) {
+          accountKeys = error.keys;
+          console.log('Account keys from error object:', accountKeys);
+        }
         
         // Show success message in the form
         setTimeout(() => {
-          this.showSuccessMessage(form, createdUsername, isInTelegram);
+          this.showSuccessMessage(form, createdUsername, isInTelegram, accountKeys);
         }, 1500);
         
         return; // Exit error handling since this is actually a success case
@@ -1023,7 +1032,7 @@ class RegisterView extends View {
       submitButton.innerHTML = 'Try Again';
       submitButton.style.color = '';
     }
-  }  showSuccessMessage(form, username, isInTelegram = false) {
+  }  showSuccessMessage(form, username, isInTelegram = false, keys = null) {
     // Hide the form
     form.style.display = 'none';
     
@@ -1041,57 +1050,98 @@ class RegisterView extends View {
                      window.location.hostname.includes('127.0.0.1') ||
                      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
     
+    // Generate mock keys for display if we're in local dev and don't have real keys
+    const accountKeys = keys || this.generateMockKeysForDisplay(username);
+      // Store keys for PDF generation with better logging
+    console.log('Storing account data for PDF generation:', {
+      username,
+      keys: accountKeys,
+      isInTelegram,
+      isLocalDev
+    });
+    
+    successContainer.accountData = {
+      accountName: username,
+      keys: accountKeys,
+      isInTelegram,
+      isLocalDev
+    };
+    
     // Add success message
     const successMessage = document.createElement('div');
     successMessage.className = 'success-message';
     
+    // Header is the same for all cases
+    const header = `
+      <div class="success-header">
+        <span class="material-icons" style="color: #2e7d32; font-size: 28px; margin-right: 10px;">check_circle</span>
+        <h3 style="color: #2e7d32; margin-top: 0;">Account Created Successfully!${isLocalDev ? ' (Development Mode)' : ''}</h3>
+      </div>
+      <div class="account-details">
+        <p>Your Steem account <strong>${username}</strong> has been created.</p>
+    `;
+    
+    let keysContent = '';
+    let warningContent = '';
+    
+    // Different content based on environment
     if (isInTelegram) {
-      // In Telegram
-      successMessage.innerHTML = `
-        <div class="success-header">
-          <span class="material-icons" style="color: #2e7d32; font-size: 28px; margin-right: 10px;">check_circle</span>
-          <h3 style="color: #2e7d32; margin-top: 0;">Account Created Successfully!</h3>
-        </div>
-        <div class="account-details">
-          <p>Your Steem account <strong>${username}</strong> has been created.</p>
-          <p>Your account details and private keys have been sent to you via Telegram.</p>
-          <div class="key-warning">
-            <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
-            <p>Please save them in a secure location.</p>
+      // In Telegram - show keys with option to hide them
+      keysContent = `
+        <div class="keys-section">
+          <p><strong>Your account keys:</strong></p>
+          <div class="keys-container" id="keysContent">
+            <p><strong>Active Key:</strong> <code class="copyable">${accountKeys.active_key || 'Sent via Telegram'}</code></p>
+            <p><strong>Owner Key:</strong> <code class="copyable">${accountKeys.owner_key || 'Sent via Telegram'}</code></p>
+            <p><strong>Posting Key:</strong> <code class="copyable">${accountKeys.posting_key || 'Sent via Telegram'}</code></p>
+            <p><strong>Memo Key:</strong> <code class="copyable">${accountKeys.memo_key || 'Sent via Telegram'}</code></p>
+            ${accountKeys.master_key ? `<p><strong>Master Key:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
           </div>
+          <p>These keys have also been sent to you via Telegram.</p>
+        </div>
+      `;
+      
+      warningContent = `
+        <div class="key-warning">
+          <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
+          <p>Please save them in a secure location.</p>
         </div>
       `;
     } else if (isLocalDev) {
-      // Local development mode
-      successMessage.innerHTML = `
-        <div class="success-header">
-          <span class="material-icons" style="color: #2e7d32; font-size: 28px; margin-right: 10px;">check_circle</span>
-          <h3 style="color: #2e7d32; margin-top: 0;">Account Created Successfully! (Development Mode)</h3>
-        </div>
-        <div class="account-details">
-          <p>Your Steem account <strong>${username}</strong> has been created.</p>
-          <p>In production, account details and private keys would be sent via Telegram.</p>
-          <div class="key-warning" style="background-color: #fff9c4; border: 1px solid #fbc02d; color: #333; padding: 10px; border-radius: 5px; margin-top: 15px;">
-            <p><strong>Development Mode:</strong> For testing purposes only. This account may not be accessible on the blockchain.</p>
+      // Local development mode - show mock keys
+      keysContent = `
+        <div class="keys-section">
+          <p><strong>Your test account keys (for development only):</strong></p>
+          <div class="keys-container" id="keysContent">
+            <p><strong>Active Key:</strong> <code class="copyable">${accountKeys.active_key}</code></p>
+            <p><strong>Owner Key:</strong> <code class="copyable">${accountKeys.owner_key}</code></p>
+            <p><strong>Posting Key:</strong> <code class="copyable">${accountKeys.posting_key}</code></p>
+            <p><strong>Memo Key:</strong> <code class="copyable">${accountKeys.memo_key}</code></p>
+            ${accountKeys.master_key ? `<p><strong>Master Key:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
           </div>
+          <p>In production, account details and keys would be sent via Telegram.</p>
+        </div>
+      `;
+      
+      warningContent = `
+        <div class="key-warning" style="background-color: #fff9c4; border: 1px solid #fbc02d; color: #333;">
+          <p><strong>Development Mode:</strong> For testing purposes only. This account may not be accessible on the blockchain.</p>
         </div>
       `;
     } else {
       // Generic message as fallback
-      successMessage.innerHTML = `
-        <div class="success-header">
-          <span class="material-icons" style="color: #2e7d32; font-size: 28px; margin-right: 10px;">check_circle</span>
-          <h3 style="color: #2e7d32; margin-top: 0;">Account Created Successfully!</h3>
-        </div>
-        <div class="account-details">
-          <p>Your Steem account <strong>${username}</strong> has been created.</p>
-          <p>Please check your Telegram for account details and private keys.</p>
-          <div class="key-warning">
-            <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
-          </div>
+      keysContent = `
+        <p>Please check your Telegram for account details and private keys.</p>
+      `;
+      
+      warningContent = `
+        <div class="key-warning">
+          <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
         </div>
       `;
     }
+    
+    successMessage.innerHTML = header + keysContent + warningContent + '</div>';
     successContainer.appendChild(successMessage);
     
     // Add buttons
@@ -1099,14 +1149,39 @@ class RegisterView extends View {
     buttonsContainer.className = 'success-buttons';
     buttonsContainer.style.marginTop = '20px';
     buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.flexWrap = 'wrap';
+    buttonsContainer.style.gap = '10px';
     buttonsContainer.style.justifyContent = 'space-between';
+    
+    // Download PDF button (shown in all modes for demonstration)
+    const downloadPdfButton = document.createElement('button');
+    downloadPdfButton.className = 'pdf-button';
+    downloadPdfButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">download</span> Download Keys as PDF';
+    downloadPdfButton.style.flex = '1';
+    downloadPdfButton.style.minWidth = '200px';
+    downloadPdfButton.style.backgroundColor = '#4285f4';
+    downloadPdfButton.style.color = 'white';
+    downloadPdfButton.style.border = 'none';
+    downloadPdfButton.style.borderRadius = '4px';
+    downloadPdfButton.style.padding = '10px';
+    downloadPdfButton.style.cursor = 'pointer';
+    downloadPdfButton.style.display = 'flex';
+    downloadPdfButton.style.alignItems = 'center';
+    downloadPdfButton.style.justifyContent = 'center';
+    downloadPdfButton.addEventListener('click', () => {
+      this.downloadAccountPDF(successContainer.accountData);
+    });
+    buttonsContainer.appendChild(downloadPdfButton);
     
     // Login button
     const loginButton = document.createElement('button');
     loginButton.className = 'auth-button';
-    loginButton.textContent = 'Go to Login';
+    loginButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">login</span> Go to Login';
     loginButton.style.flex = '1';
-    loginButton.style.marginRight = '10px';
+    loginButton.style.minWidth = '200px';
+    loginButton.style.display = 'flex';
+    loginButton.style.alignItems = 'center';
+    loginButton.style.justifyContent = 'center';
     loginButton.addEventListener('click', () => {
       router.navigate('/login');
     });
@@ -1115,9 +1190,12 @@ class RegisterView extends View {
     // Create another account button
     const createAnotherButton = document.createElement('button');
     createAnotherButton.className = 'secondary-button';
-    createAnotherButton.textContent = 'Create Another Account';
+    createAnotherButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">person_add</span> Create Another Account';
     createAnotherButton.style.flex = '1';
-    createAnotherButton.style.marginLeft = '10px';
+    createAnotherButton.style.minWidth = '200px';
+    createAnotherButton.style.display = 'flex';
+    createAnotherButton.style.alignItems = 'center';
+    createAnotherButton.style.justifyContent = 'center';
     createAnotherButton.addEventListener('click', () => {
       // Clear the container and re-render the form
       this.render(this.element);
@@ -1144,11 +1222,40 @@ class RegisterView extends View {
         border-radius: 5px;
         margin-top: 15px;
       }
+      .keys-section {
+        margin: 15px 0;
+        padding: 15px;
+        background-color: #f5f5f5;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+      }
+      .keys-container {
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #fff;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+      }
+      .copyable {
+        background-color: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        transition: background-color 0.2s;
+      }
+      .copyable:hover {
+        background-color: #e0e0e0;
+      }
     `;
     document.head.appendChild(customStyle);
     
     // Add to parent element
     this.element.querySelector('.auth-container').appendChild(successContainer);
+    
+    // Add click to copy functionality
+    this.addCopyToClipboardFunctionality();
   }
   
   showError(form, message) {
@@ -1159,6 +1266,232 @@ class RegisterView extends View {
     // Insert after header
     const header = form.querySelector('.auth-header');
     form.insertBefore(errorElement, header.nextSibling);
+  }
+  
+  /**
+   * Generate mock keys for display in development mode
+   * @param {string} username - The account username
+   * @returns {Object} - Object containing mock keys
+   */
+  generateMockKeysForDisplay(username) {
+    return {
+      active_key: `MOCK_ACTIVE_KEY_${username}_${Math.random().toString(36).substring(2, 10)}`,
+      owner_key: `MOCK_OWNER_KEY_${username}_${Math.random().toString(36).substring(2, 10)}`,
+      posting_key: `MOCK_POSTING_KEY_${username}_${Math.random().toString(36).substring(2, 10)}`,
+      memo_key: `MOCK_MEMO_KEY_${username}_${Math.random().toString(36).substring(2, 10)}`,
+      master_key: `MOCK_MASTER_KEY_${username}_${Math.random().toString(36).substring(2, 10)}`
+    };
+  }
+  
+  /**
+   * Add copy to clipboard functionality to all elements with .copyable class
+   */
+  addCopyToClipboardFunctionality() {
+    // Add copy functionality to key codes
+    document.querySelectorAll('.copyable').forEach(codeElement => {
+      codeElement.addEventListener('click', function() {
+        const textToCopy = this.textContent;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          // Show a brief "copied" feedback
+          const originalText = this.textContent;
+          const originalBackground = this.style.backgroundColor;
+          
+          this.textContent = 'Copied!';
+          this.style.backgroundColor = '#d4edda';
+          
+          setTimeout(() => {
+            this.textContent = originalText;
+            this.style.backgroundColor = originalBackground;
+          }, 1000);
+        });
+      });
+      codeElement.title = 'Click to copy';
+    });
+  }
+  
+  /**
+   * Downloads account information as a PDF
+   * @param {Object} accountData - Data for the account including keys
+   */
+  downloadAccountPDF(accountData) {
+    if (!window.jspdf) {
+      console.log('Loading jsPDF library...');
+      // Load jsPDF if not already loaded
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = () => {
+        console.log('jsPDF loaded successfully');
+        this.generatePDF(accountData);
+      };
+      script.onerror = () => {
+        console.error('Failed to load jsPDF');
+        alert('Could not load the PDF generation library. Offering text download instead.');
+        this.offerTextDownload(accountData);
+      };
+      document.body.appendChild(script);
+    } else {
+      this.generatePDF(accountData);
+    }
+  }
+  
+  /**
+   * Generates a PDF with account details
+   * @param {Object} data - Account data including keys
+   */
+  generatePDF(data) {
+    try {
+      console.log('Generating PDF for account:', data.accountName);
+      const jsPDF = window.jspdf.jsPDF;
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(0, 102, 204);
+      doc.text('Steem Account Details', 20, 20);
+      
+      // Add account info
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Account Name: ${data.accountName}`, 20, 40);
+      
+      // Environment notice
+      if (data.isLocalDev) {
+        doc.setTextColor(255, 0, 0);
+        doc.text('DEVELOPMENT MODE - FOR TESTING ONLY', 20, 50);
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      // Add keys section
+      doc.text('Keys:', 20, 60);
+      doc.setFont(undefined, 'bold');
+      doc.text('Active Key:', 20, 70);
+      doc.setFont(undefined, 'normal');
+      doc.text(data.keys.active_key, 55, 70);
+      
+      doc.setFont(undefined, 'bold');
+      doc.text('Owner Key:', 20, 80);
+      doc.setFont(undefined, 'normal');
+      doc.text(data.keys.owner_key, 55, 80);
+      
+      doc.setFont(undefined, 'bold');
+      doc.text('Posting Key:', 20, 90);
+      doc.setFont(undefined, 'normal');
+      doc.text(data.keys.posting_key, 55, 90);
+      
+      doc.setFont(undefined, 'bold');
+      doc.text('Memo Key:', 20, 100);
+      doc.setFont(undefined, 'normal');
+      doc.text(data.keys.memo_key, 55, 100);
+      
+      if (data.keys.master_key) {
+        doc.setFont(undefined, 'bold');
+        doc.text('Master Key:', 20, 110);
+        doc.setFont(undefined, 'normal');
+        doc.text(data.keys.master_key, 55, 110);
+      }
+      
+      // Add warning
+      doc.setTextColor(255, 0, 0);
+      doc.text('IMPORTANT:', 20, 130);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Keep your keys safe! They cannot be recovered if lost.', 20, 140);
+      doc.text('Never share your private keys with anyone.', 20, 150);
+      
+      // Add date stamp
+      const now = new Date();
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on ${now.toLocaleString()}`, 20, 170);
+      
+      // For mobile compatibility, use blob and data URL approach
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Create a temporary link and trigger download
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pdfUrl;
+      downloadLink.download = `steem-account-${data.accountName}.pdf`;
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      
+      // Clean up
+      setTimeout(() => {
+        URL.revokeObjectURL(pdfUrl);
+        document.body.removeChild(downloadLink);
+      }, 100);
+      
+      // Show success message
+      this.showNotification('PDF download started', 'success');
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      this.showNotification('PDF generation failed', 'error');
+      
+      // Fallback: offer text information if PDF fails
+      this.offerTextDownload(data);
+    }
+  }
+  
+  /**
+   * Fallback function to offer account details as text if PDF fails
+   * @param {Object} data - Account data including keys
+   */
+  offerTextDownload(data) {
+    const textContent = `
+Steem Account Details
+====================
+Account Name: ${data.accountName}
+
+Keys:
+- Active Key: ${data.keys.active_key}
+- Owner Key: ${data.keys.owner_key}
+- Posting Key: ${data.keys.posting_key}
+- Memo Key: ${data.keys.memo_key}
+${data.keys.master_key ? `- Master Key: ${data.keys.master_key}` : ''}
+
+IMPORTANT:
+Keep your keys safe! They cannot be recovered if lost.
+Never share your private keys with anyone.
+
+Generated on ${new Date().toLocaleString()}
+${data.isLocalDev ? '\nDEVELOPMENT MODE - FOR TESTING ONLY' : ''}
+    `;
+    
+    const textBlob = new Blob([textContent], { type: 'text/plain' });
+    const textUrl = URL.createObjectURL(textBlob);
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = textUrl;
+    downloadLink.download = `steem-account-${data.accountName}.txt`;
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(textUrl);
+      document.body.removeChild(downloadLink);
+    }, 100);
+    
+    this.showNotification('Text file download started', 'success');
+  }
+  
+  /**
+   * Show a notification message
+   * @param {string} message - The message to show
+   * @param {string} type - The type of notification (success, error, etc)
+   */
+  showNotification(message, type = 'info') {
+    // Use the event emitter for notifications if available
+    if (typeof eventEmitter !== 'undefined') {
+      eventEmitter.emit('notification', {
+        type: type,
+        message: message
+      });
+      return;
+    }
+    
+    // Fallback to alert if event emitter not available
+    alert(message);
   }
 }
 
