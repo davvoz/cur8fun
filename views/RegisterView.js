@@ -70,80 +70,106 @@ class RegisterView extends View {
       }
     `;
     document.head.appendChild(spinnerStyle);
-      // Enhanced Telegram detection
+    // Enhanced Telegram detection with stricter validation
     const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
     const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
     const telegramId = telegramData?.user?.id;
     const telegramUsername = telegramData?.user?.username;
     
-    // Use multiple methods to detect Telegram
-    const isInTelegram = isTelegramWebView || 
-                        window.location.href.includes('tgWebApp=') || 
-                        navigator.userAgent.toLowerCase().includes('telegram') ||
-                        document.referrer.toLowerCase().includes('telegram');
-                        
-    // Log Telegram detection status for debugging
-    console.log("Telegram detection in RegisterView:", {
+    // Check for real Telegram app integration - MUST have actual user data
+    const hasTelegramAuth = !!telegramId && !!telegramUsername;
+    
+    // Other indicators (less reliable)
+    const secondaryTelegramIndicators = 
+        window.location.href.includes('tgWebApp=') || 
+        navigator.userAgent.toLowerCase().includes('telegram') ||
+        document.referrer.toLowerCase().includes('telegram');
+    
+    // Combined detection with proper hierarchy:
+    // 1. Authenticated Telegram session (highest confidence) - REQUIRES user data
+    // 2. WebApp API presence but no auth (medium confidence)
+    // 3. Secondary indicators (lowest confidence)
+    const telegramConfidence = hasTelegramAuth ? 'high' : 
+                              isTelegramWebView ? 'medium' : 
+                              secondaryTelegramIndicators ? 'low' : 'none';
+                              
+    // Only consider truly IN Telegram if we have user data or WebApp integration
+    const isInTelegram = hasTelegramAuth || isTelegramWebView;
+    const hasFullTelegramAuth = hasTelegramAuth;
+    
+    // Determine appropriate messaging based on confidence level
+    let telegramStatus = 'not-detected';
+    if (hasFullTelegramAuth) {
+        telegramStatus = 'authenticated';
+    } else if (telegramConfidence === 'medium') {
+        telegramStatus = 'detected-no-auth';
+    } else if (telegramConfidence === 'low') {
+        telegramStatus = 'possible';
+    }
+                          // Log enhanced Telegram detection status for debugging
+    console.log("Enhanced Telegram detection in RegisterView:", {
       isTelegramWebView,
+      telegramConfidence,
+      telegramStatus,
       isInTelegram,
-      telegramId,
-      telegramUsername,
+      hasFullTelegramAuth,
+      telegramId: telegramId || 'undefined',
+      telegramUsername: telegramUsername || 'undefined',
+      hasTelegramAuth,
+      secondaryTelegramIndicators,
       userAgent: navigator.userAgent,
       url: window.location.href
     });
     
-    const isLocalDev = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-    
-    if (telegramId) {
-      // Show Telegram info with user data
+    const isLocalDev = window.location.hostname.includes('localhost') || 
+                      window.location.hostname.includes('127.0.0.1') ||
+                      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
+      if (telegramId && telegramUsername) {
+      // Show Telegram info with verified user data
       const telegramInfo = document.createElement('div');
-      telegramInfo.className = 'telegram-info';
-      telegramInfo.style.backgroundColor = '#e9f5ff';
-      telegramInfo.style.padding = '10px 15px';
-      telegramInfo.style.borderRadius = '5px';
-      telegramInfo.style.marginBottom = '15px';
+      telegramInfo.className = 'telegram-auth-high';
       telegramInfo.innerHTML = `
-        <p style="margin: 0 0 5px;"><strong>Telegram User:</strong> @${telegramUsername || 'User'}</p>
+        <p style="margin: 0 0 5px;"><strong>Telegram User:</strong> @${telegramUsername}</p>
         <p style="margin: 0;"><strong>Telegram ID:</strong> ${telegramId}</p>
       `;
       form.appendChild(telegramInfo);
-    } else if (isInTelegram) {
-      // In Telegram but no user data yet
+    } else if (telegramConfidence === 'medium') {
+      // Telegram API detected but no user data
       const telegramInfo = document.createElement('div');
-      telegramInfo.className = 'telegram-info';
-      telegramInfo.style.backgroundColor = '#fff9e6';
-      telegramInfo.style.padding = '10px 15px';
-      telegramInfo.style.borderRadius = '5px';
-      telegramInfo.style.marginBottom = '15px';
+      telegramInfo.className = 'telegram-auth-medium';
       telegramInfo.innerHTML = `
-        <p style="margin: 0;"><strong>Telegram detected!</strong> You can proceed with registration.</p>
+        <p style="margin: 0;"><strong>Telegram API detected but not authenticated</strong></p>
+        <p style="margin: 5px 0 0;">Please ensure you open this app directly from the Telegram app.</p>
+        <p style="margin: 5px 0 0;">If you're already in Telegram, try refreshing the page or reinstalling the bot.</p>
       `;
       form.appendChild(telegramInfo);
+    } else if (telegramConfidence === 'low') {
+      // Possibly Telegram but uncertain
+      const possibleTelegramInfo = document.createElement('div');
+      possibleTelegramInfo.className = 'telegram-auth-low';
+      possibleTelegramInfo.innerHTML = `
+        <p style="margin: 0;"><strong>Possible Telegram detected but not verified</strong></p>
+        <p style="margin: 5px 0 0;">Please make sure you're opening this from the official Telegram app.</p>
+        <p style="margin: 5px 0 0;">For proper account creation, use the official <a href="https://t.me/steemeebot" style="color: var(--primary-color);">Steemee Telegram Bot</a>.</p>
+      `;
+      form.appendChild(possibleTelegramInfo);
     } else if (isLocalDev) {
       // Local development mode
       const devNote = document.createElement('div');
       devNote.className = 'dev-info';
-      devNote.style.backgroundColor = '#e6fff9';
-      devNote.style.padding = '10px 15px';
-      devNote.style.borderRadius = '5px';
-      devNote.style.marginBottom = '15px';
       devNote.innerHTML = `
         <p style="margin: 0;"><strong>Development Mode</strong> - Telegram authentication bypassed</p>
+        <p style="margin: 5px 0 0;">Testing on: ${window.location.hostname}</p>
       `;
       form.appendChild(devNote);
     } else {
       // Not in Telegram at all
       const telegramWarning = document.createElement('div');
-      telegramWarning.className = 'auth-warning';
-      telegramWarning.style.backgroundColor = '#ffeeee';
-      telegramWarning.style.padding = '10px 15px';
-      telegramWarning.style.border = '1px solid #ff6b6b';
-      telegramWarning.style.borderRadius = '5px';
-      telegramWarning.style.marginBottom = '15px';
+      telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Note:</strong> Account creation requires Telegram authentication.</p>
         <p style="margin: 0 0 10px;">Please open this app from Telegram to create a new Steem account.</p>
-        <p style="margin: 0;"><a href="https://t.me/steemeebot" target="_blank" style="color: #0088cc; font-weight: bold;">Open in Telegram</a></p>
+        <p style="margin: 0;"><a href="https://t.me/steemeebot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Open in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
     }
@@ -211,34 +237,60 @@ class RegisterView extends View {
     submitButton.addEventListener('click', () => {
       if (!submitButton.disabled) {
         // Show immediate feedback that the button was clicked
-        submitButton.style.opacity = '0.9';
         spinnerContainer.style.display = 'inline-block';
         submitButton.classList.add('button-clicked');
         
         // Reset after a short delay if the form is invalid
         setTimeout(() => {
           if (!document.querySelector('.account-creation-status')) {
-            submitButton.style.opacity = '';
             spinnerContainer.style.display = 'none';
           }
         }, 2000);
       }
     });
-    
-    // Apply appropriate button state based on Telegram detection
+      // Apply appropriate button state based on Telegram detection
     if (!isInTelegram && !isLocalDev) {
-      // Not in Telegram and not in development mode - disable
+      // Not in Telegram at all
       submitButton.disabled = true;
       submitButton.textContent = 'Telegram Required';
-      submitButton.style.opacity = '0.6';
-    } else if (isInTelegram && !telegramId) {
-      // In Telegram but ID not available - can happen during initialization
+      submitButton.classList.add('auth-button-none');
+    } else if (telegramConfidence === 'medium') {
+      // In Telegram but not authenticated
       submitButton.dataset.telegramPending = 'true';
-      submitButton.style.backgroundColor = '#ffb74d';
+      submitButton.textContent = 'Authentication Needed';
+      submitButton.classList.add('auth-button-medium');
+      
+      // Add click handler to show authentication dialog
+      submitButton.addEventListener('click', (e) => {
+        if (submitButton.dataset.telegramPending === 'true') {
+          e.preventDefault();
+          alert('Please ensure Telegram authentication is complete. Try reopening the app from Telegram.');
+          
+          // Try to recheck Telegram auth
+          if (window.Telegram && window.Telegram.WebApp) {
+            try {
+              window.Telegram.WebApp.expand();
+              window.Telegram.WebApp.requestContact();
+              // Force reload after a delay
+              setTimeout(() => window.location.reload(), 1500);
+            } catch (err) {
+              console.error('Failed to request Telegram auth:', err);
+            }
+          }
+        }
+      });
+    } else if (telegramConfidence === 'low') {
+      // Possibly Telegram but uncertain
+      submitButton.textContent = 'Create Account (Verification Needed)';
+      submitButton.classList.add('auth-button-low');
     } else if (isLocalDev) {
       // In development mode - allow with visual indication
-      submitButton.style.backgroundColor = '#4caf50';
+      submitButton.classList.add('auth-button-dev');
       submitButton.textContent = 'Create Account (Dev Mode)';
+    } else if (hasFullTelegramAuth) {
+      // Fully authenticated Telegram
+      submitButton.classList.add('auth-button-high');
+      submitButton.textContent = 'Create Account';
     }
     
     form.appendChild(submitButton);
@@ -584,33 +636,57 @@ class RegisterView extends View {
       // Step 1: Enhanced Telegram detection (10%)
       updateStatus('Checking Telegram authentication...', 10);
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
-      
+        // Enhanced Telegram detection with stricter validation
       const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
       const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
       const telegramId = telegramData?.user?.id;
+      const telegramUsername = telegramData?.user?.username;
       
-      // Use multiple methods to detect Telegram
-      const isInTelegram = isTelegramWebView || 
-                          window.location.href.includes('tgWebApp=') || 
-                          navigator.userAgent.toLowerCase().includes('telegram') ||
-                          document.referrer.toLowerCase().includes('telegram');
+      // Check for real Telegram app integration - MUST have actual user data
+      const hasTelegramAuth = !!telegramId && !!telegramUsername;
       
-      const isLocalDev = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      // Other indicators (less reliable)
+      const secondaryTelegramIndicators = 
+          window.location.href.includes('tgWebApp=') || 
+          navigator.userAgent.toLowerCase().includes('telegram') ||
+          document.referrer.toLowerCase().includes('telegram');
       
-      // Only strict validation for production environment
-      if (!isInTelegram && !isLocalDev) {
-        throw new Error('Telegram authentication is required to create an account.');
-      }
+      // Combined detection with proper hierarchy - STRICTER validation
+      const telegramConfidence = hasTelegramAuth ? 'high' : 
+                                isTelegramWebView ? 'medium' : 
+                                secondaryTelegramIndicators ? 'low' : 'none';
+                                
+      // Only consider truly IN Telegram if we have user data or WebApp integration
+      const isInTelegram = hasTelegramAuth || isTelegramWebView;
+      const hasFullTelegramAuth = hasTelegramAuth;
       
+      const isLocalDev = window.location.hostname.includes('localhost') || 
+                        window.location.hostname.includes('127.0.0.1') ||
+                        window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
       // Log detection results
-      console.log('Telegram detection results:', {
+      console.log('Enhanced Telegram detection results in handleSubmit:', {
         isTelegramWebView,
+        telegramConfidence,
         isInTelegram,
-        telegramId: telegramId || 'Not available',
+        hasFullTelegramAuth,
+        telegramId: telegramId || 'undefined',
+        telegramUsername: telegramUsername || 'undefined',
+        hasTelegramAuth,
         userAgent: navigator.userAgent,
         hostname: window.location.hostname,
-        isLocalDev
+        isLocalDev,
+        secondaryTelegramIndicators
       });
+        // Only strict validation for production environment
+      if (!isLocalDev) {
+        // In production, we require HIGH confidence (authenticated Telegram with user data)
+        if (!hasFullTelegramAuth) {
+          throw new Error('Complete Telegram authentication is required. Please open this app directly from Telegram and ensure you are logged in with a Telegram account that has a username.');
+        }
+      } else if (!isInTelegram && !isLocalDev) {
+        // Fallback check (shouldn't be needed with new logic)
+        throw new Error('Telegram authentication is required to create an account.');
+      }
       
       // Step 2: Checking API connectivity (30%)
       updateStatus('Connecting to API service...', 30);

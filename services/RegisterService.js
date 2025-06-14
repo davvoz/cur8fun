@@ -123,34 +123,45 @@ class RegisterService {
       throw new Error('This account name already exists. Please choose a different name.');
     }
     
-    try {
-      // Detect Telegram in multiple ways
+    try {      // Detect Telegram in multiple ways with stricter validation
       const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
       const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
       const telegramId = telegramData?.user?.id;
       const telegramUsername = telegramData?.user?.username;
       
-      // Enhanced detection - check the API, URL, user agent and referrer
-      const isInTelegram = isTelegramWebView || 
-                          window.location.href.includes('tgWebApp=') || 
-                          navigator.userAgent.toLowerCase().includes('telegram') ||
-                          document.referrer.toLowerCase().includes('telegram');
+      // Check for real Telegram app integration - MUST have actual user data
+      const hasTelegramAuth = !!telegramId && !!telegramUsername;
       
-      // Log comprehensive Telegram status for debugging
+      // Other indicators (less reliable)
+      const secondaryTelegramIndicators = 
+          window.location.href.includes('tgWebApp=') || 
+          navigator.userAgent.toLowerCase().includes('telegram') ||
+          document.referrer.toLowerCase().includes('telegram');
+          
+      // Only consider truly IN Telegram if we have user data or WebApp integration
+      const isInTelegram = hasTelegramAuth || isTelegramWebView;
+        // Log comprehensive Telegram status for debugging
       console.log('Telegram Status for Account Creation:', {
         isTelegramWebView,
         isInTelegram,
+        hasTelegramAuth,
         telegramId,
         telegramUsername,
         telegramData,
+        secondaryTelegramIndicators,
         agent: navigator.userAgent,
         url: window.location.href
       });
+        // Only strict validation for production environment 
+      const isLocalDev = window.location.hostname.includes('localhost') || 
+                       window.location.hostname.includes('127.0.0.1') ||
+                       window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
       
-      // Only strict validation for production environment 
-      const isLocalDev = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-      if (!isInTelegram && !isLocalDev) {
-        throw new Error('Telegram authentication is required to create an account.');
+      if (!isLocalDev) {
+        // In production, require actual Telegram user data
+        if (!hasTelegramAuth) {
+          throw new Error('Complete Telegram authentication is required. Please open this app directly from Telegram and ensure you are logged in with a Telegram account that has a username.');
+        }
       }
       
       // Import the ApiClient from api-ridd.js

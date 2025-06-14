@@ -1,0 +1,193 @@
+/* Stili specifici per la registrazione */
+.account-creation-status {
+  background-color: var(--background-lighter);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all var(--transition-normal);
+}
+
+.status-progress {
+  height: 6px;
+  background-color: var(--background-subtle);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: var(--space-sm) 0;
+}
+
+.status-progress-bar {
+  height: 100%;
+  background-color: var(--primary-color);
+  transition: width var(--transition-normal);
+}
+
+.auth-info, .auth-warning, .dev-info, .telegram-info {
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  border-radius: var(--radius-md);
+}
+
+.auth-warning {
+  background-color: var(--warning-light);
+  border: 1px solid var(--warning-color);
+  color: var(--warning-dark);
+}
+
+.dev-info {
+  background-color: var(--info-light);
+  border: 1px solid var(--info-color);
+  color: var(--info-dark);
+}
+
+.telegram-info {
+  background-color: var(--success-light);
+  border: 1px solid var(--success-color);
+  color: var(--success-dark);
+}
+
+.auth-success {
+  background-color: var(--success-light);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--success-color);
+}
+
+.success-buttons {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.button-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.progress-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.account-creation-process {
+  background-color: var(--info-light);
+  border-left: 4px solid var(--info-color);
+  padding: var(--space-md);
+  margin-top: var(--space-lg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.account-creation-process h4 {
+  margin-top: 0;
+  color: var(--info-color);
+}
+
+.account-creation-process ol {
+  margin-left: calc(-1 * var(--space-sm));
+  padding-left: var(--space-lg);
+}
+
+.account-creation-process li {
+  margin-bottom: var(--space-sm);
+}
+
+.username-validation {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: var(--space-xs);
+}
+
+.field-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: var(--space-xs);
+}
+
+.secondary-button {
+  background-color: var(--background-subtle);
+  color: var(--text);
+  border: 1px solid var(--border-color);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.secondary-button:hover {
+  background-color: var(--background-hover);
+}
+
+/* Telegram detection styles */
+.telegram-auth-high {
+  background-color: var(--success-light);
+  border: 1px solid var(--success-color);
+  color: var(--success-dark);
+}
+
+.telegram-auth-medium {
+  background-color: var(--warning-light);
+  border: 1px solid var(--warning-color);
+  color: var(--warning-dark);
+}
+
+.telegram-auth-low {
+  background-color: var(--warning-light);
+  border: 1px solid var(--warning-color); 
+  color: var(--warning-dark);
+  opacity: 0.9;
+}
+
+.telegram-auth-none {
+  background-color: var(--error-light);
+  border: 1px solid var(--error-color);
+  color: var(--error-dark);
+}
+
+/* Button styles based on Telegram confidence */
+.auth-button-high {
+  background-color: var(--primary-color);
+}
+
+.auth-button-medium {
+  background-color: var(--warning-color);
+}
+
+.auth-button-low {
+  background-color: var(--warning-color);
+  opacity: 0.9;
+}
+
+.auth-button-none {
+  background-color: var(--error-color);
+  opacity: 0.6;
+}
+
+.auth-button-dev {
+  background-color: var(--success-color);
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  .success-buttons {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+}
