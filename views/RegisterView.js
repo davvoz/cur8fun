@@ -794,7 +794,43 @@ class RegisterView extends View {
       // Update status indicator with error
       statusIndicator.style.backgroundColor = '#ffebee';
       statusIndicator.style.borderColor = '#ef9a9a';
+        // Check if this is actually a success message despite being thrown as an error
+      if (error.message.includes('created successfully')) {
+        console.log('Detected successful account creation in error message:', error.message);
+        
+        // Extract the username from the error message
+        const match = error.message.match(/Account (\w+) created successfully/);
+        const createdUsername = match ? match[1] : username;
+        
+        // This is actually a success case - handle it as such
+        clearAllTimeouts();
+        
+        // Update status indicator with success message
+        statusIndicator.style.backgroundColor = '#e8f5e9';
+        statusIndicator.style.borderColor = '#a5d6a7';
+        statusIndicator.innerHTML = `
+          <p style="margin: 0 0 5px;"><strong>Account Created Successfully!</strong></p>
+          <p style="margin: 0;">Username: <strong>${createdUsername}</strong></p>
+          <p style="margin: 5px 0 0;">Your account has been created on the blockchain.</p>
+          <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+        `;
+        
+        // Emit success notification instead of error
+        const successMessage = `Account ${createdUsername} created successfully!`;
+        eventEmitter.emit('notification', {
+          type: 'success',
+          message: successMessage
+        });
+        
+        // Show success message in the form
+        setTimeout(() => {
+          this.showSuccessMessage(form, createdUsername, isInTelegram);
+        }, 1500);
+        
+        return; // Exit error handling since this is actually a success case
+      }
       
+      // Normal error handling for actual errors
       // Check for specific error types to provide better guidance
       let specificHelp = '';
       if (error.message.includes('Network') || error.message.includes('connect')) {

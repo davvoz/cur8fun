@@ -211,17 +211,35 @@ export class ApiClient {
             console.error('Error checking account:', error);
             throw new Error('Failed to check account availability');
         }
-    }
-
-    createAccount(accountName) {
+    }    async createAccount(accountName) {
         console.log(`Creating account with name: ${accountName}`);
         try {
-            const result = this.sendRequest('/create_account', 'POST', { 
+            const result = await this.sendRequest('/create_account', 'POST', { 
                 new_account_name: accountName 
             });
+            
+            // Check if the result contains a success message despite any status code
+            if (result.message && result.message.includes('created successfully')) {
+                console.log(`Account creation successful: ${result.message}`);
+                return {
+                    ...result,
+                    success: true
+                };
+            }
+            
             return result;
         } catch (error) {
             console.error(`Account creation error for ${accountName}:`, error);
+            
+            // Check if the error message indicates success (this can happen with some APIs)
+            if (error.message && error.message.includes('created successfully')) {
+                console.log('Detected success message in error response');
+                return {
+                    success: true,
+                    message: error.message
+                };
+            }
+            
             // Rethrow with more context
             throw new Error(`Failed to create account "${accountName}": ${error.message}`);
         }

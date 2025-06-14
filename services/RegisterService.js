@@ -224,8 +224,7 @@ class RegisterService {
           throw new Error(`API error: ${apiError.message || 'Connection failed'}`);
         }
       }
-      
-      // Validate API response
+        // Validate API response
       if (!response) {
         console.error('Empty API response');
         throw new Error('No response from account creation API');
@@ -233,19 +232,42 @@ class RegisterService {
       
       if (typeof response !== 'object') {
         console.error('Invalid API response type:', typeof response, response);
-        throw new Error('Invalid response format from account creation API');
+        
+        // Special case: if the response is a string and contains "created successfully"
+        if (typeof response === 'string' && response.includes('created successfully')) {
+          console.log('Got success string response:', response);
+          response = {
+            success: true,
+            message: response
+          };
+        } else {
+          throw new Error('Invalid response format from account creation API');
+        }
+      }
+      
+      // Check if the message indicates success, regardless of the success flag
+      const messageIndicatesSuccess = response.message && 
+                                      (response.message.includes('created successfully') || 
+                                       response.message.includes('account created'));
+      
+      // If the message indicates success but the flag doesn't, override the flag
+      if (messageIndicatesSuccess && !response.success) {
+        console.log('Message indicates success but success flag is false. Overriding.');
+        response.success = true;
       }
       
       // Log detailed response
       console.log('Account creation API response details:', {
         success: response.success,
+        messageIndicatesSuccess,
         message: response.message,
         hasKeys: !!response.keys,
         statusCode: response.statusCode,
         rawResponse: response
       });
       
-      if (!response.success) {
+      // Handle actual error cases
+      if (!response.success && !messageIndicatesSuccess) {
         const errorMessage = response.message || 'Failed to create account';
         const errorCode = response.statusCode || 'unknown';
         console.error(`Account creation failed: ${errorMessage} (code: ${errorCode})`);
