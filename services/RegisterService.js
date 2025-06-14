@@ -165,17 +165,88 @@ class RegisterService {
         - Is in Telegram: ${isInTelegram}
       `);
       
-      // Use the createAccount method from ApiClient
-      const response = await apiClient.createAccount(username);
-      console.log('Response data from API:', response);
+      // Set a timeout to detect long-running requests
+      const TIMEOUT_MS = 30000; // 30 seconds
+      let timeoutId;
       
-      // Validate API response
-      if (!response || typeof response !== 'object') {
-        throw new Error('Invalid response from account creation API');
+      // Create a promise that rejects after timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`Account creation request timed out after ${TIMEOUT_MS/1000} seconds. The server might be busy or experiencing issues.`));
+        }, TIMEOUT_MS);
+      });
+      
+      // Use the createAccount method from ApiClient with better error handling
+      let response;
+      try {
+        console.log(`Sending createAccount request for username: ${username}`);
+        
+        // Race between actual request and timeout
+        const requestPromise = apiClient.createAccount(username);
+        response = await Promise.race([requestPromise, timeoutPromise]);
+        
+        // Clear timeout if request completes
+        clearTimeout(timeoutId);
+        
+        console.log('Raw response data from API:', response);
+      } catch (apiError) {
+        // Clear timeout if request fails
+        clearTimeout(timeoutId);
+        
+        // More detailed error logging
+        console.error('API request error:', apiError);
+        console.error('Error details:', {
+          message: apiError.message,
+          name: apiError.name,
+          stack: apiError.stack,
+          url: apiClient.baseUrl + '/create_account'
+        });
+        
+        // Provide more helpful error messages based on error type
+        if (apiError.message.includes('NetworkError') || 
+            apiError.message.includes('Failed to fetch') ||
+            apiError.message.includes('Network request failed')) {
+          throw new Error('Network connection error: Please check your internet connection and try again.');
+        } else if (apiError.message.includes('timed out')) {
+          throw new Error('Server response timeout: The account creation service is taking too long to respond. Please try again later.');
+        } else {
+          throw new Error(`API error: ${apiError.message || 'Connection failed'}`);
+        }
       }
       
+      // Validate API response
+      if (!response) {
+        console.error('Empty API response');
+        throw new Error('No response from account creation API');
+      }
+      
+      if (typeof response !== 'object') {
+        console.error('Invalid API response type:', typeof response, response);
+        throw new Error('Invalid response format from account creation API');
+      }
+      
+      // Log detailed response
+      console.log('Account creation API response details:', {
+        success: response.success,
+        message: response.message,
+        hasKeys: !!response.keys,
+        statusCode: response.statusCode,
+        rawResponse: response
+      });
+      
       if (!response.success) {
-        throw new Error(response.message || 'Failed to create account');
+        const errorMessage = response.message || 'Failed to create account';
+        const errorCode = response.statusCode || 'unknown';
+        console.error(`Account creation failed: ${errorMessage} (code: ${errorCode})`);
+        
+        // More user-friendly error messages
+        if (response.statusCode === 429) {
+          throw new Error('Too many requests. Please wait a few minutes and try again.');
+        } else if (response.message && response.message.includes('already exists')) {
+          throw new Error('This username is already taken. Please choose a different username.');
+        } else {
+          throw new Error(errorMessage);
+        }
       }
       
       // Extract keys from response or use placeholders for development

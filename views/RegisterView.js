@@ -39,6 +39,37 @@ class RegisterView extends View {
     header.appendChild(subtitle);
     
     form.appendChild(header);
+    
+    // Add spinner style for button loading state
+    const spinnerStyle = document.createElement('style');
+    spinnerStyle.textContent = `
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .button-spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      .account-creation-status {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .progress-pulse {
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+      }
+    `;
+    document.head.appendChild(spinnerStyle);
       // Enhanced Telegram detection
     const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
     const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
@@ -168,7 +199,31 @@ class RegisterView extends View {
     const submitButton = document.createElement('button');
     submitButton.type = 'submit';
     submitButton.className = 'auth-button';
-    submitButton.textContent = 'Create Account';
+    submitButton.innerHTML = 'Create Account';
+    
+    // Add spinner container (hidden by default)
+    const spinnerContainer = document.createElement('span');
+    spinnerContainer.className = 'button-spinner';
+    spinnerContainer.style.display = 'none';
+    submitButton.prepend(spinnerContainer);
+    
+    // Add button click feedback
+    submitButton.addEventListener('click', () => {
+      if (!submitButton.disabled) {
+        // Show immediate feedback that the button was clicked
+        submitButton.style.opacity = '0.9';
+        spinnerContainer.style.display = 'inline-block';
+        submitButton.classList.add('button-clicked');
+        
+        // Reset after a short delay if the form is invalid
+        setTimeout(() => {
+          if (!document.querySelector('.account-creation-status')) {
+            submitButton.style.opacity = '';
+            spinnerContainer.style.display = 'none';
+          }
+        }, 2000);
+      }
+    });
     
     // Apply appropriate button state based on Telegram detection
     if (!isInTelegram && !isLocalDev) {
@@ -401,8 +456,135 @@ class RegisterView extends View {
       errorElement.remove();
     }
     
+    // Remove any existing status indicator
+    const existingStatus = form.querySelector('.account-creation-status');
+    if (existingStatus) {
+      existingStatus.remove();
+    }
+    
+    // Network connectivity monitoring
+    let isOffline = !navigator.onLine;
+    const updateNetworkStatus = () => {
+      if (!navigator.onLine && !isOffline) {
+        isOffline = true;
+        const statusMessage = document.getElementById('status-message');
+        if (statusMessage) {
+          statusMessage.textContent = 'Network connection lost! Waiting for reconnection...';
+        }
+        statusIndicator.style.backgroundColor = '#fff3e0';
+        statusIndicator.style.borderColor = '#ffcc80';
+      } else if (navigator.onLine && isOffline) {
+        isOffline = false;
+        const statusMessage = document.getElementById('status-message');
+        if (statusMessage) {
+          statusMessage.textContent = 'Network connection restored! Continuing...';
+        }
+        setTimeout(() => {
+          if (statusIndicator.style.backgroundColor === 'rgb(255, 243, 224)') { // #fff3e0
+            statusIndicator.style.backgroundColor = '#e8f4fd';
+            statusIndicator.style.borderColor = '#90caf9';
+          }
+        }, 1000);
+      }
+    };
+    
+    // Add network listeners
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    
+    // Create and show a status indicator with improved visibility
+    const statusIndicator = document.createElement('div');
+    statusIndicator.className = 'account-creation-status';
+    statusIndicator.style.padding = '15px';
+    statusIndicator.style.marginTop = '15px';
+    statusIndicator.style.marginBottom = '15px';
+    statusIndicator.style.backgroundColor = '#e8f4fd';
+    statusIndicator.style.borderRadius = '5px';
+    statusIndicator.style.fontSize = '14px';
+    statusIndicator.style.border = '1px solid #90caf9';
+    statusIndicator.style.position = 'sticky'; // Make it sticky for better visibility
+    statusIndicator.style.bottom = '20px';
+    statusIndicator.style.zIndex = '100';
+    statusIndicator.innerHTML = `
+      <p style="margin: 0 0 5px;"><strong>Preparing account creation...</strong></p>
+      <p style="margin: 0;" id="status-message">Initializing...</p>
+      <div id="creation-progress" style="margin-top: 10px; height: 6px; background-color: #e0e0e0; border-radius: 2px; overflow: hidden;">
+        <div style="width: 10%; height: 100%; background-color: #2196f3; transition: width 0.5s ease;"></div>
+      </div>
+      <p style="margin: 5px 0 0; font-size: 12px; color: #666;" id="status-time">Starting...</p>
+    `;
+    form.appendChild(statusIndicator);
+    
+    // Variables for tracking request timing
+    let startTime = Date.now();
+    let timeoutTimers = [];
+    
+    // Functions to update status and progress
+    const updateStatus = (message, progressPercent) => {
+      const statusMessage = document.getElementById('status-message');
+      const timeElement = document.getElementById('status-time');
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+      
+      if (statusMessage) {
+        statusMessage.textContent = message;
+        console.log('Status update:', message);
+      }
+      
+      if (timeElement) {
+        timeElement.textContent = `Time elapsed: ${elapsedSec} seconds`;
+      }
+      
+      const progressBar = document.querySelector('#creation-progress > div');
+      if (progressBar && progressPercent !== undefined) {
+        progressBar.style.width = `${progressPercent}%`;
+      }
+    };
+    
+    // Function to handle potential timeouts
+    const startTimeoutDetection = (stage, timeoutMs = 15000) => {
+      const timerId = setTimeout(() => {
+        updateStatus(`${stage} is taking longer than expected, still trying...`, null);
+        statusIndicator.style.backgroundColor = '#fff3e0';
+        statusIndicator.style.borderColor = '#ffcc80';
+      }, timeoutMs);
+      
+      timeoutTimers.push(timerId);
+      return timerId;
+    };
+    
+    // Clear all timeout timers
+    const clearAllTimeouts = () => {
+      timeoutTimers.forEach(id => clearTimeout(id));
+      timeoutTimers = [];
+    };
+    
     try {
-      // Enhanced Telegram detection
+      // Disable button and show loading state
+      submitButton.disabled = true;
+      submitButton.textContent = 'Creating Account...';
+      submitButton.style.position = 'relative';
+      submitButton.style.color = 'rgba(255, 255, 255, 0.7)';
+      submitButton.innerHTML = `
+        <span style="position: absolute; display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; left: calc(50% - 40px);"></span>
+        Creating Account...
+      `;
+      
+      // Add the spinner animation style
+      if (!document.getElementById('spinner-style')) {
+        const spinnerStyle = document.createElement('style');
+        spinnerStyle.id = 'spinner-style';
+        spinnerStyle.textContent = `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `;
+        document.head.appendChild(spinnerStyle);
+      }
+      
+      // Step 1: Enhanced Telegram detection (10%)
+      updateStatus('Checking Telegram authentication...', 10);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
+      
       const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
       const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
       const telegramId = telegramData?.user?.id;
@@ -420,27 +602,89 @@ class RegisterView extends View {
         throw new Error('Telegram authentication is required to create an account.');
       }
       
-      // Log attempt details
-      console.log(`Account creation attempt:
-        - Username: ${username}
-        - Telegram detection: ${isInTelegram ? 'Yes' : 'No'}
-        - Telegram ID available: ${telegramId ? 'Yes' : 'No'}
-        - Development mode: ${isLocalDev ? 'Yes' : 'No'}
-      `);
-      
-      // Disable button and show loading state
-      submitButton.disabled = true;
-      submitButton.textContent = 'Creating Account...';
-      
-      // Call register service with username only
-      const result = await registerService.createAccount({
-        username
+      // Log detection results
+      console.log('Telegram detection results:', {
+        isTelegramWebView,
+        isInTelegram,
+        telegramId: telegramId || 'Not available',
+        userAgent: navigator.userAgent,
+        hostname: window.location.hostname,
+        isLocalDev
       });
       
+      // Step 2: Checking API connectivity (30%)
+      updateStatus('Connecting to API service...', 30);
+      let timeoutId = startTimeoutDetection('API connection check');
+      
+      try {
+        const apiCheck = await registerService.testApiConnection();
+        clearTimeout(timeoutId);
+        console.log('API connectivity check:', apiCheck);
+        
+        if (!apiCheck.success) {
+          throw new Error(`API connection failed: ${apiCheck.message}`);
+        }
+        updateStatus('API connection successful', 35);
+      } catch (apiError) {
+        clearTimeout(timeoutId);
+        console.error('API connectivity error:', apiError);
+        throw new Error(`Cannot connect to API: ${apiError.message || 'Unknown error'}`);
+      }
+      
+      // Step 3: Verifying account creation service (50%)
+      updateStatus('Verifying account creation service...', 50);
+      timeoutId = startTimeoutDetection('Service verification');
+      
+      try {
+        const serviceCheck = await registerService.checkAccountCreationService();
+        clearTimeout(timeoutId);
+        console.log('Service check:', serviceCheck);
+        
+        if (!serviceCheck.success) {
+          throw new Error(`Account creation service unavailable: ${serviceCheck.message}`);
+        }
+        updateStatus('Account creation service is available', 60);
+      } catch (serviceError) {
+        clearTimeout(timeoutId);
+        console.error('Service check error:', serviceError);
+        throw new Error(`Account creation service unavailable: ${serviceError.message || 'Unknown error'}`);
+      }
+      
+      // Step 4: Sending account creation request (70%)
+      updateStatus('Sending account creation request...', 70);
+      timeoutId = startTimeoutDetection('Account creation', 30000); // Longer timeout for account creation
+      
+      let result;
+      try {
+        // Call register service with username only
+        result = await registerService.createAccount({
+          username
+        });
+        clearTimeout(timeoutId);
+        console.log('Account creation result:', result);
+      } catch (creationError) {
+        clearTimeout(timeoutId);
+        console.error('Account creation error:', creationError);
+        throw new Error(`Failed to create account: ${creationError.message || 'Unknown error'}`);
+      }
+      
+      // Step 5: Finalizing (100%)
+      updateStatus('Account created successfully!', 100);
+      
+      // Update status indicator with success message
+      statusIndicator.style.backgroundColor = '#e8f5e9';
+      statusIndicator.style.borderColor = '#a5d6a7';
+      statusIndicator.innerHTML = `
+        <p style="margin: 0 0 5px;"><strong>Account Created Successfully!</strong></p>
+        <p style="margin: 0;">Username: <strong>${username}</strong></p>
+        <p style="margin: 5px 0 0;">Your account has been created on the blockchain.</p>
+        <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+      `;
+    
       // Success! Show notification with appropriate message
       let successMessage = 'Account created successfully!';
       
-      if (result.telegramId) {
+      if (result && result.telegramId) {
         successMessage += ' Check your Telegram for account details.';
       } else if (isInTelegram) {
         successMessage += ' Account details will be sent via Telegram.';
@@ -448,20 +692,117 @@ class RegisterView extends View {
         successMessage += ' (Development Mode)';
       }
       
+      // Emit notification event
       eventEmitter.emit('notification', {
         type: 'success',
         message: successMessage
       });
       
-      // Show success message in the form
-      this.showSuccessMessage(form, username, isInTelegram);
-      } catch (error) {
+      // Remove network listeners
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+      
+      // Show success message in the form after a short delay
+      setTimeout(() => {
+        this.showSuccessMessage(form, username, isInTelegram);
+      }, 1500);
+      
+    } catch (error) {
       console.error('Registration failed:', error);
+      clearAllTimeouts();
+      
+      // Remove network listeners
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+      
+      // Update status indicator with error
+      statusIndicator.style.backgroundColor = '#ffebee';
+      statusIndicator.style.borderColor = '#ef9a9a';
+      
+      // Check for specific error types to provide better guidance
+      let specificHelp = '';
+      if (error.message.includes('Network') || error.message.includes('connect')) {
+        specificHelp = `
+          <p style="margin: 5px 0 0; font-size: 14px;">
+            <strong>Connection Issue Detected</strong>
+          </p>
+          <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
+            <li>Check your internet connection</li>
+            <li>Make sure you have a stable connection</li>
+            <li>Try closing and reopening the Telegram app</li>
+          </ul>
+        `;
+      } else if (error.message.includes('timed out') || error.message.includes('timeout')) {
+        specificHelp = `
+          <p style="margin: 5px 0 0; font-size: 14px;">
+            <strong>Request Timeout</strong>
+          </p>
+          <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
+            <li>The server is taking too long to respond</li>
+            <li>It may be experiencing high traffic</li>
+            <li>Try again in a few minutes</li>
+          </ul>
+        `;
+      } else if (error.message.includes('already exists') || error.message.includes('taken')) {
+        specificHelp = `
+          <p style="margin: 5px 0 0; font-size: 14px;">
+            <strong>Username Not Available</strong>
+          </p>
+          <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
+            <li>Try a different username</li>
+            <li>Add numbers or characters to make it unique</li>
+          </ul>
+        `;
+      } else if (error.message.includes('Telegram')) {
+        specificHelp = `
+          <p style="margin: 5px 0 0; font-size: 14px;">
+            <strong>Telegram Authentication Issue</strong>
+          </p>
+          <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
+            <li>Make sure you're opening this from the Telegram app</li>
+            <li>Try closing and reopening the app</li>
+            <li>Update your Telegram app if needed</li>
+          </ul>
+        `;
+      } else {
+        specificHelp = `
+          <p style="margin: 5px 0 0; font-size: 14px;">
+            <strong>General Error</strong>
+          </p>
+          <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
+            <li>Try again in a few moments</li>
+            <li>Check your internet connection</li>
+            <li>If the problem persists, contact support</li>
+          </ul>
+        `;
+      }
+      
+      statusIndicator.innerHTML = `
+        <p style="margin: 0 0 5px;"><strong>Registration Error</strong></p>
+        <p style="margin: 0; color: #c62828;">${error.message || 'Failed to create account'}</p>
+        <p style="margin: 5px 0 0; font-size: 12px;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+        ${specificHelp}
+        <button id="retry-button" style="margin-top: 10px; padding: 8px 16px; background-color: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;">Try Again</button>
+      `;
+      
+      // Add event listener to retry button
+      const retryButton = document.getElementById('retry-button');
+      if (retryButton) {
+        retryButton.addEventListener('click', () => {
+          // Reset the form and try again
+          statusIndicator.remove();
+          submitButton.disabled = false;
+          submitButton.innerHTML = 'Create Account';
+          document.querySelector('.button-spinner').style.display = 'none';
+        });
+      }
+      
       this.showError(form, error.message || 'Failed to create account');
       
       // Reset button state
       submitButton.disabled = false;
-      submitButton.textContent = 'Create Account';
+      submitButton.innerHTML = 'Try Again';
+      submitButton.style.color = '';
     }
   }
   showSuccessMessage(form, username, isInTelegram = false) {

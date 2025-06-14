@@ -58,15 +58,95 @@ export class ApiClient {
 
         try {
             console.log(`Sending ${method} request to ${url}`);
-            const response = await fetch(url, options);
+            const startTime = Date.now();
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Set a timeout for the fetch operation
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20-second timeout
+            options.signal = controller.signal;
+            
+            // Attempt the request
+            let response;
+            try {
+                response = await fetch(url, options);
+                clearTimeout(timeoutId);
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    console.error('Request timed out after 20 seconds');
+                    throw new Error('Network request timed out. The server might be busy.');
+                }
+                throw fetchError;
             }
             
-            return await response.json();
+            const responseTime = Date.now() - startTime;
+            console.log(`Response received in ${responseTime}ms with status: ${response.status}`);
+            
+            if (!response.ok) {
+                // Enhance error detail based on HTTP status code
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                
+                switch (response.status) {
+                    case 401:
+                        errorMessage = 'Authentication error: Invalid or missing credentials';
+                        break;
+                    case 403:
+                        errorMessage = 'Forbidden: You don\'t have permission for this operation';
+                        break;
+                    case 404:
+                        errorMessage = 'Server endpoint not found';
+                        break;
+                    case 429:
+                        errorMessage = 'Too many requests. Please try again later';
+                        break;
+                    case 500:
+                        errorMessage = 'Server error. The service might be experiencing issues';
+                        break;
+                    case 502:
+                    case 503:
+                    case 504:
+                        errorMessage = 'Service temporarily unavailable. Please try again later';
+                        break;
+                }
+                
+                // Try to get more error details from response if possible
+                try {
+                    const errorDetail = await response.text();
+                    console.error('Error response detail:', errorDetail);
+                    
+                    try {
+                        // Try to parse as JSON
+                        const jsonError = JSON.parse(errorDetail);
+                        if (jsonError.message) {
+                            errorMessage = jsonError.message;
+                        }
+                    } catch (e) {
+                        // If not JSON, use the raw text if it's not too long
+                        if (errorDetail && errorDetail.length < 100) {
+                            errorMessage += `: ${errorDetail}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Could not read error response', e);
+                }
+                
+                throw new Error(errorMessage);
+            }
+            
+            const jsonData = await response.json();
+            return jsonData;
         } catch (error) {
             console.error('API request error:', error);
+            // Add more detailed debugging info
+            console.error('Failed request details:', {
+                url,
+                method,
+                timestamp: new Date().toISOString(),
+                telegramId: telegramData.id ? 'Present' : 'Not Present',
+                errorName: error.name,
+                errorMessage: error.message
+            });
+            
             throw error;
         }
     }
@@ -134,9 +214,17 @@ export class ApiClient {
     }
 
     createAccount(accountName) {
-        return this.sendRequest('/create_account', 'POST', { 
-            new_account_name: accountName 
-        });
+        console.log(`Creating account with name: ${accountName}`);
+        try {
+            const result = this.sendRequest('/create_account', 'POST', { 
+                new_account_name: accountName 
+            });
+            return result;
+        } catch (error) {
+            console.error(`Account creation error for ${accountName}:`, error);
+            // Rethrow with more context
+            throw new Error(`Failed to create account "${accountName}": ${error.message}`);
+        }
     }
 
     readAccount(username) {
