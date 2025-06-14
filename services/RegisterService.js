@@ -223,51 +223,45 @@ class RegisterService {
         } else {
           throw new Error(`API error: ${apiError.message || 'Connection failed'}`);
         }
-      }
-        // Validate API response
+      }      // Use our helper method to check if the response indicates success
+      const parsedResponse = this.parseResponseForSuccess(response);
+      
+      // Log detailed parsing results
+      console.log('Account creation API response analysis:', {
+        originalResponse: response,
+        parsedResult: parsedResponse,
+        rawMessage: response?.message || 'No message',
+        hasKeys: !!response?.keys
+      });
+      
+      // If response doesn't exist or isn't valid
       if (!response) {
         console.error('Empty API response');
         throw new Error('No response from account creation API');
       }
       
+      // Convert string responses to objects if needed
       if (typeof response !== 'object') {
-        console.error('Invalid API response type:', typeof response, response);
-        
-        // Special case: if the response is a string and contains "created successfully"
-        if (typeof response === 'string' && response.includes('created successfully')) {
-          console.log('Got success string response:', response);
-          response = {
-            success: true,
-            message: response
-          };
-        } else {
-          throw new Error('Invalid response format from account creation API');
-        }
+        console.log('Converting non-object response to object:', response);
+        response = {
+          success: parsedResponse.success,
+          message: String(response)
+        };
       }
       
-      // Check if the message indicates success, regardless of the success flag
-      const messageIndicatesSuccess = response.message && 
-                                      (response.message.includes('created successfully') || 
-                                       response.message.includes('account created'));
-      
-      // If the message indicates success but the flag doesn't, override the flag
-      if (messageIndicatesSuccess && !response.success) {
-        console.log('Message indicates success but success flag is false. Overriding.');
+      // Override success flag if needed based on message content
+      if (parsedResponse.success && !response.success) {
+        console.log('Message indicates success but response.success is false. Overriding.');
         response.success = true;
       }
       
-      // Log detailed response
-      console.log('Account creation API response details:', {
-        success: response.success,
-        messageIndicatesSuccess,
-        message: response.message,
-        hasKeys: !!response.keys,
-        statusCode: response.statusCode,
-        rawResponse: response
-      });
+      // If we extracted a username from the message, add it to the response
+      if (parsedResponse.username && !response.username) {
+        response.username = parsedResponse.username;
+      }
       
-      // Handle actual error cases
-      if (!response.success && !messageIndicatesSuccess) {
+      // Handle actual error cases (only if our parser also confirms it's an error)
+      if (!response.success && !parsedResponse.success) {
         const errorMessage = response.message || 'Failed to create account';
         const errorCode = response.statusCode || 'unknown';
         console.error(`Account creation failed: ${errorMessage} (code: ${errorCode})`);
@@ -310,6 +304,72 @@ class RegisterService {
       console.error('API error creating account:', error);
       throw error; // Preserve the original error
     }
+  }
+  
+  /**
+   * Parse a response or error message to check if it indicates success
+   * @param {Object|string} response - The API response or error message
+   * @returns {Object} - Parsed result with success flag and extracted data
+   */
+  parseResponseForSuccess(response) {
+    // If it's a string, convert to object with message property
+    if (typeof response === 'string') {
+      response = { message: response };
+    }
+    
+    // If it's an error object with a message property
+    if (response instanceof Error) {
+      response = { message: response.message };
+    }
+    
+    // Default values
+    const result = {
+      success: false,
+      message: '',
+      username: null
+    };
+    
+    // If no response or not an object, return default failure
+    if (!response || typeof response !== 'object') {
+      return result;
+    }
+    
+    // Get the message (might be in different properties)
+    const message = response.message || response.error || response.status || '';
+    result.message = message;
+    
+    // Check if the message contains a success indicator
+    const successIndicators = [
+      'created successfully',
+      'account created',
+      'success'
+    ];
+    
+    const hasSuccessIndicator = successIndicators.some(indicator => 
+      message.toLowerCase().includes(indicator));
+    
+    // Extract username if available
+    if (hasSuccessIndicator) {
+      const patterns = [
+        /Account (\w+) created successfully/i,
+        /(\w+) account created/i,
+        /account (\w+) has been created/i,
+        /created account (\w+)/i
+      ];
+      
+      for (const pattern of patterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+          result.username = match[1];
+          break;
+        }
+      }
+      
+      // Set success flag if success message found
+      result.success = true;
+    }
+    
+    return result;
   }
   
   /**
