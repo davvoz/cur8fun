@@ -114,8 +114,7 @@ class RegisterService {
    * Create Steem account
    * @param {Object} userData - User data including username
    * @returns {Promise<Object>} - Response from the API including keys
-   */
-  async createSteemAccount(userData) {
+   */  async createSteemAccount(userData) {
     const { username } = userData;
     
     // First check if account already exists
@@ -125,28 +124,61 @@ class RegisterService {
     }
     
     try {
-      // Check if Telegram ID is available
-      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      if (!telegramId) {
+      // Detect Telegram in multiple ways
+      const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
+      const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
+      const telegramId = telegramData?.user?.id;
+      const telegramUsername = telegramData?.user?.username;
+      
+      // Enhanced detection - check the API, URL, user agent and referrer
+      const isInTelegram = isTelegramWebView || 
+                          window.location.href.includes('tgWebApp=') || 
+                          navigator.userAgent.toLowerCase().includes('telegram') ||
+                          document.referrer.toLowerCase().includes('telegram');
+      
+      // Log comprehensive Telegram status for debugging
+      console.log('Telegram Status for Account Creation:', {
+        isTelegramWebView,
+        isInTelegram,
+        telegramId,
+        telegramUsername,
+        telegramData,
+        agent: navigator.userAgent,
+        url: window.location.href
+      });
+      
+      // Only strict validation for production environment 
+      const isLocalDev = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      if (!isInTelegram && !isLocalDev) {
         throw new Error('Telegram authentication is required to create an account.');
       }
-      
-      console.log(`Sending request to create account: ${username} with Telegram ID: ${telegramId}`);
       
       // Import the ApiClient from api-ridd.js
       const { ApiClient } = await import('../services/api-ridd.js');
       const apiClient = new ApiClient();
       
+      // Log request details
+      console.log(`Sending account creation request: 
+        - Username: ${username}
+        - Telegram ID: ${telegramId || 'Not available'}
+        - Telegram Username: ${telegramUsername || 'Not available'}
+        - Is in Telegram: ${isInTelegram}
+      `);
+      
       // Use the createAccount method from ApiClient
       const response = await apiClient.createAccount(username);
       console.log('Response data from API:', response);
+      
+      // Validate API response
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response from account creation API');
+      }
       
       if (!response.success) {
         throw new Error(response.message || 'Failed to create account');
       }
       
-      // In a real scenario, keys would be provided by the API
-      // For now, we'll use placeholder keys for the UI
+      // Extract keys from response or use placeholders for development
       const keys = {
         owner_key: response.owner_key || 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
         active_key: response.active_key || 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
@@ -154,14 +186,128 @@ class RegisterService {
         memo_key: response.memo_key || 'MEMO_KEY_PROVIDED_TO_TELEGRAM'
       };
       
+      // In development mode, show more explicit key values
+      if (isLocalDev) {
+        console.log('Development mode: Using mock keys for local testing');
+        keys.owner_key = `MOCK_OWNER_KEY_FOR_${username}`;
+        keys.active_key = `MOCK_ACTIVE_KEY_FOR_${username}`;
+        keys.posting_key = `MOCK_POSTING_KEY_FOR_${username}`;
+        keys.memo_key = `MOCK_MEMO_KEY_FOR_${username}`;
+      }
+      
       return {
         success: true,
-        message: 'Account created successfully! Check your Telegram for account details.',
-        keys: keys
+        message: response.message || 'Account created successfully! Check your Telegram for account details.',
+        keys: keys,
+        telegramId: telegramId,
+        isInTelegram: isInTelegram
       };
     } catch (error) {
       console.error('API error creating account:', error);
       throw error; // Preserve the original error
+    }
+  }
+  
+  /**
+   * Test di connessione all'API
+   * Verifica se il servizio API è raggiungibile e funzionante
+   */
+  async testApiConnection() {
+    try {
+      console.log('Testing API connection...');
+      
+      // Import the ApiClient from api-ridd.js
+      const { ApiClient } = await import('../services/api-ridd.js');
+      const apiClient = new ApiClient();
+      
+      // Check if baseUrl is correctly set
+      if (!apiClient.baseUrl) {
+        return {
+          success: false,
+          message: 'API client not properly initialized - missing baseUrl'
+        };
+      }
+      
+      // Try a simple GET request to test connectivity
+      // This uses just a HEAD request to the base URL to check if the service is up
+      const url = apiClient.baseUrl;
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        mode: 'cors'
+      });
+      
+      if (response.ok) {
+        return {
+          success: true,
+          message: 'API connection successful',
+          status: response.status,
+          endpoint: url
+        };
+      } else {
+        return {
+          success: false,
+          message: 'API returned error status',
+          status: response.status,
+          endpoint: url
+        };
+      }
+    } catch (error) {
+      console.error('API connection test failed:', error);
+      return {
+        success: false,
+        message: `API connection error: ${error.message}`,
+        error: error
+      };
+    }
+  }
+  
+  /**
+   * Verifica la disponibilità del servizio di creazione account
+   * Controlla se il servizio può creare nuovi account
+   */
+  async checkAccountCreationService() {
+    try {
+      // Test basic connectivity first
+      const connectionTest = await this.testApiConnection();
+      
+      if (!connectionTest.success) {
+        return connectionTest;
+      }
+      
+      // Import the ApiClient
+      const { ApiClient } = await import('../services/api-ridd.js');
+      const apiClient = new ApiClient();
+      
+      // We don't want to actually create an account, so we'll make a custom request
+      // to check if the endpoint is available
+      const url = `${apiClient.baseUrl}/create_account`;
+      
+      try {
+        // Just check if the endpoint exists and responds
+        // Use OPTIONS to avoid actually creating an account
+        const response = await fetch(url, { method: 'OPTIONS' });
+        
+        return {
+          success: true,
+          message: 'Account creation service is available',
+          status: response.status,
+          endpoint: url
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Account creation service error: ${error.message}`,
+          endpoint: url,
+          error: error
+        };
+      }
+    } catch (error) {
+      console.error('Account creation service check failed:', error);
+      return {
+        success: false,
+        message: `Service check error: ${error.message}`,
+        error: error
+      };
     }
   }
 }
