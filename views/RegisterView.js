@@ -1035,55 +1035,51 @@ class RegisterView extends View {
   }  showSuccessMessage(form, username, isInTelegram = false, keys = null) {
     // Hide the form
     form.style.display = 'none';
-    
+
     // Create success container
     const successContainer = document.createElement('div');
     successContainer.className = 'auth-success';
-    successContainer.style.backgroundColor = '#f0f7f0';
-    successContainer.style.padding = '20px';
-    successContainer.style.borderRadius = '8px';
-    successContainer.style.border = '1px solid #d0e0d0';
-    successContainer.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-    
+
     // Check if we're in development mode
-    const isLocalDev = window.location.hostname.includes('localhost') || 
-                     window.location.hostname.includes('127.0.0.1') ||
-                     window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
-    
+    const isLocalDev = window.location.hostname.includes('localhost') ||
+      window.location.hostname.includes('127.0.0.1') ||
+      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
+
     // Generate mock keys for display if we're in local dev and don't have real keys
     const accountKeys = keys || this.generateMockKeysForDisplay(username);
-      // Store keys for PDF generation with better logging
+    // Store keys for PDF generation with better logging
     console.log('Storing account data for PDF generation:', {
       username,
       keys: accountKeys,
       isInTelegram,
       isLocalDev
     });
-    
+
     successContainer.accountData = {
       accountName: username,
       keys: accountKeys,
       isInTelegram,
       isLocalDev
     };
-    
+
     // Add success message
     const successMessage = document.createElement('div');
     successMessage.className = 'success-message';
-    
+
     // Header is the same for all cases
     const header = `
       <div class="success-header">
-        <span class="material-icons" style="color: #2e7d32; font-size: 28px; margin-right: 10px;">check_circle</span>
-        <h3 style="color: #2e7d32; margin-top: 0;">Account Created Successfully!${isLocalDev ? ' (Development Mode)' : ''}</h3>
+        <span class="material-icons">check_circle</span>
+        <h3>Account Created Successfully!${isLocalDev ? ' (Development Mode)' : ''}</h3>
       </div>
       <div class="account-details">
         <p>Your Steem account <strong>${username}</strong> has been created.</p>
+      </div>
     `;
-    
+
     let keysContent = '';
     let warningContent = '';
-    
+
     // Different content based on environment
     if (isInTelegram) {
       // In Telegram - show keys with option to hide them
@@ -1100,9 +1096,8 @@ class RegisterView extends View {
           <p>These keys have also been sent to you via Telegram.</p>
         </div>
       `;
-      
       warningContent = `
-        <div class="key-warning">
+        <div class="key-warning telegram-auth-high">
           <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
           <p>Please save them in a secure location.</p>
         </div>
@@ -1122,9 +1117,8 @@ class RegisterView extends View {
           <p>In production, account details and keys would be sent via Telegram.</p>
         </div>
       `;
-      
       warningContent = `
-        <div class="key-warning" style="background-color: #fff9c4; border: 1px solid #fbc02d; color: #333;">
+        <div class="key-warning dev-info">
           <p><strong>Development Mode:</strong> For testing purposes only. This account may not be accessible on the blockchain.</p>
         </div>
       `;
@@ -1133,127 +1127,53 @@ class RegisterView extends View {
       keysContent = `
         <p>Please check your Telegram for account details and private keys.</p>
       `;
-      
       warningContent = `
-        <div class="key-warning">
+        <div class="key-warning auth-warning">
           <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
         </div>
       `;
     }
-    
-    successMessage.innerHTML = header + keysContent + warningContent + '</div>';
+
+    successMessage.innerHTML = header + keysContent + warningContent;
     successContainer.appendChild(successMessage);
-    
+
     // Add buttons
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'success-buttons';
-    buttonsContainer.style.marginTop = '20px';
-    buttonsContainer.style.display = 'flex';
-    buttonsContainer.style.flexWrap = 'wrap';
-    buttonsContainer.style.gap = '10px';
-    buttonsContainer.style.justifyContent = 'space-between';
-    
+
     // Download PDF button (shown in all modes for demonstration)
     const downloadPdfButton = document.createElement('button');
-    downloadPdfButton.className = 'pdf-button';
-    downloadPdfButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">download</span> Download Keys as PDF';
-    downloadPdfButton.style.flex = '1';
-    downloadPdfButton.style.minWidth = '200px';
-    downloadPdfButton.style.backgroundColor = '#4285f4';
-    downloadPdfButton.style.color = 'white';
-    downloadPdfButton.style.border = 'none';
-    downloadPdfButton.style.borderRadius = '4px';
-    downloadPdfButton.style.padding = '10px';
-    downloadPdfButton.style.cursor = 'pointer';
-    downloadPdfButton.style.display = 'flex';
-    downloadPdfButton.style.alignItems = 'center';
-    downloadPdfButton.style.justifyContent = 'center';
+    downloadPdfButton.className = 'auth-button';
+    downloadPdfButton.innerHTML = '<span class="material-icons" aria-hidden="true">download</span> <span>Download Keys as PDF</span>';
     downloadPdfButton.addEventListener('click', () => {
       this.downloadAccountPDF(successContainer.accountData);
     });
     buttonsContainer.appendChild(downloadPdfButton);
-    
+
     // Login button
     const loginButton = document.createElement('button');
     loginButton.className = 'auth-button';
-    loginButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">login</span> Go to Login';
-    loginButton.style.flex = '1';
-    loginButton.style.minWidth = '200px';
-    loginButton.style.display = 'flex';
-    loginButton.style.alignItems = 'center';
-    loginButton.style.justifyContent = 'center';
+    loginButton.innerHTML = '<span class="material-icons" aria-hidden="true">login</span> <span>Go to Login</span>';
     loginButton.addEventListener('click', () => {
       router.navigate('/login');
     });
     buttonsContainer.appendChild(loginButton);
-    
+
     // Create another account button
     const createAnotherButton = document.createElement('button');
     createAnotherButton.className = 'secondary-button';
-    createAnotherButton.innerHTML = '<span class="material-icons" style="font-size: 18px; margin-right: 5px;">person_add</span> Create Another Account';
-    createAnotherButton.style.flex = '1';
-    createAnotherButton.style.minWidth = '200px';
-    createAnotherButton.style.display = 'flex';
-    createAnotherButton.style.alignItems = 'center';
-    createAnotherButton.style.justifyContent = 'center';
+    createAnotherButton.innerHTML = '<span class="material-icons" aria-hidden="true">person_add</span> <span>Create Another Account</span>';
     createAnotherButton.addEventListener('click', () => {
       // Clear the container and re-render the form
       this.render(this.element);
     });
     buttonsContainer.appendChild(createAnotherButton);
-    
+
     successContainer.appendChild(buttonsContainer);
-    
-    // Add some custom styles
-    const customStyle = document.createElement('style');
-    customStyle.textContent = `
-      .success-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 15px;
-      }
-      .account-details {
-        margin-bottom: 20px;
-      }
-      .key-warning {
-        background-color: #e8f5e9;
-        border: 1px solid #c8e6c9;
-        padding: 10px;
-        border-radius: 5px;
-        margin-top: 15px;
-      }
-      .keys-section {
-        margin: 15px 0;
-        padding: 15px;
-        background-color: #f5f5f5;
-        border-radius: 5px;
-        border: 1px solid #ddd;
-      }
-      .keys-container {
-        margin: 10px 0;
-        padding: 10px;
-        background-color: #fff;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-      }
-      .copyable {
-        background-color: #f0f0f0;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-family: monospace;
-        cursor: pointer;
-        border: 1px solid #ddd;
-        transition: background-color 0.2s;
-      }
-      .copyable:hover {
-        background-color: #e0e0e0;
-      }
-    `;
-    document.head.appendChild(customStyle);
-    
+
     // Add to parent element
     this.element.querySelector('.auth-container').appendChild(successContainer);
-    
+
     // Add click to copy functionality
     this.addCopyToClipboardFunctionality();
   }

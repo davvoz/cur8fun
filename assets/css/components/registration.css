@@ -184,6 +184,87 @@
   background-color: var(--success-color);
 }
 
+/* Key display styles */
+.success-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.success-header .material-icons {
+  color: var(--success-color);
+  font-size: 24px;
+  margin-right: var(--space-sm);
+}
+
+.success-header h3 {
+  margin: 0;
+  color: var(--success-color);
+}
+
+.account-details {
+  margin-bottom: var(--space-lg);
+}
+
+.keys-section {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background-color: var(--background-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.keys-container {
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm);
+  background-color: var(--background-lighter);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.copyable {
+  background-color: var(--background-subtle);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-family: monospace;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: background-color var(--transition-fast);
+  display: inline-block;
+  margin: 2px 0;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.copyable:hover {
+  background-color: var(--background-hover);
+}
+
+.copyable:active {
+  background-color: var(--primary-light);
+  color: var(--text-on-primary);
+}
+
+.success-buttons {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.success-buttons button {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-buttons button .material-icons {
+  margin-right: var(--space-xs);
+}
+
 /* Responsive styles */
 @media (max-width: 600px) {
   .success-buttons {
