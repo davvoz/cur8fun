@@ -110,7 +110,6 @@ class RegisterService {
       throw new Error('Failed to check account availability');
     }
   }
-  
   /**
    * Create Steem account
    * @param {Object} userData - User data including username
@@ -125,51 +124,45 @@ class RegisterService {
       throw new Error('This account name already exists. Please choose a different name.');
     }
     
-    // WORK IN PROGRESS: Instead of actually calling the API, return a mock response
-    // to indicate that this feature is not yet fully implemented
-    console.log(`WORK IN PROGRESS: Account creation for ${username} is not yet implemented`);
-    
-    // Show a work in progress error to the user
-    throw new Error('WORK IN PROGRESS: Account creation functionality is not yet fully implemented. This feature will be available soon.');
-    
-    /* Original code commented out
     try {
-      console.log(`Sending request to create account: ${username}`);
+      // Check if Telegram ID is available
+      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (!telegramId) {
+        throw new Error('Telegram authentication is required to create an account.');
+      }
       
-      const requestBody = {
-        new_account_name: username
+      console.log(`Sending request to create account: ${username} with Telegram ID: ${telegramId}`);
+      
+      // Import the ApiClient from api-ridd.js
+      const { ApiClient } = await import('../services/api-ridd.js');
+      const apiClient = new ApiClient();
+      
+      // Use the createAccount method from ApiClient
+      const response = await apiClient.createAccount(username);
+      console.log('Response data from API:', response);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create account');
+      }
+      
+      // In a real scenario, keys would be provided by the API
+      // For now, we'll use placeholder keys for the UI
+      const keys = {
+        owner_key: response.owner_key || 'OWNER_KEY_PROVIDED_TO_TELEGRAM',
+        active_key: response.active_key || 'ACTIVE_KEY_PROVIDED_TO_TELEGRAM',
+        posting_key: response.posting_key || 'POSTING_KEY_PROVIDED_TO_TELEGRAM',
+        memo_key: response.memo_key || 'MEMO_KEY_PROVIDED_TO_TELEGRAM'
       };
       
-      console.log('Request payload:', JSON.stringify(requestBody));
-      
-      const response = await fetch(this.API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'API-Key': 'your_secret_api_key' // You should use a proper API key
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log(`Response status: ${response.status}`);
-      const responseData = await response.json();
-      console.log('Response data:', responseData);
-      
-      if (!response.ok) {
-        throw new Error(responseData.message || `Failed to create account: ${response.status}`);
-      }
-      
-      // Verify the response contains success message and keys
-      if (!responseData.keys) {
-        throw new Error(responseData.message || 'Account creation response missing keys');
-      }
-      
-      return responseData;
+      return {
+        success: true,
+        message: 'Account created successfully! Check your Telegram for account details.',
+        keys: keys
+      };
     } catch (error) {
       console.error('API error creating account:', error);
       throw error; // Preserve the original error
     }
-    */
   }
 }
 

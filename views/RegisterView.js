@@ -40,8 +40,32 @@ class RegisterView extends View {
     header.appendChild(subtitle);
     
     form.appendChild(header);
+      // Check if Telegram is available
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const telegramUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
     
-    // Create form fields
+    if (telegramId) {
+      // Show Telegram info
+      const telegramInfo = document.createElement('div');
+      telegramInfo.className = 'telegram-info';
+      telegramInfo.innerHTML = `
+        <p>Creating account with Telegram: <strong>@${telegramUsername || 'User'}</strong></p>
+        <p>Telegram ID: ${telegramId}</p>
+      `;
+      form.appendChild(telegramInfo);
+    } else {
+      // Show warning that Telegram is required
+      const telegramWarning = document.createElement('div');
+      telegramWarning.className = 'auth-warning';
+      telegramWarning.innerHTML = `
+        <p><strong>Note:</strong> Account creation requires Telegram authentication.</p>
+        <p>Please open this app from Telegram to create a new Steem account.</p>
+        <p><a href="https://t.me/steemeebot" target="_blank">Open in Telegram</a></p>
+      `;
+      form.appendChild(telegramWarning);
+    }
+    
+    // Create form fields - only username is required
     const usernameField = this.createFormField(
       'username', 
       'Username', 
@@ -49,32 +73,58 @@ class RegisterView extends View {
       'text',
       'Choose a unique Steem username'
     );
-    form.appendChild(usernameField);
-    
-    const emailField = this.createFormField(
-      'email', 
-      'Email', 
-      'email', 
-      'email',
-      'Your email address'
-    );
-    form.appendChild(emailField);
-    
-    // Add note about account creation
+    form.appendChild(usernameField);    // Add note about account creation
     const note = document.createElement('div');
     note.className = 'auth-note';
     note.innerHTML = `
       <p>Important: Creating a Steem account typically requires a small fee paid in STEEM cryptocurrency.</p>
-      <p>A PDF with your account details and private keys will be sent to your email.</p>
-      <p><strong>Please keep this PDF in a safe place! Your keys cannot be recovered if lost.</strong></p>
+      <p>Your account details and private keys will be provided via Telegram.</p>
+      <p><strong>Please keep your keys in a safe place! They cannot be recovered if lost.</strong></p>
+      
+      <div class="account-creation-process">
+        <h4>Account Creation Process:</h4>
+        <ol>
+          <li>Enter a unique username (3-16 characters)</li>
+          <li>Authenticate with Telegram</li>
+          <li>Our system will create your Steem blockchain account</li>
+          <li>You'll receive your account keys via Telegram</li>
+          <li>Use these keys to log in to your new account</li>
+        </ol>
+      </div>
     `;
-    form.appendChild(note);
     
-    // Create button
+    // Add some styles to the process list
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      .account-creation-process {
+        background-color: #f5f9ff;
+        border-left: 4px solid #4285f4;
+        padding: 10px 15px;
+        margin-top: 15px;
+        border-radius: 0 4px 4px 0;
+      }
+      .account-creation-process h4 {
+        margin-top: 0;
+        color: #4285f4;
+      }
+      .account-creation-process ol {
+        margin-left: -10px;
+      }
+    `;
+    document.head.appendChild(styleEl);
+    form.appendChild(note);
+      // Create button
     const submitButton = document.createElement('button');
     submitButton.type = 'submit';
     submitButton.className = 'auth-button';
     submitButton.textContent = 'Create Account';
+    
+    // Disable button if no Telegram ID
+    if (!telegramId) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Telegram Required';
+    }
+    
     form.appendChild(submitButton);
     
     // Add login link
@@ -118,25 +168,82 @@ class RegisterView extends View {
     input.name = id;
     input.placeholder = placeholder;
     input.required = true;
-    
-    // Add lowercase restriction to username field
+      // Add lowercase restriction to username field
     if (id === 'username') {
-      input.pattern = '[a-z0-9.-]+';  // Removed the escaped hyphen which was causing problems
+      input.pattern = '[a-z0-9.-]+';
       input.title = 'Only lowercase letters, numbers, dots and dashes allowed';
-      input.addEventListener('input', (e) => {
+      
+      // Status indicator for username availability
+      const statusIndicator = document.createElement('div');
+      statusIndicator.className = 'username-status';
+      statusIndicator.style.marginLeft = '8px';
+      statusIndicator.style.fontSize = '14px';
+      inputWrapper.appendChild(statusIndicator);
+      
+      // Debounce function to limit API calls
+      let debounceTimer;
+      
+      input.addEventListener('input', async (e) => {
         e.target.value = e.target.value.toLowerCase();
+        
+        const username = e.target.value.trim();
+        statusIndicator.textContent = '';
+        
+        // Clear any existing validation messages
+        const existingValidation = fieldContainer.querySelector('.username-validation');
+        if (existingValidation) {
+          existingValidation.remove();
+        }
+        
+        if (username.length < 3 || username.length > 16) {
+          return;
+        }
+        
+        clearTimeout(debounceTimer);
+        
+        // Set loading state
+        statusIndicator.textContent = '⟳';
+        statusIndicator.style.color = '#666';
+        
+        debounceTimer = setTimeout(async () => {
+          try {
+            // Import and use the RegisterService to check availability
+            const registerService = (await import('../services/RegisterService.js')).default;
+            const exists = await registerService.checkAccountExists(username);
+            
+            // Update status indicator
+            if (exists) {
+              statusIndicator.textContent = '✗'; 
+              statusIndicator.style.color = '#ff0000';
+              
+              // Add validation message
+              const validationMsg = document.createElement('div');
+              validationMsg.className = 'username-validation';
+              validationMsg.textContent = 'This username is already taken';
+              validationMsg.style.color = '#ff0000';
+              validationMsg.style.fontSize = '12px';
+              validationMsg.style.marginTop = '4px';
+              fieldContainer.appendChild(validationMsg);
+            } else {
+              statusIndicator.textContent = '✓';
+              statusIndicator.style.color = '#00aa00';
+            }
+          } catch (error) {
+            console.error('Error checking username:', error);
+            statusIndicator.textContent = '?';
+            statusIndicator.style.color = '#ff6b00';
+          }
+        }, 500);
       });
-    }
-    
-    // Add work in progress indicator
-    if (id === 'username' || id === 'email') {
-      const wipNotice = document.createElement('div');
-      wipNotice.className = 'wip-notice';
-      wipNotice.textContent = 'Work in Progress - Feature not fully implemented yet';
-      wipNotice.style.color = '#ff6b00';
-      wipNotice.style.fontSize = '12px';
-      wipNotice.style.marginTop = '4px';
-      fieldContainer.appendChild(wipNotice);
+    }    // Add validation hints
+    if (id === 'username') {
+      const hintElement = document.createElement('div');
+      hintElement.className = 'field-hint';
+      hintElement.textContent = 'Username must be 3-16 characters, using only lowercase letters, numbers, dots and dashes.';
+      hintElement.style.color = '#666';
+      hintElement.style.fontSize = '12px';
+      hintElement.style.marginTop = '4px';
+      fieldContainer.appendChild(hintElement);
     }
     
     inputWrapper.appendChild(input);
@@ -145,14 +252,12 @@ class RegisterView extends View {
     
     return fieldContainer;
   }
-  
-  async handleSubmit(event) {
+    async handleSubmit(event) {
     event.preventDefault();
     
     const form = event.target;
     const submitButton = form.querySelector('button[type="submit"]');
     const username = form.username.value;
-    const email = form.email.value;
     
     // Reset previous error messages
     const errorElement = form.querySelector('.auth-error');
@@ -161,26 +266,30 @@ class RegisterView extends View {
     }
     
     try {
+      // Ensure Telegram is available
+      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (!telegramId) {
+        throw new Error('Telegram authentication is required to create an account.');
+      }
+      
       // Disable button and show loading state
       submitButton.disabled = true;
       submitButton.textContent = 'Creating Account...';
       
-      // Call register service with username and email
+      // Call register service with username only
       const result = await registerService.createAccount({
-        username,
-        email
+        username
       });
       
       // Success! Show notification
       eventEmitter.emit('notification', {
         type: 'success',
-        message: 'Account created successfully! Please check your email for account details.'
+        message: 'Account created successfully!'
       });
       
       // Show success message in the form
-      this.showSuccessMessage(form, username, email);
-      
-    } catch (error) {
+      this.showSuccessMessage(form, username);
+      } catch (error) {
       console.error('Registration failed:', error);
       this.showError(form, error.message || 'Failed to create account');
       
@@ -189,8 +298,7 @@ class RegisterView extends View {
       submitButton.textContent = 'Create Account';
     }
   }
-  
-  showSuccessMessage(form, username, email) {
+    showSuccessMessage(form, username) {
     // Hide the form
     form.style.display = 'none';
     
@@ -204,8 +312,7 @@ class RegisterView extends View {
     successMessage.innerHTML = `
       <h3>Account Created Successfully!</h3>
       <p>Your Steem account <strong>${username}</strong> has been created.</p>
-      <p>We've sent your account details and private keys to <strong>${email}</strong>.</p>
-      <p>Please check your email (including spam folder) and save the PDF in a secure location.</p>
+      <p>Your account details and private keys have been sent to you via Telegram.</p>
       <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
     `;
     successContainer.appendChild(successMessage);
