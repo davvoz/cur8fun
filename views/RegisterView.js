@@ -18,33 +18,40 @@ class RegisterView extends View {
     
     // Create container
     const container = document.createElement('div');
-    container.className = 'auth-container';
-
-    // Telegram detection (dichiarata una sola volta)
+    container.className = 'auth-container';    // Dettezione Telegram basata principalmente su telegramId
     const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
     const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
     const telegramId = telegramData?.user?.id;
     const telegramUsername = telegramData?.user?.username;
-    const hasTelegramAuth = !!telegramId && !!telegramUsername;
+    const telegramFirstName = telegramData?.user?.first_name;
+    const telegramLastName = telegramData?.user?.last_name;
+    
+    // La validazione principale è basata su telegramId
+    const hasValidTelegramId = !!telegramId && telegramId > 0;
+    const hasTelegramAuth = hasValidTelegramId && !!telegramUsername;
+    
+    // Indicatori secondari (meno affidabili)
     const secondaryTelegramIndicators =
       window.location.href.includes('tgWebApp=') ||
       navigator.userAgent.toLowerCase().includes('telegram') ||
       document.referrer.toLowerCase().includes('telegram');
-    const telegramConfidence = hasTelegramAuth ? 'high' :
-      isTelegramWebView ? 'medium' :
-      secondaryTelegramIndicators ? 'low' : 'none';
-    const isInTelegram = hasTelegramAuth || isTelegramWebView;
+    
+    // Livello di confidenza basato su telegramId
+    const telegramConfidence = hasValidTelegramId ? 'high' : 
+                                isTelegramWebView ? 'medium' : 
+                                secondaryTelegramIndicators ? 'low' : 'none';
+                                
+    const isInTelegram = hasValidTelegramId || isTelegramWebView;
     const isLocalDev = window.location.hostname.includes('localhost') ||
       window.location.hostname.includes('127.0.0.1') ||
       window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
 
-    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
-    if (!isInTelegram && !isLocalDev) {
-      const telegramWarning = document.createElement('div');
+    // Se NON abbiamo un telegramId valido e NON siamo in local dev, mostra solo il banner
+    if (!hasValidTelegramId && !isLocalDev) {      const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
-        <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo tramite Telegram</strong></p>
-        <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram.</p>
+        <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo con Telegram ID</strong></p>
+        <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram con un ID Telegram valido.</p>
         <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
       `;
       container.appendChild(telegramWarning);
@@ -101,32 +108,26 @@ class RegisterView extends View {
         100% { opacity: 0.6; }
       }
     `;
-    document.head.appendChild(spinnerStyle);
-    // Rimuovere tutte le dichiarazioni duplicate di queste variabili nel resto del file
-    // e usare solo queste dichiarate qui all'inizio del metodo render.
-    // Enhanced Telegram detection with stricter validation
-    // Check for real Telegram app integration - MUST have actual user data
-    // Other indicators (less reliable)
-    // Combined detection with proper hierarchy - STRICTER validation
-    // Only consider truly IN Telegram if we have user data or WebApp integration
-    // Log detection results
-    // Only strict validation for production environment
-      if (telegramId) {
-      // Show Telegram info with verified user data
+    document.head.appendChild(spinnerStyle);    // Rimuovere tutte le dichiarazioni duplicate di queste variabili nel resto del file
+    // e usare solo quelle dichiarate qui all'inizio del metodo render.
+    
+    if (hasValidTelegramId) {
+      // Mostra informazioni Telegram con dati utente verificati
       const telegramInfo = document.createElement('div');
       telegramInfo.className = 'telegram-auth-high';
       telegramInfo.innerHTML = `
         <p style="margin: 0 0 5px;"><strong>Utente Telegram:</strong> @${telegramUsername}</p>
-        <p style="margin: 0;"><strong>ID Telegram:</strong> ${telegramId}</p>
+        <p style="margin: 0 0 5px;"><strong>ID Telegram:</strong> ${telegramId}</p>
+        ${telegramFirstName ? `<p style="margin: 0;"><strong>Nome:</strong> ${telegramFirstName} ${telegramLastName || ''}</p>` : ''}
       `;
       form.appendChild(telegramInfo);
     } else {
-      // Not in Telegram at all
+      // Nessun ID Telegram valido
       const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
-        <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede l'autenticazione Telegram.</p>
-        <p style="margin: 0 0 10px;">Apri questa app da Telegram per creare un nuovo account Steem.</p>
+        <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede un ID Telegram valido.</p>
+        <p style="margin: 0 0 10px;">Apri questa app da Telegram per ottenere un ID Telegram valido e creare un nuovo account Steem.</p>
         <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
@@ -205,31 +206,30 @@ class RegisterView extends View {
           }
         }, 2000);
       }
-    });
-      // Apply appropriate button state based on Telegram detection
-    if (!isInTelegram && !isLocalDev) {
-      // Not in Telegram at all
+    });      // Applica lo stato appropriato del pulsante basato sul telegramId
+    if (!hasValidTelegramId && !isLocalDev) {
+      // Nessun ID Telegram valido
       submitButton.disabled = true;
-      submitButton.textContent = 'Telegram Richiesto';
+      submitButton.textContent = 'ID Telegram Richiesto';
       submitButton.classList.add('auth-button-none');
     } else if (telegramConfidence === 'medium') {
-      // In Telegram but not authenticated
+      // In Telegram ma senza ID valido
       submitButton.dataset.telegramPending = 'true';
-      submitButton.textContent = 'Autenticazione Necessaria';
+      submitButton.textContent = 'ID Telegram Necessario';
       submitButton.classList.add('auth-button-medium');
       
-      // Add click handler to show authentication dialog
+      // Aggiungi gestore click per mostrare dialogo di autenticazione
       submitButton.addEventListener('click', (e) => {
         if (submitButton.dataset.telegramPending === 'true') {
           e.preventDefault();
-          alert('Assicurati che l\'autenticazione Telegram sia completa. Prova a riaprire l\'app da Telegram.');
+          alert('Assicurati di avere un ID Telegram valido. Prova a riaprire l\'app da Telegram.');
           
-          // Try to recheck Telegram auth
+          // Prova a ricontrollare l'auth Telegram
           if (window.Telegram && window.Telegram.WebApp) {
             try {
               window.Telegram.WebApp.expand();
               window.Telegram.WebApp.requestContact();
-              // Force reload after a delay
+              // Forza il reload dopo un ritardo
               setTimeout(() => window.location.reload(), 1500);
             } catch (err) {
               console.error('Failed to request Telegram auth:', err);
@@ -238,15 +238,15 @@ class RegisterView extends View {
         }
       });
     } else if (telegramConfidence === 'low') {
-      // Possibly Telegram but uncertain
-      submitButton.textContent = 'Crea Account (Verifica Necessaria)';
+      // Possibilmente Telegram ma incerto
+      submitButton.textContent = 'Crea Account (Verifica ID Necessaria)';
       submitButton.classList.add('auth-button-low');
     } else if (isLocalDev) {
-      // In development mode - allow with visual indication
+      // In modalità sviluppo - permetti con indicazione visiva
       submitButton.classList.add('auth-button-dev');
       submitButton.textContent = 'Crea Account (Modalità Sviluppo)';
-    } else if (hasFullTelegramAuth) {
-      // Fully authenticated Telegram
+    } else if (hasValidTelegramId) {
+      // ID Telegram completamente validato
       submitButton.classList.add('auth-button-high');
       submitButton.textContent = 'Crea Account';
     }
@@ -517,60 +517,64 @@ class RegisterView extends View {
         `;
         document.head.appendChild(spinnerStyle);
       }
+        // Step 1: Dettezione Telegram migliorata basata su telegramId (10%)
+      updateStatus('Controllo ID Telegram...', 10);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Piccolo ritardo per feedback UI
       
-      // Step 1: Enhanced Telegram detection (10%)
-      updateStatus('Controllo autenticazione Telegram...', 10);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
-        // Enhanced Telegram detection with stricter validation
+      // Dettezione Telegram migliorata con validazione più rigorosa basata su telegramId
       const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
       const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
       const telegramId = telegramData?.user?.id;
       const telegramUsername = telegramData?.user?.username;
       
-      // Check for real Telegram app integration - MUST have actual user data
-      const hasTelegramAuth = !!telegramId && !!telegramUsername;
+      // Controllo per integrazione app Telegram reale - DEVE avere dati utente effettivi con ID valido
+      const hasValidTelegramId = !!telegramId && telegramId > 0;
+      const hasTelegramAuth = hasValidTelegramId && !!telegramUsername;
       
-      // Other indicators (less reliable)
+      // Altri indicatori (meno affidabili)
       const secondaryTelegramIndicators = 
           window.location.href.includes('tgWebApp=') || 
           navigator.userAgent.toLowerCase().includes('telegram') ||
           document.referrer.toLowerCase().includes('telegram');
       
-      // Combined detection with proper hierarchy - STRICTER validation
-      const telegramConfidence = hasTelegramAuth ? 'high' : 
+      // Dettezione combinata con gerarchia appropriata - validazione PIÙ RIGOROSA basata su ID
+      const telegramConfidence = hasValidTelegramId ? 'high' : 
                                 isTelegramWebView ? 'medium' : 
                                 secondaryTelegramIndicators ? 'low' : 'none';
                                 
-      // Only consider truly IN Telegram if we have user data or WebApp integration
-      const isInTelegram = hasTelegramAuth || isTelegramWebView;
-      const hasFullTelegramAuth = hasTelegramAuth;
+      // Considera veramente IN Telegram solo se abbiamo ID utente valido o integrazione WebApp
+      const isInTelegram = hasValidTelegramId || isTelegramWebView;
+      const hasFullTelegramAuth = hasValidTelegramId;
       
       const isLocalDev = window.location.hostname.includes('localhost') || 
                         window.location.hostname.includes('127.0.0.1') ||
                         window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
-      // Log detection results
-      console.log('Enhanced Telegram detection results in handleSubmit:', {
+      
+      // Log risultati dettezione
+      console.log('Risultati dettezione Telegram migliorata in handleSubmit:', {
         isTelegramWebView,
         telegramConfidence,
         isInTelegram,
         hasFullTelegramAuth,
         telegramId: telegramId || 'undefined',
         telegramUsername: telegramUsername || 'undefined',
+        hasValidTelegramId,
         hasTelegramAuth,
         userAgent: navigator.userAgent,
         hostname: window.location.hostname,
         isLocalDev,
         secondaryTelegramIndicators
       });
-        // Only strict validation for production environment
+      
+      // Solo validazione rigorosa per ambiente di produzione
       if (!isLocalDev) {
-        // In production, we require HIGH confidence (authenticated Telegram with user data)
-        if (!hasFullTelegramAuth) {
-          throw new Error('È richiesta un\'autenticazione Telegram completa. Apri questa app direttamente da Telegram e assicurati di essere connesso con un account Telegram che ha un nome utente.');
+        // In produzione, richiediamo ALTA confidenza (ID Telegram autenticato con dati utente)
+        if (!hasValidTelegramId) {
+          throw new Error('È richiesto un ID Telegram valido. Apri questa app direttamente da Telegram e assicurati di essere connesso con un account Telegram che ha un ID valido.');
         }
       } else if (!isInTelegram && !isLocalDev) {
-        // Fallback check (shouldn't be needed with new logic)
-        throw new Error('È richiesta l\'autenticazione Telegram per creare un account.');
+        // Controllo di fallback (non dovrebbe essere necessario con la nuova logica)
+        throw new Error('È richiesto un ID Telegram valido per creare un account.');
       }
       
       // Step 2: Checking API connectivity (30%)
@@ -614,11 +618,11 @@ class RegisterView extends View {
       updateStatus('Invio richiesta di creazione account...', 70);
       timeoutId = startTimeoutDetection('Creazione account', 30000); // Longer timeout for account creation
       
-      let result;
-      try {
-        // Call register service with username only
+      let result;      try {
+        // Chiama il servizio di registrazione con username e telegramId
         result = await registerService.createAccount({
-          username
+          username,
+          telegramId: telegramId || null  // Passa il telegramId se disponibile
         });
         clearTimeout(timeoutId);
         console.log('Account creation result:', result);
@@ -711,10 +715,9 @@ class RegisterView extends View {
       // Remove network listeners
       window.removeEventListener('online', updateNetworkStatus);
       window.removeEventListener('offline', updateNetworkStatus);
-      
-      // Show success message in the form after a short delay
+        // Mostra messaggio di successo nel form dopo un piccolo ritardo
       setTimeout(() => {
-        this.showSuccessMessage(form, createdUsername, isInTelegram, accountKeys);
+        this.showSuccessMessage(form, createdUsername, hasValidTelegramId, accountKeys);
       }, 1500);
       
     } catch (error) {
@@ -727,7 +730,7 @@ class RegisterView extends View {
       
       // Update status indicator with error
       statusIndicator.style.backgroundColor = '#ffebee';
-      statusIndicator.style.borderColor = '#ef9a9a';      // Check for various success indicators in error messages
+      statusIndicator.style.borderColor = '#ef9a9a';      // Controllo per vari indicatori di successo nei messaggi di errore
       const successIndicators = [
         'created successfully', 
         'account created', 
@@ -738,12 +741,12 @@ class RegisterView extends View {
         error.message.toLowerCase().includes(indicator));
       
       if (hasSuccessIndicator) {
-        console.log('Detected successful account creation in error message:', error.message);
+        console.log('Rilevata creazione account riuscita nel messaggio di errore:', error.message);
         
-        // Extract the username from the error message using different patterns
+        // Estrai lo username dal messaggio di errore usando pattern diversi
         let createdUsername = username;
         
-        // Try different regex patterns to extract the username
+        // Prova pattern regex diversi per estrarre lo username
         const patterns = [
           /Account (\w+) created successfully/i,
           /(\w+) account created/i,
@@ -759,12 +762,12 @@ class RegisterView extends View {
           }
         }
         
-        console.log(`Extracted username from success message: ${createdUsername}`);
+        console.log(`Username estratto dal messaggio di successo: ${createdUsername}`);
         
-        // This is actually a success case - handle it as such
+        // Questo è in realtà un caso di successo - gestiscilo come tale
         clearAllTimeouts();
         
-        // Update status indicator with success message
+        // Aggiorna indicatore di stato con messaggio di successo
         statusIndicator.style.backgroundColor = '#e8f5e9';
         statusIndicator.style.borderColor = '#a5d6a7';
         statusIndicator.innerHTML = `
@@ -773,39 +776,40 @@ class RegisterView extends View {
             <strong>Account Creato con Successo!</strong>
           </div>
           <p style="margin: 0;">Nome Utente: <strong>${createdUsername}</strong></p>
+          ${hasValidTelegramId ? `<p style="margin: 5px 0 0;">ID Telegram: <strong>${telegramId}</strong></p>` : ''}
           <p style="margin: 5px 0 0;">Il tuo account è stato creato sulla blockchain.</p>
           <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Tempo totale: ${Math.floor((Date.now() - startTime) / 1000)} secondi</p>
         `;
         
-        // Reset button state to show success
+        // Resetta stato pulsante per mostrare successo
         submitButton.disabled = false;
         submitButton.innerHTML = 'Account Creato!';
         submitButton.style.backgroundColor = 'var(--success-color)';
         submitButton.style.color = 'white';
         
-        // Emit success notification instead of error
-        const successMessage = `Account ${createdUsername} creato con successo!`;
+        // Emetti notifica di successo invece di errore
+        const successMessage = `Account ${createdUsername} creato con successo!${hasValidTelegramId ? ` (ID Telegram: ${telegramId})` : ''}`;
         eventEmitter.emit('notification', {
           type: 'success',
           message: successMessage
         });
-          // Extract keys if present in the error object
+        
+        // Estrai chiavi se presenti nell'oggetto errore
         let accountKeys = null;
         if (error.keys) {
           accountKeys = error.keys;
-          console.log('Account keys from error object:', accountKeys);
+          console.log('Chiavi account dall\'oggetto errore:', accountKeys);
         }
         
-        // Show success message in the form
+        // Mostra messaggio di successo nel form
         setTimeout(() => {
-          this.showSuccessMessage(form, createdUsername, isInTelegram, accountKeys);
+          this.showSuccessMessage(form, createdUsername, hasValidTelegramId, accountKeys);
         }, 1500);
         
-        return; // Exit error handling since this is actually a success case
+        return; // Esci dalla gestione errori dato che questo è in realtà un caso di successo
       }
       
-      // Normal error handling for actual errors
-      // Check for specific error types to provide better guidance
+      // Normal error handling for actual errors      // Controllo per tipi di errore specifici per fornire migliore orientamento
       let specificHelp = '';
       if (error.message.includes('Network') || error.message.includes('connect')) {
         specificHelp = `
@@ -839,13 +843,14 @@ class RegisterView extends View {
             <li>Aggiungi numeri o caratteri per renderlo unico</li>
           </ul>
         `;
-      } else if (error.message.includes('Telegram')) {
+      } else if (error.message.includes('Telegram') || error.message.includes('ID')) {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>Problema di Autenticazione Telegram</strong>
+            <strong>Problema ID Telegram</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>Assicurati di aprire questo dall'app Telegram</li>
+            <li>Assicurati di avere un ID Telegram valido</li>
+            <li>Apri questa app dall'app Telegram</li>
             <li>Prova a chiudere e riaprire l'app</li>
             <li>Aggiorna l'app Telegram se necessario</li>
           </ul>
@@ -858,6 +863,7 @@ class RegisterView extends View {
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
             <li>Riprovare tra pochi istanti</li>
             <li>Controlla la tua connessione a internet</li>
+            <li>Assicurati di avere un ID Telegram valido</li>
             <li>Se il problema persiste, contatta il supporto</li>
           </ul>
         `;
@@ -914,41 +920,42 @@ class RegisterView extends View {
       submitButton.innerHTML = 'Riprova';
       submitButton.style.color = '';
     }
-  }  showSuccessMessage(form, username, isInTelegram = false, keys = null) {
-    // Hide the form
+  }  showSuccessMessage(form, username, hasValidTelegramId = false, keys = null) {
+    // Nascondi il form
     form.style.display = 'none';
 
-    // Create success container
+    // Crea contenitore di successo
     const successContainer = document.createElement('div');
     successContainer.className = 'auth-success';
 
-    // Check if we're in development mode
+    // Controlla se siamo in modalità sviluppo
     const isLocalDev = window.location.hostname.includes('localhost') ||
       window.location.hostname.includes('127.0.0.1') ||
       window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
 
-    // Generate mock keys for display if we're in local dev and don't have real keys
+    // Genera chiavi mock per display se siamo in local dev e non abbiamo chiavi reali
     const accountKeys = keys || this.generateMockKeysForDisplay(username);
-    // Store keys for PDF generation with better logging
-    console.log('Storing account data for PDF generation:', {
+    
+    // Memorizza le chiavi per la generazione PDF con migliore logging
+    console.log('Memorizzazione dati account per generazione PDF:', {
       username,
       keys: accountKeys,
-      isInTelegram,
+      hasValidTelegramId,
       isLocalDev
     });
 
     successContainer.accountData = {
       accountName: username,
       keys: accountKeys,
-      isInTelegram,
+      hasValidTelegramId,
       isLocalDev
     };
 
-    // Add success message
+    // Aggiungi messaggio di successo
     const successMessage = document.createElement('div');
     successMessage.className = 'success-message';
 
-    // Header is the same for all cases
+    // Header uguale per tutti i casi
     const header = `
       <div class="success-header">
         <span class="material-icons">check_circle</span>
@@ -962,9 +969,9 @@ class RegisterView extends View {
     let keysContent = '';
     let warningContent = '';
 
-    // Different content based on environment
-    if (isInTelegram) {
-      // In Telegram - show keys with option to hide them
+    // Contenuto diverso basato sull'ambiente e presence di telegramId valido
+    if (hasValidTelegramId) {
+      // Con ID Telegram valido - mostra chiavi con opzione di nasconderle
       keysContent = `
         <div class="keys-section">
           <p><strong>Le tue chiavi dell'account:</strong></p>
@@ -985,7 +992,7 @@ class RegisterView extends View {
         </div>
       `;
     } else if (isLocalDev) {
-      // Local development mode - show mock keys
+      // Modalità sviluppo locale - mostra chiavi mock
       keysContent = `
         <div class="keys-section">
           <p><strong>Le tue chiavi di test (solo per sviluppo):</strong></p>
@@ -996,7 +1003,7 @@ class RegisterView extends View {
             <p><strong>Chiave Memo:</strong> <code class="copyable">${accountKeys.memo_key}</code></p>
             ${accountKeys.master_key ? `<p><strong>Chiave Master:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
           </div>
-          <p>In produzione, i dettagli dell'account e le chiavi verrebbero inviati tramite Telegram.</p>
+          <p>In produzione, i dettagli dell'account e le chiavi verrebbero inviati tramite Telegram con ID valido.</p>
         </div>
       `;
       warningContent = `
@@ -1005,7 +1012,7 @@ class RegisterView extends View {
         </div>
       `;
     } else {
-      // Generic message as fallback
+      // Messaggio generico come fallback
       keysContent = `
         <p>Controlla il tuo Telegram per i dettagli dell'account e le chiavi private.</p>
       `;
