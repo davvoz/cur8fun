@@ -19,8 +19,7 @@ class DraftsView extends View {
   /**
    * Render the drafts view
    * @param {HTMLElement} container - Container element to render into
-   */
-  async render(container) {
+   */  async render(container) {
     this.container = container;
     
     // Check authentication
@@ -29,12 +28,14 @@ class DraftsView extends View {
       return;
     }
 
-    this.container.className = 'drafts-view';
-    
     // Clear container
     while (this.container.firstChild) {
       this.container.removeChild(this.container.firstChild);
     }
+
+    // Create main wrapper with drafts-view class instead of applying to container
+    const draftsViewWrapper = document.createElement('div');
+    draftsViewWrapper.className = 'drafts-view';
 
     // Create content wrapper
     const contentWrapper = document.createElement('div');
@@ -49,11 +50,14 @@ class DraftsView extends View {
     draftsContainer.className = 'drafts-container';
     contentWrapper.appendChild(draftsContainer);
 
+    // Add content wrapper to drafts view wrapper
+    draftsViewWrapper.appendChild(contentWrapper);
+
     // Show loading while fetching drafts
     this.loadingIndicator.show(draftsContainer);
 
-    // Add to container
-    this.container.appendChild(contentWrapper);
+    // Add drafts view wrapper to main container
+    this.container.appendChild(draftsViewWrapper);
 
     // Load and render drafts
     await this.loadDrafts(draftsContainer);
