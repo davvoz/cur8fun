@@ -36,8 +36,10 @@ class RegisterView extends View {
     const isInTelegram = hasTelegramAuth || isTelegramWebView;
     const isLocalDev = window.location.hostname.includes('localhost') ||
       window.location.hostname.includes('127.0.0.1') ||
-      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
-    if (!telegramId && !isLocalDev) {
+      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
+
+    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
+    if (!isInTelegram && !isLocalDev) {
       const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
@@ -106,9 +108,10 @@ class RegisterView extends View {
     // Check for real Telegram app integration - MUST have actual user data
     // Other indicators (less reliable)
     // Combined detection with proper hierarchy - STRICTER validation
-    // Only consider truly IN Telegram if we have user data or WebApp integration    // Log detection results
+    // Only consider truly IN Telegram if we have user data or WebApp integration
+    // Log detection results
     // Only strict validation for production environment
-    if (telegramId) {
+      if (telegramId) {
       // Show Telegram info with verified user data
       const telegramInfo = document.createElement('div');
       telegramInfo.className = 'telegram-auth-high';
@@ -117,15 +120,6 @@ class RegisterView extends View {
         <p style="margin: 0;"><strong>ID Telegram:</strong> ${telegramId}</p>
       `;
       form.appendChild(telegramInfo);
-    } else if (isLocalDev) {
-      // Show local development mode info
-      const localDevInfo = document.createElement('div');
-      localDevInfo.className = 'telegram-auth-local-dev';
-      localDevInfo.innerHTML = `
-        <p style="margin: 0 0 5px; color: var(--warning-color);"><strong>⚠️ Modalità Sviluppo Locale</strong></p>
-        <p style="margin: 0; font-size: 0.9em;">Registrazione abilitata per testing (Telegram ID non richiesto)</p>
-      `;
-      form.appendChild(localDevInfo);
     } else {
       // Not in Telegram at all
       const telegramWarning = document.createElement('div');
