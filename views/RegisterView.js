@@ -36,16 +36,14 @@ class RegisterView extends View {
     const isInTelegram = hasTelegramAuth || isTelegramWebView;
     const isLocalDev = window.location.hostname.includes('localhost') ||
       window.location.hostname.includes('127.0.0.1') ||
-      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
-
-    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
-    if (!telegramId) {
+      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
+    if (!telegramId && !isLocalDev) {
       const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo tramite Telegram</strong></p>
         <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram.</p>
-        <p style="margin: 0;"><a href="https://t.me/steemeebot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
+        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
       `;
       container.appendChild(telegramWarning);
       element.appendChild(container);
@@ -108,10 +106,9 @@ class RegisterView extends View {
     // Check for real Telegram app integration - MUST have actual user data
     // Other indicators (less reliable)
     // Combined detection with proper hierarchy - STRICTER validation
-    // Only consider truly IN Telegram if we have user data or WebApp integration
-    // Log detection results
+    // Only consider truly IN Telegram if we have user data or WebApp integration    // Log detection results
     // Only strict validation for production environment
-      if (telegramId) {
+    if (telegramId) {
       // Show Telegram info with verified user data
       const telegramInfo = document.createElement('div');
       telegramInfo.className = 'telegram-auth-high';
@@ -120,6 +117,15 @@ class RegisterView extends View {
         <p style="margin: 0;"><strong>ID Telegram:</strong> ${telegramId}</p>
       `;
       form.appendChild(telegramInfo);
+    } else if (isLocalDev) {
+      // Show local development mode info
+      const localDevInfo = document.createElement('div');
+      localDevInfo.className = 'telegram-auth-local-dev';
+      localDevInfo.innerHTML = `
+        <p style="margin: 0 0 5px; color: var(--warning-color);"><strong>⚠️ Modalità Sviluppo Locale</strong></p>
+        <p style="margin: 0; font-size: 0.9em;">Registrazione abilitata per testing (Telegram ID non richiesto)</p>
+      `;
+      form.appendChild(localDevInfo);
     } else {
       // Not in Telegram at all
       const telegramWarning = document.createElement('div');
