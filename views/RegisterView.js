@@ -133,7 +133,7 @@ class RegisterView extends View {
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede l'autenticazione Telegram.</p>
         <p style="margin: 0 0 10px;">Apri questa app da Telegram per creare un nuovo account Steem.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
+        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
     }
