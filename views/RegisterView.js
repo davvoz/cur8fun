@@ -39,7 +39,7 @@ class RegisterView extends View {
       window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
 
     // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
-    if (!isInTelegram && !isLocalDev) {
+    if (!telegramId) {
       const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
