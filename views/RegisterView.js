@@ -19,6 +19,38 @@ class RegisterView extends View {
     // Create container
     const container = document.createElement('div');
     container.className = 'auth-container';
+
+    // Telegram detection (dichiarata una sola volta)
+    const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
+    const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
+    const telegramId = telegramData?.user?.id;
+    const telegramUsername = telegramData?.user?.username;
+    const hasTelegramAuth = !!telegramId && !!telegramUsername;
+    const secondaryTelegramIndicators =
+      window.location.href.includes('tgWebApp=') ||
+      navigator.userAgent.toLowerCase().includes('telegram') ||
+      document.referrer.toLowerCase().includes('telegram');
+    const telegramConfidence = hasTelegramAuth ? 'high' :
+      isTelegramWebView ? 'medium' :
+      secondaryTelegramIndicators ? 'low' : 'none';
+    const isInTelegram = hasTelegramAuth || isTelegramWebView;
+    const isLocalDev = window.location.hostname.includes('localhost') ||
+      window.location.hostname.includes('127.0.0.1') ||
+      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
+
+    // Se NON siamo in Telegram e NON in local dev, mostra solo il banner
+    if (!isInTelegram && !isLocalDev) {
+      const telegramWarning = document.createElement('div');
+      telegramWarning.className = 'telegram-auth-none';
+      telegramWarning.innerHTML = `
+        <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo tramite Telegram</strong></p>
+        <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram.</p>
+        <p style="margin: 0;"><a href="https://t.me/steemeebot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
+      `;
+      container.appendChild(telegramWarning);
+      element.appendChild(container);
+      return element;
+    }
     
     // Create form
     const form = document.createElement('form');
@@ -30,12 +62,12 @@ class RegisterView extends View {
     header.className = 'auth-header';
     
     const title = document.createElement('h2');
-    title.textContent = 'Create a Steem Account';
+    title.textContent = 'Crea un Account Steem';
     header.appendChild(title);
     
     const subtitle = document.createElement('p');
     subtitle.className = 'auth-subtitle';
-    subtitle.textContent = 'Join the blockchain-based social network';
+    subtitle.textContent = 'Unisciti al social network basato su blockchain';
     header.appendChild(subtitle);
     
     form.appendChild(header);
@@ -70,106 +102,32 @@ class RegisterView extends View {
       }
     `;
     document.head.appendChild(spinnerStyle);
+    // Rimuovere tutte le dichiarazioni duplicate di queste variabili nel resto del file
+    // e usare solo queste dichiarate qui all'inizio del metodo render.
     // Enhanced Telegram detection with stricter validation
-    const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
-    const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
-    const telegramId = telegramData?.user?.id;
-    const telegramUsername = telegramData?.user?.username;
-    
     // Check for real Telegram app integration - MUST have actual user data
-    const hasTelegramAuth = !!telegramId && !!telegramUsername;
-    
     // Other indicators (less reliable)
-    const secondaryTelegramIndicators = 
-        window.location.href.includes('tgWebApp=') || 
-        navigator.userAgent.toLowerCase().includes('telegram') ||
-        document.referrer.toLowerCase().includes('telegram');
-    
-    // Combined detection with proper hierarchy:
-    // 1. Authenticated Telegram session (highest confidence) - REQUIRES user data
-    // 2. WebApp API presence but no auth (medium confidence)
-    // 3. Secondary indicators (lowest confidence)
-    const telegramConfidence = hasTelegramAuth ? 'high' : 
-                              isTelegramWebView ? 'medium' : 
-                              secondaryTelegramIndicators ? 'low' : 'none';
-                              
+    // Combined detection with proper hierarchy - STRICTER validation
     // Only consider truly IN Telegram if we have user data or WebApp integration
-    const isInTelegram = hasTelegramAuth || isTelegramWebView;
-    const hasFullTelegramAuth = hasTelegramAuth;
-    
-    // Determine appropriate messaging based on confidence level
-    let telegramStatus = 'not-detected';
-    if (hasFullTelegramAuth) {
-        telegramStatus = 'authenticated';
-    } else if (telegramConfidence === 'medium') {
-        telegramStatus = 'detected-no-auth';
-    } else if (telegramConfidence === 'low') {
-        telegramStatus = 'possible';
-    }
-                          // Log enhanced Telegram detection status for debugging
-    console.log("Enhanced Telegram detection in RegisterView:", {
-      isTelegramWebView,
-      telegramConfidence,
-      telegramStatus,
-      isInTelegram,
-      hasFullTelegramAuth,
-      telegramId: telegramId || 'undefined',
-      telegramUsername: telegramUsername || 'undefined',
-      hasTelegramAuth,
-      secondaryTelegramIndicators,
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    });
-    
-    const isLocalDev = window.location.hostname.includes('localhost') || 
-                      window.location.hostname.includes('127.0.0.1') ||
-                      window.location.hostname.match(/^192\.168\.\d+\.\d+$/) !== null;
-      if (telegramId && telegramUsername) {
+    // Log detection results
+    // Only strict validation for production environment
+      if (telegramId) {
       // Show Telegram info with verified user data
       const telegramInfo = document.createElement('div');
       telegramInfo.className = 'telegram-auth-high';
       telegramInfo.innerHTML = `
-        <p style="margin: 0 0 5px;"><strong>Telegram User:</strong> @${telegramUsername}</p>
-        <p style="margin: 0;"><strong>Telegram ID:</strong> ${telegramId}</p>
+        <p style="margin: 0 0 5px;"><strong>Utente Telegram:</strong> @${telegramUsername}</p>
+        <p style="margin: 0;"><strong>ID Telegram:</strong> ${telegramId}</p>
       `;
       form.appendChild(telegramInfo);
-    } else if (telegramConfidence === 'medium') {
-      // Telegram API detected but no user data
-      const telegramInfo = document.createElement('div');
-      telegramInfo.className = 'telegram-auth-medium';
-      telegramInfo.innerHTML = `
-        <p style="margin: 0;"><strong>Telegram API detected but not authenticated</strong></p>
-        <p style="margin: 5px 0 0;">Please ensure you open this app directly from the Telegram app.</p>
-        <p style="margin: 5px 0 0;">If you're already in Telegram, try refreshing the page or reinstalling the bot.</p>
-      `;
-      form.appendChild(telegramInfo);
-    } else if (telegramConfidence === 'low') {
-      // Possibly Telegram but uncertain
-      const possibleTelegramInfo = document.createElement('div');
-      possibleTelegramInfo.className = 'telegram-auth-low';
-      possibleTelegramInfo.innerHTML = `
-        <p style="margin: 0;"><strong>Possible Telegram detected but not verified</strong></p>
-        <p style="margin: 5px 0 0;">Please make sure you're opening this from the official Telegram app.</p>
-        <p style="margin: 5px 0 0;">For proper account creation, use the official <a href="https://t.me/steemeebot" style="color: var(--primary-color);">Steemee Telegram Bot</a>.</p>
-      `;
-      form.appendChild(possibleTelegramInfo);
-    } else if (isLocalDev) {
-      // Local development mode
-      const devNote = document.createElement('div');
-      devNote.className = 'dev-info';
-      devNote.innerHTML = `
-        <p style="margin: 0;"><strong>Development Mode</strong> - Telegram authentication bypassed</p>
-        <p style="margin: 5px 0 0;">Testing on: ${window.location.hostname}</p>
-      `;
-      form.appendChild(devNote);
     } else {
       // Not in Telegram at all
       const telegramWarning = document.createElement('div');
       telegramWarning.className = 'telegram-auth-none';
       telegramWarning.innerHTML = `
-        <p style="margin: 0 0 10px;"><strong>Note:</strong> Account creation requires Telegram authentication.</p>
-        <p style="margin: 0 0 10px;">Please open this app from Telegram to create a new Steem account.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Open in Telegram</a></p>
+        <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede l'autenticazione Telegram.</p>
+        <p style="margin: 0 0 10px;">Apri questa app da Telegram per creare un nuovo account Steem.</p>
+        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
     }
@@ -177,27 +135,27 @@ class RegisterView extends View {
     // Create form fields - only username is required
     const usernameField = this.createFormField(
       'username', 
-      'Username', 
+      'Nome Utente', 
       'person', 
       'text',
-      'Choose a unique Steem username'
+      'Scegli un nome utente Steem unico'
     );
     form.appendChild(usernameField);    // Add note about account creation
     const note = document.createElement('div');
     note.className = 'auth-note';
     note.innerHTML = `
-      <p>Important: Creating a Steem account typically requires a small fee paid in STEEM cryptocurrency.</p>
-      <p>Your account details and private keys will be provided via Telegram.</p>
-      <p><strong>Please keep your keys in a safe place! They cannot be recovered if lost.</strong></p>
+      <p>Importante: La creazione di un account Steem richiede solitamente una piccola tassa pagata in criptovaluta STEEM.</p>
+      <p>Le informazioni del tuo account e le chiavi private ti saranno fornite tramite Telegram.</p>
+      <p><strong>Conserva le tue chiavi in un luogo sicuro! Non possono essere recuperate se perse.</strong></p>
       
       <div class="account-creation-process">
-        <h4>Account Creation Process:</h4>
+        <h4>Processo di Creazione dell'Account:</h4>
         <ol>
-          <li>Enter a unique username (3-16 characters)</li>
-          <li>Authenticate with Telegram</li>
-          <li>Our system will create your Steem blockchain account</li>
-          <li>You'll receive your account keys via Telegram</li>
-          <li>Use these keys to log in to your new account</li>
+          <li>Inserisci un nome utente unico (3-16 caratteri)</li>
+          <li>Autenticati con Telegram</li>
+          <li>Il nostro sistema creerà il tuo account blockchain Steem</li>
+          <li>Riceverai le chiavi del tuo account tramite Telegram</li>
+          <li>Usa queste chiavi per accedere al tuo nuovo account</li>
         </ol>
       </div>
     `;
@@ -225,7 +183,7 @@ class RegisterView extends View {
     const submitButton = document.createElement('button');
     submitButton.type = 'submit';
     submitButton.className = 'auth-button';
-    submitButton.innerHTML = 'Create Account';
+    submitButton.innerHTML = 'Crea Account';
     
     // Add spinner container (hidden by default)
     const spinnerContainer = document.createElement('span');
@@ -252,19 +210,19 @@ class RegisterView extends View {
     if (!isInTelegram && !isLocalDev) {
       // Not in Telegram at all
       submitButton.disabled = true;
-      submitButton.textContent = 'Telegram Required';
+      submitButton.textContent = 'Telegram Richiesto';
       submitButton.classList.add('auth-button-none');
     } else if (telegramConfidence === 'medium') {
       // In Telegram but not authenticated
       submitButton.dataset.telegramPending = 'true';
-      submitButton.textContent = 'Authentication Needed';
+      submitButton.textContent = 'Autenticazione Necessaria';
       submitButton.classList.add('auth-button-medium');
       
       // Add click handler to show authentication dialog
       submitButton.addEventListener('click', (e) => {
         if (submitButton.dataset.telegramPending === 'true') {
           e.preventDefault();
-          alert('Please ensure Telegram authentication is complete. Try reopening the app from Telegram.');
+          alert('Assicurati che l\'autenticazione Telegram sia completa. Prova a riaprire l\'app da Telegram.');
           
           // Try to recheck Telegram auth
           if (window.Telegram && window.Telegram.WebApp) {
@@ -281,100 +239,24 @@ class RegisterView extends View {
       });
     } else if (telegramConfidence === 'low') {
       // Possibly Telegram but uncertain
-      submitButton.textContent = 'Create Account (Verification Needed)';
+      submitButton.textContent = 'Crea Account (Verifica Necessaria)';
       submitButton.classList.add('auth-button-low');
     } else if (isLocalDev) {
       // In development mode - allow with visual indication
       submitButton.classList.add('auth-button-dev');
-      submitButton.textContent = 'Create Account (Dev Mode)';
+      submitButton.textContent = 'Crea Account (Modalità Sviluppo)';
     } else if (hasFullTelegramAuth) {
       // Fully authenticated Telegram
       submitButton.classList.add('auth-button-high');
-      submitButton.textContent = 'Create Account';
+      submitButton.textContent = 'Crea Account';
     }
     
     form.appendChild(submitButton);
       // Add login link
     const loginLink = document.createElement('div');
     loginLink.className = 'auth-link';
-    loginLink.innerHTML = 'Already have an account? <a href="/login">Login here</a>';
+    loginLink.innerHTML = 'Hai già un account? <a href="/login">Accedi qui</a>';
     form.appendChild(loginLink);
-    
-    // Add check service button for development mode
-    if (isLocalDev) {
-      const serviceCheckDiv = document.createElement('div');
-      serviceCheckDiv.style.marginTop = '20px';
-      serviceCheckDiv.style.borderTop = '1px solid #ddd';
-      serviceCheckDiv.style.paddingTop = '15px';
-      
-      const serviceCheckButton = document.createElement('button');
-      serviceCheckButton.type = 'button';
-      serviceCheckButton.textContent = 'Check API Service';
-      serviceCheckButton.className = 'secondary-button';
-      serviceCheckButton.style.backgroundColor = '#e0e0e0';
-      serviceCheckButton.style.color = '#333';
-      serviceCheckButton.style.border = 'none';
-      serviceCheckButton.style.padding = '8px 16px';
-      serviceCheckButton.style.borderRadius = '4px';
-      serviceCheckButton.style.cursor = 'pointer';
-      
-      // Add result container
-      const serviceCheckResult = document.createElement('div');
-      serviceCheckResult.className = 'service-check-result';
-      serviceCheckResult.style.marginTop = '10px';
-      serviceCheckResult.style.fontSize = '14px';
-      serviceCheckResult.style.padding = '10px';
-      
-      // Add event listener
-      serviceCheckButton.addEventListener('click', async () => {
-        try {
-          serviceCheckButton.disabled = true;
-          serviceCheckButton.textContent = 'Checking...';
-          serviceCheckResult.innerHTML = 'Testing API connection...';
-          serviceCheckResult.style.backgroundColor = '#f0f0f0';
-          
-          // Call the service check method
-          const connectionTest = await registerService.testApiConnection();
-          const serviceTest = await registerService.checkAccountCreationService();
-          
-          // Display results
-          serviceCheckResult.innerHTML = `
-            <h4 style="margin: 0 0 8px;">API Connection Test</h4>
-            <p style="margin: 0 0 5px;">Status: <strong>${connectionTest.success ? 'Success' : 'Failed'}</strong></p>
-            <p style="margin: 0 0 5px;">Message: ${connectionTest.message}</p>
-            <p style="margin: 0 0 15px;">Endpoint: ${connectionTest.endpoint || 'N/A'}</p>
-            
-            <h4 style="margin: 10px 0 8px;">Account Creation Service</h4>
-            <p style="margin: 0 0 5px;">Status: <strong>${serviceTest.success ? 'Available' : 'Unavailable'}</strong></p>
-            <p style="margin: 0 0 5px;">Message: ${serviceTest.message}</p>
-            <p style="margin: 0;">Endpoint: ${serviceTest.endpoint || 'N/A'}</p>
-          `;
-          
-          // Set appropriate background color
-          if (connectionTest.success && serviceTest.success) {
-            serviceCheckResult.style.backgroundColor = '#e8f5e9';
-            serviceCheckResult.style.border = '1px solid #a5d6a7';
-          } else {
-            serviceCheckResult.style.backgroundColor = '#ffebee';
-            serviceCheckResult.style.border = '1px solid #ef9a9a';
-          }
-          
-        } catch (error) {
-          serviceCheckResult.innerHTML = `
-            <p style="color: #d32f2f;"><strong>Error checking API service:</strong> ${error.message}</p>
-          `;
-          serviceCheckResult.style.backgroundColor = '#ffebee';
-          serviceCheckResult.style.border = '1px solid #ef9a9a';
-        } finally {
-          serviceCheckButton.disabled = false;
-          serviceCheckButton.textContent = 'Check API Service';
-        }
-      });
-      
-      serviceCheckDiv.appendChild(serviceCheckButton);
-      serviceCheckDiv.appendChild(serviceCheckResult);
-      form.appendChild(serviceCheckDiv);
-    }
     
     // Add form to container
     container.appendChild(form);
@@ -462,7 +344,7 @@ class RegisterView extends View {
               // Add validation message
               const validationMsg = document.createElement('div');
               validationMsg.className = 'username-validation';
-              validationMsg.textContent = 'This username is already taken';
+              validationMsg.textContent = 'Questo nome utente è già stato preso';
               validationMsg.style.color = '#ff0000';
               validationMsg.style.fontSize = '12px';
               validationMsg.style.marginTop = '4px';
@@ -482,7 +364,7 @@ class RegisterView extends View {
     if (id === 'username') {
       const hintElement = document.createElement('div');
       hintElement.className = 'field-hint';
-      hintElement.textContent = 'Username must be 3-16 characters, using only lowercase letters, numbers, dots and dashes.';
+      hintElement.textContent = 'Il nome utente deve essere lungo 3-16 caratteri, utilizzando solo lettere minuscole, numeri, punti e trattini.';
       hintElement.style.color = '#666';
       hintElement.style.fontSize = '12px';
       hintElement.style.marginTop = '4px';
@@ -521,7 +403,7 @@ class RegisterView extends View {
         isOffline = true;
         const statusMessage = document.getElementById('status-message');
         if (statusMessage) {
-          statusMessage.textContent = 'Network connection lost! Waiting for reconnection...';
+          statusMessage.textContent = 'Connessione di rete persa! Attesa di riconnessione...';
         }
         statusIndicator.style.backgroundColor = '#fff3e0';
         statusIndicator.style.borderColor = '#ffcc80';
@@ -529,7 +411,7 @@ class RegisterView extends View {
         isOffline = false;
         const statusMessage = document.getElementById('status-message');
         if (statusMessage) {
-          statusMessage.textContent = 'Network connection restored! Continuing...';
+          statusMessage.textContent = 'Connessione di rete ripristinata! Continuando...';
         }
         setTimeout(() => {
           if (statusIndicator.style.backgroundColor === 'rgb(255, 243, 224)') { // #fff3e0
@@ -558,12 +440,12 @@ class RegisterView extends View {
     statusIndicator.style.bottom = '20px';
     statusIndicator.style.zIndex = '100';
     statusIndicator.innerHTML = `
-      <p style="margin: 0 0 5px;"><strong>Preparing account creation...</strong></p>
-      <p style="margin: 0;" id="status-message">Initializing...</p>
+      <p style="margin: 0 0 5px;"><strong>Preparazione creazione account...</strong></p>
+      <p style="margin: 0;" id="status-message">Inizializzando...</p>
       <div id="creation-progress" style="margin-top: 10px; height: 6px; background-color: #e0e0e0; border-radius: 2px; overflow: hidden;">
         <div style="width: 10%; height: 100%; background-color: #2196f3; transition: width 0.5s ease;"></div>
       </div>
-      <p style="margin: 5px 0 0; font-size: 12px; color: #666;" id="status-time">Starting...</p>
+      <p style="margin: 5px 0 0; font-size: 12px; color: #666;" id="status-time">Inizio...</p>
     `;
     form.appendChild(statusIndicator);
     
@@ -583,7 +465,7 @@ class RegisterView extends View {
       }
       
       if (timeElement) {
-        timeElement.textContent = `Time elapsed: ${elapsedSec} seconds`;
+        timeElement.textContent = `Tempo trascorso: ${elapsedSec} secondi`;
       }
       
       const progressBar = document.querySelector('#creation-progress > div');
@@ -595,7 +477,7 @@ class RegisterView extends View {
     // Function to handle potential timeouts
     const startTimeoutDetection = (stage, timeoutMs = 15000) => {
       const timerId = setTimeout(() => {
-        updateStatus(`${stage} is taking longer than expected, still trying...`, null);
+        updateStatus(`${stage} richiede più tempo del previsto, sto ancora provando...`, null);
         statusIndicator.style.backgroundColor = '#fff3e0';
         statusIndicator.style.borderColor = '#ffcc80';
       }, timeoutMs);
@@ -612,12 +494,12 @@ class RegisterView extends View {
       try {
       // Disable button and show loading state
       submitButton.disabled = true;
-      submitButton.textContent = 'Creating Account...';
+      submitButton.textContent = 'Creazione Account...';
       submitButton.style.position = 'relative';
       submitButton.style.color = 'rgba(255, 255, 255, 0.7)';
       submitButton.innerHTML = `
         <span style="position: absolute; display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; left: calc(50% - 40px);"></span>
-        Creating Account...
+        Creazione Account...
       `;
       
       // Reset any previous errors
@@ -637,7 +519,7 @@ class RegisterView extends View {
       }
       
       // Step 1: Enhanced Telegram detection (10%)
-      updateStatus('Checking Telegram authentication...', 10);
+      updateStatus('Controllo autenticazione Telegram...', 10);
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
         // Enhanced Telegram detection with stricter validation
       const isTelegramWebView = !!window.Telegram && !!window.Telegram.WebApp;
@@ -684,16 +566,16 @@ class RegisterView extends View {
       if (!isLocalDev) {
         // In production, we require HIGH confidence (authenticated Telegram with user data)
         if (!hasFullTelegramAuth) {
-          throw new Error('Complete Telegram authentication is required. Please open this app directly from Telegram and ensure you are logged in with a Telegram account that has a username.');
+          throw new Error('È richiesta un\'autenticazione Telegram completa. Apri questa app direttamente da Telegram e assicurati di essere connesso con un account Telegram che ha un nome utente.');
         }
       } else if (!isInTelegram && !isLocalDev) {
         // Fallback check (shouldn't be needed with new logic)
-        throw new Error('Telegram authentication is required to create an account.');
+        throw new Error('È richiesta l\'autenticazione Telegram per creare un account.');
       }
       
       // Step 2: Checking API connectivity (30%)
-      updateStatus('Connecting to API service...', 30);
-      let timeoutId = startTimeoutDetection('API connection check');
+      updateStatus('Connessione al servizio API...', 30);
+      let timeoutId = startTimeoutDetection('Controllo connessione API');
       
       try {
         const apiCheck = await registerService.testApiConnection();
@@ -701,18 +583,18 @@ class RegisterView extends View {
         console.log('API connectivity check:', apiCheck);
         
         if (!apiCheck.success) {
-          throw new Error(`API connection failed: ${apiCheck.message}`);
+          throw new Error(`Connessione API fallita: ${apiCheck.message}`);
         }
-        updateStatus('API connection successful', 35);
+        updateStatus('Connessione API riuscita', 35);
       } catch (apiError) {
         clearTimeout(timeoutId);
         console.error('API connectivity error:', apiError);
-        throw new Error(`Cannot connect to API: ${apiError.message || 'Unknown error'}`);
+        throw new Error(`Impossibile connettersi all'API: ${apiError.message || 'Errore sconosciuto'}`);
       }
       
       // Step 3: Verifying account creation service (50%)
-      updateStatus('Verifying account creation service...', 50);
-      timeoutId = startTimeoutDetection('Service verification');
+      updateStatus('Verifica del servizio di creazione account...', 50);
+      timeoutId = startTimeoutDetection('Verifica servizio');
       
       try {
         const serviceCheck = await registerService.checkAccountCreationService();
@@ -720,17 +602,17 @@ class RegisterView extends View {
         console.log('Service check:', serviceCheck);
         
         if (!serviceCheck.success) {
-          throw new Error(`Account creation service unavailable: ${serviceCheck.message}`);
+          throw new Error(`Servizio di creazione account non disponibile: ${serviceCheck.message}`);
         }
-        updateStatus('Account creation service is available', 60);
+        updateStatus('Servizio di creazione account disponibile', 60);
       } catch (serviceError) {
         clearTimeout(timeoutId);
         console.error('Service check error:', serviceError);
-        throw new Error(`Account creation service unavailable: ${serviceError.message || 'Unknown error'}`);
+        throw new Error(`Servizio di creazione account non disponibile: ${serviceError.message || 'Errore sconosciuto'}`);
       }
         // Step 4: Sending account creation request (70%)
-      updateStatus('Sending account creation request...', 70);
-      timeoutId = startTimeoutDetection('Account creation', 30000); // Longer timeout for account creation
+      updateStatus('Invio richiesta di creazione account...', 70);
+      timeoutId = startTimeoutDetection('Creazione account', 30000); // Longer timeout for account creation
       
       let result;
       try {
@@ -790,7 +672,7 @@ class RegisterView extends View {
         }
       }
         // Step 5: Finalizing (100%)
-      updateStatus('Account created successfully!', 100);
+      updateStatus('Account creato con successo!', 100);
       
       // Get the created username from result if available
       const createdUsername = result.createdUsername || username;
@@ -803,21 +685,21 @@ class RegisterView extends View {
       statusIndicator.style.backgroundColor = '#e8f5e9';
       statusIndicator.style.borderColor = '#a5d6a7';
       statusIndicator.innerHTML = `
-        <p style="margin: 0 0 5px;"><strong>Account Created Successfully!</strong></p>
-        <p style="margin: 0;">Username: <strong>${createdUsername}</strong></p>
-        <p style="margin: 5px 0 0;">Your account has been created on the blockchain.</p>
-        <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+        <p style="margin: 0 0 5px;"><strong>Account Creato con Successo!</strong></p>
+        <p style="margin: 0;">Nome Utente: <strong>${createdUsername}</strong></p>
+        <p style="margin: 5px 0 0;">Il tuo account è stato creato sulla blockchain.</p>
+        <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Tempo totale: ${Math.floor((Date.now() - startTime) / 1000)} secondi</p>
       `;
     
       // Success! Show notification with appropriate message
-      let successMessage = 'Account created successfully!';
+      let successMessage = 'Account creato con successo!';
       
       if (result && result.telegramId) {
-        successMessage += ' Check your Telegram for account details.';
+        successMessage += ' Controlla il tuo Telegram per i dettagli dell\'account.';
       } else if (isInTelegram) {
-        successMessage += ' Account details will be sent via Telegram.';
+        successMessage += ' I dettagli dell\'account saranno inviati tramite Telegram.';
       } else if (isLocalDev) {
-        successMessage += ' (Development Mode)';
+        successMessage += ' (Modalità Sviluppo)';
       }
       
       // Emit notification event
@@ -836,7 +718,7 @@ class RegisterView extends View {
       }, 1500);
       
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error('Registrazione fallita:', error);
       clearAllTimeouts();
       
       // Remove network listeners
@@ -888,21 +770,21 @@ class RegisterView extends View {
         statusIndicator.innerHTML = `
           <div style="display: flex; align-items: center; margin-bottom: 10px;">
             <span class="material-icons" style="color: #4caf50; font-size: 24px; margin-right: 10px;">check_circle</span>
-            <strong>Account Created Successfully!</strong>
+            <strong>Account Creato con Successo!</strong>
           </div>
-          <p style="margin: 0;">Username: <strong>${createdUsername}</strong></p>
-          <p style="margin: 5px 0 0;">Your account has been created on the blockchain.</p>
-          <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+          <p style="margin: 0;">Nome Utente: <strong>${createdUsername}</strong></p>
+          <p style="margin: 5px 0 0;">Il tuo account è stato creato sulla blockchain.</p>
+          <p style="margin: 5px 0 0; font-size: 12px; color: #4caf50;">Tempo totale: ${Math.floor((Date.now() - startTime) / 1000)} secondi</p>
         `;
         
         // Reset button state to show success
         submitButton.disabled = false;
-        submitButton.innerHTML = 'Account Created!';
+        submitButton.innerHTML = 'Account Creato!';
         submitButton.style.backgroundColor = 'var(--success-color)';
         submitButton.style.color = 'white';
         
         // Emit success notification instead of error
-        const successMessage = `Account ${createdUsername} created successfully!`;
+        const successMessage = `Account ${createdUsername} creato con successo!`;
         eventEmitter.emit('notification', {
           type: 'success',
           message: successMessage
@@ -928,66 +810,66 @@ class RegisterView extends View {
       if (error.message.includes('Network') || error.message.includes('connect')) {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>Connection Issue Detected</strong>
+            <strong>Problema di Connessione Rilevato</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>Check your internet connection</li>
-            <li>Make sure you have a stable connection</li>
-            <li>Try closing and reopening the Telegram app</li>
+            <li>Controlla la tua connessione a internet</li>
+            <li>Assicurati di avere una connessione stabile</li>
+            <li>Prova a chiudere e riaprire l'app Telegram</li>
           </ul>
         `;
       } else if (error.message.includes('timed out') || error.message.includes('timeout')) {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>Request Timeout</strong>
+            <strong>Richiesta Scaduta</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>The server is taking too long to respond</li>
-            <li>It may be experiencing high traffic</li>
-            <li>Try again in a few minutes</li>
+            <li>Il server impiega troppo tempo a rispondere</li>
+            <li>Potrebbe essere sotto traffico elevato</li>
+            <li>Riprovare tra qualche minuto</li>
           </ul>
         `;
       } else if (error.message.includes('already exists') || error.message.includes('taken')) {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>Username Not Available</strong>
+            <strong>Nome Utente Non Disponibile</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>Try a different username</li>
-            <li>Add numbers or characters to make it unique</li>
+            <li>Prova un nome utente diverso</li>
+            <li>Aggiungi numeri o caratteri per renderlo unico</li>
           </ul>
         `;
       } else if (error.message.includes('Telegram')) {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>Telegram Authentication Issue</strong>
+            <strong>Problema di Autenticazione Telegram</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>Make sure you're opening this from the Telegram app</li>
-            <li>Try closing and reopening the app</li>
-            <li>Update your Telegram app if needed</li>
+            <li>Assicurati di aprire questo dall'app Telegram</li>
+            <li>Prova a chiudere e riaprire l'app</li>
+            <li>Aggiorna l'app Telegram se necessario</li>
           </ul>
         `;
       } else {
         specificHelp = `
           <p style="margin: 5px 0 0; font-size: 14px;">
-            <strong>General Error</strong>
+            <strong>Errore Generale</strong>
           </p>
           <ul style="margin-top: 5px; padding-left: 15px; font-size: 13px;">
-            <li>Try again in a few moments</li>
-            <li>Check your internet connection</li>
-            <li>If the problem persists, contact support</li>
+            <li>Riprovare tra pochi istanti</li>
+            <li>Controlla la tua connessione a internet</li>
+            <li>Se il problema persiste, contatta il supporto</li>
           </ul>
         `;
       }
         statusIndicator.innerHTML = `
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
           <span class="material-icons" style="color: #d32f2f; font-size: 24px; margin-right: 10px;">error</span>
-          <strong>Registration Error</strong>
+          <strong>Errore Registrazione</strong>
         </div>
         <div class="error-message" style="padding: 10px; background-color: rgba(255,255,255,0.7); border-radius: 4px; margin-bottom: 10px;">
-          <p style="margin: 0; color: #c62828; font-weight: bold;">${error.message || 'Failed to create account'}</p>
-          <p style="margin: 5px 0 0; font-size: 12px; color: #666;">Total time: ${Math.floor((Date.now() - startTime) / 1000)} seconds</p>
+          <p style="margin: 0; color: #c62828; font-weight: bold;">${error.message || 'Impossibile creare l\'account'}</p>
+          <p style="margin: 5px 0 0; font-size: 12px; color: #666;">Tempo totale: ${Math.floor((Date.now() - startTime) / 1000)} secondi</p>
         </div>
         <div class="error-help">
           ${specificHelp}
@@ -995,11 +877,11 @@ class RegisterView extends View {
         <div class="action-buttons" style="display: flex; margin-top: 15px;">
           <button id="retry-button" style="flex: 1; margin-right: 10px; padding: 8px 16px; background-color: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             <span class="material-icons" style="font-size: 18px; margin-right: 5px;">refresh</span>
-            Try Again
+            Riprova
           </button>
           <button id="help-button" style="flex: 1; margin-left: 10px; padding: 8px 16px; background-color: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             <span class="material-icons" style="font-size: 18px; margin-right: 5px;">help_outline</span>
-            Get Help
+            Ottieni Aiuto
           </button>
         </div>
       `;
@@ -1010,7 +892,7 @@ class RegisterView extends View {
           // Reset the form and try again
           statusIndicator.remove();
           submitButton.disabled = false;
-          submitButton.innerHTML = 'Create Account';
+          submitButton.innerHTML = 'Crea Account';
           submitButton.style.backgroundColor = '';
           document.querySelector('.button-spinner').style.display = 'none';
         });
@@ -1025,11 +907,11 @@ class RegisterView extends View {
         });
       }
       
-      this.showError(form, error.message || 'Failed to create account');
+      this.showError(form, error.message || 'Impossibile creare l\'account');
       
       // Reset button state
       submitButton.disabled = false;
-      submitButton.innerHTML = 'Try Again';
+      submitButton.innerHTML = 'Riprova';
       submitButton.style.color = '';
     }
   }  showSuccessMessage(form, username, isInTelegram = false, keys = null) {
@@ -1070,10 +952,10 @@ class RegisterView extends View {
     const header = `
       <div class="success-header">
         <span class="material-icons">check_circle</span>
-        <h3>Account Created Successfully!${isLocalDev ? ' (Development Mode)' : ''}</h3>
+        <h3>Account Creato con Successo!${isLocalDev ? ' (Modalità Sviluppo)' : ''}</h3>
       </div>
       <div class="account-details">
-        <p>Your Steem account <strong>${username}</strong> has been created.</p>
+        <p>Il tuo account Steem <strong>${username}</strong> è stato creato.</p>
       </div>
     `;
 
@@ -1085,51 +967,51 @@ class RegisterView extends View {
       // In Telegram - show keys with option to hide them
       keysContent = `
         <div class="keys-section">
-          <p><strong>Your account keys:</strong></p>
+          <p><strong>Le tue chiavi dell'account:</strong></p>
           <div class="keys-container" id="keysContent">
-            <p><strong>Active Key:</strong> <code class="copyable">${accountKeys.active_key || 'Sent via Telegram'}</code></p>
-            <p><strong>Owner Key:</strong> <code class="copyable">${accountKeys.owner_key || 'Sent via Telegram'}</code></p>
-            <p><strong>Posting Key:</strong> <code class="copyable">${accountKeys.posting_key || 'Sent via Telegram'}</code></p>
-            <p><strong>Memo Key:</strong> <code class="copyable">${accountKeys.memo_key || 'Sent via Telegram'}</code></p>
-            ${accountKeys.master_key ? `<p><strong>Master Key:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
+            <p><strong>Chiave Attiva:</strong> <code class="copyable">${accountKeys.active_key || 'Inviata tramite Telegram'}</code></p>
+            <p><strong>Chiave Proprietario:</strong> <code class="copyable">${accountKeys.owner_key || 'Inviata tramite Telegram'}</code></p>
+            <p><strong>Chiave di Posting:</strong> <code class="copyable">${accountKeys.posting_key || 'Inviata tramite Telegram'}</code></p>
+            <p><strong>Chiave Memo:</strong> <code class="copyable">${accountKeys.memo_key || 'Inviata tramite Telegram'}</code></p>
+            ${accountKeys.master_key ? `<p><strong>Chiave Master:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
           </div>
-          <p>These keys have also been sent to you via Telegram.</p>
+          <p>Queste chiavi ti sono state inviate anche tramite Telegram.</p>
         </div>
       `;
       warningContent = `
         <div class="key-warning telegram-auth-high">
-          <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
-          <p>Please save them in a secure location.</p>
+          <p><strong>Importante:</strong> Le tue chiavi private sono l'unico modo per accedere al tuo account. Non possono essere recuperate se perse!</p>
+          <p>Salvale in un luogo sicuro.</p>
         </div>
       `;
     } else if (isLocalDev) {
       // Local development mode - show mock keys
       keysContent = `
         <div class="keys-section">
-          <p><strong>Your test account keys (for development only):</strong></p>
+          <p><strong>Le tue chiavi di test (solo per sviluppo):</strong></p>
           <div class="keys-container" id="keysContent">
-            <p><strong>Active Key:</strong> <code class="copyable">${accountKeys.active_key}</code></p>
-            <p><strong>Owner Key:</strong> <code class="copyable">${accountKeys.owner_key}</code></p>
-            <p><strong>Posting Key:</strong> <code class="copyable">${accountKeys.posting_key}</code></p>
-            <p><strong>Memo Key:</strong> <code class="copyable">${accountKeys.memo_key}</code></p>
-            ${accountKeys.master_key ? `<p><strong>Master Key:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
+            <p><strong>Chiave Attiva:</strong> <code class="copyable">${accountKeys.active_key}</code></p>
+            <p><strong>Chiave Proprietario:</strong> <code class="copyable">${accountKeys.owner_key}</code></p>
+            <p><strong>Chiave di Posting:</strong> <code class="copyable">${accountKeys.posting_key}</code></p>
+            <p><strong>Chiave Memo:</strong> <code class="copyable">${accountKeys.memo_key}</code></p>
+            ${accountKeys.master_key ? `<p><strong>Chiave Master:</strong> <code class="copyable">${accountKeys.master_key}</code></p>` : ''}
           </div>
-          <p>In production, account details and keys would be sent via Telegram.</p>
+          <p>In produzione, i dettagli dell'account e le chiavi verrebbero inviati tramite Telegram.</p>
         </div>
       `;
       warningContent = `
         <div class="key-warning dev-info">
-          <p><strong>Development Mode:</strong> For testing purposes only. This account may not be accessible on the blockchain.</p>
+          <p><strong>Modalità Sviluppo:</strong> Solo per scopi di test. Questo account potrebbe non essere accessibile sulla blockchain.</p>
         </div>
       `;
     } else {
       // Generic message as fallback
       keysContent = `
-        <p>Please check your Telegram for account details and private keys.</p>
+        <p>Controlla il tuo Telegram per i dettagli dell'account e le chiavi private.</p>
       `;
       warningContent = `
         <div class="key-warning auth-warning">
-          <p><strong>Important:</strong> Your private keys are the only way to access your account. They cannot be recovered if lost!</p>
+          <p><strong>Importante:</strong> Le tue chiavi private sono l'unico modo per accedere al tuo account. Non possono essere recuperate se perse!</p>
         </div>
       `;
     }
@@ -1144,7 +1026,7 @@ class RegisterView extends View {
     // Download PDF button (shown in all modes for demonstration)
     const downloadPdfButton = document.createElement('button');
     downloadPdfButton.className = 'auth-button';
-    downloadPdfButton.innerHTML = '<span class="material-icons" aria-hidden="true">download</span> <span>Download Keys as PDF</span>';
+    downloadPdfButton.innerHTML = '<span class="material-icons" aria-hidden="true">download</span> <span>Scarica chiavi come PDF</span>';
     downloadPdfButton.addEventListener('click', () => {
       this.downloadAccountPDF(successContainer.accountData);
     });
@@ -1153,7 +1035,7 @@ class RegisterView extends View {
     // Login button
     const loginButton = document.createElement('button');
     loginButton.className = 'auth-button';
-    loginButton.innerHTML = '<span class="material-icons" aria-hidden="true">login</span> <span>Go to Login</span>';
+    loginButton.innerHTML = '<span class="material-icons" aria-hidden="true">login</span> <span>Vai al Login</span>';
     loginButton.addEventListener('click', () => {
       router.navigate('/login');
     });
@@ -1162,7 +1044,7 @@ class RegisterView extends View {
     // Create another account button
     const createAnotherButton = document.createElement('button');
     createAnotherButton.className = 'secondary-button';
-    createAnotherButton.innerHTML = '<span class="material-icons" aria-hidden="true">person_add</span> <span>Create Another Account</span>';
+    createAnotherButton.innerHTML = '<span class="material-icons" aria-hidden="true">person_add</span> <span>Crea un Altro Account</span>';
     createAnotherButton.addEventListener('click', () => {
       // Clear the container and re-render the form
       this.render(this.element);
@@ -1216,7 +1098,7 @@ class RegisterView extends View {
           const originalText = this.textContent;
           const originalBackground = this.style.backgroundColor;
           
-          this.textContent = 'Copied!';
+          this.textContent = 'Copiato!';
           this.style.backgroundColor = '#d4edda';
           
           setTimeout(() => {
@@ -1225,7 +1107,7 @@ class RegisterView extends View {
           }, 1000);
         });
       });
-      codeElement.title = 'Click to copy';
+      codeElement.title = 'Clicca per copiare';
     });
   }
   
@@ -1267,61 +1149,61 @@ class RegisterView extends View {
       // Add title
       doc.setFontSize(20);
       doc.setTextColor(0, 102, 204);
-      doc.text('Steem Account Details', 20, 20);
+      doc.text('Dettagli Account Steem', 20, 20);
       
       // Add account info
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Account Name: ${data.accountName}`, 20, 40);
+      doc.text(`Nome Account: ${data.accountName}`, 20, 40);
       
       // Environment notice
       if (data.isLocalDev) {
         doc.setTextColor(255, 0, 0);
-        doc.text('DEVELOPMENT MODE - FOR TESTING ONLY', 20, 50);
+        doc.text('MODALITÀ SVILUPPO - SOLO PER TEST', 20, 50);
         doc.setTextColor(0, 0, 0);
       }
       
       // Add keys section
-      doc.text('Keys:', 20, 60);
+      doc.text('Chiavi:', 20, 60);
       doc.setFont(undefined, 'bold');
-      doc.text('Active Key:', 20, 70);
+      doc.text('Chiave Attiva:', 20, 70);
       doc.setFont(undefined, 'normal');
       doc.text(data.keys.active_key, 55, 70);
       
       doc.setFont(undefined, 'bold');
-      doc.text('Owner Key:', 20, 80);
+      doc.text('Chiave Proprietario:', 20, 80);
       doc.setFont(undefined, 'normal');
       doc.text(data.keys.owner_key, 55, 80);
       
       doc.setFont(undefined, 'bold');
-      doc.text('Posting Key:', 20, 90);
+      doc.text('Chiave di Posting:', 20, 90);
       doc.setFont(undefined, 'normal');
       doc.text(data.keys.posting_key, 55, 90);
       
       doc.setFont(undefined, 'bold');
-      doc.text('Memo Key:', 20, 100);
+      doc.text('Chiave Memo:', 20, 100);
       doc.setFont(undefined, 'normal');
       doc.text(data.keys.memo_key, 55, 100);
       
       if (data.keys.master_key) {
         doc.setFont(undefined, 'bold');
-        doc.text('Master Key:', 20, 110);
+        doc.text('Chiave Master:', 20, 110);
         doc.setFont(undefined, 'normal');
         doc.text(data.keys.master_key, 55, 110);
       }
       
       // Add warning
       doc.setTextColor(255, 0, 0);
-      doc.text('IMPORTANT:', 20, 130);
+      doc.text('IMPORTANTE:', 20, 130);
       doc.setTextColor(0, 0, 0);
-      doc.text('Keep your keys safe! They cannot be recovered if lost.', 20, 140);
-      doc.text('Never share your private keys with anyone.', 20, 150);
+      doc.text('Conserva le tue chiavi in un luogo sicuro! Non possono essere recuperate se perse.', 20, 140);
+      doc.text('Non condividere mai le tue chiavi private con nessuno.', 20, 150);
       
       // Add date stamp
       const now = new Date();
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Generated on ${now.toLocaleString()}`, 20, 170);
+      doc.text(`Generato il ${now.toLocaleString()}`, 20, 170);
       
       // For mobile compatibility, use blob and data URL approach
       const pdfBlob = doc.output('blob');
@@ -1342,10 +1224,10 @@ class RegisterView extends View {
       }, 100);
       
       // Show success message
-      this.showNotification('PDF download started', 'success');
+      this.showNotification('Download PDF avviato', 'success');
     } catch (error) {
       console.error("PDF generation error:", error);
-      this.showNotification('PDF generation failed', 'error');
+      this.showNotification('Generazione PDF fallita', 'error');
       
       // Fallback: offer text information if PDF fails
       this.offerTextDownload(data);
@@ -1358,23 +1240,23 @@ class RegisterView extends View {
    */
   offerTextDownload(data) {
     const textContent = `
-Steem Account Details
+Dettagli Account Steem
 ====================
-Account Name: ${data.accountName}
+Nome Account: ${data.accountName}
 
-Keys:
-- Active Key: ${data.keys.active_key}
-- Owner Key: ${data.keys.owner_key}
-- Posting Key: ${data.keys.posting_key}
-- Memo Key: ${data.keys.memo_key}
-${data.keys.master_key ? `- Master Key: ${data.keys.master_key}` : ''}
+Chiavi:
+- Chiave Attiva: ${data.keys.active_key}
+- Chiave Proprietario: ${data.keys.owner_key}
+- Chiave di Posting: ${data.keys.posting_key}
+- Chiave Memo: ${data.keys.memo_key}
+${data.keys.master_key ? `- Chiave Master: ${data.keys.master_key}` : ''}
 
-IMPORTANT:
-Keep your keys safe! They cannot be recovered if lost.
-Never share your private keys with anyone.
+IMPORTANTE:
+Conserva le tue chiavi in un luogo sicuro! Non possono essere recuperate se perse.
+Non condividere mai le tue chiavi private con nessuno.
 
-Generated on ${new Date().toLocaleString()}
-${data.isLocalDev ? '\nDEVELOPMENT MODE - FOR TESTING ONLY' : ''}
+Generato il ${new Date().toLocaleString()}
+${data.isLocalDev ? '\nMODALITÀ SVILUPPO - SOLO PER TEST' : ''}
     `;
     
     const textBlob = new Blob([textContent], { type: 'text/plain' });
@@ -1392,7 +1274,7 @@ ${data.isLocalDev ? '\nDEVELOPMENT MODE - FOR TESTING ONLY' : ''}
       document.body.removeChild(downloadLink);
     }, 100);
     
-    this.showNotification('Text file download started', 'success');
+    this.showNotification('Download file di testo avviato', 'success');
   }
   
   /**
