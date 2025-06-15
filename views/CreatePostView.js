@@ -75,28 +75,37 @@ class CreatePostView extends View {  constructor(params = {}) {
     header.appendChild(heading);    // Editor quick actions
     const quickActions = document.createElement('div');
     quickActions.className = 'editor-quick-actions';
-    
-    // View Drafts button
+      // View Drafts button
     const draftsButton = document.createElement('button');
     draftsButton.className = 'action-button drafts-button';
     draftsButton.title = 'View Drafts';
-    draftsButton.innerHTML = '<span class="material-icons">draft</span>';
+    draftsButton.innerHTML = '<span class="material-icons">drafts</span>';
     draftsButton.addEventListener('click', (e) => {
       e.preventDefault();
       router.navigate('/drafts');
-    });
-    quickActions.appendChild(draftsButton);
+    });quickActions.appendChild(draftsButton);
     
-    // Save button
+    // Save button (legacy current draft)
     const saveButton = document.createElement('button');
     saveButton.className = 'action-button save-button';
-    saveButton.title = 'Save Draft';
+    saveButton.title = 'Save Current Draft';
     saveButton.innerHTML = '<span class="material-icons">save</span>';
     saveButton.addEventListener('click', (e) => {
       e.preventDefault();
       this.saveIfChanged();
     });
     quickActions.appendChild(saveButton);
+
+    // Save as new draft button
+    const saveAsButton = document.createElement('button');
+    saveAsButton.className = 'action-button save-as-button';
+    saveAsButton.title = 'Save as New Draft';
+    saveAsButton.innerHTML = '<span class="material-icons">save_as</span>';
+    saveAsButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.saveAsNewDraft();
+    });
+    quickActions.appendChild(saveAsButton);
 
     // Draft status pill
     const draftStatus = document.createElement('div');
@@ -608,21 +617,19 @@ class CreatePostView extends View {  constructor(params = {}) {
   /**
    * Load a specific draft by ID
    * @param {string} draftId - The ID of the draft to load
+   */  /**
+   * Load a specific draft by ID using the improved draft system
+   * @param {string} draftId - The ID of the draft to load
    */
   loadSpecificDraft(draftId) {
     try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) return;
+      // Use the improved draft system
+      const draft = createPostService.getDraftById(draftId);
       
-      const draftKey = `draft_${currentUser.username}_${draftId}`;
-      const draftData = localStorage.getItem(draftKey);
-      
-      if (!draftData) {
+      if (!draft) {
         this.showError('Draft not found');
         return;
       }
-      
-      const draft = JSON.parse(draftData);
       
       // Load draft data into form fields
       if (draft.title) {
@@ -717,6 +724,9 @@ class CreatePostView extends View {  constructor(params = {}) {
 
   /**
    * Salva solo se ci sono modifiche non salvate
+   */  /**
+   * Salva solo se ci sono modifiche non salvate
+   * Versione migliorata con supporto per draft multipli
    */
   saveIfChanged() {
     if (!this.hasUnsavedChanges) return;
@@ -724,7 +734,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Mostra stato "Saving..."
     this.updateDraftStatus('Saving...');
     
-    // Salva la bozza
+    // Salva la bozza corrente (manteniamo il comportamento legacy)
     const draftData = {
       title: this.postTitle,
       body: this.postBody,
@@ -743,6 +753,37 @@ class CreatePostView extends View {  constructor(params = {}) {
     } else {
       this.updateDraftStatus('Failed to save');
       console.error("Failed to save draft");
+    }
+  }
+
+  /**
+   * Salva il draft corrente come nuovo draft con ID
+   * @returns {Object} - Risultato dell'operazione
+   */
+  saveAsNewDraft() {
+    try {
+      const draftData = {
+        title: this.postTitle || 'Untitled Draft',
+        body: this.postBody || '',
+        tags: this.tags || [],
+        community: this.selectedCommunity?.name
+      };
+
+      const result = createPostService.saveDraftWithId(draftData);
+      
+      if (result.success) {
+        this.showStatus('Draft saved successfully', 'success');
+        this.hasUnsavedChanges = false;
+        this.updateDraftStatus('Saved');
+      } else {
+        this.showStatus(result.error || 'Failed to save draft', 'error');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to save as new draft:', error);
+      this.showStatus('Failed to save draft', 'error');
+      return { success: false, error: error.message };
     }
   }
 

@@ -122,11 +122,15 @@ self.addEventListener('fetch', event => {
               });
 
             return response;
-          })
-          .catch(error => {
+          })          .catch(error => {
             // Network failed, show offline page if available
             console.log('Fetch failed:', error);
-            return caches.match('/offline.html');
+            return caches.match('/offline.html').then(offlineResponse => {
+              return offlineResponse || new Response('Offline', {
+                status: 503,
+                statusText: 'Service Unavailable'
+              });
+            });
           });
       })
   );

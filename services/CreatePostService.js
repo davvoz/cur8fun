@@ -18,8 +18,15 @@ class CreatePostService {
     // Limite massimo di beneficiari
     this.maxBeneficiaries = 8; // Massimo 8 beneficiari per post
     
-    // Chiave per localStorage
-    this.DRAFT_STORAGE_KEY = 'steemee_post_draft';
+    // Chiavi per localStorage - sistema migliorato
+    this.DRAFT_STORAGE_KEY = 'steemee_post_draft'; // Draft corrente (legacy)
+    this.DRAFTS_STORAGE_KEY = 'steemee_post_drafts'; // Tutti i drafts (nuovo sistema)
+    this.DRAFT_INDEX_KEY = 'steemee_draft_index'; // Indice dei drafts
+    
+    // Configurazione drafts
+    this.MAX_DRAFTS_PER_USER = 10; // Massimo 10 draft per utente
+    this.DRAFT_EXPIRY_DAYS = 30; // I draft scadono dopo 30 giorni
+    this.AUTO_SAVE_INTERVAL = 15000; // Auto-save ogni 15 secondi
   }
 
   /**
@@ -402,9 +409,308 @@ class CreatePostService {
     // Not fully implemented as the original code doesn't have this feature
     throw new Error('Edit post functionality not yet implemented');
   }
+  /**
+   * SISTEMA DRAFT MIGLIORATO
+   */
 
   /**
-   * Salva una bozza del post nel localStorage
+   * Genera un ID univoco per un draft
+   * @returns {string} - ID univoco
+   */
+  generateDraftId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  /**
+   * Ottieni il prefisso chiave per un utente
+   * @param {string} username - Nome utente
+   * @returns {string} - Prefisso per le chiavi localStorage
+   */
+  getUserDraftPrefix(username) {
+    return `steemee_draft_${username}_`;
+  }
+
+  /**
+   * Ottieni tutti i draft per l'utente corrente
+   * @returns {Array} - Array di draft
+   */
+  getAllUserDrafts() {
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) return [];
+
+    const username = currentUser.username;
+    const drafts = [];
+    const prefix = this.getUserDraftPrefix(username);
+
+    // 1. Aggiungi il draft corrente se esiste
+    const currentDraft = this.getDraft();
+    if (currentDraft) {
+      drafts.push({
+        id: 'current',
+        isCurrent: true,
+        storageKey: this.DRAFT_STORAGE_KEY,
+        ...currentDraft,
+        lastModified: new Date(currentDraft.timestamp).getTime()
+      });
+    }
+
+    // 2. Cerca tutti i draft salvati per questo utente
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix) && key !== this.DRAFT_STORAGE_KEY) {
+        try {
+          const draftData = JSON.parse(localStorage.getItem(key));
+          if (draftData && (draftData.title || draftData.body)) {
+            const draftId = key.replace(prefix, '');
+            drafts.push({
+              id: draftId,
+              storageKey: key,
+              isCurrent: false,
+              ...draftData,
+              lastModified: draftData.lastModified || (draftData.timestamp ? new Date(draftData.timestamp).getTime() : Date.now())
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to parse draft:', key, error);
+          // Rimuovi draft corrotti
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // 3. Ordina per data di modifica (più recenti primi)
+    return drafts.sort((a, b) => b.lastModified - a.lastModified);
+  }
+
+  /**
+   * Salva un draft con ID specifico
+   * @param {Object} draftData - I dati della bozza
+   * @param {string} draftId - ID del draft (opzionale, se non fornito ne genera uno nuovo)
+   * @returns {Object} - Oggetto con success e draftId
+   */
+  saveDraftWithId(draftData, draftId = null) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const username = currentUser.username;
+      
+      // Se non è fornito un ID, genera uno nuovo
+      if (!draftId) {
+        draftId = this.generateDraftId();
+      }
+
+      // Pulisci i draft vecchi prima di salvare uno nuovo
+      this.cleanupExpiredDrafts(username);
+
+      // Controlla il limite di draft per utente
+      const existingDrafts = this.getAllUserDrafts().filter(d => !d.isCurrent);
+      if (existingDrafts.length >= this.MAX_DRAFTS_PER_USER && !existingDrafts.find(d => d.id === draftId)) {
+        // Rimuovi il draft più vecchio
+        const oldestDraft = existingDrafts[existingDrafts.length - 1];
+        if (oldestDraft.storageKey) {
+          localStorage.removeItem(oldestDraft.storageKey);
+        }
+      }
+
+      // Prepara i dati del draft
+      const draft = {
+        ...draftData,
+        timestamp: new Date().toISOString(),
+        lastModified: Date.now(),
+        username: username,
+        version: '2.0' // Versione del formato draft
+      };
+
+      // Salva il draft
+      const storageKey = this.getUserDraftPrefix(username) + draftId;
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+
+      return { success: true, draftId, storageKey };
+    } catch (error) {
+      console.error('Failed to save draft with ID:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Carica un draft specifico per ID
+   * @param {string} draftId - ID del draft da caricare
+   * @returns {Object|null} - Draft caricato o null
+   */
+  getDraftById(draftId) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return null;
+
+      // Se è il draft corrente
+      if (draftId === 'current') {
+        return this.getDraft();
+      }
+
+      // Cerca il draft specifico
+      const username = currentUser.username;
+      const storageKey = this.getUserDraftPrefix(username) + draftId;
+      const draftJson = localStorage.getItem(storageKey);
+      
+      if (!draftJson) return null;
+
+      const draft = JSON.parse(draftJson);
+      
+      // Verifica che appartenga all'utente corrente
+      if (draft.username !== username) {
+        return null;
+      }
+
+      return draft;
+    } catch (error) {
+      console.error('Failed to load draft by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Elimina un draft specifico
+   * @param {string} draftId - ID del draft da eliminare
+   * @returns {boolean} - true se eliminato con successo
+   */
+  deleteDraftById(draftId) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return false;
+
+      // Se è il draft corrente
+      if (draftId === 'current') {
+        this.clearDraft();
+        return true;
+      }
+
+      // Elimina il draft specifico
+      const username = currentUser.username;
+      const storageKey = this.getUserDraftPrefix(username) + draftId;
+      localStorage.removeItem(storageKey);
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to delete draft by ID:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Pulisce i draft scaduti per un utente
+   * @param {string} username - Nome utente
+   */
+  cleanupExpiredDrafts(username) {
+    try {
+      const prefix = this.getUserDraftPrefix(username);
+      const now = Date.now();
+      const expiryMs = this.DRAFT_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          try {
+            const draftData = JSON.parse(localStorage.getItem(key));
+            const draftDate = new Date(draftData.timestamp).getTime();
+            
+            if (now - draftDate > expiryMs) {
+              localStorage.removeItem(key);
+              console.log('Removed expired draft:', key);
+            }
+          } catch (error) {
+            // Rimuovi draft corrotti
+            localStorage.removeItem(key);
+            console.warn('Removed corrupted draft:', key);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to cleanup expired drafts:', error);
+    }
+  }
+
+  /**
+   * Duplica un draft esistente
+   * @param {string} draftId - ID del draft da duplicare
+   * @returns {Object} - Risultato della duplicazione
+   */
+  duplicateDraft(draftId) {
+    try {
+      const draft = this.getDraftById(draftId);
+      if (!draft) {
+        return { success: false, error: 'Draft not found' };
+      }
+
+      // Crea una copia con un nuovo ID
+      const newDraftData = {
+        title: `${draft.title} (Copy)`,
+        body: draft.body,
+        tags: draft.tags,
+        community: draft.community
+      };
+
+      return this.saveDraftWithId(newDraftData);
+    } catch (error) {
+      console.error('Failed to duplicate draft:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Sposta il draft corrente in un draft salvato con ID
+   * @returns {Object} - Risultato dell'operazione
+   */
+  moveCurrentDraftToSaved() {
+    const currentDraft = this.getDraft();
+    if (!currentDraft) {
+      return { success: false, error: 'No current draft found' };
+    }
+
+    // Salva come draft con ID
+    const result = this.saveDraftWithId({
+      title: currentDraft.title,
+      body: currentDraft.body,
+      tags: currentDraft.tags,
+      community: currentDraft.community
+    });
+
+    if (result.success) {
+      // Rimuovi il draft corrente
+      this.clearDraft();
+    }
+
+    return result;
+  }
+
+  /**
+   * Carica un draft salvato come draft corrente
+   * @param {string} draftId - ID del draft da caricare
+   * @returns {boolean} - true se caricato con successo
+   */
+  loadDraftAsCurrent(draftId) {
+    try {
+      const draft = this.getDraftById(draftId);
+      if (!draft) return false;
+
+      // Salva come draft corrente
+      const success = this.saveDraft({
+        title: draft.title,
+        body: draft.body,
+        tags: draft.tags,
+        community: draft.community
+      });
+
+      return success;
+    } catch (error) {
+      console.error('Failed to load draft as current:', error);
+      return false;
+    }  }
+
+  /**
+   * Salva una bozza del post nel localStorage (legacy - manteniamo per compatibilità)
    * @param {Object} draftData - I dati della bozza (title, body, tags, community)
    * @returns {boolean} - true se il salvataggio è riuscito
    */
@@ -424,9 +730,9 @@ class CreatePostService {
       return false;
     }
   }
-  
+
   /**
-   * Recupera la bozza salvata
+   * Recupera la bozza salvata (legacy - draft corrente)
    * @returns {Object|null} - La bozza salvata o null se non esiste
    */
   getDraft() {

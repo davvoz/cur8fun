@@ -124,97 +124,18 @@ class DraftsView extends View {
       this.loadingIndicator.hide();
       this.renderErrorState(container, error);
     }
-  }
-  /**
-   * Get all drafts for the current user from localStorage
+  }  /**
+   * Get all drafts for the current user using the improved draft system
    */
   getAllUserDrafts() {
-    const drafts = [];
-    const username = this.currentUser.username;
-    
-    // 1. Get the current draft from CreatePostService (single draft system)
     try {
-      const currentDraft = createPostService.getDraft();
-      if (currentDraft && currentDraft.username === username) {
-        const draftData = {
-          id: 'current',
-          storageKey: 'steemee_post_draft',
-          title: currentDraft.title || 'Untitled Draft',
-          body: currentDraft.body || '',
-          tags: currentDraft.tags || [],
-          community: currentDraft.community || null,
-          lastModified: new Date(currentDraft.timestamp).getTime(),
-          wordCount: this.getWordCount(currentDraft.body || ''),
-          age: this.getDraftAge(new Date(currentDraft.timestamp).getTime()),
-          isCurrent: true // Flag to identify the current draft
-        };
-        drafts.push(draftData);
-      }
+      // Use the improved draft system from CreatePostService
+      return createPostService.getAllUserDrafts();
     } catch (error) {
-      console.warn('Failed to load current draft:', error);
+      console.error('Error getting user drafts:', error);
+      return [];
     }
-    
-    // 2. Get multiple drafts (future expansion - for now using user-specific pattern)
-    const prefix = `draft_${username}_`;
-    
-    // Iterate through localStorage to find all drafts for this user
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(prefix)) {
-        try {
-          const draftData = JSON.parse(localStorage.getItem(key));
-          if (draftData && (draftData.title || draftData.body)) {
-            // Extract draft ID from key
-            const draftId = key.replace(prefix, '');
-            
-            // Add metadata
-            draftData.id = draftId;
-            draftData.storageKey = key;
-            draftData.lastModified = draftData.lastModified || Date.now();
-            draftData.wordCount = this.getWordCount(draftData.body || '');
-            draftData.age = this.getDraftAge(draftData.lastModified);
-            draftData.isCurrent = false;
-            
-            drafts.push(draftData);
-          }
-        } catch (error) {
-          console.warn('Failed to parse draft:', key, error);
-        }
-      }
-    }
-    
-    // 3. Also check for any other steemee drafts with different patterns
-    const steemeePattern = 'steemee_draft_';
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(steemeePattern) && key !== 'steemee_post_draft') {
-        try {
-          const draftData = JSON.parse(localStorage.getItem(key));
-          if (draftData && (draftData.title || draftData.body)) {
-            // Check if this draft belongs to current user
-            if (!draftData.username || draftData.username === username) {
-              const draftId = key.replace(steemeePattern, '');
-              
-              draftData.id = draftId;
-              draftData.storageKey = key;
-              draftData.lastModified = draftData.lastModified || Date.now();
-              draftData.wordCount = this.getWordCount(draftData.body || '');
-              draftData.age = this.getDraftAge(draftData.lastModified);
-              draftData.isCurrent = false;
-              
-              drafts.push(draftData);
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to parse steemee draft:', key, error);
-        }
-      }
-    }
-    
-    // Sort by last modified (newest first)
-    return drafts.sort((a, b) => b.lastModified - a.lastModified);
   }
-
   /**
    * Get word count for content
    */
@@ -243,9 +164,8 @@ class DraftsView extends View {
     const ageWeeks = Math.floor(ageDays / 7);
     return `${ageWeeks} week${ageWeeks !== 1 ? 's' : ''} ago`;
   }
-
   /**
-   * Render drafts list
+   * Render drafts list with improved functionality
    */
   renderDrafts(container, drafts) {
     container.innerHTML = '';
@@ -258,8 +178,38 @@ class DraftsView extends View {
         <span class="stat-number">${drafts.length}</span>
         <span class="stat-label">Draft${drafts.length !== 1 ? 's' : ''}</span>
       </div>
+      <div class="stat-item">
+        <span class="stat-number">${drafts.filter(d => d.isCurrent).length}</span>
+        <span class="stat-label">Current</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">${drafts.filter(d => !d.isCurrent).length}</span>
+        <span class="stat-label">Saved</span>
+      </div>
     `;
     container.appendChild(statsHeader);
+
+    // Add actions bar
+    const actionsBar = document.createElement('div');
+    actionsBar.className = 'drafts-actions-bar';
+    actionsBar.innerHTML = `
+      <button class="outline-btn cleanup-btn" title="Clean up expired drafts">
+        <span class="material-icons">cleaning_services</span>
+        Clean Up
+      </button>
+      <button class="outline-btn export-btn" title="Export drafts">
+        <span class="material-icons">download</span>
+        Export
+      </button>
+    `;
+    container.appendChild(actionsBar);
+
+    // Add event listeners for action buttons
+    const cleanupBtn = actionsBar.querySelector('.cleanup-btn');
+    const exportBtn = actionsBar.querySelector('.export-btn');
+
+    cleanupBtn.addEventListener('click', () => this.cleanupExpiredDrafts());
+    exportBtn.addEventListener('click', () => this.exportDrafts(drafts));
 
     // Create drafts grid
     const draftsGrid = document.createElement('div');
@@ -271,9 +221,8 @@ class DraftsView extends View {
     });
 
     container.appendChild(draftsGrid);
-  }
-  /**
-   * Create a draft card
+  }  /**
+   * Create a draft card with enhanced functionality
    */
   createDraftCard(draft) {
     const card = document.createElement('div');
@@ -287,15 +236,19 @@ class DraftsView extends View {
       }
     });
 
+    // Calculate additional metadata
+    const wordCount = this.getWordCount(draft.body || '');
+    const age = this.getDraftAge(draft.lastModified);
+
     card.innerHTML = `
       <div class="draft-header">
         ${draft.isCurrent ? '<div class="current-draft-badge">Current Draft</div>' : ''}
-        <h3 class="draft-title" title="${this.escapeHtml(draft.title)}">
-          ${this.escapeHtml(draft.title) || 'Untitled Draft'}
+        <h3 class="draft-title" title="${this.escapeHtml(draft.title || 'Untitled Draft')}">
+          ${this.escapeHtml(draft.title || 'Untitled Draft')}
         </h3>
         <div class="draft-meta">
-          <span class="draft-age">${draft.age}</span>
-          <span class="draft-words">${draft.wordCount} words</span>
+          <span class="draft-age">${age}</span>
+          <span class="draft-words">${wordCount} words</span>
         </div>
       </div>
       
@@ -329,10 +282,20 @@ class DraftsView extends View {
             <span class="material-icons">edit</span>
           </button>
           ${!draft.isCurrent ? `
-            <button class="draft-action-btn delete-btn" title="Delete draft">
-              <span class="material-icons">delete</span>
+            <button class="draft-action-btn duplicate-btn" title="Duplicate draft">
+              <span class="material-icons">content_copy</span>
             </button>
-          ` : ''}
+            <button class="draft-action-btn load-current-btn" title="Load as current draft">
+              <span class="material-icons">open_in_new</span>
+            </button>
+          ` : `
+            <button class="draft-action-btn save-as-btn" title="Save as new draft">
+              <span class="material-icons">save_as</span>
+            </button>
+          `}
+          <button class="draft-action-btn delete-btn" title="Delete draft">
+            <span class="material-icons">delete</span>
+          </button>
         </div>
       </div>
     `;
@@ -340,16 +303,38 @@ class DraftsView extends View {
     // Add event listeners for action buttons
     const editBtn = card.querySelector('.edit-btn');
     const deleteBtn = card.querySelector('.delete-btn');
+    const duplicateBtn = card.querySelector('.duplicate-btn');
+    const loadCurrentBtn = card.querySelector('.load-current-btn');
+    const saveAsBtn = card.querySelector('.save-as-btn');
 
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.editDraft(draft);
     });
 
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', (e) => {
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.deleteDraft(draft);
+    });
+
+    if (duplicateBtn) {
+      duplicateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.deleteDraft(draft);
+        this.duplicateDraft(draft);
+      });
+    }
+
+    if (loadCurrentBtn) {
+      loadCurrentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.loadDraftAsCurrent(draft);
+      });
+    }
+
+    if (saveAsBtn) {
+      saveAsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.saveCurrentDraftAsNew();
       });
     }
 
@@ -385,18 +370,21 @@ class DraftsView extends View {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-  /**
-   * Edit a draft
+  }  /**
+   * Edit a draft using the improved system
    */
   editDraft(draft) {
     if (draft.isCurrent) {
       // For current draft, just navigate to create view
       router.navigate('/create');
     } else {
-      // For other drafts, we need to load the specific draft
-      // For now, navigate to create view with draft data in URL params
-      router.navigate('/create', { draftId: draft.id });
+      // For saved drafts, load as current and navigate
+      const success = createPostService.loadDraftAsCurrent(draft.id);
+      if (success) {
+        router.navigate('/create');
+      } else {
+        this.showToast('Failed to load draft', 'error');
+      }
     }
   }
 
@@ -421,23 +409,156 @@ class DraftsView extends View {
     
     document.body.appendChild(modal);
   }
+
   /**
-   * Actually delete the draft
+   * Actually delete the draft using the improved system
    */
   performDeleteDraft(draft) {
     try {
-      if (draft.isCurrent) {
-        // Use CreatePostService to clear the current draft
-        createPostService.clearDraft();
-        this.showToast('Current draft cleared successfully', 'success');
-      } else {
-        // Remove from localStorage directly
-        localStorage.removeItem(draft.storageKey);
+      const success = createPostService.deleteDraftById(draft.id);
+      
+      if (success) {
         this.showToast('Draft deleted successfully', 'success');
+        // Reload the view
+        this.render(this.container);
+      } else {
+        this.showToast('Failed to delete draft', 'error');
       }
+      
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      this.showToast('Failed to delete draft', 'error');
+    }
+  }
+
+  /**
+   * Duplicate a draft
+   */
+  duplicateDraft(draft) {
+    try {
+      const result = createPostService.duplicateDraft(draft.id);
+      
+      if (result.success) {
+        this.showToast('Draft duplicated successfully', 'success');
+        // Reload the view to show the new draft
+        this.render(this.container);
+      } else {
+        this.showToast(result.error || 'Failed to duplicate draft', 'error');
+      }
+    } catch (error) {
+      console.error('Error duplicating draft:', error);
+      this.showToast('Failed to duplicate draft', 'error');
+    }
+  }
+
+  /**
+   * Load a draft as the current draft
+   */
+  loadDraftAsCurrent(draft) {
+    try {
+      const success = createPostService.loadDraftAsCurrent(draft.id);
+      
+      if (success) {
+        this.showToast('Draft loaded as current', 'success');
+        // Navigate to create view
+        router.navigate('/create');
+      } else {
+        this.showToast('Failed to load draft', 'error');
+      }
+    } catch (error) {
+      console.error('Error loading draft as current:', error);
+      this.showToast('Failed to load draft', 'error');
+    }
+  }
+
+  /**
+   * Save current draft as a new saved draft
+   */
+  saveCurrentDraftAsNew() {
+    try {
+      const result = createPostService.moveCurrentDraftToSaved();
+      
+      if (result.success) {
+        this.showToast('Current draft saved', 'success');
+        // Reload the view to show the new saved draft
+        this.render(this.container);
+      } else {
+        this.showToast(result.error || 'Failed to save draft', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving current draft as new:', error);
+      this.showToast('Failed to save draft', 'error');
+    }
+  }
+
+  /**
+   * Clean up expired drafts
+   */
+  cleanupExpiredDrafts() {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return;
+
+      createPostService.cleanupExpiredDrafts(currentUser.username);
+      this.showToast('Expired drafts cleaned up', 'success');
       
       // Reload the view
       this.render(this.container);
+    } catch (error) {
+      console.error('Error cleaning up drafts:', error);
+      this.showToast('Failed to clean up drafts', 'error');
+    }
+  }
+
+  /**
+   * Export drafts as JSON
+   */
+  exportDrafts(drafts) {
+    try {
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        user: this.currentUser.username,
+        drafts: drafts.map(draft => ({
+          id: draft.id,
+          title: draft.title,
+          body: draft.body,
+          tags: draft.tags,
+          community: draft.community,
+          timestamp: draft.timestamp,
+          isCurrent: draft.isCurrent
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json' 
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `steemee-drafts-${this.currentUser.username}-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      
+      URL.revokeObjectURL(url);
+      this.showToast('Drafts exported successfully', 'success');
+    } catch (error) {
+      console.error('Error exporting drafts:', error);
+      this.showToast('Failed to export drafts', 'error');
+    }
+  }  /**
+   * Actually delete the draft using the improved system
+   */
+  performDeleteDraft(draft) {
+    try {
+      const success = createPostService.deleteDraftById(draft.id);
+      
+      if (success) {
+        this.showToast('Draft deleted successfully', 'success');
+        // Reload the view
+        this.render(this.container);
+      } else {
+        this.showToast('Failed to delete draft', 'error');
+      }
       
     } catch (error) {
       console.error('Error deleting draft:', error);
