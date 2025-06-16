@@ -3,6 +3,8 @@ import router from '../utils/Router.js';
 import registerService from '../services/RegisterService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 
+const TELEGRAM_BOT_DAPP_URL = "https://t.me/cur8fun_bot/dapp";
+
 class RegisterView extends View {
   constructor(params) {
     super(params);
@@ -52,7 +54,7 @@ class RegisterView extends View {
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo con Telegram ID</strong></p>
         <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram con un ID Telegram valido.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
+        <p style="margin: 0;"><a href="${TELEGRAM_BOT_DAPP_URL}" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
       `;
       container.appendChild(telegramWarning);
       element.appendChild(container);
@@ -128,7 +130,7 @@ class RegisterView extends View {
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede un ID Telegram valido.</p>
         <p style="margin: 0 0 10px;">Apri questa app da Telegram per ottenere un ID Telegram valido e creare un nuovo account Steem.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
+        <p style="margin: 0;"><a href="${TELEGRAM_BOT_DAPP_URL}" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
     }
@@ -442,7 +444,7 @@ class RegisterView extends View {
     statusIndicator.innerHTML = `
       <p style="margin: 0 0 5px;"><strong>Preparazione creazione account...</strong></p>
       <p style="margin: 0;" id="status-message">Inizializzando...</p>
-      <div id="creation-progress" style="margin-top: 10px; height: 6px; background-color: #e0e0e0; border-radius: 2px; overflow: hidden;">
+      <div id="creation-progress" style="margin-top: 10px, height: 6px, background-color: #e0e0e0, border-radius: 2px, overflow: hidden;">
         <div style="width: 10%; height: 100%; background-color: #2196f3; transition: width 0.5s ease;"></div>
       </div>
       <p style="margin: 5px 0 0; font-size: 12px; color: #666;" id="status-time">Inizio...</p>
