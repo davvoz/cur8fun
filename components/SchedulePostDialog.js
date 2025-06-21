@@ -105,9 +105,35 @@ class SchedulePostDialog extends Component {
     };
     this.registerEventHandler(document, 'keydown', this.escapeKeyHandler);
     
-    // Validate datetime on change
+    // Handle mobile viewport changes
+    this.registerEventHandler(window, 'resize', () => {
+      if (this.isOpen()) {
+        this.adjustModalForViewport();
+      }
+    });
+    
+    // Handle mobile orientation changes
+    this.registerEventHandler(window, 'orientationchange', () => {
+      if (this.isOpen()) {
+        setTimeout(() => {
+          this.adjustModalForViewport();
+        }, 100); // Delay to allow orientation change to complete
+      }
+    });
+      // Validate datetime on change
     const dateTimeInput = this.modalElement.querySelector('#schedule-datetime');
     this.registerEventHandler(dateTimeInput, 'change', () => this.validateDateTime());
+    
+    // Handle mobile keyboard show/hide
+    if (this.isMobileDevice()) {
+      this.registerEventHandler(dateTimeInput, 'focus', () => {
+        setTimeout(() => this.adjustModalForViewport(), 300); // Delay for keyboard animation
+      });
+      
+      this.registerEventHandler(dateTimeInput, 'blur', () => {
+        setTimeout(() => this.adjustModalForViewport(), 300); // Delay for keyboard animation
+      });
+    }
   }
 
   /**
@@ -151,19 +177,101 @@ class SchedulePostDialog extends Component {
     
     // Prevent body scrolling
     document.body.classList.add('modal-open');
-    
-    // Show the modal with smooth animation
+      // Show the modal with smooth animation
     this.modalElement.style.display = 'flex';
+    
+    // Adjust for mobile viewport
+    this.adjustModalForViewport();
     
     // Trigger animation after display is set
     requestAnimationFrame(() => {
       this.modalElement.classList.add('visible');
     });
-    
-    // Focus on datetime input after animation
+      // Focus on datetime input after animation
     setTimeout(() => {
       dateTimeInput.focus();
+      
+      // Su mobile, previeni il focus automatico per evitare problemi con la keyboard
+      if (this.isMobileDevice()) {
+        dateTimeInput.blur();
+      }
     }, 300);
+  }
+
+  /**
+   * Detect if user is on mobile device
+   */
+  isMobileDevice() {
+    return window.innerWidth <= 768 || 
+           /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+  /**
+   * Adjust modal positioning for mobile viewport
+   */
+  adjustModalForViewport() {
+    if (!this.isMobileDevice()) return;
+    
+    const modalContent = this.modalElement.querySelector('.schedule-post-modal-content');
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight
+    };
+    
+    // Detect if virtual keyboard is likely visible (iOS/Android)
+    const isKeyboardVisible = viewport.height < window.screen.height * 0.75;
+    
+    // Adjust modal height based on keyboard visibility and screen size
+    if (isKeyboardVisible) {
+      // When keyboard is visible, use much smaller height
+      modalContent.style.maxHeight = '60vh';
+      modalContent.style.margin = '2px';
+      
+      // Make body scrollable with smaller height
+      const modalBody = modalContent.querySelector('.schedule-post-modal-body');
+      if (modalBody) {
+        modalBody.style.maxHeight = 'calc(60vh - 80px)';
+        modalBody.style.overflowY = 'auto';
+      }
+    } else if (viewport.height < 600) {
+      // Small screen without keyboard
+      modalContent.style.maxHeight = '95vh';
+      modalContent.style.margin = '2px';
+      
+      const modalBody = modalContent.querySelector('.schedule-post-modal-body');
+      if (modalBody) {
+        modalBody.style.maxHeight = 'calc(95vh - 100px)';
+        modalBody.style.overflowY = 'auto';
+      }
+    } else {
+      // Normal mobile screen
+      modalContent.style.maxHeight = '85vh';
+      modalContent.style.margin = '5px';
+      
+      const modalBody = modalContent.querySelector('.schedule-post-modal-body');
+      if (modalBody) {
+        modalBody.style.maxHeight = 'calc(85vh - 120px)';
+        modalBody.style.overflowY = 'auto';
+      }
+    }
+    
+    // Force viewport meta tag compliance on iOS
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta) {
+        const currentContent = viewportMeta.content;
+        if (!currentContent.includes('user-scalable=no')) {
+          viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        }
+      }
+    }
+    
+    // Prevent iOS input zoom
+    const inputs = this.modalElement.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+      if (input.style.fontSize === '') {
+        input.style.fontSize = '16px'; // Prevents zoom on iOS
+      }
+    });
   }
 
   close() {

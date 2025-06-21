@@ -76,6 +76,10 @@
 
 .schedule-post-modal-body {
   padding: 24px;
+  overflow-y: auto;
+  flex-grow: 1;
+  max-height: calc(85vh - 140px); /* Reserve space for header and footer */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .post-info-section {
@@ -265,4 +269,269 @@
 /* Modal open body class to prevent scrolling */
 body.modal-open {
   overflow: hidden;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .schedule-post-modal-content {
+    width: 95%;
+    margin: 5px;
+    max-height: 85vh;
+    border-radius: var(--radius-md);
+  }
+
+  .schedule-post-modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    max-height: calc(85vh - 120px); /* Account for header and footer */
+  }
+
+  .schedule-post-modal-header {
+    padding: 16px 20px;
+    flex-shrink: 0;
+  }
+
+  .schedule-post-modal-footer {
+    padding: 16px 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .schedule-post-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .form-control {
+    padding: 10px;
+    font-size: 16px; /* Previene zoom su iOS */
+  }
+
+  .btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .auth-warning {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .warning-content p {
+    font-size: 0.85rem;
+  }
+
+  .datetime-section {
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-post-modal-content {
+    width: 98%;
+    margin: 2px;
+    max-height: 98vh;
+    border-radius: var(--radius-sm);
+  }
+
+  .schedule-post-modal-body {
+    padding: 12px 16px;
+    overflow-y: auto;
+    max-height: calc(98vh - 100px); /* Account for header and footer */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+
+  .schedule-post-modal-header {
+    padding: 12px 16px;
+    flex-shrink: 0;
+  }
+
+  .schedule-post-modal-footer {
+    padding: 12px 16px;
+    gap: 10px;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .schedule-post-modal-header h3 {
+    font-size: 1rem;
+  }
+
+  .close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .schedule-post-modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .form-control {
+    padding: 12px;
+  }
+
+  .auth-warning {
+    padding: 10px;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .warning-content strong {
+    font-size: 0.9rem;
+  }
+
+  .warning-content p {
+    font-size: 0.8rem;
+  }
+
+  .post-info-section {
+    margin-bottom: 12px;
+  }
+
+  .datetime-section {
+    margin-bottom: 12px;
+  }
+
+  .timezone-info {
+    font-size: 0.8rem;
+    margin-top: 6px;
+  }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 896px) and (orientation: landscape) and (max-height: 500px) {
+  .schedule-post-modal-content {
+    max-height: 98vh;
+    margin: 1vh auto;
+    width: 90%;
+  }
+
+  .schedule-post-modal-body {
+    padding: 8px 16px;
+    max-height: calc(98vh - 80px);
+    overflow-y: auto;
+  }
+
+  .schedule-post-modal-header {
+    padding: 8px 16px;
+  }
+
+  .schedule-post-modal-footer {
+    padding: 8px 16px;
+  }
+
+  .auth-warning {
+    padding: 6px;
+    margin-bottom: 8px;
+  }
+
+  .datetime-section {
+    margin-bottom: 8px;
+  }
+
+  .post-info-section {
+    margin-bottom: 8px;
+    padding: 8px;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 44px; /* iOS touch target minimum */
+    touch-action: manipulation;
+  }
+
+  .close-btn {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .form-control {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+/* Very small screens (iPhone SE, etc.) */
+@media (max-width: 375px) and (max-height: 667px) {
+  .schedule-post-modal-content {
+    width: 100%;
+    margin: 0;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .schedule-post-modal-body {
+    padding: 10px 12px;
+    max-height: calc(100vh - 80px);
+  }
+
+  .schedule-post-modal-header {
+    padding: 10px 12px;
+  }
+
+  .schedule-post-modal-footer {
+    padding: 10px 12px;
+  }
+
+  .auth-warning {
+    padding: 8px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+  }
+
+  .warning-content p {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .post-info-section {
+    margin-bottom: 10px;
+    padding: 8px;
+  }
+
+  .scheduled-post-title {
+    font-size: 0.9rem;
+  }
+
+  .datetime-section {
+    margin-bottom: 10px;
+  }
+
+  .form-label {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+  }
+
+  .timezone-info {
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+}
+
+/* Extra protection for very small heights */
+@media (max-height: 568px) {
+  .schedule-post-modal-content {
+    max-height: 100vh !important;
+    margin: 0 !important;
+  }
+
+  .schedule-post-modal-body {
+    max-height: calc(100vh - 70px) !important;
+    padding: 8px 12px !important;
+  }
+
+  .schedule-post-modal-header,
+  .schedule-post-modal-footer {
+    padding: 8px 12px !important;
+  }
+
+  .auth-warning,
+  .post-info-section,
+  .datetime-section {
+    margin-bottom: 8px !important;
+  }
 }
