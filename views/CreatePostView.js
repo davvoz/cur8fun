@@ -420,39 +420,77 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Create action buttons section (outside the form)
     const actionsSection = document.createElement('div');
-    actionsSection.className = 'post-actions-section';
-
-    // Primary actions container
+    actionsSection.className = 'post-actions-section';    // Primary actions container
     const primaryActions = document.createElement('div');
     primaryActions.className = 'primary-actions';
 
-    // Submit button
+    // Publish button group with dropdown
+    const publishGroup = document.createElement('div');
+    publishGroup.className = 'publish-button-group';
+
+    // Main publish button
     const submitBtn = document.createElement('button');
-    submitBtn.type = 'button'; // Changed from submit to button
-    submitBtn.className = 'btn primary-btn';
+    submitBtn.type = 'button';
+    submitBtn.className = 'btn primary-btn main-publish-btn';
     submitBtn.id = 'submit-post-btn';
-    submitBtn.innerHTML = '<span class="material-icons">publish</span> Publish Post';    submitBtn.addEventListener('click', (e) => {
+    submitBtn.innerHTML = '<span class="material-icons">publish</span> Publish Post';
+    submitBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      // Create a synthetic submit event and call the existing handler
       const submitEvent = new Event('submit', { cancelable: true });
       this.handleSubmit(submitEvent);
     });
-    primaryActions.appendChild(submitBtn);
 
-    // Secondary actions container
-    const secondaryActions = document.createElement('div');
-    secondaryActions.className = 'secondary-actions';
-
-    // Schedule button
-    const scheduleBtn = document.createElement('button');
-    scheduleBtn.type = 'button';
-    scheduleBtn.className = 'btn secondary-btn schedule-btn';    scheduleBtn.id = 'schedule-post-btn';
-    scheduleBtn.innerHTML = '<span class="material-icons">schedule</span> Schedule Post';
-    scheduleBtn.addEventListener('click', (e) => {
+    // Dropdown toggle button
+    const dropdownToggle = document.createElement('button');
+    dropdownToggle.type = 'button';
+    dropdownToggle.className = 'btn primary-btn dropdown-toggle';
+    dropdownToggle.innerHTML = '<span class="material-icons">arrow_drop_down</span>';
+    dropdownToggle.addEventListener('click', (e) => {
       e.preventDefault();
+      this.togglePublishDropdown();
+    });
+
+    // Dropdown menu
+    const dropdownMenu = document.createElement('div');
+    dropdownMenu.className = 'publish-dropdown-menu';
+    dropdownMenu.innerHTML = `
+      <button type="button" class="dropdown-item publish-now-option">
+        <span class="material-icons">publish</span>
+        Publish Now
+      </button>
+      <button type="button" class="dropdown-item schedule-option">
+        <span class="material-icons">schedule</span>
+        Schedule Post
+      </button>
+    `;
+
+    // Add event listeners to dropdown items
+    const publishNowOption = dropdownMenu.querySelector('.publish-now-option');
+    const scheduleOption = dropdownMenu.querySelector('.schedule-option');
+    
+    publishNowOption.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.hidePublishDropdown();
+      const submitEvent = new Event('submit', { cancelable: true });
+      this.handleSubmit(submitEvent);
+    });
+    
+    scheduleOption.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.hidePublishDropdown();
       this.showScheduleDialog();
     });
-    secondaryActions.appendChild(scheduleBtn);
+
+    // Assemble publish group
+    publishGroup.appendChild(submitBtn);
+    publishGroup.appendChild(dropdownToggle);
+    publishGroup.appendChild(dropdownMenu);
+    
+    primaryActions.appendChild(publishGroup);
+
+    // Secondary actions container (vuoto per ora)
+    const secondaryActions = document.createElement('div');
+    secondaryActions.className = 'secondary-actions';
 
     // Assemble actions section
     actionsSection.appendChild(primaryActions);
@@ -3181,6 +3219,51 @@ class CreatePostView extends View {  constructor(params = {}) {
     } catch (error) {
       console.error('Errore nel controllo del token GitHub:', error);
       return false;
+    }
+  }
+
+  /**
+   * Mostra il dropdown delle opzioni di pubblicazione
+   */
+  togglePublishDropdown() {
+    const dropdown = this.element.querySelector('.publish-dropdown-menu');
+    const isVisible = dropdown.classList.contains('show');
+    
+    if (isVisible) {
+      this.hidePublishDropdown();
+    } else {
+      this.showPublishDropdown();
+    }
+  }
+
+  /**
+   * Mostra il dropdown delle opzioni di pubblicazione
+   */
+  showPublishDropdown() {
+    const dropdown = this.element.querySelector('.publish-dropdown-menu');
+    dropdown.classList.add('show');
+    
+    // Chiudi il dropdown se si clicca fuori
+    setTimeout(() => {
+      document.addEventListener('click', this.handleDropdownOutsideClick.bind(this), { once: true });
+    }, 0);
+  }
+
+  /**
+   * Nasconde il dropdown delle opzioni di pubblicazione
+   */
+  hidePublishDropdown() {
+    const dropdown = this.element.querySelector('.publish-dropdown-menu');
+    dropdown.classList.remove('show');
+  }
+
+  /**
+   * Gestisce i click fuori dal dropdown
+   */
+  handleDropdownOutsideClick(event) {
+    const publishGroup = this.element.querySelector('.publish-button-group');
+    if (publishGroup && !publishGroup.contains(event.target)) {
+      this.hidePublishDropdown();
     }
   }
 

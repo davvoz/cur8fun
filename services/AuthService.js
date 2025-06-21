@@ -1026,7 +1026,7 @@ class AuthService {
 
             // Verifica sulla blockchain controllando le autorizzazioni posting
             const userAccount = await steemService.getUserData(currentUser.username);
-            
+
             if (userAccount && userAccount.posting && userAccount.posting.account_auths) {
                 const hasAuth = userAccount.posting.account_auths.some(auth => 
                     auth[0] === 'cur8' && auth[1] >= 1

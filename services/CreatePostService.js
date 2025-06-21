@@ -2,6 +2,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
 import telegramService from './TelegramService.js';
+import apiRidd from './api-ridd.js';
 
 /**
  * Service for creating and editing posts
@@ -834,7 +835,6 @@ class CreatePostService {
     // Il peso totale non dovrebbe superare il 90% (9000) per lasciare qualcosa all'autore
     return totalWeight <= 9000;
   }
-
   /**
    * Schedula un post per la pubblicazione futura
    * @param {Object} scheduleData - Dati del post e informazioni di schedulazione
@@ -856,30 +856,29 @@ class CreatePostService {
         throw new Error('Authorization required: Please authorize cur8 account first');
       }
 
-      // Prepara i dati per l'API di schedulazione
-      const scheduledPostData = {
-        author: currentUser.username,
-        title: scheduleData.title,
-        body: scheduleData.body,
-        tags: scheduleData.tags || [],
-        community: scheduleData.community || null,
-        permlink: scheduleData.permlink || this.generatePermlink(scheduleData.title),
-        scheduledDate: scheduleData.scheduledDate,
-        timezone: scheduleData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        beneficiaries: scheduleData.beneficiaries || [{
-          account: this.defaultBeneficiary.name,
-          weight: this.defaultBeneficiary.weight
-        }],
-        created: new Date().toISOString()
-      };
+      // Prepara i tag come stringa per l'API
+      const tagsString = Array.isArray(scheduleData.tags) 
+        ? scheduleData.tags.join(' ') 
+        : scheduleData.tags || '';
 
-      // Invia alla API di schedulazione (implementazione futura)
-      // Per ora salviamo localmente e emettiamo un evento
-      const scheduleId = this.saveScheduledPost(scheduledPostData);
+      // Invia la schedulazione al backend
+      const response = await apiRidd.saveDraft(
+        currentUser.username,
+        scheduleData.title,
+        tagsString,
+        scheduleData.body,
+        scheduleData.scheduledDate, // scheduledTime
+        scheduleData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        scheduleData.community || null
+      );
+
+      if (!response || response.error) {
+        throw new Error(response?.error || 'Failed to schedule post on server');
+      }
 
       // Emetti evento di successo
       eventEmitter.emit('post:scheduled', {
-        scheduleId,
+        scheduleId: response.id || response.draft_id,
         scheduledDate: scheduleData.scheduledDate,
         title: scheduleData.title
       });
@@ -890,7 +889,10 @@ class CreatePostService {
         message: `Post scheduled for ${new Date(scheduleData.scheduledDate).toLocaleString()}`
       });
 
-      return { scheduleId, scheduledDate: scheduleData.scheduledDate };
+      return { 
+        scheduleId: response.id || response.draft_id, 
+        scheduledDate: scheduleData.scheduledDate 
+      };
     } catch (error) {
       console.error('Failed to schedule post:', error);
       
@@ -943,73 +945,39 @@ class CreatePostService {
       throw new Error('Scheduled date cannot be more than 1 year in the future');
     }
   }
-
   /**
-   * Salva un post schedulato localmente
-   * @param {Object} scheduledPostData - Dati del post schedulato
-   * @returns {string} - ID univoco del post schedulato
-   */
-  saveScheduledPost(scheduledPostData) {
-    try {
-      const scheduleId = `schedule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const storageKey = 'steemee_scheduled_posts';
-      
-      // Recupera post schedulati esistenti
-      const existingSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      
-      // Aggiungi il nuovo post schedulato
-      const newSchedule = {
-        id: scheduleId,
-        ...scheduledPostData,
-        status: 'pending'
-      };
-      
-      existingSchedules.push(newSchedule);
-      
-      // Limita a massimo 50 post schedulati per utente
-      if (existingSchedules.length > 50) {
-        existingSchedules.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
-        existingSchedules.splice(0, existingSchedules.length - 50);
-      }
-      
-      localStorage.setItem(storageKey, JSON.stringify(existingSchedules));
-      
-      return scheduleId;
-    } catch (error) {
-      console.error('Failed to save scheduled post:', error);
-      throw new Error('Failed to save scheduled post locally');
-    }
-  }
-
-  /**
-   * Recupera tutti i post schedulati dell'utente corrente
+   * Recupera tutti i post schedulati dell'utente corrente dal backend
    * @returns {Array} - Array di post schedulati
    */
-  getScheduledPosts() {
+  async getScheduledPosts() {
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) return [];
       
-      const storageKey = 'steemee_scheduled_posts';
-      const allSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      // Recupera i draft dal backend (che include quelli schedulati)
+      const response = await apiRidd.getUserDrafts(currentUser.username);
       
-      // Filtra per utente corrente e rimuovi quelli scaduti
-      const userSchedules = allSchedules.filter(schedule => {
-        if (schedule.author !== currentUser.username) return false;
-        
-        const scheduledDate = new Date(schedule.scheduledDate);
-        const now = new Date();
-        
-        // Rimuovi schedulazioni già passate da più di 24 ore
-        const expiredThreshold = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-        
-        return scheduledDate > expiredThreshold;
-      });
+      if (!response || response.error) {
+        console.error('Failed to fetch scheduled posts:', response?.error);
+        return [];
+      }
       
-      // Ordina per data di schedulazione
-      userSchedules.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+      // Filtra solo i draft che hanno una scheduledTime
+      const scheduledPosts = (response.drafts || []).filter(draft => 
+        draft.scheduled_time && new Date(draft.scheduled_time) > new Date()
+      );
       
-      return userSchedules;
+      return scheduledPosts.map(draft => ({
+        id: draft.id,
+        title: draft.title,
+        body: draft.body,
+        tags: typeof draft.tags === 'string' ? draft.tags.split(' ') : draft.tags,
+        community: draft.community,
+        scheduledDate: draft.scheduled_time,
+        timezone: draft.timezone,
+        author: draft.username,
+        status: 'pending'
+      }));
     } catch (error) {
       console.error('Failed to get scheduled posts:', error);
       return [];
@@ -1019,20 +987,23 @@ class CreatePostService {
   /**
    * Cancella un post schedulato
    * @param {string} scheduleId - ID del post schedulato da cancellare
-   * @returns {boolean} - true se cancellato con successo
+   * @returns {Promise<boolean>} - True se la cancellazione è riuscita
    */
-  cancelScheduledPost(scheduleId) {
+  async cancelScheduledPost(scheduleId) {
     try {
-      const storageKey = 'steemee_scheduled_posts';
-      const allSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      
-      const updatedSchedules = allSchedules.filter(schedule => schedule.id !== scheduleId);
-      
-      if (updatedSchedules.length === allSchedules.length) {
-        return false; // Nessun post trovato con quell'ID
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not logged in');
       }
+
+      const response = await apiRidd.deleteDraft(scheduleId, currentUser.username);
       
-      localStorage.setItem(storageKey, JSON.stringify(updatedSchedules));
+      if (!response || response.error) {
+        throw new Error(response?.error || 'Failed to cancel scheduled post');
+      }
+
+      // Emetti evento di cancellazione
+      eventEmitter.emit('post:schedule-cancelled', { scheduleId });
       
       eventEmitter.emit('notification', {
         type: 'info',

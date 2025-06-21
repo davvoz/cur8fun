@@ -265,3 +265,7 @@ export class ApiClient {
         return this.sendRequest('/communities', 'GET');
     }
 }
+
+// Create and export singleton instance
+const apiRidd = new ApiClient();
+export default apiRidd;
