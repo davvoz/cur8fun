@@ -305,6 +305,33 @@ class SteemService {
         });
     }
 
+    /**
+     * Helper method to broadcast operations using active key
+     * @param {Array} operations - The operations to broadcast
+     * @param {string} activeKey - The active key to use
+     * @returns {Promise<Object>} - The result of the broadcast
+     */
+    async broadcastWithActiveKey(operations, activeKey) {
+        await this.ensureLibraryLoaded();
+        console.log('SteemService: Broadcasting with active key');
+        
+        return new Promise((resolve, reject) => {
+            this.core.steem.broadcast.send(
+                { operations, extensions: [] },
+                { active: activeKey },
+                (err, result) => {
+                    if (err) {
+                        console.error('Broadcast error:', err);
+                        reject(err);
+                    } else {
+                        console.log('Broadcast result:', result);
+                        resolve(result);
+                    }
+                }
+            );
+        });
+    }
+
     async getFollowers(username) {
         return this.userService.getFollowers(username);
     }

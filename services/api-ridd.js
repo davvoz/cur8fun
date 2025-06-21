@@ -163,8 +163,8 @@ export class ApiClient {
         return this.sendRequest('/logout', 'POST', { id_telegram: idTelegram, username });
     }
 
-    saveDraft(username, title, tags, body, scheduledTime, timezone, community) {
-        return this.sendRequest('/save_draft', 'POST', { username, title, tags, body, scheduled_time: scheduledTime, timezone, community });
+    saveDraft(idTelegram, username, title, tags, body, scheduledTime, timezone, community) {
+        return this.sendRequest('/save_draft', 'POST', { id_telegram: idTelegram, username, title, tags, body, scheduled_time: scheduledTime, timezone, community });
     }
 
     getUserDrafts(username) {

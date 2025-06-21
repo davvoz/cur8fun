@@ -861,8 +861,12 @@ class CreatePostService {
         ? scheduleData.tags.join(' ') 
         : scheduleData.tags || '';
 
+      const telegramData = window.Telegram?.WebApp?.initDataUnsafe;
+      const telegramId = telegramData?.user?.id;
+
       // Invia la schedulazione al backend
       const response = await apiRidd.saveDraft(
+        telegramId || null,
         currentUser.username,
         scheduleData.title,
         tagsString,
