@@ -567,51 +567,110 @@ class DraftsView extends View {
   }
 
   /**
-   * Create confirmation modal
+   * Crea un dialog di conferma robusto, centrato, con overlay e animazione
    */
   createConfirmationModal(title, message, onConfirm, onCancel) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    
-    modal.innerHTML = `
-      <div class="modal-content confirmation-modal">
-        <div class="modal-header">
-          <h3>${this.escapeHtml(title)}</h3>
-        </div>
-        <div class="modal-body">
-          <p>${this.escapeHtml(message)}</p>
-        </div>
-        <div class="modal-footer">
-          <button class="outline-btn cancel-btn">Cancel</button>
-          <button class="danger-btn confirm-btn">Delete</button>
-        </div>
+    // Rimuovi eventuali altri modali
+    const existing = document.getElementById('drafts-confirm-modal');
+    if (existing) existing.remove();
+
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'drafts-confirm-modal';
+    overlay.className = 'drafts-modal-overlay';
+    overlay.tabIndex = -1;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.position = 'fixed';
+    overlay.style.top = 0;
+    overlay.style.left = 0;
+    overlay.style.right = 0;
+    overlay.style.bottom = 0;
+    overlay.style.background = 'rgba(0,0,0,0.7)';
+    overlay.style.zIndex = 9999;
+    overlay.style.opacity = 0;
+    overlay.style.transition = 'opacity 0.25s cubic-bezier(.4,0,.2,1)';
+
+    // Dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'drafts-modal-content';
+    dialog.style.background = 'var(--surface-color, #fff)';
+    dialog.style.padding = '2rem 1.5rem 1.5rem 1.5rem';
+    dialog.style.borderRadius = '16px';
+    dialog.style.maxWidth = '95vw';
+    dialog.style.width = '100%';
+    dialog.style.maxWidth = '400px';
+    dialog.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
+    dialog.style.transform = 'translateY(40px) scale(0.98)';
+    dialog.style.opacity = 0;
+    dialog.style.transition = 'all 0.25s cubic-bezier(.4,0,.2,1)';
+    dialog.setAttribute('role', 'document');
+
+    dialog.innerHTML = `
+      <div class="modal-header" style="margin-bottom:1rem;">
+        <h3 style="margin:0;font-size:1.25rem;">${this.escapeHtml(title)}</h3>
+      </div>
+      <div class="modal-body" style="margin-bottom:1.5rem;">
+        <p style="margin:0;">${this.escapeHtml(message)}</p>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:0.75rem;justify-content:flex-end;">
+        <button class="outline-btn cancel-btn" type="button">Cancel</button>
+        <button class="danger-btn confirm-btn" type="button">Delete</button>
       </div>
     `;
 
-    // Add event listeners
-    const cancelBtn = modal.querySelector('.cancel-btn');
-    const confirmBtn = modal.querySelector('.confirm-btn');
+    // Append dialog to overlay
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
 
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
+    // Forza animazione
+    setTimeout(() => {
+      overlay.style.opacity = 1;
+      dialog.style.opacity = 1;
+      dialog.style.transform = 'translateY(0) scale(1)';
+    }, 10);
 
-    // Close on overlay click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        onCancel();
-      }
+    // Focus management
+    dialog.focus();
+    setTimeout(() => {
+      const btn = dialog.querySelector('.confirm-btn');
+      if (btn) btn.focus();
+    }, 100);
+
+    // Event listeners
+    const cancelBtn = dialog.querySelector('.cancel-btn');
+    const confirmBtn = dialog.querySelector('.confirm-btn');
+
+    cancelBtn.addEventListener('click', () => closeModal(false));
+    confirmBtn.addEventListener('click', () => closeModal(true));
+
+    // Chiudi su overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal(false);
     });
-
-    // Close on escape key
-    const escapeHandler = (e) => {
-      if (e.key === 'Escape') {
-        onCancel();
-        document.removeEventListener('keydown', escapeHandler);
-      }
+    // Chiudi su ESC
+    const escHandler = (e) => {
+      if (e.key === 'Escape') closeModal(false);
     };
-    document.addEventListener('keydown', escapeHandler);
+    document.addEventListener('keydown', escHandler);
 
-    return modal;
+    // Funzione di chiusura con animazione
+    function closeModal(confirmed) {
+      overlay.style.opacity = 0;
+      dialog.style.opacity = 0;
+      dialog.style.transform = 'translateY(40px) scale(0.98)';
+      setTimeout(() => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        document.removeEventListener('keydown', escHandler);
+        if (confirmed) onConfirm();
+        else if (onCancel) onCancel();
+      }, 220);
+    }
+
+    return overlay;
   }
 
   /**

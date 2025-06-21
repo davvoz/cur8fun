@@ -448,6 +448,18 @@
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.25s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+
+.modal-overlay.modal-fade-in,
+.modal-overlay.modal-fade-in-active {
+  pointer-events: auto;
+}
+
+.modal-overlay.modal-fade-in-active {
+  opacity: 1;
 }
 
 .confirmation-modal {
@@ -457,6 +469,14 @@
   width: 90%;
   max-width: 450px;
   overflow: hidden;
+  transform: translateY(40px) scale(0.98);
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(.4,0,.2,1);
+}
+
+.modal-fade-in-active .confirmation-modal {
+  transform: translateY(0) scale(1);
+  opacity: 1;
 }
 
 .modal-header {
