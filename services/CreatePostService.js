@@ -834,6 +834,217 @@ class CreatePostService {
     // Il peso totale non dovrebbe superare il 90% (9000) per lasciare qualcosa all'autore
     return totalWeight <= 9000;
   }
+
+  /**
+   * Schedula un post per la pubblicazione futura
+   * @param {Object} scheduleData - Dati del post e informazioni di schedulazione
+   * @returns {Promise} - Promise che si risolve quando il post è schedulato
+   */
+  async schedulePost(scheduleData) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not logged in');
+      }
+
+      // Valida i dati di schedulazione
+      this.validateScheduleData(scheduleData);
+
+      // Verifica che l'utente abbia autorizzato cur8
+      const hasAuth = await authService.checkCur8Authorization();
+      if (!hasAuth) {
+        throw new Error('Authorization required: Please authorize cur8 account first');
+      }
+
+      // Prepara i dati per l'API di schedulazione
+      const scheduledPostData = {
+        author: currentUser.username,
+        title: scheduleData.title,
+        body: scheduleData.body,
+        tags: scheduleData.tags || [],
+        community: scheduleData.community || null,
+        permlink: scheduleData.permlink || this.generatePermlink(scheduleData.title),
+        scheduledDate: scheduleData.scheduledDate,
+        timezone: scheduleData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        beneficiaries: scheduleData.beneficiaries || [{
+          account: this.defaultBeneficiary.name,
+          weight: this.defaultBeneficiary.weight
+        }],
+        created: new Date().toISOString()
+      };
+
+      // Invia alla API di schedulazione (implementazione futura)
+      // Per ora salviamo localmente e emettiamo un evento
+      const scheduleId = this.saveScheduledPost(scheduledPostData);
+
+      // Emetti evento di successo
+      eventEmitter.emit('post:scheduled', {
+        scheduleId,
+        scheduledDate: scheduleData.scheduledDate,
+        title: scheduleData.title
+      });
+
+      // Notifica di successo
+      eventEmitter.emit('notification', {
+        type: 'success',
+        message: `Post scheduled for ${new Date(scheduleData.scheduledDate).toLocaleString()}`
+      });
+
+      return { scheduleId, scheduledDate: scheduleData.scheduledDate };
+    } catch (error) {
+      console.error('Failed to schedule post:', error);
+      
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: error.message || 'Failed to schedule post'
+      });
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Valida i dati di schedulazione
+   * @param {Object} scheduleData - Dati da validare
+   */
+  validateScheduleData(scheduleData) {
+    if (!scheduleData) {
+      throw new Error('Schedule data is required');
+    }
+
+    if (!scheduleData.title || !scheduleData.title.trim()) {
+      throw new Error('Post title is required');
+    }
+
+    if (!scheduleData.body || !scheduleData.body.trim()) {
+      throw new Error('Post content is required');
+    }
+
+    if (!scheduleData.scheduledDate) {
+      throw new Error('Scheduled date is required');
+    }
+
+    const scheduledDate = new Date(scheduleData.scheduledDate);
+    const now = new Date();
+
+    if (isNaN(scheduledDate.getTime())) {
+      throw new Error('Invalid scheduled date');
+    }
+
+    if (scheduledDate <= now) {
+      throw new Error('Scheduled date must be in the future');
+    }
+
+    // Verifica che la data non sia troppo lontana nel futuro (max 1 anno)
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    
+    if (scheduledDate > maxDate) {
+      throw new Error('Scheduled date cannot be more than 1 year in the future');
+    }
+  }
+
+  /**
+   * Salva un post schedulato localmente
+   * @param {Object} scheduledPostData - Dati del post schedulato
+   * @returns {string} - ID univoco del post schedulato
+   */
+  saveScheduledPost(scheduledPostData) {
+    try {
+      const scheduleId = `schedule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const storageKey = 'steemee_scheduled_posts';
+      
+      // Recupera post schedulati esistenti
+      const existingSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      // Aggiungi il nuovo post schedulato
+      const newSchedule = {
+        id: scheduleId,
+        ...scheduledPostData,
+        status: 'pending'
+      };
+      
+      existingSchedules.push(newSchedule);
+      
+      // Limita a massimo 50 post schedulati per utente
+      if (existingSchedules.length > 50) {
+        existingSchedules.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+        existingSchedules.splice(0, existingSchedules.length - 50);
+      }
+      
+      localStorage.setItem(storageKey, JSON.stringify(existingSchedules));
+      
+      return scheduleId;
+    } catch (error) {
+      console.error('Failed to save scheduled post:', error);
+      throw new Error('Failed to save scheduled post locally');
+    }
+  }
+
+  /**
+   * Recupera tutti i post schedulati dell'utente corrente
+   * @returns {Array} - Array di post schedulati
+   */
+  getScheduledPosts() {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return [];
+      
+      const storageKey = 'steemee_scheduled_posts';
+      const allSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      // Filtra per utente corrente e rimuovi quelli scaduti
+      const userSchedules = allSchedules.filter(schedule => {
+        if (schedule.author !== currentUser.username) return false;
+        
+        const scheduledDate = new Date(schedule.scheduledDate);
+        const now = new Date();
+        
+        // Rimuovi schedulazioni già passate da più di 24 ore
+        const expiredThreshold = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+        
+        return scheduledDate > expiredThreshold;
+      });
+      
+      // Ordina per data di schedulazione
+      userSchedules.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+      
+      return userSchedules;
+    } catch (error) {
+      console.error('Failed to get scheduled posts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Cancella un post schedulato
+   * @param {string} scheduleId - ID del post schedulato da cancellare
+   * @returns {boolean} - true se cancellato con successo
+   */
+  cancelScheduledPost(scheduleId) {
+    try {
+      const storageKey = 'steemee_scheduled_posts';
+      const allSchedules = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      const updatedSchedules = allSchedules.filter(schedule => schedule.id !== scheduleId);
+      
+      if (updatedSchedules.length === allSchedules.length) {
+        return false; // Nessun post trovato con quell'ID
+      }
+      
+      localStorage.setItem(storageKey, JSON.stringify(updatedSchedules));
+      
+      eventEmitter.emit('notification', {
+        type: 'info',
+        message: 'Scheduled post cancelled'
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to cancel scheduled post:', error);
+      return false;
+    }
+  }
 }
 
 // Create and export singleton instance

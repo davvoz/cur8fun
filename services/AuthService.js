@@ -1006,6 +1006,167 @@ class AuthService {
             });
         });
     }
+
+    /**
+     * Controlla se l'utente ha autorizzato l'account cur8 per i post schedulati
+     * @returns {boolean} - true se autorizzato, false altrimenti
+     */
+    async checkCur8Authorization() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        try {
+            // Verifica se l'autorizzazione è salvata localmente
+            const localAuth = localStorage.getItem(`${currentUser.username}_cur8_authorized`);
+            if (localAuth === 'true') {
+                return true;
+            }
+
+            // Verifica sulla blockchain controllando le autorizzazioni posting
+            const userAccount = await steemService.getUserData(currentUser.username);
+            
+            if (userAccount && userAccount.posting && userAccount.posting.account_auths) {
+                const hasAuth = userAccount.posting.account_auths.some(auth => 
+                    auth[0] === 'cur8' && auth[1] >= 1
+                );
+                
+                if (hasAuth) {
+                    // Salva l'autorizzazione localmente per cache
+                    localStorage.setItem(`${currentUser.username}_cur8_authorized`, 'true');
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (error) {
+            console.error('Error checking cur8 authorization:', error);
+            return false;
+        }
+    }    /**
+     * Autorizza l'account cur8 per pubblicare post schedulati
+     * @returns {Promise} - Promise che si risolve quando l'autorizzazione è completata
+     */
+    async authorizeCur8ForScheduledPosts() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        if (!this.isKeychainInstalled()) {
+            throw new Error('Steem Keychain is required for authorization');
+        }
+
+        return new Promise((resolve, reject) => {
+            const username = currentUser.username;
+            
+            // Usa una custom JSON operation per autorizzare cur8 - approccio più semplice
+            const customJson = {
+                id: 'cur8_authorization',
+                json: JSON.stringify({
+                    action: 'authorize',
+                    account: 'cur8',
+                    purpose: 'scheduled_posts',
+                    timestamp: new Date().toISOString()
+                })
+            };
+
+            window.steem_keychain.requestCustomJson(
+                username,
+                'cur8_authorization', // Custom JSON ID
+                'Active', // Richiede chiave Active
+                JSON.stringify(customJson.json),
+                'Authorize cur8 for scheduled posts',
+                (response) => {
+                    if (response.success) {
+                        // Salva l'autorizzazione localmente
+                        localStorage.setItem(`${username}_cur8_authorized`, 'true');
+                        
+                        // Emetti evento di successo
+                        eventEmitter.emit('notification', {
+                            type: 'success',
+                            message: 'Authorization granted successfully! You can now schedule posts.'
+                        });
+                        
+                        resolve(response);
+                    } else {
+                        const errorMessage = response.message || 'Failed to authorize cur8 account';
+                        
+                        // Emetti notifica di errore
+                        eventEmitter.emit('notification', {
+                            type: 'error',
+                            message: errorMessage
+                        });
+                        
+                        reject(new Error(errorMessage));
+                    }
+                }
+            );
+        });
+    }
+
+    /**
+     * Revoca l'autorizzazione dell'account cur8
+     * @returns {Promise} - Promise che si risolve quando la revoca è completata
+     */
+    async revokeCur8Authorization() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        if (!this.isKeychainInstalled()) {
+            throw new Error('Steem Keychain is required for revoking authorization');
+        }
+
+        return new Promise((resolve, reject) => {
+            const username = currentUser.username;
+            
+            // Operazione per rimuovere cur8 dalle autorizzazioni posting
+            const operation = [
+                'account_update',
+                {
+                    account: username,
+                    posting: {
+                        account_auths: [], // Rimuovi cur8 dalle autorizzazioni
+                        key_auths: [],
+                        weight_threshold: 1
+                    },
+                    memo_key: '',
+                    json_metadata: ''
+                }
+            ];
+
+            window.steem_keychain.requestBroadcast(
+                username,
+                [operation],
+                'Active',
+                (response) => {
+                    if (response.success) {
+                        // Rimuovi l'autorizzazione locale
+                        localStorage.removeItem(`${username}_cur8_authorized`);
+                        
+                        eventEmitter.emit('notification', {
+                            type: 'success',
+                            message: 'Authorization revoked successfully!'
+                        });
+                        
+                        resolve(response);
+                    } else {
+                        const errorMessage = response.message || 'Failed to revoke cur8 authorization';
+                        
+                        eventEmitter.emit('notification', {
+                            type: 'error',
+                            message: errorMessage
+                        });
+                        
+                        reject(new Error(errorMessage));
+                    }
+                }
+            );
+        });
+    }
 }
 
 // Export singleton instance

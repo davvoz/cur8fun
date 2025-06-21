@@ -406,8 +406,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     beneficiaryHelp.appendChild(helpText);
     beneficiaryContent.appendChild(beneficiaryHelp);
     
-    beneficiaryGroup.appendChild(beneficiaryContent);
-    form.appendChild(beneficiaryGroup);
+    beneficiaryGroup.appendChild(beneficiaryContent);    form.appendChild(beneficiaryGroup);
     
     // Event handlers for beneficiary section
     beneficiaryToggle.addEventListener('change', (e) => {
@@ -416,19 +415,54 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.hasUnsavedChanges = true;
     });
 
-    // Submit button
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'submit';
-    submitBtn.className = 'btn primary-btn';
-    submitBtn.id = 'submit-post-btn';
-    submitBtn.textContent = 'Publish Post';
-    form.appendChild(submitBtn);
-
     // Append form to container
     postEditor.appendChild(form);
 
+    // Create action buttons section (outside the form)
+    const actionsSection = document.createElement('div');
+    actionsSection.className = 'post-actions-section';
+
+    // Primary actions container
+    const primaryActions = document.createElement('div');
+    primaryActions.className = 'primary-actions';
+
+    // Submit button
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button'; // Changed from submit to button
+    submitBtn.className = 'btn primary-btn';
+    submitBtn.id = 'submit-post-btn';
+    submitBtn.innerHTML = '<span class="material-icons">publish</span> Publish Post';    submitBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Create a synthetic submit event and call the existing handler
+      const submitEvent = new Event('submit', { cancelable: true });
+      this.handleSubmit(submitEvent);
+    });
+    primaryActions.appendChild(submitBtn);
+
+    // Secondary actions container
+    const secondaryActions = document.createElement('div');
+    secondaryActions.className = 'secondary-actions';
+
+    // Schedule button
+    const scheduleBtn = document.createElement('button');
+    scheduleBtn.type = 'button';
+    scheduleBtn.className = 'btn secondary-btn schedule-btn';    scheduleBtn.id = 'schedule-post-btn';
+    scheduleBtn.innerHTML = '<span class="material-icons">schedule</span> Schedule Post';
+    scheduleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showScheduleDialog();
+    });
+    secondaryActions.appendChild(scheduleBtn);
+
+    // Assemble actions section
+    actionsSection.appendChild(primaryActions);
+    actionsSection.appendChild(secondaryActions);
+
+    // Add actions section to post editor
+    postEditor.appendChild(actionsSection);
+
     // Add the container to the page
-    this.element.appendChild(postEditor);    // Inizializza l'editor Markdown
+    this.element.appendChild(postEditor);// Inizializza l'editor Markdown
     this.initializeMarkdownEditor();
 
     // Check if we're editing a specific draft
@@ -2155,6 +2189,9 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.updateBeneficiarySummary(summaryElement);
     }
     
+    
+    
+    
     this.hasUnsavedChanges = true;
   }
 
@@ -3146,6 +3183,151 @@ class CreatePostView extends View {  constructor(params = {}) {
       return false;
     }
   }
+
+  /**
+   * Mostra il dialog per schedulare il post
+   */
+  async showScheduleDialog() {
+    // Valida i dati del post prima di aprire il dialog
+    if (!this.postTitle.trim()) {
+      this.showError('Please enter a title for your post');
+      return;
+    }
+
+    if (!this.postBody.trim()) {
+      this.showError('Please enter content for your post');
+      return;
+    }
+
+    if (this.tags.length === 0) {
+      this.showError('Please add at least one tag');
+      return;
+    }
+
+    if (this.tags.length > 5) {
+      this.showError('Maximum 5 tags allowed. Please remove some tags to continue.');
+      return;
+    }
+
+    // Verifica che la percentuale totale dei beneficiari non superi il limite
+    if (this.includeBeneficiary) {
+      if (!createPostService.validateBeneficiaryPercentage(this.beneficiaries)) {
+        this.showError('Total beneficiary percentage cannot exceed 90%');
+        return;
+      }
+    }    try {
+      // Importa dinamicamente il dialog di schedulazione
+      const schedulePostDialog = await import('../components/SchedulePostDialog.js')
+        .then(module => module.default)
+        .catch(err => {
+          throw new Error('Could not load schedule dialog: ' + err.message);
+        });
+
+      // Prepara i dati del post
+      const permlink = this.generatePermlink(this.postTitle);
+      const postData = {
+        title: this.postTitle,
+        body: this.postBody,
+        tags: this.tags,
+        permlink: permlink
+      };
+
+      // Aggiungi la community se selezionata
+      if (this.selectedCommunity) {
+        postData.community = this.selectedCommunity.name || this.selectedCommunity.id;
+      }
+
+      // Aggiungi i beneficiari se abilitati
+      if (this.includeBeneficiary && this.beneficiaries.length > 0) {
+        postData.beneficiaries = this.beneficiaries;
+      }
+
+      // Mostra il dialog usando l'istanza singleton
+      schedulePostDialog.show(postData, (scheduledData) => {
+        // Callback chiamato quando il post è stato schedulato
+        this.handlePostScheduled(scheduledData);
+      });
+
+    } catch (error) {
+      console.error('Error opening schedule dialog:', error);
+      this.showError('Failed to open schedule dialog: ' + error.message);
+    }
+  }
+
+  /**
+   * Gestisce il completamento della schedulazione del post
+   * @param {Object} scheduledData - Dati del post schedulato
+   */
+  handlePostScheduled(scheduledData) {
+    // Mostra messaggio di successo
+    this.showStatus('Post scheduled successfully!', 'success');
+
+    // Pulisci la bozza corrente
+    createPostService.clearDraft();
+    this.hasUnsavedChanges = false;
+
+    // Opzionalmente, reindirizza alla pagina dei draft/schedulati o pulisci il form
+    setTimeout(() => {
+      const shouldClearForm = confirm('Post scheduled successfully! Would you like to create another post?');
+      if (shouldClearForm) {
+        this.clearForm();
+      } else {
+        router.navigate('/drafts'); // Vai alla pagina dei draft dove potrebbero essere mostrati anche i post schedulati
+      }
+    }, 2000);
+  }
+
+  /**
+   * Pulisce il form per creare un nuovo post
+   */
+  clearForm() {
+    // Reset dei dati
+    this.postTitle = '';
+    this.postBody = '';
+    this.tags = [];
+    this.selectedCommunity = null;
+    this.hasUnsavedChanges = false;
+
+    // Reset degli input
+    const titleInput = document.getElementById('post-title');
+    if (titleInput) titleInput.value = '';
+
+    const tagsInput = document.getElementById('post-tags');
+    if (tagsInput) tagsInput.value = '';
+
+    const communitySearch = document.getElementById('community-search');
+    if (communitySearch) {
+      communitySearch.value = '';
+      communitySearch.removeAttribute('data-selected');
+    }
+
+    // Reset dell'editor
+    if (this.markdownEditor && typeof this.markdownEditor.setValue === 'function') {
+      this.markdownEditor.setValue('');
+    }
+
+    // Reset beneficiari ai valori predefiniti
+    this.beneficiaries = [{
+      account: createPostService.defaultBeneficiary.name,
+      weight: createPostService.defaultBeneficiary.weight
+    }];
+    this.totalWeight = createPostService.defaultBeneficiary.weight;
+
+    // Aggiorna UI beneficiari
+    const beneficiariesList = document.getElementById('beneficiaries-list');
+    if (beneficiariesList) {
+      this.renderBeneficiaryItems(beneficiariesList);
+    }
+
+    // Aggiorna stato bozza
+    this.updateDraftStatus('Ready');
+
+    // Focus sul titolo
+    if (titleInput) {
+      titleInput.focus();
+    }
+  }
+
 }
 
 export default CreatePostView;
