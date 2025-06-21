@@ -1010,33 +1010,22 @@ class AuthService {
     /**
      * Controlla se l'utente ha autorizzato l'account cur8 per i post schedulati
      * @returns {boolean} - true se autorizzato, false altrimenti
-     */
-    async checkCur8Authorization() {
+     */    async checkCur8Authorization() {
         const currentUser = this.getCurrentUser();
         if (!currentUser) {
             throw new Error('User not logged in');
         }
 
         try {
-            // Verifica se l'autorizzazione è salvata localmente
-            const localAuth = localStorage.getItem(`${currentUser.username}_cur8_authorized`);
-            if (localAuth === 'true') {
-                return true;
-            }
-
             // Verifica sulla blockchain controllando le autorizzazioni posting
             const userAccount = await steemService.getUserData(currentUser.username);
-
+            
             if (userAccount && userAccount.posting && userAccount.posting.account_auths) {
                 const hasAuth = userAccount.posting.account_auths.some(auth => 
                     auth[0] === 'cur8' && auth[1] >= 1
                 );
                 
-                if (hasAuth) {
-                    // Salva l'autorizzazione localmente per cache
-                    localStorage.setItem(`${currentUser.username}_cur8_authorized`, 'true');
-                    return true;
-                }
+                return hasAuth;
             }
 
             return false;
@@ -1044,7 +1033,7 @@ class AuthService {
             console.error('Error checking cur8 authorization:', error);
             return false;
         }
-    }    /**
+    }/**
      * Autorizza l'account cur8 per pubblicare post schedulati
      * @returns {Promise} - Promise che si risolve quando l'autorizzazione è completata
      */
@@ -1077,12 +1066,8 @@ class AuthService {
                 'cur8_authorization', // Custom JSON ID
                 'Active', // Richiede chiave Active
                 JSON.stringify(customJson.json),
-                'Authorize cur8 for scheduled posts',
-                (response) => {
+                'Authorize cur8 for scheduled posts',                (response) => {
                     if (response.success) {
-                        // Salva l'autorizzazione localmente
-                        localStorage.setItem(`${username}_cur8_authorized`, 'true');
-                        
                         // Emetti evento di successo
                         eventEmitter.emit('notification', {
                             type: 'success',
@@ -1141,12 +1126,8 @@ class AuthService {
             window.steem_keychain.requestBroadcast(
                 username,
                 [operation],
-                'Active',
-                (response) => {
+                'Active',                (response) => {
                     if (response.success) {
-                        // Rimuovi l'autorizzazione locale
-                        localStorage.removeItem(`${username}_cur8_authorized`);
-                        
                         eventEmitter.emit('notification', {
                             type: 'success',
                             message: 'Authorization revoked successfully!'
