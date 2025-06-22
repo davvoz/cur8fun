@@ -1,5 +1,6 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
+import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
 
 /**
  * Service for handling user authentication
@@ -1005,6 +1006,335 @@ class AuthService {
                 message: 'Unable to open account switcher. Please try again.'
             });
         });
+    }
+
+    /**
+     * Controlla se l'utente ha autorizzato l'account cur8 per i post schedulati
+     * @returns {boolean} - true se autorizzato, false altrimenti
+     */    
+    async checkCur8Authorization() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        try {
+            // Verifica sulla blockchain controllando le autorizzazioni posting
+            const userAccount = await steemService.getUserData(currentUser.username);
+            
+            if (userAccount && userAccount.posting && userAccount.posting.account_auths) {
+                const hasAuth = userAccount.posting.account_auths.some(auth => 
+                    auth[0] === 'cur8' && auth[1] >= 1
+                );
+                
+                return hasAuth;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('Error checking cur8 authorization:', error);
+            return false;
+        }
+    }    /**
+     * Autorizza l'account cur8 per pubblicare post schedulati
+     * @returns {Promise} - Promise che si risolve quando l'autorizzazione è completata
+     */
+    async authorizeCur8ForScheduledPosts() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        // Gestisci diversi metodi di login
+        if (currentUser.loginMethod === 'keychain') {
+            return this.authorizeCur8WithKeychain(currentUser);
+        } else if (currentUser.loginMethod === 'privateKey' || currentUser.loginMethod === 'steemlogin') {
+            return this.authorizeCur8WithActiveKey(currentUser);
+        } else {
+            throw new Error('Unsupported login method for authorization');
+        }
+    }
+
+    /**
+     * Autorizza cur8 usando Keychain
+     */
+    async authorizeCur8WithKeychain(currentUser) {
+        if (!this.isKeychainInstalled()) {
+            throw new Error('Steem Keychain is required for authorization');
+        }
+
+        return new Promise((resolve, reject) => {
+            const username = currentUser.username;
+            
+            // Usa una custom JSON operation per autorizzare cur8
+            const customJson = {
+                id: 'cur8_authorization',
+                json: JSON.stringify({
+                    action: 'authorize',
+                    account: 'cur8',
+                    purpose: 'scheduled_posts',
+                    timestamp: new Date().toISOString()
+                })
+            };
+
+            window.steem_keychain.requestCustomJson(
+                username,
+                'cur8_authorization', // Custom JSON ID
+                'Active', // Richiede chiave Active
+                JSON.stringify(customJson.json),
+                'Authorize cur8 for scheduled posts',(response) => {
+                    if (response.success) {
+                        // Emetti evento di successo
+                        eventEmitter.emit('notification', {
+                            type: 'success',
+                            message: 'Authorization granted successfully! You can now schedule posts.'
+                        });
+                        
+                        resolve(response);
+                    } else {
+                        const errorMessage = response.message || 'Failed to authorize cur8 account';
+                        
+                        // Emetti notifica di errore
+                        eventEmitter.emit('notification', {
+                            type: 'error',
+                            message: errorMessage
+                        });
+                        
+                        reject(new Error(errorMessage));
+                    }
+                }
+            );
+        });
+    }
+
+    /**
+     * Autorizza cur8 usando Active Key
+     */
+    async authorizeCur8WithActiveKey(currentUser) {
+        try {
+            // Richiedi la Active Key all'utente
+            const activeKey = await activeKeyInput.promptForActiveKey(
+                'Enter Active Key to authorize cur8 for scheduled posts'
+            );
+            
+            if (!activeKey) {
+                throw new Error('Active key is required for authorization');
+            }
+
+            // Ottieni le informazioni dell'account corrente
+            const userAccount = await steemService.getUserData(currentUser.username);
+            if (!userAccount) {
+                throw new Error('Could not fetch account information');
+            }
+
+            // Prepara la nuova lista di autorizzazioni posting
+            const currentPostingAuths = userAccount.posting?.account_auths || [];
+            
+            // Verifica se cur8 è già autorizzato
+            const existingCur8Auth = currentPostingAuths.find(auth => auth[0] === 'cur8');
+            let newPostingAuths;
+            
+            if (existingCur8Auth) {
+                // cur8 è già autorizzato, aggiorna il peso se necessario
+                newPostingAuths = currentPostingAuths.map(auth => 
+                    auth[0] === 'cur8' ? ['cur8', 1] : auth
+                );
+            } else {
+                // Aggiungi cur8 alle autorizzazioni
+                newPostingAuths = [...currentPostingAuths, ['cur8', 1]];
+            }
+
+            // Prepara l'operazione account_update
+            const operation = [
+                'account_update',
+                {
+                    account: currentUser.username,
+                    posting: {
+                        account_auths: newPostingAuths,
+                        key_auths: userAccount.posting?.key_auths || [],
+                        weight_threshold: userAccount.posting?.weight_threshold || 1
+                    },
+                    memo_key: userAccount.memo_key,
+                    json_metadata: userAccount.json_metadata || ''
+                }
+            ];            // Broadcast dell'operazione usando SteemService
+            // Nota: usiamo broadcastWithPostingKey ma passiamo l'active key
+            // Questo funziona perché l'operazione account_update richiede l'active key
+            const result = await steemService.broadcastWithActiveKey([operation], activeKey);
+            
+            if (result) {
+                // Emetti evento di successo
+                eventEmitter.emit('notification', {
+                    type: 'success',
+                    message: 'Authorization granted successfully! You can now schedule posts.'
+                });
+                
+                return result;
+            } else {
+                throw new Error('Failed to broadcast authorization transaction');
+            }
+            
+        } catch (error) {
+            console.error('Error authorizing cur8 with active key:', error);
+            
+            // Emetti notifica di errore
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: error.message || 'Failed to authorize cur8 account'
+            });
+            
+            throw error;
+        }
+    }    /**
+     * Revoca l'autorizzazione dell'account cur8
+     * @returns {Promise} - Promise che si risolve quando la revoca è completata
+     */
+    async revokeCur8Authorization() {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        // Gestisci diversi metodi di login
+        if (currentUser.loginMethod === 'keychain') {
+            return this.revokeCur8WithKeychain(currentUser);
+        } else if (currentUser.loginMethod === 'privateKey' || currentUser.loginMethod === 'steemlogin') {
+            return this.revokeCur8WithActiveKey(currentUser);
+        } else {
+            throw new Error('Unsupported login method for revoking authorization');
+        }
+    }
+
+    /**
+     * Revoca cur8 usando Keychain
+     */
+    async revokeCur8WithKeychain(currentUser) {
+        if (!this.isKeychainInstalled()) {
+            throw new Error('Steem Keychain is required for revoking authorization');
+        }        return new Promise(async (resolve, reject) => {
+            const username = currentUser.username;
+            
+            try {
+                // Ottieni le informazioni dell'account corrente
+                const userAccount = await steemService.getUserData(username);
+                if (!userAccount) {
+                    throw new Error('Could not fetch account information');
+                }
+
+                // Prepara la nuova lista di autorizzazioni posting senza cur8
+                const currentPostingAuths = userAccount.posting?.account_auths || [];
+                const newPostingAuths = currentPostingAuths.filter(auth => auth[0] !== 'cur8');
+
+                // Operazione per rimuovere cur8 dalle autorizzazioni posting
+                const operation = [
+                    'account_update',
+                    {
+                        account: username,
+                        posting: {
+                            account_auths: newPostingAuths,
+                            key_auths: userAccount.posting?.key_auths || [],
+                            weight_threshold: userAccount.posting?.weight_threshold || 1
+                        },
+                        memo_key: userAccount.memo_key,
+                        json_metadata: userAccount.json_metadata || ''
+                    }
+                ];
+
+                window.steem_keychain.requestBroadcast(
+                    username,
+                    [operation],
+                    'Active',
+                    (response) => {
+                        if (response.success) {
+                            eventEmitter.emit('notification', {
+                                type: 'success',
+                                message: 'Authorization revoked successfully!'
+                            });
+                            
+                            resolve(response);
+                        } else {
+                            const errorMessage = response.message || 'Failed to revoke cur8 authorization';
+                            
+                            eventEmitter.emit('notification', {
+                                type: 'error',
+                                message: errorMessage
+                            });
+                            
+                            reject(new Error(errorMessage));
+                        }
+                    }
+                );
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Revoca cur8 usando Active Key
+     */
+    async revokeCur8WithActiveKey(currentUser) {
+        try {
+            // Richiedi la Active Key all'utente
+            const activeKey = await activeKeyInput.promptForActiveKey(
+                'Enter Active Key to revoke cur8 authorization'
+            );
+            
+            if (!activeKey) {
+                throw new Error('Active key is required to revoke authorization');
+            }
+
+            // Ottieni le informazioni dell'account corrente
+            const userAccount = await steemService.getUserData(currentUser.username);
+            if (!userAccount) {
+                throw new Error('Could not fetch account information');
+            }
+
+            // Prepara la nuova lista di autorizzazioni posting senza cur8
+            const currentPostingAuths = userAccount.posting?.account_auths || [];
+            const newPostingAuths = currentPostingAuths.filter(auth => auth[0] !== 'cur8');
+
+            // Prepara l'operazione account_update
+            const operation = [
+                'account_update',
+                {
+                    account: currentUser.username,
+                    posting: {
+                        account_auths: newPostingAuths,
+                        key_auths: userAccount.posting?.key_auths || [],
+                        weight_threshold: userAccount.posting?.weight_threshold || 1
+                    },
+                    memo_key: userAccount.memo_key,
+                    json_metadata: userAccount.json_metadata || ''
+                }
+            ];
+
+            // Broadcast dell'operazione usando SteemService
+            const result = await steemService.broadcastWithActiveKey([operation], activeKey);
+            
+            if (result) {
+                // Emetti evento di successo
+                eventEmitter.emit('notification', {
+                    type: 'success',
+                    message: 'Authorization revoked successfully!'
+                });
+                
+                return result;
+            } else {
+                throw new Error('Failed to broadcast revocation transaction');
+            }
+            
+        } catch (error) {
+            console.error('Error revoking cur8 authorization with active key:', error);
+            
+            // Emetti notifica di errore
+            eventEmitter.emit('notification', {
+                type: 'error',
+                message: error.message || 'Failed to revoke cur8 authorization'
+            });
+            
+            throw error;
+        }
     }
 }
 
