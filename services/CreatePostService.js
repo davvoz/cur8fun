@@ -36,7 +36,6 @@ class CreatePostService {
   isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
-
   async createPost(postData, options = {}) {
     if (this.isProcessing) {
       throw new Error('Another post is already being processed');
@@ -55,7 +54,14 @@ class CreatePostService {
       this.validatePostData(postData);
       await steemService.ensureLibraryLoaded();
       
-      // Prepare post data
+      // Check if this is a scheduled post and handle authorization
+      if (options.isScheduled && postData.scheduledDateTime) {
+        await this.handleScheduledPostAuthorization();
+        // For scheduled posts, save to storage instead of broadcasting immediately
+        return await this.saveScheduledPost(postData, options);
+      }
+      
+      // Prepare post data for immediate publishing
       const postDetails = this.preparePostDetails(postData, options);
       
       // Broadcast the post using available method
@@ -190,18 +196,20 @@ class CreatePostService {
         throw new Error(`Unsupported login method: ${loginMethod || 'unknown'}. Please log in with a supported method.`);
     }
   }
-
-  emitSuccessEvent(postDetails) {
-    // Send Telegram notification after successful post creation using the centralized service
-    telegramService.sendPostNotification(postDetails)
-      .catch(error => console.error('Error sending Telegram notification:', error));
+  emitSuccessEvent(postDetails, isScheduled = false) {
+    if (!isScheduled) {
+      // Send Telegram notification after successful post creation using the centralized service
+      telegramService.sendPostNotification(postDetails)
+        .catch(error => console.error('Error sending Telegram notification:', error));
+    }
     
     eventEmitter.emit('post:creation-completed', {
       success: true,
       author: postDetails.username,
       permlink: postDetails.permlink,
       title: postDetails.title,
-      community: postDetails.community
+      community: postDetails.community,
+      isScheduled: isScheduled
     });
   }
 
@@ -283,9 +291,8 @@ class CreatePostService {
       );
     });
   }
-  
-  validatePostData(postData) {
-    const { title, body, tags } = postData;
+    validatePostData(postData) {
+    const { title, body, tags, scheduledDateTime } = postData;
     
     if (!title || title.trim().length === 0) {
       throw new Error('Post title is required');
@@ -316,6 +323,28 @@ class CreatePostService {
         throw new Error(`Tag '${tag}' contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed.`);
       }
     });
+
+    // Validate scheduled datetime if provided
+    if (scheduledDateTime) {
+      const scheduledDate = new Date(scheduledDateTime);
+      const now = new Date();
+      
+      if (isNaN(scheduledDate.getTime())) {
+        throw new Error('Invalid scheduled date and time');
+      }
+      
+      if (scheduledDate <= now) {
+        throw new Error('Scheduled date and time must be in the future');
+      }
+      
+      // Check if scheduled time is not too far in the future (e.g., 1 year)
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      if (scheduledDate > oneYearFromNow) {
+        throw new Error('Scheduled date cannot be more than 1 year in the future');
+      }
+    }
   }
   
 
@@ -708,10 +737,9 @@ class CreatePostService {
       console.error('Failed to load draft as current:', error);
       return false;
     }  }
-
   /**
    * Salva una bozza del post nel localStorage (legacy - manteniamo per compatibilità)
-   * @param {Object} draftData - I dati della bozza (title, body, tags, community)
+   * @param {Object} draftData - I dati della bozza (title, body, tags, community, isScheduled, publishDate, publishTime)
    * @returns {boolean} - true se il salvataggio è riuscito
    */
   saveDraft(draftData) {
@@ -833,6 +861,297 @@ class CreatePostService {
     
     // Il peso totale non dovrebbe superare il 90% (9000) per lasciare qualcosa all'autore
     return totalWeight <= 9000;
+  }
+
+  /**
+   * Handles authorization check and request for scheduled posts
+   * @returns {Promise<boolean>} - true if authorized, throws error if authorization fails
+   */
+  async handleScheduledPostAuthorization() {
+    try {
+      // Check if cur8 is already authorized
+      const isAuthorized = await authService.checkCur8Authorization();
+      
+      if (isAuthorized) {
+        return true;
+      }
+      
+      // Show authorization dialog to user
+      const userConsent = await this.showAuthorizationDialog();
+      
+      if (!userConsent) {
+        throw new Error('Authorization required for scheduled posts. Please grant permission to cur8 account.');
+      }
+      
+      // Request authorization from user
+      await authService.authorizeCur8ForScheduledPosts();
+      
+      // Verify authorization was successful
+      const verifyAuth = await authService.checkCur8Authorization();
+      if (!verifyAuth) {
+        throw new Error('Failed to authorize cur8 account. Please try again.');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Scheduled post authorization error:', error);
+      throw error;
+    }
+  }
+  /**
+   * Shows an authorization dialog to the user
+   * @returns {Promise<boolean>} - true if user consents, false otherwise
+   */
+  async showAuthorizationDialog() {
+    return new Promise((resolve) => {
+      // Check if dialog already exists
+      const existingDialog = document.querySelector('.authorization-dialog-overlay');
+      if (existingDialog) {
+        existingDialog.remove();
+      }
+      
+      // Create modal dialog
+      const dialog = document.createElement('div');
+      dialog.className = 'authorization-dialog-overlay';
+      dialog.innerHTML = `
+        <div class="authorization-dialog">
+          <div class="dialog-header">
+            <h3>Authorization Required</h3>
+            <span class="material-icons close-icon">close</span>
+          </div>
+          <div class="dialog-body">
+            <div class="auth-icon">
+              <span class="material-icons">schedule</span>
+            </div>
+            <p><strong>To schedule posts, we need your permission.</strong></p>
+            <p>This will authorize the <code>cur8</code> account to publish posts on your behalf at the scheduled time.</p>
+            <div class="auth-features">
+              <div class="feature-item">
+                <span class="material-icons">check_circle</span>
+                <span>Secure blockchain authorization</span>
+              </div>
+              <div class="feature-item">
+                <span class="material-icons">check_circle</span>
+                <span>You can revoke this permission anytime</span>
+              </div>
+              <div class="feature-item">
+                <span class="material-icons">check_circle</span>
+                <span>Only posting permissions, not your funds</span>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn secondary-btn cancel-auth">Cancel</button>
+            <button class="btn primary-btn authorize-btn">Authorize cur8</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(dialog);
+      
+      // Add event listeners
+      const closeBtn = dialog.querySelector('.close-icon');
+      const cancelBtn = dialog.querySelector('.cancel-auth');
+      const authorizeBtn = dialog.querySelector('.authorize-btn');
+      
+      const cleanup = () => {
+        try {
+          if (dialog.parentNode) {
+            document.body.removeChild(dialog);
+          }
+        } catch (error) {
+          console.warn('Dialog cleanup error:', error);
+        }
+      };
+      
+      const handleCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      const handleAuthorize = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      closeBtn.addEventListener('click', handleCancel);
+      cancelBtn.addEventListener('click', handleCancel);
+      authorizeBtn.addEventListener('click', handleAuthorize);
+      
+      // Close on outside click
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          handleCancel();
+        }
+      });
+      
+      // Close on escape key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', handleEscape);
+          handleCancel();
+        }
+      };
+      
+      document.addEventListener('keydown', handleEscape);
+    });
+  }
+
+  /**
+   * Saves a scheduled post to storage for later publishing
+   * @param {Object} postData - Post data
+   * @param {Object} options - Post options
+   * @returns {Promise<Object>} - Result object
+   */
+  async saveScheduledPost(postData, options) {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Prepare scheduled post data
+      const scheduledPost = {
+        id: this.generateScheduledPostId(),
+        username: currentUser.username,
+        title: postData.title,
+        body: postData.body,
+        tags: postData.tags,
+        community: postData.community,
+        permlink: postData.permlink || this.generatePermlink(postData.title),
+        scheduledDateTime: postData.scheduledDateTime,
+        createdAt: new Date().toISOString(),
+        status: 'scheduled',
+        options: {
+          includeBeneficiary: options.includeBeneficiary,
+          beneficiaries: options.beneficiaries || []
+        }
+      };
+      
+      // Save to localStorage
+      const scheduledPosts = this.getScheduledPosts();
+      scheduledPosts.push(scheduledPost);
+      
+      localStorage.setItem('steemee_scheduled_posts', JSON.stringify(scheduledPosts));
+      
+      // Clear draft since it's now scheduled
+      this.clearDraft();
+      
+      // Emit success event for scheduled post
+      eventEmitter.emit('post:scheduled', {
+        success: true,
+        scheduledPost: scheduledPost,
+        scheduledTime: new Date(postData.scheduledDateTime)
+      });
+      
+      return {
+        success: true,
+        scheduled: true,
+        postId: scheduledPost.id,
+        scheduledTime: postData.scheduledDateTime
+      };
+    } catch (error) {
+      console.error('Failed to save scheduled post:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generates a unique ID for scheduled posts
+   * @returns {string} - Unique post ID
+   */
+  generateScheduledPostId() {
+    return 'sched_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  /**
+   * Gets all scheduled posts for the current user
+   * @returns {Array} - Array of scheduled posts
+   */
+  getScheduledPosts() {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) return [];
+      
+      const scheduledPostsJson = localStorage.getItem('steemee_scheduled_posts');
+      const allScheduledPosts = scheduledPostsJson ? JSON.parse(scheduledPostsJson) : [];
+      
+      // Filter by current user
+      return allScheduledPosts.filter(post => post.username === currentUser.username);
+    } catch (error) {
+      console.error('Failed to get scheduled posts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Deletes a scheduled post
+   * @param {string} postId - ID of the scheduled post to delete
+   * @returns {boolean} - true if deleted successfully
+   */
+  deleteScheduledPost(postId) {
+    try {
+      const allScheduledPosts = JSON.parse(localStorage.getItem('steemee_scheduled_posts') || '[]');
+      const filteredPosts = allScheduledPosts.filter(post => post.id !== postId);
+      
+      localStorage.setItem('steemee_scheduled_posts', JSON.stringify(filteredPosts));
+      return true;
+    } catch (error) {
+      console.error('Failed to delete scheduled post:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Checks if the current user has cur8 authorization (non-throwing version)
+   * @returns {Promise<boolean>} - true if authorized, false otherwise
+   */
+  async isAuthorizedForScheduledPosts() {
+    try {
+      return await authService.checkCur8Authorization();
+    } catch (error) {
+      console.error('Error checking cur8 authorization:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Gets the authorization status for scheduled posts
+   * @returns {Promise<Object>} - Object with authorization status and details
+   */
+  async getScheduledPostAuthStatus() {
+    try {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        return {
+          isAuthenticated: false,
+          isAuthorized: false,
+          canSchedule: false,
+          message: 'User not logged in'
+        };
+      }
+
+      const isAuthorized = await this.isAuthorizedForScheduledPosts();
+      
+      return {
+        isAuthenticated: true,
+        isAuthorized: isAuthorized,
+        canSchedule: isAuthorized,
+        username: currentUser.username,
+        loginMethod: currentUser.loginMethod,
+        message: isAuthorized 
+          ? 'Ready to schedule posts' 
+          : 'Authorization required for scheduled posts'
+      };
+    } catch (error) {
+      console.error('Error getting scheduled post auth status:', error);
+      return {
+        isAuthenticated: false,
+        isAuthorized: false,
+        canSchedule: false,
+        message: 'Error checking authorization status'
+      };
+    }
   }
 }
 

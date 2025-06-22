@@ -387,27 +387,197 @@ class DraftsView extends View {
       }
     }
   }
+  /**
+   * Delete a draft with confirmation using standard dialog pattern
+   */
+  async deleteDraft(draft) {
+    try {
+      // Show confirmation dialog following the standard pattern
+      const confirmed = await this.showDeleteDraftDialog(draft);
+      if (!confirmed) return;
+      
+      // Show loading state
+      this.showToast('Deleting draft...', 'loading');
+      
+      // Perform delete operation
+      const success = createPostService.deleteDraftById(draft.id);
+      
+      if (success) {
+        this.showToast('Draft deleted successfully', 'success');
+        // Reload the view
+        this.render(this.container);
+      } else {
+        this.showToast('Failed to delete draft', 'error');
+      }
+      
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      this.showToast('Failed to delete draft', 'error');
+    }
+  }
 
   /**
-   * Delete a draft with confirmation
+   * Show delete draft confirmation dialog following standard pattern
+   * @param {Object} draft - Draft to delete
+   * @returns {Promise<boolean>} - true if user confirms, false otherwise
    */
-  deleteDraft(draft) {
-    // Create confirmation modal
-    const modal = this.createConfirmationModal(
-      'Delete Draft',
-      `Are you sure you want to delete "${draft.title || 'Untitled Draft'}"? This action cannot be undone.`,
-      () => {
-        // Confirm delete
-        this.performDeleteDraft(draft);
-        this.closeModal(modal);
-      },
-      () => {
-        // Cancel
-        this.closeModal(modal);
+  async showDeleteDraftDialog(draft) {
+    return new Promise((resolve) => {
+      // Check if dialog already exists and remove it
+      const existingDialog = document.querySelector('.delete-draft-dialog-overlay');
+      if (existingDialog) {
+        existingDialog.remove();
       }
-    );
-    
-    document.body.appendChild(modal);
+      
+      // Create modal dialog following standard structure
+      const dialog = document.createElement('div');
+      dialog.className = 'delete-draft-dialog-overlay modal-overlay';
+      
+      // Calculate draft metadata
+      const wordCount = this.getWordCount(draft.body || '');
+      const age = this.getDraftAge(draft.lastModified);
+      
+      dialog.innerHTML = `
+        <div class="modal-dialog delete-draft-dialog">
+          <div class="modal-header">
+            <h3>
+              <span class="material-icons">delete_forever</span>
+              Delete Draft
+            </h3>
+            <button class="close-button" type="button" aria-label="Close">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="draft-preview">
+              <h4>${this.escapeHtml(draft.title || 'Untitled Draft')}</h4>
+              <div class="draft-meta-info">
+                <span class="meta-item">
+                  <span class="material-icons">schedule</span>
+                  ${age}
+                </span>
+                <span class="meta-item">
+                  <span class="material-icons">subject</span>
+                  ${wordCount} words
+                </span>
+                ${draft.community ? `
+                  <span class="meta-item">
+                    <span class="material-icons">groups</span>
+                    ${this.escapeHtml(draft.community)}
+                  </span>
+                ` : ''}
+              </div>
+              ${draft.tags && draft.tags.length > 0 ? `
+                <div class="draft-tags-preview">
+                  ${draft.tags.slice(0, 3).map(tag => 
+                    `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
+                  ).join('')}
+                  ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
+                </div>
+              ` : ''}
+              ${draft.body ? `
+                <div class="draft-excerpt-preview">
+                  ${this.escapeHtml(this.createExcerpt(draft.body, 100))}
+                </div>
+              ` : ''}
+            </div>
+            <div class="warning-box">
+              <span class="material-icons">warning</span>
+              <div class="warning-content">
+                <strong>This action cannot be undone!</strong>
+                <p>The draft will be permanently deleted from your device. Make sure you have saved any important content elsewhere.</p>
+                ${draft.isCurrent ? '<p class="current-draft-warning">⚠️ This is your current draft. Deleting it will remove your work in progress.</p>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn secondary-btn cancel-delete" id="cancel-delete">
+              <span class="material-icons">close</span>
+              Cancel
+            </button>
+            <button type="button" class="btn danger-btn confirm-delete" id="confirm-delete">
+              <span class="material-icons">delete_forever</span>
+              Delete Draft
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(dialog);
+      
+      // Get button elements
+      const closeBtn = dialog.querySelector('.close-button');
+      const cancelBtn = dialog.querySelector('#cancel-delete');
+      const confirmBtn = dialog.querySelector('#confirm-delete');
+      
+      // Focus management - focus on cancel button for safety
+      setTimeout(() => {
+        cancelBtn.focus();
+      }, 100);
+      
+      // Cleanup function
+      const cleanup = () => {
+        try {
+          if (dialog.parentNode) {
+            document.body.removeChild(dialog);
+          }
+        } catch (error) {
+          console.warn('Dialog cleanup error:', error);
+        }
+        document.removeEventListener('keydown', escapeHandler);
+      };
+      
+      // Event handlers
+      const handleCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      const handleConfirm = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      // Bind click events
+      closeBtn.addEventListener('click', handleCancel);
+      cancelBtn.addEventListener('click', handleCancel);
+      confirmBtn.addEventListener('click', handleConfirm);
+      
+      // Close on overlay click
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          handleCancel();
+        }
+      });
+      
+      // Keyboard handling
+      const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+          handleCancel();
+        } else if (e.key === 'Enter' && document.activeElement === confirmBtn) {
+          handleConfirm();
+        }
+      };
+      
+      document.addEventListener('keydown', escapeHandler);
+      
+      // Tab trapping for accessibility
+      dialog.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+          const focusableElements = dialog.querySelectorAll('button:not([disabled])');
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+          
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      });
+    });
   }
 
   /**
@@ -546,84 +716,6 @@ class DraftsView extends View {
       this.showToast('Failed to export drafts', 'error');
     }
   }  /**
-   * Actually delete the draft using the improved system
-   */
-  performDeleteDraft(draft) {
-    try {
-      const success = createPostService.deleteDraftById(draft.id);
-      
-      if (success) {
-        this.showToast('Draft deleted successfully', 'success');
-        // Reload the view
-        this.render(this.container);
-      } else {
-        this.showToast('Failed to delete draft', 'error');
-      }
-      
-    } catch (error) {
-      console.error('Error deleting draft:', error);
-      this.showToast('Failed to delete draft', 'error');
-    }
-  }
-
-  /**
-   * Create confirmation modal
-   */
-  createConfirmationModal(title, message, onConfirm, onCancel) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    
-    modal.innerHTML = `
-      <div class="modal-content confirmation-modal">
-        <div class="modal-header">
-          <h3>${this.escapeHtml(title)}</h3>
-        </div>
-        <div class="modal-body">
-          <p>${this.escapeHtml(message)}</p>
-        </div>
-        <div class="modal-footer">
-          <button class="outline-btn cancel-btn">Cancel</button>
-          <button class="danger-btn confirm-btn">Delete</button>
-        </div>
-      </div>
-    `;
-
-    // Add event listeners
-    const cancelBtn = modal.querySelector('.cancel-btn');
-    const confirmBtn = modal.querySelector('.confirm-btn');
-
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
-
-    // Close on overlay click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        onCancel();
-      }
-    });
-
-    // Close on escape key
-    const escapeHandler = (e) => {
-      if (e.key === 'Escape') {
-        onCancel();
-        document.removeEventListener('keydown', escapeHandler);
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-
-    return modal;
-  }
-
-  /**
-   * Close modal
-   */
-  closeModal(modal) {
-    if (modal && modal.parentNode) {
-      modal.parentNode.removeChild(modal);
-    }
-  }
-
-  /**
    * Show toast notification
    */
   showToast(message, type = 'info') {
@@ -710,7 +802,6 @@ class DraftsView extends View {
       </div>
     `;
   }
-
   /**
    * Clean up resources when view is unmounted
    */
@@ -722,13 +813,16 @@ class DraftsView extends View {
       this.loadingIndicator.hide();
     }
     
-    // Remove any remaining modals
-    const modals = document.querySelectorAll('.modal-overlay');
+    // Remove any remaining modals (including new standard dialogs)
+    const modals = document.querySelectorAll('.modal-overlay, .delete-draft-dialog-overlay');
     modals.forEach(modal => {
       if (modal.parentNode) {
         modal.parentNode.removeChild(modal);
       }
     });
+    
+    // Remove any event listeners that might still be active
+    document.removeEventListener('keydown', this.escapeHandler);
   }
 }
 

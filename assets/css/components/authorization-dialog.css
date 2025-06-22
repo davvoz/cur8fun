@@ -1,0 +1,259 @@
+/* Authorization Dialog Styles */
+.authorization-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 0.3s ease;
+}
+
+.authorization-dialog {
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: var(--popup-box-shadow);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.authorization-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.authorization-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.authorization-dialog .close-icon {
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.authorization-dialog .close-icon:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.authorization-dialog .dialog-body {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.authorization-dialog .auth-icon {
+  margin-bottom: 1rem;
+}
+
+.authorization-dialog .auth-icon .material-icons {
+  font-size: 3rem;
+  color: var(--primary-color);
+  background-color: var(--primary-color-light);
+  border-radius: 50%;
+  padding: 1rem;
+  width: 5rem;
+  height: 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.authorization-dialog .dialog-body p {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.authorization-dialog .dialog-body code {
+  background-color: var(--bg-secondary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.authorization-dialog .auth-features {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.authorization-dialog .feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.authorization-dialog .feature-item:last-child {
+  margin-bottom: 0;
+}
+
+.authorization-dialog .feature-item .material-icons {
+  color: var(--success-color);
+  font-size: 1.2rem;
+}
+
+.authorization-dialog .dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.authorization-dialog .btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  font-size: 0.9rem;
+}
+
+.authorization-dialog .secondary-btn {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.authorization-dialog .secondary-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-color-hover);
+}
+
+.authorization-dialog .primary-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: 1px solid var(--primary-color);
+}
+
+.authorization-dialog .primary-btn:hover {
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.authorization-dialog .authorize-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.authorization-dialog .authorize-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .authorization-dialog {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+  
+  .authorization-dialog .dialog-header {
+    padding: 1rem;
+  }
+  
+  .authorization-dialog .dialog-body {
+    padding: 1rem;
+  }
+  
+  .authorization-dialog .dialog-actions {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .authorization-dialog .btn {
+    width: 100%;
+    padding: 1rem;
+  }
+  
+  .authorization-dialog .auth-icon .material-icons {
+    font-size: 2.5rem;
+    width: 4rem;
+    height: 4rem;
+    padding: 0.75rem;
+  }
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .authorization-dialog {
+  background-color: var(--bg-primary);
+}
+
+[data-theme="dark"] .authorization-dialog .auth-features {
+  background-color: var(--bg-tertiary);
+}
+
+[data-theme="dark"] .authorization-dialog .dialog-header {
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .authorization-dialog .dialog-actions {
+  border-top-color: var(--border-color);
+}
+
+/* Loading state for authorize button */
+.authorization-dialog .authorize-btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.authorization-dialog .authorize-btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}

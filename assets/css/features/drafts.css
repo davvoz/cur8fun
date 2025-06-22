@@ -471,6 +471,261 @@
   background: var(--primary-color);
 }
 
+/* =================================================================
+   DELETE DRAFT DIALOG STYLES (Standard Pattern)
+   Following the same pattern as authorization dialog
+   ================================================================= */
+
+.delete-draft-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 0.3s ease;
+}
+
+.delete-draft-dialog {
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: var(--popup-box-shadow);
+  max-width: 550px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease;
+}
+
+/* Header */
+.delete-draft-dialog .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.delete-draft-dialog .modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.delete-draft-dialog .modal-header .material-icons {
+  color: var(--danger-color);
+  font-size: 1.5rem;
+}
+
+.delete-draft-dialog .close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.delete-draft-dialog .close-button:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+/* Body */
+.delete-draft-dialog .modal-body {
+  padding: 1.5rem;
+}
+
+/* Draft Preview */
+.delete-draft-dialog .draft-preview {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid var(--primary-color);
+}
+
+.delete-draft-dialog .draft-preview h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.delete-draft-dialog .draft-meta-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.delete-draft-dialog .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.delete-draft-dialog .meta-item .material-icons {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.delete-draft-dialog .draft-tags-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.delete-draft-dialog .tag-chip {
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.delete-draft-dialog .tag-more {
+  background-color: var(--text-muted);
+  color: white;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.delete-draft-dialog .draft-excerpt-preview {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  font-style: italic;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color-light);
+}
+
+/* Warning Box */
+.delete-draft-dialog .warning-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background-color: var(--error-light);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 8px;
+  color: var(--danger-color);
+}
+
+.delete-draft-dialog .warning-box .material-icons {
+  font-size: 1.5rem;
+  color: var(--danger-color);
+  flex-shrink: 0;
+}
+
+.delete-draft-dialog .warning-content strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.delete-draft-dialog .warning-content p {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.delete-draft-dialog .current-draft-warning {
+  color: var(--warning-color) !important;
+  font-weight: 500;
+  padding: 0.5rem;
+  background-color: var(--warning-light);
+  border-radius: 4px;
+  margin-top: 0.5rem !important;
+}
+
+/* Footer */
+.delete-draft-dialog .modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.delete-draft-dialog .btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.delete-draft-dialog .secondary-btn {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.delete-draft-dialog .secondary-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-color-hover);
+}
+
+.delete-draft-dialog .danger-btn {
+  background-color: var(--danger-color);
+  color: white;
+  border: 1px solid var(--danger-color);
+}
+
+.delete-draft-dialog .danger-btn:hover {
+  background-color: var(--danger-dark);
+  border-color: var(--danger-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Focus States */
+.delete-draft-dialog button:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.delete-draft-dialog .danger-btn:focus {
+  outline-color: var(--danger-color);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .drafts-view {
@@ -509,6 +764,35 @@
     width: 36px;
     height: 36px;
   }
+  
+  .delete-draft-dialog {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+  
+  .delete-draft-dialog .modal-header {
+    padding: 1rem;
+  }
+  
+  .delete-draft-dialog .modal-body {
+    padding: 1rem;
+  }
+  
+  .delete-draft-dialog .modal-footer {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .delete-draft-dialog .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem;
+  }
+  
+  .delete-draft-dialog .draft-meta-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -524,3 +808,50 @@
     font-size: 1.25rem;
   }
 }
+
+/* Dark Theme Support */
+[data-theme="dark"] .delete-draft-dialog {
+  background-color: var(--bg-primary);
+}
+
+[data-theme="dark"] .delete-draft-dialog .draft-preview {
+  background-color: var(--bg-tertiary);
+}
+
+[data-theme="dark"] .delete-draft-dialog .modal-header {
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .delete-draft-dialog .modal-footer {
+  border-top-color: var(--border-color);
+}
+
+/* Loading State (if needed) */
+.delete-draft-dialog .danger-btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.delete-draft-dialog .danger-btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* =================================================================
+   END DELETE DRAFT DIALOG STYLES
+   ================================================================= */
