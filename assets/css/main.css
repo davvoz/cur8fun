@@ -27,7 +27,7 @@
 @import 'components/edit-profile-modals.css'; /* Added import for edit profile styling */
 @import 'components/settings.css'; /* Added import for settings page styles */
 @import 'components/registration.css'; /* Added import for registration styles */
-/* @import 'components/dialog-utility.css';  */
+@import 'components/dialog-utility.css'; /* Added import for dialog utility styles */
 
 /* Feature-specific styles */
 @import 'features/animations.css';

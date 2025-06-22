@@ -1,0 +1,402 @@
+/* 
+ * Standard Dialog Utility Styles
+ * Provides consistent styling for all standardized dialogs
+ */
+
+/* Base Modal Styles */
+.standard-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.standard-dialog {
+  background: var(--surface-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-box-shadow);
+  border: 1px solid var(--border-color);
+  width: 92%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow: hidden;
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+  position: relative;
+}
+
+/* Subtle gradient overlay for depth */
+.standard-dialog::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color-light), transparent);
+  z-index: 1;
+}
+
+/* Modal Header */
+.standard-dialog .modal-header {
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  border-bottom: 1px solid var(--border-color-light);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  background: var(--background-lighter);
+}
+
+.standard-dialog .modal-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  color: var(--text-heading);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  flex: 1;
+  padding-right: var(--space-lg);
+}
+
+.standard-dialog .modal-header .material-icons {
+  font-size: 24px;
+  color: var(--primary-color);
+  background: var(--color-primary-light);
+  border-radius: 50%;
+  padding: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.standard-dialog .close-button {
+  position: absolute;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  background: var(--background-hover);
+  border: 1px solid var(--border-color-light);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  width: 36px;
+  height: 36px;
+  z-index: 1;
+}
+
+.standard-dialog .close-button:hover {
+  background: var(--background);
+  border-color: var(--border-color-hover);
+  color: var(--text-color);
+  transform: scale(1.05);
+}
+
+.standard-dialog .close-button .material-icons {
+  font-size: 20px;
+}
+
+/* Modal Body */
+.standard-dialog .modal-body {
+  padding: var(--space-xl);
+  overflow-y: auto;
+  max-height: calc(85vh - 200px);
+}
+
+.standard-dialog .dialog-message {
+  margin-bottom: var(--space-lg);
+}
+
+.standard-dialog .dialog-message p {
+  margin: 0;
+  color: var(--text-color);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* Modal Footer */
+.standard-dialog .modal-footer {
+  padding: var(--space-lg) var(--space-xl) var(--space-xl);
+  border-top: 1px solid var(--border-color-light);
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+  background: var(--background-lighter);
+  flex-shrink: 0;
+}
+
+/* Button Styles */
+.standard-dialog .btn {
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-width: 100px;
+  position: relative;
+  overflow: hidden;
+}
+
+.standard-dialog .btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left var(--transition-normal);
+}
+
+.standard-dialog .btn:hover::before {
+  left: 100%;
+}
+
+.standard-dialog .primary-btn {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: var(--text-on-primary);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.3);
+}
+
+.standard-dialog .primary-btn:hover {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(var(--primary-color-rgb), 0.4);
+}
+
+.standard-dialog .secondary-btn {
+  background: var(--surface-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  box-shadow: var(--subtle-shadow);
+}
+
+.standard-dialog .secondary-btn:hover {
+  background: var(--background-hover);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: var(--card-box-shadow);
+}
+
+.standard-dialog .danger-btn {
+  background: linear-gradient(135deg, var(--error-color) 0%, var(--error-dark) 100%);
+  color: var(--text-on-primary);
+  border-color: var(--error-color);
+  box-shadow: 0 4px 12px rgba(var(--error-color-rgb), 0.3);
+}
+
+.standard-dialog .danger-btn:hover {
+  background: linear-gradient(135deg, var(--error-dark) 0%, var(--error-color) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(var(--error-color-rgb), 0.4);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Loading state for buttons */
+.standard-dialog .btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.standard-dialog .btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: var(--space-sm);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Icon enhancements */
+.standard-dialog .modal-header .material-icons.danger {
+  color: var(--error-color);
+  background: var(--error-light);
+}
+
+.standard-dialog .modal-header .material-icons.warning {
+  color: var(--warning-color);
+  background: var(--warning-light);
+}
+
+.standard-dialog .modal-header .material-icons.success {
+  color: var(--success-color);
+  background: var(--success-light);
+}
+
+.standard-dialog .modal-header .material-icons.info {
+  color: var(--info-color);
+  background: var(--info-light);
+}
+
+/* Focus trap improvements */
+.standard-dialog-overlay[aria-hidden="true"] {
+  display: none;
+}
+
+.standard-dialog[role="dialog"] {
+  outline: none;
+}
+
+/* Smooth scroll for overflow content */
+.standard-dialog .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.standard-dialog .modal-body::-webkit-scrollbar-track {
+  background: var(--background-light);
+  border-radius: 3px;
+}
+
+.standard-dialog .modal-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.standard-dialog .modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color-hover);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .standard-dialog-overlay {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="dark"] .standard-dialog .btn::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+/* Enhanced interaction states */
+.standard-dialog .btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.standard-dialog .btn:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.standard-dialog .close-button:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .standard-dialog-overlay {
+    padding: var(--space-md);
+  }
+  
+  .standard-dialog {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 90vh;
+  }
+  
+  .standard-dialog .modal-header {
+    padding: var(--space-lg) var(--space-lg) var(--space-md);
+  }
+  
+  .standard-dialog .modal-header h3 {
+    font-size: 18px;
+    padding-right: var(--space-md);
+  }
+  
+  .standard-dialog .modal-header .material-icons {
+    font-size: 20px;
+    padding: var(--space-xs);
+  }
+  
+  .standard-dialog .close-button {
+    top: var(--space-md);
+    right: var(--space-md);
+    width: 32px;
+    height: 32px;
+  }
+  
+  .standard-dialog .modal-body {
+    padding: var(--space-lg);
+    max-height: calc(90vh - 180px);
+  }
+  
+  .standard-dialog .modal-footer {
+    padding: var(--space-md) var(--space-lg) var(--space-lg);
+    flex-direction: column-reverse;
+    gap: var(--space-sm);
+  }
+  
+  .standard-dialog .btn {
+    width: 100%;
+    justify-content: center;
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .standard-dialog-overlay {
+    padding: var(--space-sm);
+  }
+  
+  .standard-dialog .modal-header h3 {
+    font-size: 16px;
+  }
+  
+  .standard-dialog .modal-body {
+    padding: var(--space-md);
+  }
+  
+  .standard-dialog .dialog-message p {
+    font-size: 14px;
+  }
+}
