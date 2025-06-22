@@ -38,12 +38,16 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.outsideClickHandler = null;
     this.keyDownHandler = null;
     this.autoSaveTimeout = null;
-    
-    // Per gestire i suggerimenti dei beneficiari
+      // Per gestire i suggerimenti dei beneficiari
     this.beneficiarySuggestions = [];
     
     // Indice del beneficiario attualmente in modifica
     this.currentBeneficiaryIndex = -1;
+
+    // Properties for scheduled publishing
+    this.isScheduled = false;
+    this.publishDate = null;
+    this.publishTime = null;
   }
 
   // Aggiornamento della funzione render per un'interfaccia più compatta
@@ -314,9 +318,147 @@ class CreatePostView extends View {  constructor(params = {}) {
     const tagsHelp = document.createElement('small');
     tagsHelp.className = 'form-text';
     tagsHelp.textContent = 'Add up to 5 tags to help categorize your post. The first tag becomes the main category.';
-    tagsGroup.appendChild(tagsHelp);
+    tagsGroup.appendChild(tagsHelp);    form.appendChild(tagsGroup);
 
-    form.appendChild(tagsGroup);
+    // Publish Date/Time section
+    const publishDateGroup = document.createElement('div');
+    publishDateGroup.className = 'form-group publish-date-group';
+
+    const publishDateLabel = document.createElement('div');
+    publishDateLabel.className = 'form-label-with-toggle';
+    
+    const publishDateLabelText = document.createElement('label');
+    publishDateLabelText.textContent = 'Schedule Publishing';
+    publishDateLabelText.htmlFor = 'schedule-toggle';
+    
+    const scheduleToggleContainer = document.createElement('div');
+    scheduleToggleContainer.className = 'toggle-switch-container';
+    
+    const scheduleToggle = document.createElement('input');
+    scheduleToggle.type = 'checkbox';
+    scheduleToggle.id = 'schedule-toggle';
+    scheduleToggle.className = 'toggle-switch';
+    scheduleToggle.checked = false;
+    
+    const scheduleToggleLabel = document.createElement('label');
+    scheduleToggleLabel.htmlFor = 'schedule-toggle';
+    scheduleToggleLabel.className = 'toggle-label';
+    
+    scheduleToggleContainer.appendChild(scheduleToggle);
+    scheduleToggleContainer.appendChild(scheduleToggleLabel);
+    
+    publishDateLabel.appendChild(publishDateLabelText);
+    publishDateLabel.appendChild(scheduleToggleContainer);
+    
+    publishDateGroup.appendChild(publishDateLabel);
+
+    // DateTime picker content (hidden by default)
+    const dateTimeContent = document.createElement('div');
+    dateTimeContent.className = 'datetime-content';
+    dateTimeContent.style.display = 'none';
+
+    // Date picker
+    const datePickerGroup = document.createElement('div');
+    datePickerGroup.className = 'datetime-input-group';
+
+    const dateLabel = document.createElement('label');
+    dateLabel.htmlFor = 'publish-date';
+    dateLabel.textContent = 'Date';
+
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.id = 'publish-date';
+    dateInput.className = 'form-control datetime-input';
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.min = today;
+    dateInput.value = today;
+
+    datePickerGroup.appendChild(dateLabel);
+    datePickerGroup.appendChild(dateInput);
+
+    // Time picker
+    const timePickerGroup = document.createElement('div');
+    timePickerGroup.className = 'datetime-input-group';
+
+    const timeLabel = document.createElement('label');
+    timeLabel.htmlFor = 'publish-time';
+    timeLabel.textContent = 'Time';
+
+    const timeInput = document.createElement('input');
+    timeInput.type = 'time';
+    timeInput.id = 'publish-time';
+    timeInput.className = 'form-control datetime-input';
+    
+    // Set default time to current time + 1 hour
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    timeInput.value = now.toTimeString().slice(0, 5);
+
+    timePickerGroup.appendChild(timeLabel);
+    timePickerGroup.appendChild(timeInput);
+
+    // DateTime container
+    const dateTimeInputsContainer = document.createElement('div');
+    dateTimeInputsContainer.className = 'datetime-inputs-container';
+    dateTimeInputsContainer.appendChild(datePickerGroup);
+    dateTimeInputsContainer.appendChild(timePickerGroup);
+
+    dateTimeContent.appendChild(dateTimeInputsContainer);
+
+    // Preview of selected datetime
+    const datetimePreview = document.createElement('div');
+    datetimePreview.className = 'datetime-preview';
+    datetimePreview.id = 'datetime-preview';
+
+    dateTimeContent.appendChild(datetimePreview);    // Help text
+    const dateTimeHelp = document.createElement('div');
+    dateTimeHelp.className = 'datetime-help';
+    
+    const clockIcon = document.createElement('span');
+    clockIcon.className = 'material-icons info-icon';
+    clockIcon.textContent = 'schedule';
+    
+    const datetimeHelpText = document.createElement('small');
+    datetimeHelpText.className = 'form-text';
+    datetimeHelpText.textContent = 'Schedule your post to be published at a specific date and time. Times are in your local timezone.';
+    
+    dateTimeHelp.appendChild(clockIcon);
+    dateTimeHelp.appendChild(datetimeHelpText);
+    dateTimeContent.appendChild(dateTimeHelp);
+
+    publishDateGroup.appendChild(dateTimeContent);
+
+    // Event handlers for scheduling
+    scheduleToggle.addEventListener('change', (e) => {
+      const isScheduled = e.target.checked;
+      dateTimeContent.style.display = isScheduled ? 'block' : 'none';
+      this.isScheduled = isScheduled;
+      this.hasUnsavedChanges = true;
+      this.updateDateTimePreview();
+      
+      // Update submit button text
+      const submitBtn = document.getElementById('submit-post-btn');
+      if (submitBtn) {
+        submitBtn.textContent = isScheduled ? 'Schedule Post' : 'Publish Post';
+      }
+    });
+
+    // Update preview when date/time changes
+    dateInput.addEventListener('change', () => {
+      this.publishDate = dateInput.value;
+      this.hasUnsavedChanges = true;
+      this.updateDateTimePreview();
+    });
+
+    timeInput.addEventListener('change', () => {
+      this.publishTime = timeInput.value;
+      this.hasUnsavedChanges = true;
+      this.updateDateTimePreview();
+    });
+
+    form.appendChild(publishDateGroup);
 
     // Beneficiary section
     const beneficiaryGroup = document.createElement('div');
@@ -574,8 +716,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       const tagsInput = document.getElementById('post-tags');
       if (tagsInput) tagsInput.value = draft.tags;
     }
-    
-    if (draft.community) {
+      if (draft.community) {
       this.selectedCommunity = {
         name: draft.community
       };
@@ -590,6 +731,42 @@ class CreatePostView extends View {  constructor(params = {}) {
       if (clearBtn) {
         clearBtn.classList.remove('hidden');
       }
+    }
+
+    // Load scheduled publishing data if available
+    if (draft.isScheduled) {
+      this.isScheduled = true;
+      this.publishDate = draft.publishDate;
+      this.publishTime = draft.publishTime;
+
+      const scheduleToggle = document.getElementById('schedule-toggle');
+      const dateInput = document.getElementById('publish-date');
+      const timeInput = document.getElementById('publish-time');
+      const dateTimeContent = document.querySelector('.datetime-content');
+      const submitBtn = document.getElementById('submit-post-btn');
+
+      if (scheduleToggle) {
+        scheduleToggle.checked = true;
+      }
+
+      if (dateTimeContent) {
+        dateTimeContent.style.display = 'block';
+      }
+
+      if (dateInput && draft.publishDate) {
+        dateInput.value = draft.publishDate;
+      }
+
+      if (timeInput && draft.publishTime) {
+        timeInput.value = draft.publishTime;
+      }
+
+      if (submitBtn) {
+        submitBtn.textContent = 'Schedule Post';
+      }
+
+      // Update the datetime preview
+      this.updateDateTimePreview();
     }
     
     // Segnala che non ci sono modifiche non salvate
@@ -654,8 +831,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         const tagsInput = document.getElementById('post-tags');
         if (tagsInput) tagsInput.value = draft.tags.join(' ');
       }
-      
-      if (draft.community) {
+        if (draft.community) {
         this.selectedCommunity = { name: draft.community };
         const communitySearch = document.getElementById('community-search');
         if (communitySearch) {
@@ -664,6 +840,42 @@ class CreatePostView extends View {  constructor(params = {}) {
         }
         const clearBtn = document.getElementById('clear-community-btn');
         if (clearBtn) clearBtn.classList.remove('hidden');
+      }
+
+      // Load scheduled publishing data if available
+      if (draft.isScheduled) {
+        this.isScheduled = true;
+        this.publishDate = draft.publishDate;
+        this.publishTime = draft.publishTime;
+
+        const scheduleToggle = document.getElementById('schedule-toggle');
+        const dateInput = document.getElementById('publish-date');
+        const timeInput = document.getElementById('publish-time');
+        const dateTimeContent = document.querySelector('.datetime-content');
+        const submitBtn = document.getElementById('submit-post-btn');
+
+        if (scheduleToggle) {
+          scheduleToggle.checked = true;
+        }
+
+        if (dateTimeContent) {
+          dateTimeContent.style.display = 'block';
+        }
+
+        if (dateInput && draft.publishDate) {
+          dateInput.value = draft.publishDate;
+        }
+
+        if (timeInput && draft.publishTime) {
+          timeInput.value = draft.publishTime;
+        }
+
+        if (submitBtn) {
+          submitBtn.textContent = 'Schedule Post';
+        }
+
+        // Update the datetime preview
+        this.updateDateTimePreview();
       }
       
       // Mark as no unsaved changes since we just loaded
@@ -727,8 +939,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    */  /**
    * Salva solo se ci sono modifiche non salvate
    * Versione migliorata con supporto per draft multipli
-   */
-  saveIfChanged() {
+   */  saveIfChanged() {
     if (!this.hasUnsavedChanges) return;
     
     // Mostra stato "Saving..."
@@ -739,7 +950,10 @@ class CreatePostView extends View {  constructor(params = {}) {
       title: this.postTitle,
       body: this.postBody,
       tags: this.tags,
-      community: this.selectedCommunity?.name
+      community: this.selectedCommunity?.name,
+      isScheduled: this.isScheduled,
+      publishDate: this.publishDate,
+      publishTime: this.publishTime
     };
     
     if (createPostService.saveDraft(draftData)) {
@@ -759,14 +973,16 @@ class CreatePostView extends View {  constructor(params = {}) {
   /**
    * Salva il draft corrente come nuovo draft con ID
    * @returns {Object} - Risultato dell'operazione
-   */
-  saveAsNewDraft() {
+   */  saveAsNewDraft() {
     try {
       const draftData = {
         title: this.postTitle || 'Untitled Draft',
         body: this.postBody || '',
         tags: this.tags || [],
-        community: this.selectedCommunity?.name
+        community: this.selectedCommunity?.name,
+        isScheduled: this.isScheduled,
+        publishDate: this.publishDate,
+        publishTime: this.publishTime
       };
 
       const result = createPostService.saveDraftWithId(draftData);
@@ -1244,12 +1460,29 @@ class CreatePostView extends View {  constructor(params = {}) {
         tagsInput.focus();
       }
       return;
-    }
-
-    // Verifica che la percentuale totale dei beneficiari non superi il limite
+    }    // Verifica che la percentuale totale dei beneficiari non superi il limite
     if (this.includeBeneficiary) {
       if (!createPostService.validateBeneficiaryPercentage(this.beneficiaries)) {
         this.showError('Total beneficiary percentage cannot exceed 90%');
+        return;
+      }
+    }
+
+    // Validate scheduled publishing if enabled
+    if (this.isScheduled) {
+      const dateInput = document.getElementById('publish-date');
+      const timeInput = document.getElementById('publish-time');
+      
+      if (!dateInput.value || !timeInput.value) {
+        this.showError('Please select both date and time for scheduled publishing');
+        return;
+      }
+
+      const scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`);
+      const now = new Date();
+      
+      if (scheduledDateTime <= now) {
+        this.showError('Scheduled date and time must be in the future');
         return;
       }
     }
@@ -1258,11 +1491,21 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.isSubmitting = true;
     const submitBtn = document.getElementById('submit-post-btn');
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span> Publishing...';
+    
+    // Update button text based on scheduling
+    if (this.isScheduled) {
+      submitBtn.innerHTML = '<span class="spinner"></span> Scheduling...';
+    } else {
+      submitBtn.innerHTML = '<span class="spinner"></span> Publishing...';
+    }
 
     try {
       // Notifica inizio creazione
-      this.showStatus('Publishing your post...', 'info');
+      if (this.isScheduled) {
+        this.showStatus('Scheduling your post...', 'info');
+      } else {
+        this.showStatus('Publishing your post...', 'info');
+      }
 
       // Genera permlink dal titolo
       const permlink = this.generatePermlink(this.postTitle);
@@ -1281,9 +1524,17 @@ class CreatePostView extends View {  constructor(params = {}) {
         postData.community = this.selectedCommunity.name || this.selectedCommunity.id;
       }
 
+      // Add scheduled publishing data if enabled
+      if (this.isScheduled) {
+        const dateInput = document.getElementById('publish-date');
+        const timeInput = document.getElementById('publish-time');
+        postData.scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`).toISOString();
+      }
+
       // Opzioni per i beneficiari
       const options = {
-        includeBeneficiary: this.includeBeneficiary
+        includeBeneficiary: this.includeBeneficiary,
+        isScheduled: this.isScheduled
       };
 
       // Se i beneficiari sono abilitati, passa l'array completo
@@ -1304,18 +1555,26 @@ class CreatePostView extends View {  constructor(params = {}) {
       }
       
       // Mostra messaggio di successo
-      this.showStatus('Post published successfully!', 'success');
-
-      // Reindirizza alla pagina del post dopo un breve ritardo
-      setTimeout(() => {
-        window.location.href = `#/@${username}/${permlink}`;
-      }, 2000);
-    } catch (error) {
-      this.showError(`Failed to publish post: ${error.message}`);
+      if (this.isScheduled) {
+        this.showStatus('Post scheduled successfully!', 'success');
+        
+        // For scheduled posts, redirect to drafts or stay on current page
+        setTimeout(() => {
+          router.navigate('/drafts');
+        }, 2000);
+      } else {
+        this.showStatus('Post published successfully!', 'success');
+        
+        // Reindirizza alla pagina del post dopo un breve ritardo
+        setTimeout(() => {
+          window.location.href = `#/@${username}/${permlink}`;
+        }, 2000);
+      }    } catch (error) {
+      this.showError(`Failed to ${this.isScheduled ? 'schedule' : 'publish'} post: ${error.message}`);
 
       // Ripristina pulsante
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Publish Post';
+      submitBtn.textContent = this.isScheduled ? 'Schedule Post' : 'Publish Post';
     } finally {
       this.isSubmitting = false;
     }
@@ -2022,6 +2281,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     let currentIndex = -1;
     for (let i = 0; i < items.length; i++) {
       if (items[i].classList.contains('selected')) {
+
         currentIndex = i;
         break;
       }
@@ -3144,6 +3404,77 @@ class CreatePostView extends View {  constructor(params = {}) {
     } catch (error) {
       console.error('Errore nel controllo del token GitHub:', error);
       return false;
+    }
+  }
+
+  /**
+   * Updates the datetime preview display
+   */
+  updateDateTimePreview() {
+    const previewEl = document.getElementById('datetime-preview');
+    if (!previewEl) return;
+
+    if (!this.isScheduled) {
+      previewEl.style.display = 'none';
+      return;
+    }
+
+    const dateInput = document.getElementById('publish-date');
+    const timeInput = document.getElementById('publish-time');
+    
+    if (!dateInput || !timeInput) return;
+
+    const selectedDate = dateInput.value;
+    const selectedTime = timeInput.value;
+
+    if (!selectedDate || !selectedTime) {
+      previewEl.style.display = 'none';
+      return;
+    }
+
+    try {
+      // Create datetime object
+      const datetime = new Date(`${selectedDate}T${selectedTime}`);
+      
+      // Check if the datetime is in the past
+      const now = new Date();
+      const isPast = datetime <= now;
+      
+      // Format the datetime for display
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      };
+      
+      const formattedDate = datetime.toLocaleDateString('en-US', options);
+      
+      // Update preview content
+      previewEl.innerHTML = `
+        <div class="datetime-preview-content ${isPast ? 'past-date' : ''}">
+          <span class="material-icons">${isPast ? 'warning' : 'schedule'}</span>
+          <div class="datetime-text">
+            <strong>Scheduled for:</strong><br>
+            ${formattedDate}
+            ${isPast ? '<br><small class="warning-text">⚠️ This date is in the past</small>' : ''}
+          </div>
+        </div>
+      `;
+      
+      previewEl.style.display = 'block';
+      
+    } catch (error) {
+      previewEl.innerHTML = `
+        <div class="datetime-preview-content error">
+          <span class="material-icons">error</span>
+          <div class="datetime-text">Invalid date/time</div>
+        </div>
+      `;
+      previewEl.style.display = 'block';
     }
   }
 }

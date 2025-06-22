@@ -1,0 +1,238 @@
+/* DateTime Picker Styles */
+.publish-date-group {
+  margin-bottom: 1.5rem;
+}
+
+.datetime-content {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.datetime-inputs-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.datetime-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.datetime-input-group label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.datetime-input {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.datetime-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.datetime-input:hover {
+  border-color: var(--primary-color-light);
+}
+
+/* DateTime Preview */
+.datetime-preview {
+  margin: 1rem 0;
+  display: none;
+}
+
+.datetime-preview-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+  transition: all 0.3s ease;
+}
+
+.datetime-preview-content.past-date {
+  border-left-color: var(--warning-color);
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.datetime-preview-content.error {
+  border-left-color: var(--error-color);
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.datetime-preview-content .material-icons {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
+
+.datetime-preview-content.past-date .material-icons {
+  color: var(--warning-color);
+}
+
+.datetime-preview-content.error .material-icons {
+  color: var(--error-color);
+}
+
+.datetime-text {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.datetime-text strong {
+  color: var(--text-primary);
+}
+
+.warning-text {
+  color: var(--warning-color);
+  font-weight: 500;
+}
+
+/* DateTime Help */
+.datetime-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: rgba(59, 130, 246, 0.05);
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.datetime-help .info-icon {
+  font-size: 1.2rem;
+  color: var(--primary-color);
+  margin-top: 0.1rem;
+}
+
+.datetime-help .form-text {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Toggle Switch for Schedule */
+.form-label-with-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.toggle-switch-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-switch {
+  position: relative;
+  appearance: none;
+  width: 48px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  outline: none;
+}
+
+.toggle-switch:checked {
+  background-color: var(--primary-color);
+}
+
+.toggle-label {
+  position: relative;
+  cursor: pointer;
+  margin-left: -48px;
+  width: 48px;
+  height: 24px;
+  display: block;
+}
+
+.toggle-label:before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch:checked + .toggle-label:before {
+  transform: translateX(24px);
+}
+
+.toggle-switch:focus + .toggle-label:before {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .datetime-inputs-container {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .datetime-preview-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .datetime-text {
+    margin-left: 0;
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .datetime-input {
+    background-color: var(--bg-secondary);
+  }
+  
+  .datetime-content {
+    background-color: var(--bg-tertiary);
+  }
+  
+  .toggle-label:before {
+    background-color: var(--bg-primary);
+  }
+}
+
+/* Animation for smooth transitions */
+.datetime-content {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top;
+}
+
+.datetime-content[style*="display: none"] {
+  opacity: 0;
+  transform: scaleY(0);
+}
+
+.datetime-content[style*="display: block"] {
+  opacity: 1;
+  transform: scaleY(1);
+}
