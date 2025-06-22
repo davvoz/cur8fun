@@ -27,6 +27,7 @@
 @import 'components/edit-profile-modals.css'; /* Added import for edit profile styling */
 @import 'components/settings.css'; /* Added import for settings page styles */
 @import 'components/registration.css'; /* Added import for registration styles */
+/* @import 'components/dialog-utility.css';  */
 
 /* Feature-specific styles */
 @import 'features/animations.css';
@@ -61,18 +62,17 @@
 @import 'comments.css';
 @import 'styles.css';
 
-@import 'pages/community.css';
+/* Additional page styles */
 @import 'pages/communities.css';
-
-
 @import 'pages/search.css';
 @import 'pages/login.css';
 @import 'pages/notifications.css';
+
+/* Additional component styles */
 @import 'components/comment-dialogs.css';
 @import 'components/comments.css';
 @import 'components/auth-error-popup.css';
 
-/* Mobile search button in header */
 .mobile-search-button,
 .mobile-faucet-button {
     display: none;
@@ -81,157 +81,160 @@
     cursor: pointer;
 }
 
-/*mobile styles */
+/* Mobile styles */
 @media (max-width: 768px) {
-  .grid-controller-container {
-    display: none;
-  }
-  .grid-controls{
-    display: none;
-  }
-  .grid-controller{
-    display: none ;
-  }
+    .grid-controller-container {
+        display: none;
+    }
+    .grid-controls {
+        display: none;
+    }
+    .grid-controller {
+        display: none;
+    }
 
-  .mobile-search-button,
-  .mobile-faucet-button {
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .mobile-faucet-button{
-    display: none ;
-  }
-  /* Hide search in sidebar on mobile */
-  .side-nav .search-nav {
-    display: none;
-  }
+    .mobile-search-button,
+    .mobile-faucet-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .mobile-faucet-button {
+        display: none;
+    }
+    
+    /* Hide search in sidebar on mobile */
+    .side-nav .search-nav {
+        display: none;
+    }
 }
 
-/* Previene lo zoom automatico su iOS per tutti i campi input nell'applicazione */
+/* iOS zoom prevention for input fields */
 @media (max-width: 767px) {
-  input[type="text"],
-  input[type="search"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  textarea,
-  select {
-    font-size: 16px !important; /* Previene lo zoom su iOS */
-  }
-  
-  .community-search-input,
-  .search-input,
-  .markdown-textarea {
-    font-size: 16px !important;
-  }
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    textarea,
+    select {
+        font-size: 16px !important; /* Prevents zoom on iOS */
+    }
+    
+    .community-search-input,
+    .search-input,
+    .markdown-textarea {
+        font-size: 16px !important;
+    }
 }
 
 /* Fallback styles in case any imports fail */
 :root {
-  /* Ensure critical variables are available */
-  --fallback-background-color: #121212;
-  --fallback-text-color: #e0e0e0;
+    /* Ensure critical variables are available */
+    --fallback-background-color: #121212;
+    --fallback-text-color: #e0e0e0;
 }
 
 /* Critical base styles as fallback */
 body:not(:has(style)) {
-  font-family: system-ui, sans-serif;
-  background-color: var(--background-color, var(--fallback-background-color));
-  color: var(--text-color, var(--fallback-text-color));
+    font-family: system-ui, sans-serif;
+    background-color: var(--background-color, var(--fallback-background-color));
+    color: var(--text-color, var(--fallback-text-color));
 }
 
+/* Sidebar toggle button */
 #toggle-btn-retract {
-
-  position: absolute;
-
-  bottom: 0;
-
+    position: absolute;
+    bottom: 0;
 }
 
+/* Toast notification styles */
 .toast {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  animation: toast-in-out 3s ease-in-out forwards;
-  transform: translateX(100%);
-  opacity: 0;
-  background: var(--background-color);
-  color: var(--text-color);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    animation: toast-in-out 3s ease-in-out forwards;
+    transform: translateX(100%);
+    opacity: 0;
 }
 
+/* Toast animation */
 @keyframes toast-in-out {
-  0% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  15% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  85% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    15% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    85% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
 }
 
+/* Loading spinner styles */
 .spinner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  width: 100vw;
-  position: fixed;
-  top: 0;
-  left: 0;
-  background-color: var(--background-color);
-  z-index: 9999;
-  color: var(--text-color);
-  font-size: 24px;
-  font-weight: bold;
-  animation: fade-in 0.5s ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: var(--background-color);
+    z-index: 9999;
+    color: var(--text-color);
+    font-size: 24px;
+    font-weight: bold;
+    animation: fade-in 0.5s ease-in-out;
 }
+
+/* Fade in animation */
 @keyframes fade-in {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
 }
-/* Spinner animation */
+
+/* Spinner rotation animation */
 @keyframes spinner {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
+
 .spinner::before {
-  content: '';
-  width: 50px;
-  height: 50px;
-  border: 5px solid var(--text-color);
-  border-top: 5px solid transparent;
-  border-radius: 50%;
-  animation: spinner 1s linear infinite;
+    content: '';
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--text-color);
+    border-top: 5px solid transparent;
+    border-radius: 50%;
+    animation: spinner 1s linear infinite;
 }
-/* Spinner text */
+
 .spinner-text {
-  margin-top: 10px;
-  font-size: 18px;
-  color: var(--text-color);
+    margin-top: 10px;
+    font-size: 18px;
+    color: var(--text-color);
 }
-/* Spinner text */

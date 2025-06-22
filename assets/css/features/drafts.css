@@ -472,384 +472,374 @@
 }
 
 /* =================================================================
-   DELETE DRAFT DIALOG STYLES (Standard Pattern)
-   Following the same pattern as authorization dialog
+   DELETE DRAFT DIALOG - CENTRALIZED AUTH-STYLE DESIGN
+   Uses auth-inspired design patterns for consistency
    ================================================================= */
 
-.delete-draft-dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  animation: fadeIn 0.3s ease;
+/* Enhanced dialog styling following auth patterns */
+.standard-dialog.draft-dialog {
+    max-width: 480px;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    background: var(--background-lighter);
 }
 
-.delete-draft-dialog {
-  background-color: var(--bg-primary);
-  border-radius: 12px;
-  box-shadow: var(--popup-box-shadow);
-  max-width: 550px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: slideIn 0.3s ease;
+.standard-dialog.draft-dialog .modal-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+    color: white;
+    padding: 2rem 2rem 1.5rem;
+    text-align: center;
+    border: none;
 }
 
-/* Header */
-.delete-draft-dialog .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--border-color);
+.standard-dialog.draft-dialog .modal-header h3 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
 }
 
-.delete-draft-dialog .modal-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.standard-dialog.draft-dialog .modal-header .material-icons {
+    font-size: 2rem;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    padding: 0.75rem;
+    backdrop-filter: blur(10px);
 }
 
-.delete-draft-dialog .modal-header .material-icons {
-  color: var(--danger-color);
-  font-size: 1.5rem;
+.standard-dialog.draft-dialog .modal-header .auth-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.95rem;
+    margin: 0;
+    font-weight: 400;
 }
 
-.delete-draft-dialog .close-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 0.5rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+.standard-dialog.draft-dialog .close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.delete-draft-dialog .close-button:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-hover);
+.standard-dialog.draft-dialog .close-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
 }
 
-/* Body */
-.delete-draft-dialog .modal-body {
-  padding: 1.5rem;
+/* Body with auth-style layout */
+.standard-dialog.draft-dialog .modal-body {
+    padding: 2rem;
+    background: var(--background-lighter);
 }
 
-/* Draft Preview */
-.delete-draft-dialog .draft-preview {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-  border-left: 4px solid var(--primary-color);
+/* Draft preview with auth-style card design */
+.standard-dialog.draft-dialog .draft-preview {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    margin: 0 0 1.5rem 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
 }
 
-.delete-draft-dialog .draft-preview h4 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.4;
+.standard-dialog.draft-dialog .draft-preview::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-color-light) 100%);
 }
 
-.delete-draft-dialog .draft-meta-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+.standard-dialog.draft-dialog .draft-preview h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-heading);
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.delete-draft-dialog .meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+.standard-dialog.draft-dialog .draft-preview h4::before {
+    content: '📝';
+    font-size: 1.25rem;
 }
 
-.delete-draft-dialog .meta-item .material-icons {
-  font-size: 1rem;
-  color: var(--text-muted);
+/* Meta info with auth-style field design */
+.standard-dialog.draft-dialog .draft-meta-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--background);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
 }
 
-.delete-draft-dialog .draft-tags-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+.standard-dialog.draft-dialog .meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.delete-draft-dialog .tag-chip {
-  background-color: var(--primary-color-light);
-  color: var(--primary-color);
-  padding: 0.25rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
+.standard-dialog.draft-dialog .meta-item .material-icons {
+    font-size: 1.25rem;
+    color: var(--primary-color);
+    background: var(--primary-color-light);
+    border-radius: 50%;
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
-.delete-draft-dialog .tag-more {
-  background-color: var(--text-muted);
-  color: white;
-  padding: 0.25rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.8rem;
+.standard-dialog.draft-dialog .meta-item-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
 }
 
-.delete-draft-dialog .draft-excerpt-preview {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  font-style: italic;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-color-light);
+.standard-dialog.draft-dialog .meta-item-value {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
-/* Warning Box */
-.delete-draft-dialog .warning-box {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  background-color: var(--error-light);
-  border: 1px solid rgba(244, 67, 54, 0.3);
-  border-radius: 8px;
-  color: var(--danger-color);
+/* Tags with auth-style design */
+.standard-dialog.draft-dialog .draft-tags-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--background);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
 }
 
-.delete-draft-dialog .warning-box .material-icons {
-  font-size: 1.5rem;
-  color: var(--danger-color);
-  flex-shrink: 0;
+.standard-dialog.draft-dialog .tag-chip {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+    color: white;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(var(--primary-color-rgb), 0.3);
+    transition: transform 0.2s ease;
 }
 
-.delete-draft-dialog .warning-content strong {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
+.standard-dialog.draft-dialog .tag-chip:hover {
+    transform: translateY(-1px);
 }
 
-.delete-draft-dialog .warning-content p {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-secondary);
-  line-height: 1.5;
+.standard-dialog.draft-dialog .tag-more {
+    background: var(--text-muted);
+    color: white;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
 }
 
-.delete-draft-dialog .current-draft-warning {
-  color: var(--warning-color) !important;
-  font-weight: 500;
-  padding: 0.5rem;
-  background-color: var(--warning-light);
-  border-radius: 4px;
-  margin-top: 0.5rem !important;
+/* Excerpt with auth-style note design */
+.standard-dialog.draft-dialog .draft-excerpt-preview {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--info-background);
+    border: 1px solid var(--info-color);
+    border-radius: var(--radius-sm);
+    color: var(--info-color);
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+    overflow: hidden;
 }
 
-/* Footer */
-.delete-draft-dialog .modal-footer {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-  padding: 1rem 1.5rem 1.5rem;
-  border-top: 1px solid var(--border-color);
+.standard-dialog.draft-dialog .draft-excerpt-preview::before {
+    content: '💬';
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 1.125rem;
+    opacity: 0.6;
 }
 
-.delete-draft-dialog .btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  border: none;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* Warning with enhanced auth-error style */
+.standard-dialog.draft-dialog .current-draft-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, var(--error-background) 0%, rgba(var(--error-color-rgb), 0.1) 100%);
+    border: 1px solid var(--error-color);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin: 1rem 0;
+    color: var(--error-color);
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
 }
 
-.delete-draft-dialog .secondary-btn {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+.standard-dialog.draft-dialog .current-draft-warning::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--error-color);
 }
 
-.delete-draft-dialog .secondary-btn:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--border-color-hover);
+.standard-dialog.draft-dialog .current-draft-warning .material-icons {
+    font-size: 1.5rem;
+    background: rgba(var(--error-color-rgb), 0.1);
+    border-radius: 50%;
+    padding: 0.5rem;
+    animation: pulse 2s infinite;
 }
 
-.delete-draft-dialog .danger-btn {
-  background-color: var(--danger-color);
-  color: white;
-  border: 1px solid var(--danger-color);
+/* Footer with auth-style buttons */
+.standard-dialog.draft-dialog .modal-footer {
+    background: var(--background);
+    border-top: 1px solid var(--border-color);
+    padding: 1.5rem 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
 }
 
-.delete-draft-dialog .danger-btn:hover {
-  background-color: var(--danger-dark);
-  border-color: var(--danger-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+.standard-dialog.draft-dialog .btn {
+    flex: 1;
+    max-width: 140px;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+}
+
+.standard-dialog.draft-dialog .secondary-btn {
+    background: var(--background-lighter);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.standard-dialog.draft-dialog .secondary-btn:hover {
+    background: var(--background);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.standard-dialog.draft-dialog .danger-btn {
+    background: linear-gradient(135deg, var(--error-color) 0%, var(--error-color-dark) 100%);
+    color: white;
+    border: 1px solid var(--error-color);
+    box-shadow: 0 4px 12px rgba(var(--error-color-rgb), 0.3);
+}
+
+.standard-dialog.draft-dialog .danger-btn:hover {
+    background: linear-gradient(135deg, var(--error-color-dark) 0%, var(--error-color) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--error-color-rgb), 0.4);
 }
 
 /* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideIn {
-  from { 
-    opacity: 0;
-    transform: translateY(-30px) scale(0.95);
-  }
-  to { 
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Focus States */
-.delete-draft-dialog button:focus {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-.delete-draft-dialog .danger-btn:focus {
-  outline-color: var(--danger-color);
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .drafts-view {
-    padding: 0.5rem;
-  }
-  
-  .drafts-view .page-header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-  }
-  
-  .drafts-view .title-section h1 {
-    font-size: 2rem;
-  }
-  
-  .drafts-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .drafts-stats {
-    gap: 1rem;
-  }
-  
-  .drafts-actions-bar {
-    flex-wrap: wrap;
-  }
-  
-  .post-editor-container .editor-quick-actions {
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
-  
-  .post-editor-container .action-button {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .delete-draft-dialog {
-    margin: 1rem;
-    width: calc(100% - 2rem);
-  }
-  
-  .delete-draft-dialog .modal-header {
-    padding: 1rem;
-  }
-  
-  .delete-draft-dialog .modal-body {
-    padding: 1rem;
-  }
-  
-  .delete-draft-dialog .modal-footer {
-    flex-direction: column;
-    padding: 1rem;
-  }
-  
-  .delete-draft-dialog .btn {
-    width: 100%;
-    justify-content: center;
-    padding: 1rem;
-  }
-  
-  .delete-draft-dialog .draft-meta-info {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
+    .drafts-view {
+        padding: 0.5rem;
+    }
+    
+    .drafts-view .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .drafts-view .title-section h1 {
+        font-size: 2rem;
+    }
+    
+    .drafts-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .drafts-stats {
+        gap: 1rem;
+    }
+    
+    .drafts-actions-bar {
+        flex-wrap: wrap;
+    }
+    
+    .post-editor-container .editor-quick-actions {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .post-editor-container .action-button {
+        width: 36px;
+        height: 36px;
+    }
+    
+    /* Draft preview responsiveness in standard dialogs */
+    .standard-dialog .draft-meta-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
 }
 
 @media (max-width: 480px) {
-  .draft-card {
-    padding: 1rem;
-  }
-  
-  .draft-title {
-    font-size: 1.125rem;
-  }
-  
-  .drafts-stats .stat-number {
-    font-size: 1.25rem;
-  }
-}
-
-/* Dark Theme Support */
-[data-theme="dark"] .delete-draft-dialog {
-  background-color: var(--bg-primary);
-}
-
-[data-theme="dark"] .delete-draft-dialog .draft-preview {
-  background-color: var(--bg-tertiary);
-}
-
-[data-theme="dark"] .delete-draft-dialog .modal-header {
-  border-bottom-color: var(--border-color);
-}
-
-[data-theme="dark"] .delete-draft-dialog .modal-footer {
-  border-top-color: var(--border-color);
-}
-
-/* Loading State (if needed) */
-.delete-draft-dialog .danger-btn.loading {
-  position: relative;
-  color: transparent;
-  pointer-events: none;
-}
-
-.delete-draft-dialog .danger-btn.loading::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: translate(-50%, -50%) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(360deg); }
+    .draft-card {
+        padding: 1rem;
+    }
+    
+    .draft-title {
+        font-size: 1.125rem;
+    }    
+    .drafts-stats .stat-number {
+        font-size: 1.25rem;
+    }
 }
 
 /* =================================================================

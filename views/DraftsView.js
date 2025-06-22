@@ -3,6 +3,7 @@ import router from '../utils/Router.js';
 import authService from '../services/AuthService.js';
 import createPostService from '../services/CreatePostService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
+import DialogUtility from '../components/DialogUtility.js';
 
 /**
  * View for displaying user drafts and scheduled posts
@@ -415,190 +416,71 @@ class DraftsView extends View {
       this.showToast('Failed to delete draft', 'error');
     }
   }
-
   /**
-   * Show delete draft confirmation dialog following standard pattern
+   * Show delete draft confirmation dialog using standardized DialogUtility
    * @param {Object} draft - Draft to delete
    * @returns {Promise<boolean>} - true if user confirms, false otherwise
    */
   async showDeleteDraftDialog(draft) {
-    return new Promise((resolve) => {
-      // Check if dialog already exists and remove it
-      const existingDialog = document.querySelector('.delete-draft-dialog-overlay');
-      if (existingDialog) {
-        existingDialog.remove();
-      }
-      
-      // Create modal dialog following standard structure
-      const dialog = document.createElement('div');
-      dialog.className = 'delete-draft-dialog-overlay modal-overlay';
-      
-      // Calculate draft metadata
-      const wordCount = this.getWordCount(draft.body || '');
-      const age = this.getDraftAge(draft.lastModified);
-      
-      dialog.innerHTML = `
-        <div class="modal-dialog delete-draft-dialog">
-          <div class="modal-header">
-            <h3>
-              <span class="material-icons">delete_forever</span>
-              Delete Draft
-            </h3>
-            <button class="close-button" type="button" aria-label="Close">
-              <span class="material-icons">close</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="draft-preview">
-              <h4>${this.escapeHtml(draft.title || 'Untitled Draft')}</h4>
-              <div class="draft-meta-info">
-                <span class="meta-item">
-                  <span class="material-icons">schedule</span>
-                  ${age}
-                </span>
-                <span class="meta-item">
-                  <span class="material-icons">subject</span>
-                  ${wordCount} words
-                </span>
-                ${draft.community ? `
-                  <span class="meta-item">
-                    <span class="material-icons">groups</span>
-                    ${this.escapeHtml(draft.community)}
-                  </span>
-                ` : ''}
-              </div>
-              ${draft.tags && draft.tags.length > 0 ? `
-                <div class="draft-tags-preview">
-                  ${draft.tags.slice(0, 3).map(tag => 
-                    `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
-                  ).join('')}
-                  ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
-                </div>
-              ` : ''}
-              ${draft.body ? `
-                <div class="draft-excerpt-preview">
-                  ${this.escapeHtml(this.createExcerpt(draft.body, 100))}
-                </div>
-              ` : ''}
-            </div>
-            <div class="warning-box">
-              <span class="material-icons">warning</span>
-              <div class="warning-content">
-                <strong>This action cannot be undone!</strong>
-                <p>The draft will be permanently deleted from your device. Make sure you have saved any important content elsewhere.</p>
-                ${draft.isCurrent ? '<p class="current-draft-warning">⚠️ This is your current draft. Deleting it will remove your work in progress.</p>' : ''}
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn secondary-btn cancel-delete" id="cancel-delete">
-              <span class="material-icons">close</span>
-              Cancel
-            </button>
-            <button type="button" class="btn danger-btn confirm-delete" id="confirm-delete">
-              <span class="material-icons">delete_forever</span>
-              Delete Draft
-            </button>
-          </div>
+    // Calculate draft metadata
+    const wordCount = this.getWordCount(draft.body || '');
+    const age = this.getDraftAge(draft.lastModified);
+    
+    // Create rich preview content for the dialog
+    const previewData = `
+      <div class="draft-preview">
+        <h4>${this.escapeHtml(draft.title || 'Untitled Draft')}</h4>
+        <div class="draft-meta-info">
+          <span class="meta-item">
+            <span class="material-icons">schedule</span>
+            ${age}
+          </span>
+          <span class="meta-item">
+            <span class="material-icons">subject</span>
+            ${wordCount} words
+          </span>
+          ${draft.community ? `
+            <span class="meta-item">
+              <span class="material-icons">groups</span>
+              ${this.escapeHtml(draft.community)}
+            </span>
+          ` : ''}
         </div>
-      `;
-      
-      document.body.appendChild(dialog);
-      
-      // Get button elements
-      const closeBtn = dialog.querySelector('.close-button');
-      const cancelBtn = dialog.querySelector('#cancel-delete');
-      const confirmBtn = dialog.querySelector('#confirm-delete');
-      
-      // Focus management - focus on cancel button for safety
-      setTimeout(() => {
-        cancelBtn.focus();
-      }, 100);
-      
-      // Cleanup function
-      const cleanup = () => {
-        try {
-          if (dialog.parentNode) {
-            document.body.removeChild(dialog);
-          }
-        } catch (error) {
-          console.warn('Dialog cleanup error:', error);
-        }
-        document.removeEventListener('keydown', escapeHandler);
-      };
-      
-      // Event handlers
-      const handleCancel = () => {
-        cleanup();
-        resolve(false);
-      };
-      
-      const handleConfirm = () => {
-        cleanup();
-        resolve(true);
-      };
-      
-      // Bind click events
-      closeBtn.addEventListener('click', handleCancel);
-      cancelBtn.addEventListener('click', handleCancel);
-      confirmBtn.addEventListener('click', handleConfirm);
-      
-      // Close on overlay click
-      dialog.addEventListener('click', (e) => {
-        if (e.target === dialog) {
-          handleCancel();
-        }
-      });
-      
-      // Keyboard handling
-      const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
-          handleCancel();
-        } else if (e.key === 'Enter' && document.activeElement === confirmBtn) {
-          handleConfirm();
-        }
-      };
-      
-      document.addEventListener('keydown', escapeHandler);
-      
-      // Tab trapping for accessibility
-      dialog.addEventListener('keydown', (e) => {
-        if (e.key === 'Tab') {
-          const focusableElements = dialog.querySelectorAll('button:not([disabled])');
-          const firstElement = focusableElements[0];
-          const lastElement = focusableElements[focusableElements.length - 1];
-          
-          if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          } else if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      });
-    });
-  }
+        ${draft.tags && draft.tags.length > 0 ? `
+          <div class="draft-tags-preview">
+            ${draft.tags.slice(0, 3).map(tag => 
+              `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
+            ).join('')}
+            ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
+          </div>
+        ` : ''}
+        ${draft.body ? `
+          <div class="draft-excerpt-preview">
+            ${this.escapeHtml(this.createExcerpt(draft.body, 100))}
+          </div>
+        ` : ''}
+      </div>
+    `;
 
-  /**
-   * Actually delete the draft using the improved system
-   */
-  performDeleteDraft(draft) {
-    try {
-      const success = createPostService.deleteDraftById(draft.id);
-      
-      if (success) {
-        this.showToast('Draft deleted successfully', 'success');
-        // Reload the view
-        this.render(this.container);
-      } else {
-        this.showToast('Failed to delete draft', 'error');
-      }
-      
-    } catch (error) {
-      console.error('Error deleting draft:', error);
-      this.showToast('Failed to delete draft', 'error');
-    }
+    // Additional warning for current drafts
+    const additionalDetails = draft.isCurrent ? `
+      <div class="current-draft-warning">
+        <span class="material-icons">warning</span>
+        <span>This is your current draft. Deleting it will remove your work in progress.</span>
+      </div>
+    ` : null;
+
+    // Use DialogUtility for consistent experience
+    return await DialogUtility.showConfirmationDialog({
+      title: 'Delete Draft',
+      message: 'Are you sure you want to delete this draft?',
+      confirmText: 'Delete Draft',
+      cancelText: 'Cancel',
+      icon: 'delete_forever',      type: 'danger',
+      showPreview: true,
+      previewData: previewData,
+      details: additionalDetails
+    });
   }
 
   /**
@@ -801,8 +683,7 @@ class DraftsView extends View {
         </a>
       </div>
     `;
-  }
-  /**
+  }  /**
    * Clean up resources when view is unmounted
    */
   unmount() {
@@ -813,8 +694,8 @@ class DraftsView extends View {
       this.loadingIndicator.hide();
     }
     
-    // Remove any remaining modals (including new standard dialogs)
-    const modals = document.querySelectorAll('.modal-overlay, .delete-draft-dialog-overlay');
+    // Remove any remaining modals (including standard dialogs)
+    const modals = document.querySelectorAll('.modal-overlay, .delete-draft-dialog-overlay, .standard-dialog-overlay');
     modals.forEach(modal => {
       if (modal.parentNode) {
         modal.parentNode.removeChild(modal);
