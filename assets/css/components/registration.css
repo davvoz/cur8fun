@@ -24,25 +24,29 @@
   transition: width var(--transition-normal);
 }
 
-.auth-info, .auth-warning, .dev-info, .telegram-info {
+/* Scoping di classe auth-warning specifica per la registrazione */
+.account-creation-process .auth-info, 
+.account-creation-process .auth-warning, 
+.account-creation-process .dev-info, 
+.account-creation-process .telegram-info {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
   border-radius: var(--radius-md);
 }
 
-.auth-warning {
+.account-creation-process .auth-warning {
   background-color: var(--warning-light);
   border: 1px solid var(--warning-color);
   color: var(--warning-dark);
 }
 
-.dev-info {
+.account-creation-process .dev-info {
   background-color: var(--info-light);
   border: 1px solid var(--info-color);
   color: var(--info-dark);
 }
 
-.telegram-info {
+.account-creation-process .telegram-info {
   background-color: var(--success-light);
   border: 1px solid var(--success-color);
   color: var(--success-dark);

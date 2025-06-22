@@ -1,15 +1,21 @@
 class LoadingIndicator {
-  constructor(type = 'spinner') {
+  constructor(type = 'spinner', fullscreen = false) {
     this.type = type;
+    this.fullscreen = fullscreen;
     this.element = this.createElement();
   }
-  
-  createElement() {
+    createElement() {
     const wrapper = document.createElement('div');
+    
+    // Add fullscreen class if specified
+    if (this.fullscreen) {
+      wrapper.className = 'loading-overlay-fullscreen';
+    }
     
     const creators = {
       spinner: () => {
-        wrapper.className = 'loading-spinner';
+        const spinnerContainer = document.createElement('div');
+        spinnerContainer.className = this.fullscreen ? 'loading-spinner fullscreen' : 'loading-spinner';
         
         const spinnerDiv = document.createElement('div');
         spinnerDiv.className = 'spinner';
@@ -18,17 +24,33 @@ class LoadingIndicator {
         loadingText.className = 'loading-text';
         loadingText.textContent = 'Loading...';
         
-        wrapper.appendChild(spinnerDiv);
-        wrapper.appendChild(loadingText);
+        spinnerContainer.appendChild(spinnerDiv);
+        spinnerContainer.appendChild(loadingText);
+        
+        if (this.fullscreen) {
+          wrapper.appendChild(spinnerContainer);
+        } else {
+          // For non-fullscreen, wrapper is the spinner container
+          wrapper.className = 'loading-spinner';
+          wrapper.appendChild(spinnerDiv);
+          wrapper.appendChild(loadingText);
+        }
       },
-      
-      skeleton: () => {
-        wrapper.className = 'loading-skeleton';
+        skeleton: () => {
+        const skeletonContainer = document.createElement('div');
+        skeletonContainer.className = this.fullscreen ? 'loading-skeleton fullscreen' : 'loading-skeleton';
+        
+        if (this.fullscreen) {
+          wrapper.appendChild(skeletonContainer);
+        } else {
+          wrapper.className = 'loading-skeleton';
+        }
         // Skeleton UI can be customized per component
       },
       
       progressBar: () => {
-        wrapper.className = 'loading-progress-bar';
+        const progressContainer = document.createElement('div');
+        progressContainer.className = this.fullscreen ? 'loading-progress-bar fullscreen' : 'loading-progress-bar';
         
         const progressTrack = document.createElement('div');
         progressTrack.className = 'progress-track';
@@ -37,7 +59,14 @@ class LoadingIndicator {
         progressFill.className = 'progress-fill';
         
         progressTrack.appendChild(progressFill);
-        wrapper.appendChild(progressTrack);
+        progressContainer.appendChild(progressTrack);
+        
+        if (this.fullscreen) {
+          wrapper.appendChild(progressContainer);
+        } else {
+          wrapper.className = 'loading-progress-bar';
+          wrapper.appendChild(progressTrack);
+        }
       }
     };
     
@@ -46,16 +75,86 @@ class LoadingIndicator {
     
     return wrapper;
   }
-  
-  show(container, message = null) {
+    show(container, message = null) {
     if (message && this.element.querySelector('.loading-text')) {
       this.element.querySelector('.loading-text').textContent = message;
     }
     
-    container.appendChild(this.element);
+    if (this.fullscreen) {
+      // For fullscreen, append to body
+      document.body.appendChild(this.element);
+      // Prevent body scrolling
+      document.body.style.overflow = 'hidden';
+    } else {
+      // For regular loading, append to container
+      container.appendChild(this.element);
+    }
+    
     return this;
   }
-  
+
+  /**
+   * Static method to show fullscreen loading
+   */
+  static showFullscreen(message = 'Loading...') {
+    if (LoadingIndicator.fullscreenInstance) {
+      LoadingIndicator.fullscreenInstance.hide();
+    }
+    
+    LoadingIndicator.fullscreenInstance = new LoadingIndicator('spinner', true);
+    LoadingIndicator.fullscreenInstance.show(null, message);
+    
+    return LoadingIndicator.fullscreenInstance;
+  }
+
+  /**
+   * Static method to hide fullscreen loading
+   */
+  static hideFullscreen() {
+    if (LoadingIndicator.fullscreenInstance) {
+      LoadingIndicator.fullscreenInstance.hide();
+      LoadingIndicator.fullscreenInstance = null;
+    }
+  }
+
+  /**
+   * Show page loading (for main content areas)
+   */
+  showPageLoading(container, message = 'Loading...') {
+    // Clear container first
+    container.innerHTML = '';
+    
+    // Add a page-level loading wrapper
+    const pageLoader = document.createElement('div');
+    pageLoader.className = 'page-loading-wrapper';
+    pageLoader.style.cssText = `
+      min-height: 60vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    `;
+    
+    container.appendChild(pageLoader);
+    this.show(pageLoader, message);
+    
+    return this;
+  }
+
+  /**
+   * Static method for navigation loading (shows fullscreen during page transitions)
+   */
+  static showNavigation(message = 'Loading page...') {
+    return LoadingIndicator.showFullscreen(message);
+  }
+
+  /**
+   * Static method to hide navigation loading
+   */
+  static hideNavigation() {
+    LoadingIndicator.hideFullscreen();
+  }
+
   updateProgress(percent) {
     if (this.type === 'progressBar') {
       const fill = this.element.querySelector('.progress-fill');
@@ -65,11 +164,16 @@ class LoadingIndicator {
     }
     return this;
   }
-  
-  hide() {
+    hide() {
     if (this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }
+    
+    // Restore body scrolling if this was fullscreen
+    if (this.fullscreen) {
+      document.body.style.overflow = '';
+    }
+    
     return this;
   }
 }

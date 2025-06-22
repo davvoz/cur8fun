@@ -257,11 +257,9 @@ class SearchView extends View {
 
   async performSearch(query) {
     const queryTrimmed = query.trim();
-    if (!queryTrimmed) return;
-
-    try {
+    if (!queryTrimmed) return;    try {
       this.resultsContainer.innerHTML = '';
-      this.loadingIndicator.show(this.resultsContainer);
+      this.loadingIndicator.showPageLoading(this.resultsContainer, 'Searching...');
 
       let results;
       if (this.currentSearchMethod === 'tags') {

@@ -94,10 +94,8 @@ class ProfileView extends View {
     this.container = container;
     const profileContainer = document.createElement('div');
     profileContainer.className = 'profile-container';
-    container.appendChild(profileContainer);
-
-    // Show loading indicator
-    this.loadingIndicator.show(profileContainer);
+    container.appendChild(profileContainer);    // Show loading indicator with better page coverage
+    this.loadingIndicator.showPageLoading(profileContainer, 'Loading profile...');
 
     try {
       // Load profile data
