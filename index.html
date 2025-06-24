@@ -16,69 +16,7 @@
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/components/markdown-formatter.css">
     <script src="https://cdn.jsdelivr.net/npm/steemlogin@latest/dist/steemlogin.min.js"></script>
-    <script src="https://unpkg.com/steem-content-renderer@latest"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Handle 404 redirects on GitHub Pages
-        (function () {
-            // Environment detection
-            const environments = {
-                'github': {
-                    detect: () => {
-                        const allowedHostnames = ['github.io'];
-                        return allowedHostnames.includes(location.hostname);
-                    },
-                    getBasePath: () => {
-                        const pathParts = location.pathname.split('/');
-                        return pathParts.length >= 2 ? '/' + pathParts[1] : '';
-                    },
-                    handleRoutes: (basePath) => {
-                        const pathParts = location.pathname.split('/');
-
-                        // Map path patterns to handlers
-                        const routeHandlers = {
-                            'deeper': () => {
-                                // Has parts after repo name and no hash
-                                if (pathParts.length > 2 && !location.hash) {
-                                    const routePath = '/' + pathParts.slice(2).join('/');
-                                    location.replace(basePath + '/#' + routePath);
-                                }
-                            },
-                            'root': () => {
-                                // Repository root path
-                                if (pathParts.length === 2 && pathParts[1] === basePath.substring(1) && !location.hash) {
-                                    location.replace(basePath + '/#/');
-                                }
-                            }
-                        };
-
-                        // Execute all handlers (they will only redirect if conditions match)
-                        Object.values(routeHandlers).forEach(handler => handler());
-                    }
-                },
-                'local': {
-                    detect: () => true, // Default fallback
-                    getBasePath: () => '',
-                    handleRoutes: () => {
-                        if (location.pathname !== '/' &&
-                            location.pathname !== '/index.html' &&
-                            !location.hash) {
-
-                            location.replace('/#' + location.pathname);
-                        }
-                    }
-                }
-            };
-
-            // Determine environment and execute appropriate handler
-            const env = Object.values(environments).find(env => env.detect());
-            const basePath = env.getBasePath();
-
-            document.documentElement.style.setProperty('--base-path', JSON.stringify(basePath));
-
-            env.handleRoutes(basePath);
-        })();
-    </script>
+    <script src="https://unpkg.com/steem-content-renderer@latest"></script>    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
     <!-- Social Media Sharing Preview Metadata -->
     <meta property="og:title" content="cur8.fun" id="og-title" />
