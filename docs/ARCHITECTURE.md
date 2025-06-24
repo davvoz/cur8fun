@@ -2,17 +2,23 @@
 
 ## 1. Overview
 
-Cur8.fun (previously SteemGram) is a modern, client-side web application built to interact with the Steem blockchain. It provides a user-friendly interface for browsing, creating, and interacting with content on the Steem ecosystem. The application is built entirely with vanilla JavaScript (ES6+), HTML, and CSS, requiring no build tools or server-side components for basic operation.
+Cur8.fun (previously SteemGram) is a modern web application built to interact with the Steem blockchain. It provides a user-friendly interface for browsing, creating, and interacting with content on the Steem ecosystem. The application has a vanilla JavaScript (ES6+) frontend with a lightweight Flask backend for enhanced functionality and API services. The core UI is built with HTML, CSS, and JavaScript without dependencies on heavy frameworks.
 
 ## 2. Architectural Pattern
 
-The application follows a component-based architecture with clear separation of concerns:
+The application follows a hybrid architecture with clear separation of concerns:
 
-- **MVC Pattern**: Model-View-Controller pattern is used throughout the application
+- **Frontend MVC Pattern**: 
   - **Models**: Represent data structures
   - **Views**: Handle UI rendering and user interaction
   - **Controllers**: Manage business logic and data flow
-  - **Services**: Provide API interactions and blockchain operations
+  - **Services**: Provide API interactions (blockchain operations and backend API)
+
+- **Backend Flask API**:
+  - **RESTful Endpoints**: Provide data services and persistence
+  - **Database Models**: Structured data storage
+  - **Static File Serving**: Deliver frontend assets with proper MIME types
+  - **SPA Fallback**: Support for HTML5 history API routing
 
 ## 3. Core Components
 
@@ -133,6 +139,24 @@ eventEmitter.emit('notification', {
 this.subscribe('auth:changed', this.updateUserStatus.bind(this));
 ```
 
+### 3.6 Backend System
+
+The backend system (`app.py` and `app/python` directory) provides additional server-side capabilities:
+
+- **Flask API**: Lightweight RESTful API for persistence and scheduled operations
+- **SQLAlchemy ORM**: Object-relational mapping for database interactions
+- **Static File Server**: Serves frontend assets with proper MIME types
+- **Route Handling**: Support for HTML5 History API routing
+
+```python
+# Example API endpoint
+@app.route('/api/scheduled_posts', methods=['GET'])
+def get_scheduled_posts():
+    username = request.args.get('username')
+    posts = ScheduledPost.query.filter_by(username=username).all()
+    return jsonify([p.to_dict() for p in posts])
+```
+
 ## 4. Data Flow
 
 ### 4.1 Post Loading Flow
@@ -158,19 +182,25 @@ this.subscribe('auth:changed', this.updateUserStatus.bind(this));
 
 ```
 /
-├── assets/              # Static assets
-│   ├── css/             # CSS stylesheets and modules
-│   └── img/             # Images and graphics
-├── components/          # Reusable UI components
-│   ├── comments/        # Comment-related components
-│   ├── post/            # Post display components
-│   ├── profile/         # User profile components
-│   └── wallet/          # Wallet and finance components
-├── controllers/         # Business logic controllers
-├── models/              # Data models
-├── services/            # API and blockchain services
-├── utils/               # Utility functions
-└── views/               # Page views and layouts
+├── app.py              # Flask application entry point
+├── requirements.txt    # Python dependencies
+├── app/                # Python backend modules
+│   ├── __init__.py
+│   ├── models.py       # SQLAlchemy database models
+│   └── routes/         # API route handlers
+├── assets/             # Static assets
+│   ├── css/            # CSS stylesheets and modules
+│   └── img/            # Images and graphics
+├── components/         # Reusable UI components
+│   ├── comments/       # Comment-related components
+│   ├── post/           # Post display components
+│   ├── profile/        # User profile components
+│   └── wallet/         # Wallet and finance components
+├── controllers/        # Business logic controllers
+├── models/             # Frontend data models
+├── services/           # API and blockchain services
+├── utils/              # Utility functions
+└── views/              # Page views and layouts
 ```
 
 ## 6. UI Component Hierarchy
@@ -211,6 +241,27 @@ The wallet system provides financial information and transaction capabilities:
 - **Transaction History**: Shows history of transactions
 - **Reward Claims**: Allows claiming of pending rewards
 
+### 7.4 Post Scheduling System
+
+The post scheduling system allows users to create and schedule posts for future publication:
+
+- **Backend Integration**: Post schedules are stored in a SQLite database via Flask APIs
+- **Persistence**: Schedule data stored in SQLAlchemy models instead of localStorage
+- **Schedule Management**: Calendar-based interface for selecting publication dates and times
+- **Queue Management**: API for retrieving, modifying and deleting scheduled posts
+- **Publishing Service**: Automatic publication at the scheduled date and time
+
+```python
+# Example SQLAlchemy model for scheduled posts
+class ScheduledPost(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    scheduled_datetime = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(32), default='scheduled')
+```
+
 ## 8. Security Considerations
 
 - **XSS Protection**: Content sanitization using DOMPurify
@@ -235,3 +286,39 @@ The application includes Progressive Web App features:
 ## 11. Conclusion
 
 Cur8.fun's architecture is designed for modularity, maintainability, and user experience. The component-based approach with clear separation of concerns allows for easy extension and maintenance. The application leverages vanilla JavaScript without dependencies on heavy frameworks, resulting in a lightweight yet powerful user interface for the Steem blockchain.
+
+## 12. Backend Integration
+
+### 12.1 Data Persistence
+
+The application uses multiple storage approaches depending on data requirements:
+
+- **Client-Side Storage**: 
+  - **LocalStorage**: User preferences, drafts, and session data
+  - **Cache API**: Cached content for offline functionality
+
+- **Server-Side Storage**:
+  - **SQLite Database**: Scheduled posts and other persistent data
+  - **SQLAlchemy ORM**: Object-relational mapping for database operations
+
+### 12.2 API Integration
+
+The frontend interacts with multiple APIs:
+
+- **Blockchain API**: Direct interaction with Steem blockchain via JavaScript libraries
+- **Flask Backend API**: REST API for data persistence and services not handled by the blockchain
+  - `/api/scheduled_posts`: Manage scheduled posts
+  - Future expansion points: analytics, caching, user preferences
+
+### 12.3 Deployment Architecture
+
+The application can be deployed in multiple configurations:
+
+- **Static Hosting**: Deploy the frontend on GitHub Pages or other static hosts
+- **Flask Hosting**: Deploy frontend and backend together using Flask
+  - Development: Flask built-in development server
+  - Production: WSGI server (Gunicorn) with reverse proxy (Nginx)
+
+```
+[Frontend SPA] ↔ [Flask App] ↔ [SQLite DB]
+```

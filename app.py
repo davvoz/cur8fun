@@ -1,7 +1,24 @@
-from flask import Flask, send_from_directory, send_file
+from flask import Flask, send_from_directory, send_file, request, jsonify
+from flask_cors import CORS
+from datetime import datetime
 import os
+import sys
+
+# Aggiungi la directory app alla path per poter importare il modulo models
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+from python.models import db, ScheduledPost
 
 app = Flask(__name__)
+CORS(app)  # Abilita CORS per tutte le routes
+
+# Configurazione database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///steemee.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+
+# Inizializzazione del database
+with app.app_context():
+    db.create_all()
 
 # Serve static files
 @app.route('/assets/<path:filename>')
@@ -89,6 +106,82 @@ def serve_spa(path=''):
     
     # Se non è una route conosciuta, servi comunque index.html (il router gestirà il 404)
     return send_file('index.html')
+
+# API per i post schedulati
+@app.route('/api/scheduled_posts', methods=['GET'])
+def get_scheduled_posts():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({"error": "Username required"}), 400
+    posts = ScheduledPost.query.filter_by(username=username).all()
+    return jsonify([p.to_dict() for p in posts])
+
+@app.route('/api/scheduled_posts', methods=['POST'])
+def create_scheduled_post():
+    try:
+        data = request.json
+        if not data or not data.get('username') or not data.get('title') or not data.get('body') or not data.get('scheduled_datetime'):
+            return jsonify({"error": "Missing required fields"}), 400
+            
+        post = ScheduledPost(
+            username=data['username'],
+            title=data['title'],
+            body=data['body'],
+            tags=','.join(data.get('tags', [])),
+            community=data.get('community'),
+            permlink=data.get('permlink'),
+            scheduled_datetime=datetime.fromisoformat(data['scheduled_datetime'])
+        )
+        db.session.add(post)
+        db.session.commit()
+        return jsonify(post.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scheduled_posts/<int:post_id>', methods=['GET'])
+def get_scheduled_post(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    return jsonify(post.to_dict())
+
+@app.route('/api/scheduled_posts/<int:post_id>', methods=['PUT'])
+def update_scheduled_post(post_id):
+    try:
+        post = ScheduledPost.query.get_or_404(post_id)
+        data = request.json
+        
+        # Aggiorna i campi se presenti nei dati
+        if 'title' in data:
+            post.title = data['title']
+        if 'body' in data:
+            post.body = data['body']
+        if 'tags' in data:
+            post.tags = ','.join(data['tags'])
+        if 'community' in data:
+            post.community = data['community']
+        if 'permlink' in data:
+            post.permlink = data['permlink']
+        if 'scheduled_datetime' in data:
+            post.scheduled_datetime = datetime.fromisoformat(data['scheduled_datetime'])
+        if 'status' in data:
+            post.status = data['status']
+            
+        db.session.commit()
+        return jsonify(post.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scheduled_posts/<int:post_id>', methods=['DELETE'])
+def delete_scheduled_post(post_id):
+    try:
+        post = ScheduledPost.query.get_or_404(post_id)
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"success": True, "message": f"Post {post_id} deleted"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
