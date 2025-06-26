@@ -7,6 +7,7 @@ import sys
 # Aggiungi la directory app alla path per poter importare il modulo models
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 from python.models import db, ScheduledPost
+from python.publisher import publisher
 
 app = Flask(__name__)
 CORS(app)  # Abilita CORS per tutte le routes
@@ -120,8 +121,26 @@ def get_scheduled_posts():
 def create_scheduled_post():
     try:
         data = request.json
+        print(f"[DEBUG] Received data: {data}")
+        
         if not data or not data.get('username') or not data.get('title') or not data.get('body') or not data.get('scheduled_datetime'):
             return jsonify({"error": "Missing required fields"}), 400
+        
+        # Parse the scheduled datetime - handle different formats
+        scheduled_datetime_str = data['scheduled_datetime']
+        print(f"[DEBUG] Parsing datetime: {scheduled_datetime_str}")
+        
+        try:
+            # Try parsing ISO format with Z suffix
+            if scheduled_datetime_str.endswith('Z'):
+                # Remove Z and parse as UTC
+                scheduled_datetime_str = scheduled_datetime_str[:-1]
+                scheduled_datetime = datetime.fromisoformat(scheduled_datetime_str)
+            else:
+                scheduled_datetime = datetime.fromisoformat(scheduled_datetime_str)
+        except ValueError as e:
+            print(f"[DEBUG] DateTime parsing error: {e}")
+            return jsonify({"error": f"Invalid datetime format: {scheduled_datetime_str}"}), 400
             
         post = ScheduledPost(
             username=data['username'],
@@ -130,12 +149,15 @@ def create_scheduled_post():
             tags=','.join(data.get('tags', [])),
             community=data.get('community'),
             permlink=data.get('permlink'),
-            scheduled_datetime=datetime.fromisoformat(data['scheduled_datetime'])
+            scheduled_datetime=scheduled_datetime
         )
         db.session.add(post)
         db.session.commit()
+        
+        print(f"[DEBUG] Successfully created scheduled post: {post.id}")
         return jsonify(post.to_dict()), 201
     except Exception as e:
+        print(f"[DEBUG] Error creating scheduled post: {e}")
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
@@ -182,6 +204,30 @@ def delete_scheduled_post(post_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
+# Initialize publisher with app context
+publisher.init_app(app)
 
+# API endpoints for publisher management
+@app.route('/api/publisher/status', methods=['GET'])
+def get_publisher_status():
+    """Get the current status of the publisher service"""
+    return jsonify(publisher.get_status())
+
+@app.route('/api/publisher/retry-failed', methods=['POST'])
+def retry_failed_posts():
+    """Retry all failed posts"""
+    retry_count = publisher.retry_failed_posts()
+    return jsonify({
+        "success": True,
+        "message": f"Marked {retry_count} posts for retry"
+    })
+
+# Start publisher service in development
 if __name__ == '__main__':
-    app.run(debug=True)
+    publisher.start()
+    try:
+        app.run(debug=True)
+    finally:
+        publisher.stop()
+
