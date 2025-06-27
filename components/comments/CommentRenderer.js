@@ -84,7 +84,6 @@ export default class CommentRenderer {
     
     const avatarSources = [
       `https://steemitimages.com/u/${username}/avatar`,
-      `https://images.hive.blog/u/${username}/avatar`
     ];
     
     let currentSourceIndex = 0;
