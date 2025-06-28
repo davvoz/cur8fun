@@ -41,13 +41,15 @@
                                 // Has parts after repo name and no hash
                                 if (pathParts.length > 2 && !location.hash) {
                                     const routePath = '/' + pathParts.slice(2).join('/');
-                                    location.replace(basePath + '/#' + routePath);
+                                    // Correzione: aggiungi l'hash dopo la sottocartella
+                                    location.replace(basePath + routePath + '#/');
                                 }
                             },
                             'root': () => {
                                 // Repository root path
                                 if (pathParts.length === 2 && pathParts[1] === basePath.substring(1) && !location.hash) {
-                                    location.replace(basePath + '/#/');
+                                    // Correzione: aggiungi l'hash dopo la sottocartella
+                                    location.replace(basePath + '#/');
                                 }
                             }
                         };
@@ -64,7 +66,8 @@
                             location.pathname !== '/index.html' &&
                             !location.hash) {
 
-                            location.replace('/#' + location.pathname);
+                            // Correzione: aggiungi l'hash dopo la sottocartella
+                            location.replace(location.pathname + '#/');
                         }
                     }
                 }
