@@ -29,7 +29,11 @@ def assets(filename):
 # Serve JavaScript modules with correct MIME type
 @app.route('/<path:filename>.js')
 def javascript_files(filename):
-    return send_file(f'{filename}.js', mimetype='application/javascript')
+    import os
+    js_path = os.path.join(app.root_path, f"{filename}.js")
+    if not os.path.isfile(js_path):
+        return "File not found", 404
+    return send_file(js_path, mimetype='application/javascript')
 
 # Serve specific root files
 @app.route('/manifest.json')
