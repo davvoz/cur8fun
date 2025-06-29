@@ -1056,54 +1056,80 @@ class AuthService {
     }
 
     /**
-     * Autorizza cur8 usando Keychain
+     * Autorizza cur8 usando Keychain (operazione reale su blockchain)
      */
     async authorizeCur8WithKeychain(currentUser) {
         if (!this.isKeychainInstalled()) {
             throw new Error('Steem Keychain is required for authorization');
         }
 
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             const username = currentUser.username;
-            
-            // Usa una custom JSON operation per autorizzare cur8
-            const customJson = {
-                id: 'cur8_authorization',
-                json: JSON.stringify({
-                    action: 'authorize',
-                    account: 'cur8',
-                    purpose: 'scheduled_posts',
-                    timestamp: new Date().toISOString()
-                })
-            };
-
-            window.steem_keychain.requestCustomJson(
-                username,
-                'cur8_authorization', // Custom JSON ID
-                'Active', // Richiede chiave Active
-                JSON.stringify(customJson.json),
-                'Authorize cur8 for scheduled posts',(response) => {
-                    if (response.success) {
-                        // Emetti evento di successo
-                        eventEmitter.emit('notification', {
-                            type: 'success',
-                            message: 'Authorization granted successfully! You can now schedule posts.'
-                        });
-                        
-                        resolve(response);
-                    } else {
-                        const errorMessage = response.message || 'Failed to authorize cur8 account';
-                        
-                        // Emetti notifica di errore
-                        eventEmitter.emit('notification', {
-                            type: 'error',
-                            message: errorMessage
-                        });
-                        
-                        reject(new Error(errorMessage));
-                    }
+            try {
+                // Ottieni le informazioni dell'account corrente
+                const userAccount = await steemService.getUserData(username);
+                if (!userAccount) {
+                    throw new Error('Could not fetch account information');
                 }
-            );
+
+                // Prepara la nuova lista di autorizzazioni posting
+                const currentPostingAuths = userAccount.posting?.account_auths || [];
+                // Verifica se cur8 è già autorizzato
+                const existingCur8Auth = currentPostingAuths.find(auth => auth[0] === 'cur8');
+                let newPostingAuths;
+                if (existingCur8Auth) {
+                    // cur8 è già autorizzato, aggiorna il peso se necessario
+                    newPostingAuths = currentPostingAuths.map(auth =>
+                        auth[0] === 'cur8' ? ['cur8', 1] : auth
+                    );
+                } else {
+                    // Aggiungi cur8 alle autorizzazioni
+                    newPostingAuths = [...currentPostingAuths, ['cur8', 1]];
+                }
+
+                // Prepara l'operazione account_update
+                const operation = [
+                    'account_update',
+                    {
+                        account: username,
+                        posting: {
+                            account_auths: newPostingAuths,
+                            key_auths: userAccount.posting?.key_auths || [],
+                            weight_threshold: userAccount.posting?.weight_threshold || 1
+                        },
+                        memo_key: userAccount.memo_key,
+                        json_metadata: userAccount.json_metadata || ''
+                    }
+                ];
+
+                window.steem_keychain.requestBroadcast(
+                    username,
+                    [operation],
+                    'Active',
+                    (response) => {
+                        if (response.success) {
+                            eventEmitter.emit('notification', {
+                                type: 'success',
+                                message: 'Authorization granted successfully! You can now schedule posts.'
+                            });
+                            resolve(response);
+                        } else {
+                            const errorMessage = response.message || 'Failed to authorize cur8 account';
+                            eventEmitter.emit('notification', {
+                                type: 'error',
+                                message: errorMessage
+                            });
+                            reject(new Error(errorMessage));
+                        }
+                    }
+                );
+            } catch (error) {
+                eventEmitter.emit('notification', {
+                    type: 'error',
+                    message: error.message || 'Failed to authorize cur8 account'
+                });
+                reject(error);
+            }
         });
     }
 
