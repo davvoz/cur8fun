@@ -266,9 +266,12 @@ class ScheduledPost(db.Model):
 
 The auto curation system enables users to automatically vote on posts from selected authors:
 
-- **Target Management**: Users can add/remove authors to follow for automatic voting
+- **Target Management**: Users can add, edit, or remove authors to follow for automatic voting directly from the interface
+- **User Info Display**: Each target shows the author's avatar, reputation, and post count
+- **Latest Post Preview**: The most recent post of each target is displayed with title, date, votes, comments, and payout
 - **Timing Configuration**: Configurable vote delay (1-60 minutes after post creation)
 - **Vote Percentage**: Adjustable voting percentage (1-100%)
+- **Inline Editing**: Vote delay and percentage can be edited inline or via a modal
 - **Backend Processing**: Voting logic handled entirely by backend services
 - **Frontend Interface**: Management interface integrated into WalletView as dedicated tab
 
@@ -284,9 +287,33 @@ class CurationTarget(db.Model):
 ```
 
 **Key Components**:
-- **CurationManagementService**: Frontend service for API communication
-- **AutoCurationTab**: UI component integrated into WalletView
-- **Backend APIs**: RESTful endpoints for CRUD operations on curation targets
+- **CurationManagementService**: Frontend service for API communication, including user info and last post
+- **AutoCurationTab**: UI component integrated into WalletView, with avatar, last post, and editing features
+- **Backend APIs**: RESTful endpoints for CRUD operations on curation targets and user info
+
+**API Endpoints**:
+- `/api/curation/targets`: CRUD for curation targets
+- `/api/curation/stats`: Curation statistics
+- `/api/curation/target-info`: User info and latest post for each target
+
+## 7.6 Missing Features / Next Steps for Auto Curation
+
+While the Auto Curation System UI and basic backend endpoints are implemented, the following features are still missing or require further development:
+
+- **Real Blockchain Data Integration**: The `/api/curation/target-info` endpoint currently returns placeholder data. Integration with the Steem blockchain is needed to fetch real user reputation, post count, and latest post details.
+- **Backend Voting Logic**: The backend must implement the actual logic to monitor new posts from followed authors and execute votes at the configured delay and percentage. This includes:
+  - Periodic polling or event-driven detection of new posts
+  - Scheduling and executing votes using the user's credentials
+  - Handling errors, retries, and edge cases (e.g., insufficient voting power)
+- **Vote Execution Feedback**: The UI should display the status of recent automated votes (success, failure, pending) for each target, possibly with a log/history per author.
+- **Advanced Analytics**: Add analytics and performance metrics for each target (e.g., average curation reward, optimal timing suggestions, missed votes).
+- **Notifications**: Notify users of important events (e.g., failed votes, new posts detected, rewards received) via the UI.
+- **Bulk Actions**: Allow users to enable/disable or remove multiple targets at once.
+- **Permissions & Security**: Ensure secure handling of user credentials for backend voting, and add permission checks for all API endpoints.
+- **Mobile UI Refinements**: Further optimize the Auto Curation tab for mobile usability and accessibility.
+- **Documentation & Help**: Add in-app help or documentation for the auto-curation feature, including best practices and limitations.
+
+These next steps are required to deliver a fully automated, robust, and user-friendly curation experience.
 
 ## 8. Security Considerations
 
