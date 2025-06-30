@@ -262,6 +262,32 @@ class ScheduledPost(db.Model):
     status = db.Column(db.String(32), default='scheduled')
 ```
 
+### 7.5 Auto Curation System
+
+The auto curation system enables users to automatically vote on posts from selected authors:
+
+- **Target Management**: Users can add/remove authors to follow for automatic voting
+- **Timing Configuration**: Configurable vote delay (1-60 minutes after post creation)
+- **Vote Percentage**: Adjustable voting percentage (1-100%)
+- **Backend Processing**: Voting logic handled entirely by backend services
+- **Frontend Interface**: Management interface integrated into WalletView as dedicated tab
+
+```python
+# SQLAlchemy model for curation targets
+class CurationTarget(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    curator_username = db.Column(db.String(64), nullable=False, index=True)
+    target_username = db.Column(db.String(64), nullable=False)
+    vote_delay_minutes = db.Column(db.Integer, default=15)
+    vote_percentage = db.Column(db.Integer, default=100)
+    is_active = db.Column(db.Boolean, default=True)
+```
+
+**Key Components**:
+- **CurationManagementService**: Frontend service for API communication
+- **AutoCurationTab**: UI component integrated into WalletView
+- **Backend APIs**: RESTful endpoints for CRUD operations on curation targets
+
 ## 8. Security Considerations
 
 - **XSS Protection**: Content sanitization using DOMPurify
@@ -308,6 +334,8 @@ The frontend interacts with multiple APIs:
 - **Blockchain API**: Direct interaction with Steem blockchain via JavaScript libraries
 - **Flask Backend API**: REST API for data persistence and services not handled by the blockchain
   - `/api/scheduled_posts`: Manage scheduled posts
+  - `/api/curation/targets`: Manage auto curation targets
+  - `/api/curation/stats`: Retrieve curation statistics
   - Future expansion points: analytics, caching, user preferences
 
 ### 12.3 Deployment Architecture

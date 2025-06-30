@@ -12,6 +12,7 @@
 
 /* Component styles */
 @import 'components/auth.css';
+@import 'components/auto-curation.css'; /* Added import for auto curation styles */
 @import 'components/cards.css';
 @import 'components/components.css';
 @import 'components/filters.css'; /* Aggiunto import per gli stili centralizzati dei filtri */

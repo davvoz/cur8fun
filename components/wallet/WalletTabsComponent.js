@@ -4,6 +4,7 @@ import PowerManagementTab from './tabs/PowerManagementTab.js';
 import DelegationTab from './tabs/DelegationTab.js';
 import TransactionHistoryTab from './tabs/TransactionHistoryTab.js';
 import CurationTab from './tabs/CurationTab.js';
+import AutoCurationTab from './tabs/AutoCurationTab.js';
 
 export default class WalletTabsComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -28,7 +29,8 @@ export default class WalletTabsComponent extends Component {
       { id: 'transfer', label: 'Transfer', isActive: false },
       { id: 'power', label: 'Power Up/Down', isActive: false },
       { id: 'delegate', label: 'Delegate', isActive: false },
-      { id: 'curation', label: 'Curation', isActive: false }
+      { id: 'curation', label: 'Curation', isActive: false },
+      { id: 'auto-curation', label: 'Auto Curation', isActive: false }
     ];
     
     // Create all tab buttons
@@ -112,6 +114,9 @@ export default class WalletTabsComponent extends Component {
         break;
       case 'curation':
         tabComponent = new CurationTab(this.tabContent);
+        break;
+      case 'auto-curation':
+        tabComponent = new AutoCurationTab(this.tabContent);
         break;
     }
     

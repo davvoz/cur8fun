@@ -15,6 +15,7 @@ pwa-icon-generator.html
 services/token-test.js
 services/verify-token.js
 /.venv
+/instance
 
 # Python
 __pycache__/
