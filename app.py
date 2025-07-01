@@ -95,20 +95,18 @@ def serve_spa(path=''):
         'drafts', 'settings', 'menu', 'faq', 'new-releases', 'communities',
         'notifications', 'wallet', 'edit-profile'
     ]
-    
     # Route con parametri (come /tag/sometag, /@username, ecc.)
     spa_patterns = [
         'tag/', '@', 'post/', 'community/', 'edit-post/', 'comment/'
     ]
-    
-    # Se è un file con estensione, non è una route SPA
-    if '.' in path and not path.endswith('.html'):
+    # Estensioni di file statici da NON servire come SPA
+    static_exts = ('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.json', '.svg', '.map', '.woff', '.woff2', '.ttf', '.eot')
+    # Se è una vera risorsa statica, restituisci 404
+    if any(path.lower().endswith(ext) for ext in static_exts):
         return "File not found", 404
-    
     # Se è una route SPA conosciuta o corrisponde a un pattern, servi index.html
     if path in spa_routes or any(path.startswith(pattern) for pattern in spa_patterns):
         return send_file('index.html')
-    
     # Se non è una route conosciuta, servi comunque index.html (il router gestirà il 404)
     return send_file('index.html')
 
