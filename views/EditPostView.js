@@ -117,7 +117,7 @@ class EditPostView extends View {
     container.innerHTML = `
       <h2>Post Not Found</h2>
       <p>The post you're trying to edit could not be found.</p>
-      <a href="#/" class="btn secondary-btn">Return to Home</a>
+      <a href="/" class="btn secondary-btn">Return to Home</a>
     `;
     this.element.appendChild(container);
   }
@@ -128,7 +128,7 @@ class EditPostView extends View {
     container.innerHTML = `
       <h2>Not Authorized</h2>
       <p>You can only edit your own posts.</p>
-      <a href="#/" class="btn secondary-btn">Return to Home</a>
+      <a href="/" class="btn secondary-btn">Return to Home</a>
     `;
     this.element.appendChild(container);
   }
@@ -139,7 +139,7 @@ class EditPostView extends View {
     container.innerHTML = `
       <h2>Error Loading Post</h2>
       <p>${this.loadError || 'An unknown error occurred.'}</p>
-      <a href="#/" class="btn secondary-btn">Return to Home</a>
+      <a href="/" class="btn secondary-btn">Return to Home</a>
     `;
     this.element.appendChild(container);
   }
@@ -790,7 +790,7 @@ class EditPostView extends View {
 
       // Reindirizza alla pagina del post dopo un breve ritardo
       setTimeout(() => {
-        window.location.href = `#/@${this.originalPost.author}/${this.originalPost.permlink}`;
+        window.location.href = `/@${this.originalPost.author}/${this.originalPost.permlink}`;
       }, 2000);
     } catch (error) {
       console.error('Failed to update post:', error);
@@ -850,7 +850,7 @@ class EditPostView extends View {
     message.innerHTML = `
       <h2>Login Required</h2>
       <p>You need to be logged in to edit a post.</p>
-      <a href="#/login" class="btn primary-btn">Login Now</a>
+      <a href="/login" class="btn primary-btn">Login Now</a>
     `;
 
     container.appendChild(message);

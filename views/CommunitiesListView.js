@@ -440,7 +440,7 @@ class CommunitiesListView {
             </span>
           </div>
           <div class="community-actions">
-            <a href="#/community/${communityId}" class="view-btn">View</a>
+            <a href="/community/${communityId}" class="view-btn">View</a>
           </div>
         </div>
       `;
@@ -465,7 +465,7 @@ class CommunitiesListView {
             </span>
           </div>
           <div class="community-actions">
-            <a href="#/community/${communityId}" class="view-btn">View</a>
+            <a href="/community/${communityId}" class="view-btn">View</a>
             ${this.currentUser ? `
               <button class="subscribe-btn ${isSubscribed ? 'subscribed' : ''} ${isPending ? 'pending' : ''}" 
                 data-community="${communityId}" ${isPending ? 'disabled' : ''}>
@@ -503,7 +503,7 @@ class CommunitiesListView {
     
     // Add click handler to navigate to community page
     card.addEventListener('click', () => {
-      window.location.hash = `#/community/${communityId}`;
+      window.location.href = `/community/${communityId}`;
     });
     
     return card;
@@ -511,7 +511,7 @@ class CommunitiesListView {
 
   async handleSubscribeToggle(button, communityId, isCurrentlySubscribed) {
     if (!this.currentUser) {
-      window.location.hash = '#/login';
+      window.location.href = '/login';
       return;
     }
     

@@ -919,7 +919,7 @@ class AuthService {
         
         // Redirect to login
         setTimeout(() => {
-            window.location.href = '/#/login';
+            window.location.href = '/login';
         }, 1500);
     }
 

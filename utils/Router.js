@@ -209,12 +209,9 @@ class Router {
           !link.getAttribute('target') &&
           !link.getAttribute('data-bypass-router')) {
         const href = link.getAttribute('href');
-        if (href && (href.startsWith('/') || href.startsWith('#/'))) {
+        if (href && href.startsWith('/')) {
           e.preventDefault();
           let path = href;
-          if (href.startsWith('#/')) {
-            path = href.substring(1);
-          }
           if (this.basePath && path.startsWith(this.basePath)) {
             path = path.substring(this.basePath.length) || '/';
           }

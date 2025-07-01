@@ -1669,7 +1669,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     message.innerHTML = `
       <h2>Login Required</h2>
       <p>You need to be logged in to create a post.</p>
-      <a href="#/login" class="btn primary-btn">Login Now</a>
+      <a href="/login" class="btn primary-btn">Login Now</a>
     `;
 
     container.appendChild(message);
