@@ -295,14 +295,7 @@ class NavigationManager {
   highlightActiveMenuItem() {
     // Handle both regular and hash-based routing
     let currentPath = window.location.pathname || '/';
-    
-    // Check if we're using hash-based routing (GitHub Pages redirect does this)
-    if (window.location.hash && window.location.hash.startsWith('#')) {
-      // Extract the path from the hash
-      currentPath = window.location.hash.substring(1) || '/';
-    }
-    
-    // Strip trailing slash if present (except for root '/')
+    // Strip trailing slash if present (eccetto root)
     if (currentPath !== '/' && currentPath.endsWith('/')) {
       currentPath = currentPath.slice(0, -1);
     }

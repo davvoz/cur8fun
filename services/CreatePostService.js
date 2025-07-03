@@ -37,6 +37,8 @@ class CreatePostService {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
   async createPost(postData, options = {}) {
+    console.log('[DEBUG] CreatePostService.createPost called with:', postData, options);
+    
     if (this.isProcessing) {
       throw new Error('Another post is already being processed');
     }
@@ -56,6 +58,7 @@ class CreatePostService {
       
       // Check if this is a scheduled post and handle authorization
       if (options.isScheduled && postData.scheduledDateTime) {
+        console.log('[DEBUG] Processing as scheduled post');
         await this.handleScheduledPostAuthorization();
         // For scheduled posts, save to storage instead of broadcasting immediately
         return await this.saveScheduledPost(postData, options);
@@ -998,41 +1001,52 @@ class CreatePostService {
   }
 
   /**
-   * Saves a scheduled post to storage for later publishing
+   * Saves a scheduled post to backend API for later publishing
    * @param {Object} postData - Post data
    * @param {Object} options - Post options
    * @returns {Promise<Object>} - Result object
-   */
-  async saveScheduledPost(postData, options) {
+   */  async saveScheduledPost(postData, options) {
+    console.log('[DEBUG] saveScheduledPost called with:', postData, options);
+    
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
       
-      // Prepare scheduled post data
+      // Prepare scheduled post data for API
       const scheduledPost = {
-        id: this.generateScheduledPostId(),
         username: currentUser.username,
         title: postData.title,
         body: postData.body,
-        tags: postData.tags,
-        community: postData.community,
+        tags: postData.tags || [],
+        community: postData.community || '',
         permlink: postData.permlink || this.generatePermlink(postData.title),
-        scheduledDateTime: postData.scheduledDateTime,
-        createdAt: new Date().toISOString(),
-        status: 'scheduled',
-        options: {
-          includeBeneficiary: options.includeBeneficiary,
-          beneficiaries: options.beneficiaries || []
-        }
+        scheduled_datetime: postData.scheduledDateTime,
+        status: 'scheduled'
       };
       
-      // Save to localStorage
-      const scheduledPosts = this.getScheduledPosts();
-      scheduledPosts.push(scheduledPost);
+      console.log('[DEBUG] Sending to API:', scheduledPost);
       
-      localStorage.setItem('steemee_scheduled_posts', JSON.stringify(scheduledPosts));
+      // Usa API per salvare i post programmati
+      const response = await fetch('/api/scheduled_posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scheduledPost)
+      });
+      debugger;
+      console.log('[DEBUG] API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[DEBUG] API error:', errorData);
+        throw new Error(errorData.error || 'Failed to save scheduled post');
+      }
+
+      const savedPost = await response.json();
+      console.log('[DEBUG] API response data:', savedPost);
       
       // Clear draft since it's now scheduled
       this.clearDraft();
@@ -1040,14 +1054,14 @@ class CreatePostService {
       // Emit success event for scheduled post
       eventEmitter.emit('post:scheduled', {
         success: true,
-        scheduledPost: scheduledPost,
+        scheduledPost: savedPost,
         scheduledTime: new Date(postData.scheduledDateTime)
       });
       
       return {
         success: true,
         scheduled: true,
-        postId: scheduledPost.id,
+        postId: savedPost.id,
         scheduledTime: postData.scheduledDateTime
       };
     } catch (error) {
@@ -1057,100 +1071,61 @@ class CreatePostService {
   }
 
   /**
-   * Generates a unique ID for scheduled posts
-   * @returns {string} - Unique post ID
+   * Updates an existing scheduled post
+   * @param {number} postId - ID of the post to update
+   * @param {Object} updatedData - Data to update
+   * @returns {Promise<Object>} - Updated post data
    */
-  generateScheduledPostId() {
-    return 'sched_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
-  }
-
-  /**
-   * Gets all scheduled posts for the current user
-   * @returns {Array} - Array of scheduled posts
-   */
-  getScheduledPosts() {
+  async updateScheduledPost(postId, updatedData) {
     try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) return [];
+      // Usa l'API del backend per aggiornare il post programmato
+      const response = await fetch(`/api/scheduled_posts/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedData)
+      });
       
-      const scheduledPostsJson = localStorage.getItem('steemee_scheduled_posts');
-      const allScheduledPosts = scheduledPostsJson ? JSON.parse(scheduledPostsJson) : [];
-      
-      // Filter by current user
-      return allScheduledPosts.filter(post => post.username === currentUser.username);
-    } catch (error) {
-      console.error('Failed to get scheduled posts:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Deletes a scheduled post
-   * @param {string} postId - ID of the scheduled post to delete
-   * @returns {boolean} - true if deleted successfully
-   */
-  deleteScheduledPost(postId) {
-    try {
-      const allScheduledPosts = JSON.parse(localStorage.getItem('steemee_scheduled_posts') || '[]');
-      const filteredPosts = allScheduledPosts.filter(post => post.id !== postId);
-      
-      localStorage.setItem('steemee_scheduled_posts', JSON.stringify(filteredPosts));
-      return true;
-    } catch (error) {
-      console.error('Failed to delete scheduled post:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Checks if the current user has cur8 authorization (non-throwing version)
-   * @returns {Promise<boolean>} - true if authorized, false otherwise
-   */
-  async isAuthorizedForScheduledPosts() {
-    try {
-      return await authService.checkCur8Authorization();
-    } catch (error) {
-      console.error('Error checking cur8 authorization:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Gets the authorization status for scheduled posts
-   * @returns {Promise<Object>} - Object with authorization status and details
-   */
-  async getScheduledPostAuthStatus() {
-    try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) {
-        return {
-          isAuthenticated: false,
-          isAuthorized: false,
-          canSchedule: false,
-          message: 'User not logged in'
-        };
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update scheduled post');
       }
-
-      const isAuthorized = await this.isAuthorizedForScheduledPosts();
       
-      return {
-        isAuthenticated: true,
-        isAuthorized: isAuthorized,
-        canSchedule: isAuthorized,
-        username: currentUser.username,
-        loginMethod: currentUser.loginMethod,
-        message: isAuthorized 
-          ? 'Ready to schedule posts' 
-          : 'Authorization required for scheduled posts'
-      };
+      const updatedPost = await response.json();
+      
+      // Emit success event for scheduled post update
+      eventEmitter.emit('post:schedule-updated', {
+        success: true,
+        scheduledPost: updatedPost
+      });
+      
+      return updatedPost;
     } catch (error) {
-      console.error('Error getting scheduled post auth status:', error);
-      return {
-        isAuthenticated: false,
-        isAuthorized: false,
-        canSchedule: false,
-        message: 'Error checking authorization status'
-      };
+      console.error('Failed to update scheduled post:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets a specific scheduled post by ID
+   * @param {number} postId - ID of the post to retrieve
+   * @returns {Promise<Object>} - Post data
+   */
+  async getScheduledPostById(postId) {
+    try {
+      // Usa l'API del backend per ottenere il post programmato
+      const response = await fetch(`/api/scheduled_posts/${postId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get scheduled post');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get scheduled post:', error);
+      throw error;
     }
   }
 }

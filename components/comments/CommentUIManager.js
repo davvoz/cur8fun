@@ -226,7 +226,7 @@ export default class CommentUIManager {
       const baseUrl = window.location.href.split('#')[0];
       
       // Reindirizza alla nuova vista dedicata ai commenti
-      window.location.href = `${baseUrl}#/comment/@${comment.author}/${comment.permlink}`;
+      window.location.href = `${baseUrl}/comment/@${comment.author}/${comment.permlink}`;
     });
 
     return item;

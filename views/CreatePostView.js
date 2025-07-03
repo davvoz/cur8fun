@@ -433,6 +433,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Event handlers for scheduling
     scheduleToggle.addEventListener('change', (e) => {
       const isScheduled = e.target.checked;
+      console.log('[DEBUG] Schedule toggle changed:', isScheduled);
       dateTimeContent.style.display = isScheduled ? 'block' : 'none';
       this.isScheduled = isScheduled;
       this.hasUnsavedChanges = true;
@@ -442,6 +443,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       const submitBtn = document.getElementById('submit-post-btn');
       if (submitBtn) {
         submitBtn.textContent = isScheduled ? 'Schedule Post' : 'Publish Post';
+        console.log('[DEBUG] Submit button text updated to:', submitBtn.textContent);
       }
     });
 
@@ -1431,6 +1433,8 @@ class CreatePostView extends View {  constructor(params = {}) {
    */
   async handleSubmit(e) {
     e.preventDefault();
+    
+    console.log('[DEBUG] handleSubmit called, isScheduled:', this.isScheduled);
 
     if (this.isSubmitting) return;
 
@@ -1470,8 +1474,11 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Validate scheduled publishing if enabled
     if (this.isScheduled) {
+      console.log('[DEBUG] Validating scheduled publishing...');
       const dateInput = document.getElementById('publish-date');
       const timeInput = document.getElementById('publish-time');
+      
+      console.log('[DEBUG] Date input value:', dateInput?.value, 'Time input value:', timeInput?.value);
       
       if (!dateInput.value || !timeInput.value) {
         this.showError('Please select both date and time for scheduled publishing');
@@ -1480,6 +1487,8 @@ class CreatePostView extends View {  constructor(params = {}) {
 
       const scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`);
       const now = new Date();
+      
+      console.log('[DEBUG] Scheduled datetime:', scheduledDateTime, 'Current time:', now);
       
       if (scheduledDateTime <= now) {
         this.showError('Scheduled date and time must be in the future');
@@ -1528,7 +1537,9 @@ class CreatePostView extends View {  constructor(params = {}) {
       if (this.isScheduled) {
         const dateInput = document.getElementById('publish-date');
         const timeInput = document.getElementById('publish-time');
-        postData.scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`).toISOString();
+        const scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`).toISOString();
+        postData.scheduledDateTime = scheduledDateTime;
+        console.log('[DEBUG] Added scheduled datetime to postData:', scheduledDateTime);
       }
 
       // Opzioni per i beneficiari
@@ -1536,6 +1547,8 @@ class CreatePostView extends View {  constructor(params = {}) {
         includeBeneficiary: this.includeBeneficiary,
         isScheduled: this.isScheduled
       };
+      
+      console.log('[DEBUG] Calling createPost with data:', postData, 'options:', options);
 
       // Se i beneficiari sono abilitati, passa l'array completo
       if (this.includeBeneficiary && this.beneficiaries.length > 0) {
@@ -1567,7 +1580,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         
         // Reindirizza alla pagina del post dopo un breve ritardo
         setTimeout(() => {
-          window.location.href = `#/@${username}/${permlink}`;
+          window.location.href = `/@${username}/${permlink}`;
         }, 2000);
       }    } catch (error) {
       this.showError(`Failed to ${this.isScheduled ? 'schedule' : 'publish'} post: ${error.message}`);
@@ -1656,7 +1669,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     message.innerHTML = `
       <h2>Login Required</h2>
       <p>You need to be logged in to create a post.</p>
-      <a href="#/login" class="btn primary-btn">Login Now</a>
+      <a href="/login" class="btn primary-btn">Login Now</a>
     `;
 
     container.appendChild(message);

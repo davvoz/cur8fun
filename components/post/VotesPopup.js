@@ -268,7 +268,7 @@ class VotesPopup {
       // Close popup first
       this.close();
       // Then navigate
-      window.open(`#/@${username}`, '_self');
+      window.open(`/@${username}`, '_self');
     });
 
     element.addEventListener('mouseover', () => {

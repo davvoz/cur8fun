@@ -15,3 +15,32 @@ pwa-icon-generator.html
 services/token-test.js
 services/verify-token.js
 /.venv
+/instance
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+/app/__pycache__/
+/python/__pycache__/
+
+# Database SQLite
+*.db
+*.sqlite3
+*.sqlite
+
+# Ambiente virtuale
+venv/
+env/
+ENV/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr

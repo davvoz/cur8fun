@@ -581,7 +581,7 @@ export default class CurationTab extends Component {
       
       const postLink = document.createElement('a');
       // Use internal routing for post links instead of external Steemit links
-      postLink.href = `#/${item.post}`;
+      postLink.href = `/${item.post}`;
       postLink.target = '_self'; // Ensure links open in the same window
       postLink.rel = 'noopener noreferrer';
       

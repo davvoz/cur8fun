@@ -203,7 +203,7 @@ function renderAuthenticatedNav(container, user) {
   
   // Mobile faucet button - add next to search button
   const mobileFaucetButton = document.createElement('a');
-  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet';
+  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
   mobileFaucetButton.className = 'mobile-faucet-button';
   mobileFaucetButton.target = '_blank';
   mobileFaucetButton.rel = 'noopener noreferrer';
@@ -254,7 +254,7 @@ function renderUnauthenticatedNav(container) {
   
   // Mobile faucet button - add next to search button
   const mobileFaucetButton = document.createElement('a');
-  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet';
+  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
   mobileFaucetButton.className = 'mobile-faucet-button';
   mobileFaucetButton.target = '_blank';
   mobileFaucetButton.rel = 'noopener noreferrer';
