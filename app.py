@@ -6,7 +6,7 @@ import sys
 
 # Aggiungi la directory app alla path per poter importare il modulo models
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
-from python.models import db, ScheduledPost, CurationTarget
+from python.models import db, ScheduledPost
 from python.publisher import publisher
 
 app = Flask(__name__)
@@ -207,121 +207,6 @@ def delete_scheduled_post(post_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# Curation Management API endpoints
-@app.route('/api/curation/targets', methods=['GET'])
-def get_curation_targets():
-    """Get all curation targets for a curator"""
-    username = request.args.get('username')
-    if not username:
-        return jsonify({"error": "Username is required"}), 400
-    
-    try:
-        targets = CurationTarget.query.filter_by(curator_username=username).all()
-        return jsonify([target.to_dict() for target in targets])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/curation/targets', methods=['POST'])
-def add_curation_target():
-    """Add new curation target"""
-    try:
-        data = request.json
-        
-        # Validate required fields
-        required_fields = ['curator_username', 'target_username']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
-        
-        # Check if target already exists
-        existing = CurationTarget.query.filter_by(
-            curator_username=data['curator_username'],
-            target_username=data['target_username']
-        ).first()
-        
-        if existing:
-            return jsonify({"error": "Target already exists"}), 409
-        
-        # Create new target
-        target = CurationTarget(
-            curator_username=data['curator_username'],
-            target_username=data['target_username'],
-            vote_delay_minutes=data.get('vote_delay_minutes', 15),
-            vote_percentage=data.get('vote_percentage', 100),
-            is_active=data.get('is_active', True)
-        )
-        
-        db.session.add(target)
-        db.session.commit()
-        
-        return jsonify(target.to_dict()), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/curation/targets/<int:target_id>', methods=['PUT'])
-def update_curation_target(target_id):
-    """Update curation target"""
-    try:
-        target = CurationTarget.query.get_or_404(target_id)
-        data = request.json
-        
-        # Update fields if present
-        if 'vote_delay_minutes' in data:
-            target.vote_delay_minutes = data['vote_delay_minutes']
-        if 'vote_percentage' in data:
-            target.vote_percentage = data['vote_percentage']
-        if 'is_active' in data:
-            target.is_active = data['is_active']
-        
-        target.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify(target.to_dict())
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/curation/targets/<int:target_id>', methods=['DELETE'])
-def delete_curation_target(target_id):
-    """Delete curation target"""
-    try:
-        target = CurationTarget.query.get_or_404(target_id)
-        db.session.delete(target)
-        db.session.commit()
-        
-        return jsonify({"success": True, "message": f"Target {target_id} deleted"})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/curation/stats', methods=['GET'])
-def get_curation_stats():
-    """Get curation statistics for a curator"""
-    username = request.args.get('username')
-    if not username:
-        return jsonify({"error": "Username is required"}), 400
-    
-    try:
-        # Get basic stats from database
-        total_targets = CurationTarget.query.filter_by(curator_username=username).count()
-        active_targets = CurationTarget.query.filter_by(
-            curator_username=username, 
-            is_active=True
-        ).count()
-        
-        # Placeholder stats - these would be calculated from actual voting data
-        stats = {
-            "active_targets": active_targets,
-            "total_targets": total_targets,
-            "today_votes": 0,  # Would be calculated from voting history
-            "success_rate": 0  # Would be calculated from actual performance
-        }
-        
-        return jsonify(stats)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
 # Initialize publisher with app context
 publisher.init_app(app)
 
@@ -339,41 +224,6 @@ def retry_failed_posts():
         "success": True,
         "message": f"Marked {retry_count} posts for retry"
     })
-
-@app.route('/api/curation/target-info', methods=['GET'])
-def get_target_user_info():
-    """Get target user information including avatar and last post"""
-    username = request.args.get('username')
-    if not username:
-        return jsonify({"error": "Username is required"}), 400
-    
-    try:
-        # This is a simplified version - in a real implementation,
-        # you would fetch this data from the Steem blockchain
-        user_info = {
-            "username": username,
-            "avatar_url": f"https://steemitimages.com/u/{username}/avatar",
-            "post_count": 0,  # Would be fetched from blockchain
-            "reputation": 0,  # Would be calculated from blockchain data
-            "last_post": None  # Would be fetched from blockchain
-        }
-        
-        # Placeholder for last post - in real implementation, 
-        # this would query the Steem blockchain for the user's latest post
-        # Example of what the last_post object would look like:
-        """
-        "last_post": {
-            "title": "My latest post title",
-            "created": "2025-06-30T10:00:00Z",
-            "net_votes": 15,
-            "children": 3,
-            "pending_payout_value": "1.234 SBD"
-        }
-        """
-        
-        return jsonify(user_info)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # Start publisher service in development
 if __name__ == '__main__':

@@ -13,10 +13,75 @@
     <link rel="apple-touch-icon" href="/assets/img/logo_tra.png">
     <title>cur8.fun</title>    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/assets/css/main.css">
-    <link rel="stylesheet" href="/assets/css/components/markdown-formatter.css">
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/components/markdown-formatter.css">
     <script src="https://cdn.jsdelivr.net/npm/steemlogin@latest/dist/steemlogin.min.js"></script>
-    <script src="https://unpkg.com/steem-content-renderer@latest"></script>    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/steem-content-renderer@latest"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Handle 404 redirects on GitHub Pages
+        (function () {
+            // Environment detection
+            const environments = {
+                'github': {
+                    detect: () => {
+                        const allowedHostnames = ['github.io'];
+                        return allowedHostnames.includes(location.hostname);
+                    },
+                    getBasePath: () => {
+                        const pathParts = location.pathname.split('/');
+                        return pathParts.length >= 2 ? '/' + pathParts[1] : '';
+                    },
+                    handleRoutes: (basePath) => {
+                        const pathParts = location.pathname.split('/');
+
+                        // Map path patterns to handlers
+                        const routeHandlers = {
+                            'deeper': () => {
+                                // Has parts after repo name and no hash
+                                if (pathParts.length > 2 && !location.hash) {
+                                    const routePath = '/' + pathParts.slice(2).join('/');
+                                    // Correzione: aggiungi l'hash dopo la sottocartella
+                                    location.replace(basePath + routePath + '#/');
+                                }
+                            },
+                            'root': () => {
+                                // Repository root path
+                                if (pathParts.length === 2 && pathParts[1] === basePath.substring(1) && !location.hash) {
+                                    // Correzione: aggiungi l'hash dopo la sottocartella
+                                    location.replace(basePath + '#/');
+                                }
+                            }
+                        };
+
+                        // Execute all handlers (they will only redirect if conditions match)
+                        Object.values(routeHandlers).forEach(handler => handler());
+                    }
+                },
+                'local': {
+                    detect: () => true, // Default fallback
+                    getBasePath: () => '',
+                    handleRoutes: () => {
+                        if (location.pathname !== '/' &&
+                            location.pathname !== '/index.html' &&
+                            !location.hash) {
+
+                            // Correzione: aggiungi l'hash dopo la sottocartella
+                            location.replace(location.pathname + '#/');
+                        }
+                    }
+                }
+            };
+
+            // Determine environment and execute appropriate handler
+            const env = Object.values(environments).find(env => env.detect());
+            const basePath = env.getBasePath();
+
+            document.documentElement.style.setProperty('--base-path', JSON.stringify(basePath));
+
+            env.handleRoutes(basePath);
+        })();
+    </script>
     
     <!-- Social Media Sharing Preview Metadata -->
     <meta property="og:title" content="cur8.fun" id="og-title" />
@@ -31,7 +96,6 @@
     <meta name="twitter:image" content="https://cur8.fun/assets/img/logo_tra.png" id="twitter-image" />
     <!-- Server-side rendered meta elements will be generated here -->
     <meta name="dynamic-meta-container" id="dynamic-meta-container" data-post-id="" data-author="" data-permlink="" />
-    <base href="/">
 </head>
 
 <body>
@@ -59,7 +123,7 @@
 
                 <a href="/" class="menu-item active">
                     <span class="material-icons icon">home</span>
-                    <span class="label">Home</span>
+                    <span class="label">HOme</span>
                 </a>
                 <a href="/new" class="menu-item">
                     <span class="material-icons icon">new_releases</span>
@@ -81,7 +145,7 @@
                 <a href="/search" class="menu-item search-nav">
                     <span class="material-icons icon">search</span>
                     <span class="label">Search</span>
-                </a>
+                </a>   
                 <a href="https://davvoz.github.io/steem-faucet-game/#/faucet" class="menu-item faucet-nav"
                     target="_blank" rel="noopener noreferrer">
                     <!--fas fa-faucet nav-icon-->
