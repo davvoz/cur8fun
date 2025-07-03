@@ -50,7 +50,6 @@ class CommunityService {
     if (this.pendingRequests.has(requestKey)) {
       return this.pendingRequests.get(requestKey);
     }
-    
     // Create the promise for the request
     const requestPromise = (async () => {
       const url = `${this.apiEndpoint}${path}`;
@@ -94,23 +93,7 @@ class CommunityService {
    * Ottimizzato per caricare i dati una sola volta
    */
   async listCommunities() {
-    // Se c'è già una richiesta in corso, attendi che sia completata
-    if (this.isLoadingAllCommunities) {
-      // Wait for the ongoing request to complete
-      while (this.isLoadingAllCommunities) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      // Se ora abbiamo i dati in cache, usali
-      if (this.cachedCommunities) {
-        return this.cachedCommunities;
-      }
-    }
-    
-    // Se abbiamo già i dati in memoria, usali (provenienti da localStorage all'avvio o da richiesta precedente)
-    if (this.cachedCommunities) {
-      return this.cachedCommunities;
-    }
+ 
     
     // Blocca altre richieste parallele
     this.isLoadingAllCommunities = true;
@@ -485,7 +468,7 @@ class CommunityService {
       };
       
       // Esegui chiamata diretta all'API di Steemit
-      const response = await fetch('https://api.steemit.com', {
+      const response = await fetch('https://api.moecki.online', {
         method: 'POST',
         body: JSON.stringify(requestBody),
         headers: {

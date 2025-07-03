@@ -138,7 +138,7 @@ class CommunitiesListView {
       this.filteredCommunities = [...this.communities];
       
       // Sort by subscriber count once immediately after loading
-      this.sortCommunities();
+      //this.sortCommunities();
       
       // Extract relevant category tags during initial load for better performance
       this.communities.forEach(community => {
@@ -424,8 +424,7 @@ class CommunitiesListView {
       card.innerHTML = `
         <div class="community-card-header compact">
           <div class="avatar-container">
-            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
-                onerror="this.src='./assets/img/default-avatar.png'">
+            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" >
             <div class="avatar-glow"></div>
           </div>
           <div>
