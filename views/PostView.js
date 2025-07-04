@@ -183,92 +183,72 @@ class PostView extends View {  constructor(params = {}) {
    */
   updateOpenGraphMetaTags() {
     if (!this.post) return;
-    
-    // STEP 1: Rimuovere i meta tag statici originali per evitare conflitti
+
+    // Rimuovi i meta tag OG/Twitter esistenti per evitare duplicati
     this.removeStaticMetaTags();
-    
-    // Helper function to create or update meta tags
-    const createMetaTag = (property, content, useProperty = true) => {
-      const metaTag = document.createElement('meta');
-      
-      if (useProperty) {
-        metaTag.setAttribute('property', property);
-      } else {
-        metaTag.setAttribute('name', property);
+
+    // Helper per creare o aggiornare meta tag
+    function setMeta(property, content, useProperty = true) {
+      if (!content) return;
+      let tag = document.querySelector(`meta[${useProperty ? 'property' : 'name'}="${property}"]`);
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute(useProperty ? 'property' : 'name', property);
+        document.head.appendChild(tag);
       }
-      
-      metaTag.setAttribute('content', content);
-      document.head.appendChild(metaTag);
-    };
-    
-    // Get image URL from post body or metadata with improved extraction
-    const imageUrl = this.getPostImageUrl();
-    console.log("Meta tag image URL:", imageUrl); // Debug: verifica l'URL dell'immagine estratta
-    
-    // Create description from post body (strip markdown and limit length)
-    const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
-    
-    // STEP 2: Creare nuovi meta tag con i dati del post (più affidabile che aggiornare)
-    // Basic Open Graph meta tags
-    createMetaTag('og:title', this.post.title || 'STEEM Post');
-    createMetaTag('og:type', 'article');
-    createMetaTag('og:url', window.location.href);
-    createMetaTag('og:description', description);
-    createMetaTag('og:site_name', 'STEEM Social Network');
-    
-    // Set image URL - critical for WhatsApp and Telegram
-    if (imageUrl) {
-      // Set image multiple times with different properties to maximize compatibility
-      createMetaTag('og:image', imageUrl);
-      createMetaTag('og:image:url', imageUrl);
-      createMetaTag('og:image:secure_url', imageUrl);
-      createMetaTag('og:image:alt', this.post.title || 'STEEM Post Image');
-      
-      // Try to determine image dimensions if possible
-      const img = new Image();
-      img.src = imageUrl;
-      
-      // Set default dimensions for better previews
-      createMetaTag('og:image:width', '1200');
-      createMetaTag('og:image:height', '630');
-      
-      // WhatsApp specific tag
-      createMetaTag('og:image:type', 'image/jpeg');
-      
-      // Twitter Card meta tags
-      createMetaTag('twitter:card', 'summary_large_image', false);
-      createMetaTag('twitter:image', imageUrl, false);
-      createMetaTag('twitter:image:alt', this.post.title || 'STEEM Post Image', false);
-      
-      // Add image_src link for better compatibility
-      const linkElem = document.querySelector('link[rel="image_src"]');
-      if (linkElem) {
-        linkElem.setAttribute('href', imageUrl);
-      } else {
-        const link = document.createElement('link');
-        link.setAttribute('rel', 'image_src');
-        link.setAttribute('href', imageUrl);
-        document.head.appendChild(link);
-      }
-      
-      // Add itemprop for Google+ and some other platforms
-      createMetaTag('image', imageUrl, false);
-    } else {
-      // Fallback to logo if no image is found
-      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
-      createMetaTag('og:image', logoUrl);
-      createMetaTag('og:image:url', logoUrl);
-      createMetaTag('twitter:card', 'summary', false);
-      createMetaTag('twitter:image', logoUrl, false);
+      tag.setAttribute('content', content);
     }
-    
-    // Twitter basic meta tags
-    createMetaTag('twitter:title', this.post.title || 'STEEM Post', false);
-    createMetaTag('twitter:description', description, false);
-    
-    // Additional meta tags for better previews
-    createMetaTag('og:article:published_time', this.post.created);
-    createMetaTag('og:article:author', this.post.author);
+
+    // Titolo
+    setMeta('og:title', this.post.title || 'STEEM Post');
+    setMeta('og:type', 'article');
+    setMeta('og:url', window.location.href);
+    setMeta('og:site_name', 'cur8.fun');
+
+    // Descrizione (primi 160 caratteri del body senza markdown)
+    const description = this.stripMarkdown(this.post.body).substring(0, 160) + '...';
+    setMeta('og:description', description);
+
+    // Immagine principale (se presente)
+    const imageUrl = this.getPostImageUrl();
+    if (imageUrl) {
+      setMeta('og:image', imageUrl);
+      setMeta('og:image:url', imageUrl);
+      setMeta('og:image:secure_url', imageUrl);
+      setMeta('og:image:alt', this.post.title || 'STEEM Post Image');
+      setMeta('og:image:width', '1200');
+      setMeta('og:image:height', '630');
+      setMeta('og:image:type', 'image/jpeg');
+      // Twitter Card meta tags
+      setMeta('twitter:card', 'summary_large_image', false);
+      setMeta('twitter:image', imageUrl, false);
+      setMeta('twitter:image:alt', this.post.title || 'STEEM Post Image', false);
+      // image_src link
+      let linkElem = document.querySelector('link[rel="image_src"]');
+      if (!linkElem) {
+        linkElem = document.createElement('link');
+        linkElem.setAttribute('rel', 'image_src');
+        document.head.appendChild(linkElem);
+      }
+      linkElem.setAttribute('href', imageUrl);
+      // itemprop per Google+
+      setMeta('image', imageUrl, false);
+    } else {
+      // Fallback a un logo se non c'è immagine
+      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
+      setMeta('og:image', logoUrl);
+      setMeta('og:image:url', logoUrl);
+      setMeta('twitter:card', 'summary', false);
+      setMeta('twitter:image', logoUrl, false);
+    }
+
+    // Twitter base
+    setMeta('twitter:title', this.post.title || 'STEEM Post', false);
+    setMeta('twitter:description', description, false);
+
+    // Extra OG
+    setMeta('og:article:published_time', this.post.created);
+    setMeta('og:article:author', this.post.author);
   }
   
   /**
