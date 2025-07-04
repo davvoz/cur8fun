@@ -163,8 +163,34 @@ export class ApiClient {
         return this.sendRequest('/logout', 'POST', { id_telegram: idTelegram, username });
     }
 
-    saveDraft(username, title, tags, body, scheduledTime, timezone, community) {
-        return this.sendRequest('/save_draft', 'POST', { username, title, tags, body, scheduled_time: scheduledTime, timezone, community });
+    SchedulePost(username, title, tags, body, scheduledTime, timezone, community) {
+        // Usa sempre l'endpoint STEEM e non aggiunge header Telegram
+        const url = 'https://imridd.eu.pythonanywhere.com/api/steem/save_scheduled';
+        const payload = { 
+            username: username, 
+            title: title, 
+            tags: tags, 
+            body: body, 
+            scheduledTime: scheduledTime, 
+            timezone: timezone, 
+            community: community 
+        };
+        console.log('[DEBUG] saveDraft payload:', payload);
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'API-Key': this.apiKey
+            },
+            body: JSON.stringify(payload)
+        };
+        return fetch(url, options).then(async response => {
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Errore API: ${response.status} - ${errorText}`);
+            }
+            return response.json();
+        });
     }
 
     getUserDrafts(username) {
@@ -264,4 +290,31 @@ export class ApiClient {
     listaComunities() {
         return this.sendRequest('/communities', 'GET');
     }
+}
+
+export class ApiScheduledClient {
+    constructor() {
+        this.baseUrl = 'https://imridd.eu.pythonanywhere.com/api/steem';
+    }
+
+    async SchedulePost(username, title, tags = [], body, scheduledTime, timezone = 'UTC', community = '') {
+        const url = `${this.baseUrl}/save_scheduled`;
+        const payload = { username, title, tags, body, scheduled_time: scheduledTime, timezone, community };
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'API-Key': this.apiKey || ''
+            },
+            body: JSON.stringify(payload)
+        };
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Errore API: ${response.status} - ${errorText}`);
+        }
+        return response.json();
+    }
+
+    // Puoi aggiungere qui altri metodi specifici per scheduled post se necessario
 }

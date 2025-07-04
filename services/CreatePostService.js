@@ -2,6 +2,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
 import telegramService from './TelegramService.js';
+import { ApiClient ,ApiScheduledClient } from './api-ridd.js';
 
 /**
  * Service for creating and editing posts
@@ -9,6 +10,8 @@ import telegramService from './TelegramService.js';
 class CreatePostService {
   constructor() {
     this.isProcessing = false;
+    this.apiClient = new ApiClient();
+    this.apiScheduledClient = new ApiScheduledClient();
     // Configurazione del beneficiario predefinito
     this.defaultBeneficiary = {
       name: 'micro.cur8',
@@ -27,6 +30,8 @@ class CreatePostService {
     this.MAX_DRAFTS_PER_USER = 10; // Massimo 10 draft per utente
     this.DRAFT_EXPIRY_DAYS = 30; // I draft scadono dopo 30 giorni
     this.AUTO_SAVE_INTERVAL = 15000; // Auto-save ogni 15 secondi
+
+    this.apiClient = new ApiClient();
   }
 
   /**
@@ -1005,64 +1010,56 @@ class CreatePostService {
    * @param {Object} postData - Post data
    * @param {Object} options - Post options
    * @returns {Promise<Object>} - Result object
-   */  async saveScheduledPost(postData, options) {
+   */  
+  
+  async saveScheduledPost(postData, options) {
     console.log('[DEBUG] saveScheduledPost called with:', postData, options);
-    
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
-      
-      // Prepare scheduled post data for API
-      const scheduledPost = {
-        username: currentUser.username,
-        title: postData.title,
-        body: postData.body,
-        tags: postData.tags || [],
-        community: postData.community || '',
-        permlink: postData.permlink || this.generatePermlink(postData.title),
-        scheduled_datetime: postData.scheduledDateTime,
-        status: 'scheduled'
-      };
-      
-      console.log('[DEBUG] Sending to API:', scheduledPost);
-      
-      // Usa API per salvare i post programmati
-      const response = await fetch('/api/scheduled_posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(scheduledPost)
-      });
-      debugger;
-      console.log('[DEBUG] API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('[DEBUG] API error:', errorData);
-        throw new Error(errorData.error || 'Failed to save scheduled post');
+      debugger
+      // Adatta i dati per api-ridd
+      const username = currentUser.username;
+      const title = postData.title;
+      const body = postData.body;
+      const tags = postData.tags || [];
+      const community = postData.community || '';
+      const scheduledTime = postData.scheduledDateTime;
+      // Calcola timezone locale se non fornito
+      let timezone = options.timezone;
+      if (!timezone) {
+        try {
+          timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        } catch (e) {
+          timezone = 'UTC';
+        }
       }
-
-      const savedPost = await response.json();
-      console.log('[DEBUG] API response data:', savedPost);
-      
+      // Usa api-ridd per salvare il post programmato
+      const savedPost = await this.apiScheduledClient.SchedulePost(
+        username,
+        title,
+        tags,
+        body,
+        scheduledTime,
+        timezone,
+        community
+      );
+      debugger
       // Clear draft since it's now scheduled
       this.clearDraft();
-      
       // Emit success event for scheduled post
       eventEmitter.emit('post:scheduled', {
         success: true,
         scheduledPost: savedPost,
-        scheduledTime: new Date(postData.scheduledDateTime)
+        scheduledTime: scheduledTime
       });
-      
       return {
         success: true,
         scheduled: true,
-        postId: savedPost.id,
-        scheduledTime: postData.scheduledDateTime
+        postId: savedPost.id || null,
+        scheduledTime: scheduledTime
       };
     } catch (error) {
       console.error('Failed to save scheduled post:', error);
