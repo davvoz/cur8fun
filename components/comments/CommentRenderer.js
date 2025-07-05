@@ -264,10 +264,21 @@ export default class CommentRenderer {
     if (comment.author && comment.permlink) {
       element.addEventListener('click', (e) => {
         e.preventDefault();
-        const url = comment.parent_author && comment.parent_permlink
-          ? `/@${comment.parent_author}/${comment.parent_permlink}`
-          : `/@${comment.author}/${comment.permlink}`;
-          
+        
+        // Se il commento ha un parent_author, naviga al post padre
+        // altrimenti naviga alla vista commento
+        let url;
+        if (comment.parent_author && comment.parent_permlink) {
+          // Verifica se il parent è un post (nessun parent_author) o un commento
+          if (comment.parent_author && comment.parent_permlink) {
+            // Naviga al post padre
+            url = `/@${comment.parent_author}/${comment.parent_permlink}`;
+          }
+        } else {
+          // Naviga alla vista commento
+          url = `/comment/@${comment.author}/${comment.permlink}`;
+        }
+        
         router.navigate(url);
       });
     }

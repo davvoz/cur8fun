@@ -108,16 +108,22 @@ class DraftsView extends View {
    */
   async loadDrafts(container) {
     try {
-      // Get all drafts for the current user
+      // Get all local drafts for the current user
       const allDrafts = this.getAllUserDrafts();
+      
+      // Get scheduled posts from API ridd
+      const scheduledPosts = await this.getScheduledPosts();
+      
+      // Combine local drafts and scheduled posts
+      const combinedDrafts = [...allDrafts, ...scheduledPosts];
       
       // Hide loading indicator
       this.loadingIndicator.hide();
 
-      if (allDrafts.length === 0) {
+      if (combinedDrafts.length === 0) {
         this.renderEmptyState(container);
       } else {
-        this.renderDrafts(container, allDrafts);
+        this.renderDrafts(container, combinedDrafts);
       }
 
     } catch (error) {
@@ -125,7 +131,47 @@ class DraftsView extends View {
       this.loadingIndicator.hide();
       this.renderErrorState(container, error);
     }
-  }  /**
+  }
+
+  /**
+   * Get scheduled posts from API ridd
+   */
+  async getScheduledPosts() {
+    try {
+      if (!this.currentUser?.username) {
+        return [];
+      }
+
+      // Import ApiClient per recuperare i draft schedulati
+      const { ApiClient } = await import('../services/api-ridd.js');
+      const apiClient = new ApiClient();
+      
+      const scheduledData = await apiClient.getUserDrafts(this.currentUser.username);
+      
+      // Trasforma i dati API in formato compatibile con i draft locali
+      return scheduledData.map(scheduled => ({
+        id: `scheduled_${scheduled.id}`,
+        title: scheduled.title || 'Untitled Scheduled Post',
+        body: scheduled.body || '',
+        tags: Array.isArray(scheduled.tags) ? scheduled.tags : (scheduled.tags ? scheduled.tags.split(',') : []),
+        community: scheduled.community || '',
+        isScheduled: true,
+        scheduledDateTime: scheduled.scheduled_time,
+        timezone: scheduled.timezone || 'UTC',
+        status: scheduled.status || 'scheduled',
+        lastModified: new Date(scheduled.created_at || scheduled.scheduled_time).getTime(),
+        timestamp: scheduled.created_at || scheduled.scheduled_time,
+        username: scheduled.username,
+        apiId: scheduled.id // Mantieni l'ID originale per operazioni API
+      }));
+      
+    } catch (error) {
+      console.error('Error fetching scheduled posts:', error);
+      // Non lanciare errore, ritorna array vuoto per non bloccare i draft locali
+      return [];
+    }
+  }
+  /**
    * Get all drafts for the current user using the improved draft system
    */
   getAllUserDrafts() {

@@ -1,6 +1,7 @@
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
 import LoadingIndicator from '../../components/LoadingIndicator.js';
 import ContentRenderer from '../ContentRenderer.js';
+import router from '../../utils/Router.js';
 
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function (match) {
@@ -222,11 +223,9 @@ export default class CommentUIManager {
       // Don't navigate if clicking on author link
       if (e.target.closest('.comment-author')) return;
 
-      // Get the base URL (everything before the hash) to preserve deployment path
-      const baseUrl = window.location.href.split('#')[0];
-      
-      // Reindirizza alla nuova vista dedicata ai commenti
-      window.location.href = `${baseUrl}/comment/@${comment.author}/${comment.permlink}`;
+      // Usa il router per navigare correttamente alla vista commenti
+      const commentPath = `/comment/@${comment.author}/${comment.permlink}`;
+      router.navigate(commentPath);
     });
 
     return item;
