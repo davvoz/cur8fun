@@ -142,13 +142,10 @@ class DraftsView extends View {
         return [];
       }
 
-      // Import ApiClient per recuperare i draft schedulati
-      const { ApiClient } = await import('../services/api-ridd.js');
-      const apiClient = new ApiClient();
+      // Use createPostService to get scheduled posts
+      const scheduledData = await createPostService.getScheduledPosts(this.currentUser.username);
       
-      const scheduledData = await apiClient.getUserDrafts(this.currentUser.username);
-      
-      // Trasforma i dati API in formato compatibile con i draft locali
+      // Transform API data to be compatible with local drafts format
       return scheduledData.map(scheduled => ({
         id: `scheduled_${scheduled.id}`,
         title: scheduled.title || 'Untitled Scheduled Post',
@@ -162,12 +159,12 @@ class DraftsView extends View {
         lastModified: new Date(scheduled.created_at || scheduled.scheduled_time).getTime(),
         timestamp: scheduled.created_at || scheduled.scheduled_time,
         username: scheduled.username,
-        apiId: scheduled.id // Mantieni l'ID originale per operazioni API
+        apiId: scheduled.id // Keep original ID for API operations
       }));
       
     } catch (error) {
       console.error('Error fetching scheduled posts:', error);
-      // Non lanciare errore, ritorna array vuoto per non bloccare i draft locali
+      // Don't throw error, return empty array to not block local drafts
       return [];
     }
   }
@@ -217,21 +214,26 @@ class DraftsView extends View {
   renderDrafts(container, drafts) {
     container.innerHTML = '';
 
+    // Separate drafts by type
+    const localDrafts = drafts.filter(d => !d.isScheduled);
+    const scheduledPosts = drafts.filter(d => d.isScheduled);
+    const currentDrafts = drafts.filter(d => d.isCurrent);
+
     // Add stats header
     const statsHeader = document.createElement('div');
     statsHeader.className = 'drafts-stats';
     statsHeader.innerHTML = `
       <div class="stat-item">
-        <span class="stat-number">${drafts.length}</span>
-        <span class="stat-label">Draft${drafts.length !== 1 ? 's' : ''}</span>
+        <span class="stat-number">${localDrafts.length}</span>
+        <span class="stat-label">Local Draft${localDrafts.length !== 1 ? 's' : ''}</span>
       </div>
       <div class="stat-item">
-        <span class="stat-number">${drafts.filter(d => d.isCurrent).length}</span>
+        <span class="stat-number">${scheduledPosts.length}</span>
+        <span class="stat-label">Scheduled Post${scheduledPosts.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">${currentDrafts.length}</span>
         <span class="stat-label">Current</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">${drafts.filter(d => !d.isCurrent).length}</span>
-        <span class="stat-label">Saved</span>
       </div>
     `;
     container.appendChild(statsHeader);
@@ -262,7 +264,14 @@ class DraftsView extends View {
     const draftsGrid = document.createElement('div');
     draftsGrid.className = 'drafts-grid';
     
-    drafts.forEach(draft => {
+    // Sort drafts: current first, then by last modified (newest first)
+    const sortedDrafts = drafts.sort((a, b) => {
+      if (a.isCurrent && !b.isCurrent) return -1;
+      if (!a.isCurrent && b.isCurrent) return 1;
+      return b.lastModified - a.lastModified;
+    });
+    
+    sortedDrafts.forEach(draft => {
       const draftCard = this.createDraftCard(draft);
       draftsGrid.appendChild(draftCard);
     });
@@ -273,7 +282,7 @@ class DraftsView extends View {
    */
   createDraftCard(draft) {
     const card = document.createElement('div');
-    card.className = `draft-card ${draft.isCurrent ? 'current-draft' : ''}`;
+    card.className = `draft-card ${draft.isCurrent ? 'current-draft' : ''} ${draft.isScheduled ? 'scheduled-draft' : ''}`;
     
     // Add click handler to edit draft
     card.addEventListener('click', (e) => {
@@ -287,14 +296,27 @@ class DraftsView extends View {
     const wordCount = this.getWordCount(draft.body || '');
     const age = this.getDraftAge(draft.lastModified);
 
+    // Format scheduled time if applicable
+    const scheduledTimeText = draft.isScheduled && draft.scheduledDateTime 
+      ? new Date(draft.scheduledDateTime).toLocaleString()
+      : '';
+
     card.innerHTML = `
       <div class="draft-header">
         ${draft.isCurrent ? '<div class="current-draft-badge">Current Draft</div>' : ''}
+        ${draft.isScheduled ? '<div class="scheduled-draft-badge">Scheduled</div>' : ''}
         <h3 class="draft-title" title="${this.escapeHtml(draft.title || 'Untitled Draft')}">
           ${this.escapeHtml(draft.title || 'Untitled Draft')}
         </h3>
         <div class="draft-meta">
-          <span class="draft-age">${age}</span>
+          ${draft.isScheduled ? `
+            <span class="scheduled-time">
+              <span class="material-icons">schedule</span>
+              ${scheduledTimeText}
+            </span>
+          ` : `
+            <span class="draft-age">${age}</span>
+          `}
           <span class="draft-words">${wordCount} words</span>
         </div>
       </div>
@@ -322,25 +344,39 @@ class DraftsView extends View {
               ${this.escapeHtml(draft.community)}
             </span>
           ` : ''}
+          ${draft.status ? `
+            <span class="draft-status status-${draft.status}">
+              ${this.capitalizeFirst(draft.status)}
+            </span>
+          ` : ''}
         </div>
         
         <div class="draft-actions">
-          <button class="draft-action-btn edit-btn" title="Edit draft">
-            <span class="material-icons">edit</span>
-          </button>
-          ${!draft.isCurrent ? `
-            <button class="draft-action-btn duplicate-btn" title="Duplicate draft">
-              <span class="material-icons">content_copy</span>
+          ${draft.isScheduled ? `
+            <button class="draft-action-btn edit-scheduled-btn" title="Edit scheduled post">
+              <span class="material-icons">edit_calendar</span>
             </button>
-            <button class="draft-action-btn load-current-btn" title="Load as current draft">
-              <span class="material-icons">open_in_new</span>
+            <button class="draft-action-btn cancel-schedule-btn" title="Cancel schedule">
+              <span class="material-icons">cancel_schedule_send</span>
             </button>
           ` : `
-            <button class="draft-action-btn save-as-btn" title="Save as new draft">
-              <span class="material-icons">save_as</span>
+            <button class="draft-action-btn edit-btn" title="Edit draft">
+              <span class="material-icons">edit</span>
             </button>
+            ${!draft.isCurrent ? `
+              <button class="draft-action-btn duplicate-btn" title="Duplicate draft">
+                <span class="material-icons">content_copy</span>
+              </button>
+              <button class="draft-action-btn load-current-btn" title="Load as current draft">
+                <span class="material-icons">open_in_new</span>
+              </button>
+            ` : `
+              <button class="draft-action-btn save-as-btn" title="Save as new draft">
+                <span class="material-icons">save_as</span>
+              </button>
+            `}
           `}
-          <button class="draft-action-btn delete-btn" title="Delete draft">
+          <button class="draft-action-btn delete-btn" title="Delete ${draft.isScheduled ? 'scheduled post' : 'draft'}">
             <span class="material-icons">delete</span>
           </button>
         </div>
@@ -349,19 +385,41 @@ class DraftsView extends View {
 
     // Add event listeners for action buttons
     const editBtn = card.querySelector('.edit-btn');
+    const editScheduledBtn = card.querySelector('.edit-scheduled-btn');
+    const cancelScheduleBtn = card.querySelector('.cancel-schedule-btn');
     const deleteBtn = card.querySelector('.delete-btn');
     const duplicateBtn = card.querySelector('.duplicate-btn');
     const loadCurrentBtn = card.querySelector('.load-current-btn');
     const saveAsBtn = card.querySelector('.save-as-btn');
 
-    editBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.editDraft(draft);
-    });
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.editDraft(draft);
+      });
+    }
+
+    if (editScheduledBtn) {
+      editScheduledBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.editScheduledPost(draft);
+      });
+    }
+
+    if (cancelScheduleBtn) {
+      cancelScheduleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.cancelScheduledPost(draft);
+      });
+    }
 
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.deleteDraft(draft);
+      if (draft.isScheduled) {
+        this.deleteScheduledPost(draft);
+      } else {
+        this.deleteDraft(draft);
+      }
     });
 
     if (duplicateBtn) {
@@ -386,6 +444,13 @@ class DraftsView extends View {
     }
 
     return card;
+  }
+
+  /**
+   * Capitalize first letter of a string
+   */
+  capitalizeFirst(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
   /**
@@ -435,6 +500,206 @@ class DraftsView extends View {
     }
   }
   /**
+   * Edit a scheduled post
+   */
+  editScheduledPost(draft) {
+    if (!draft.isScheduled || !draft.apiId) {
+      this.showToast('Invalid scheduled post', 'error');
+      return;
+    }
+
+    // For scheduled posts, we need to load the data and navigate to create view
+    try {
+      // Load the scheduled post data as current draft
+      const draftData = {
+        title: draft.title,
+        body: draft.body,
+        tags: draft.tags,
+        community: draft.community,
+        isScheduled: true,
+        scheduledDateTime: draft.scheduledDateTime,
+        timezone: draft.timezone,
+        scheduledPostId: draft.apiId
+      };
+
+      const success = createPostService.saveDraft(draftData);
+      if (success) {
+        // Navigate to create view with scheduled post editing mode
+        router.navigate('/create?mode=edit-scheduled');
+      } else {
+        this.showToast('Failed to load scheduled post for editing', 'error');
+      }
+    } catch (error) {
+      console.error('Error editing scheduled post:', error);
+      this.showToast('Failed to edit scheduled post', 'error');
+    }
+  }
+
+  /**
+   * Cancel a scheduled post
+   */
+  async cancelScheduledPost(draft) {
+    if (!draft.isScheduled || !draft.apiId) {
+      this.showToast('Invalid scheduled post', 'error');
+      return;
+    }
+
+    try {
+      // Show confirmation dialog
+      const confirmed = await this.showCancelScheduleDialog(draft);
+      if (!confirmed) return;
+
+      // Show loading state
+      this.showToast('Canceling scheduled post...', 'loading');
+
+      // Delete the scheduled post via API
+      const success = await createPostService.deleteScheduledPost(draft.apiId, draft.username);
+      
+      if (success) {
+        this.showToast('Scheduled post canceled successfully', 'success');
+        // Reload the view
+        this.render(this.container);
+      } else {
+        this.showToast('Failed to cancel scheduled post', 'error');
+      }
+    } catch (error) {
+      console.error('Error canceling scheduled post:', error);
+      this.showToast('Failed to cancel scheduled post', 'error');
+    }
+  }
+
+  /**
+   * Delete a scheduled post
+   */
+  async deleteScheduledPost(draft) {
+    if (!draft.isScheduled || !draft.apiId) {
+      this.showToast('Invalid scheduled post', 'error');
+      return;
+    }
+
+    try {
+      // Show confirmation dialog
+      const confirmed = await this.showDeleteScheduledPostDialog(draft);
+      if (!confirmed) return;
+
+      // Show loading state
+      this.showToast('Deleting scheduled post...', 'loading');
+
+      // Delete the scheduled post via API
+      const success = await createPostService.deleteScheduledPost(draft.apiId, draft.username);
+      
+      if (success) {
+        this.showToast('Scheduled post deleted successfully', 'success');
+        // Reload the view
+        this.render(this.container);
+      } else {
+        this.showToast('Failed to delete scheduled post', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting scheduled post:', error);
+      this.showToast('Failed to delete scheduled post', 'error');
+    }
+  }
+
+  /**
+   * Show cancel schedule confirmation dialog
+   */
+  async showCancelScheduleDialog(draft) {
+    const scheduledTime = new Date(draft.scheduledDateTime).toLocaleString();
+    
+    const previewData = `
+      <div class="scheduled-post-preview">
+        <h4>${this.escapeHtml(draft.title || 'Untitled Scheduled Post')}</h4>
+        <div class="scheduled-meta-info">
+          <span class="meta-item">
+            <span class="material-icons">schedule</span>
+            Scheduled for: ${scheduledTime}
+          </span>
+          <span class="meta-item">
+            <span class="material-icons">subject</span>
+            ${this.getWordCount(draft.body)} words
+          </span>
+          ${draft.community ? `
+            <span class="meta-item">
+              <span class="material-icons">groups</span>
+              ${this.escapeHtml(draft.community)}
+            </span>
+          ` : ''}
+        </div>
+        ${draft.tags && draft.tags.length > 0 ? `
+          <div class="scheduled-tags-preview">
+            ${draft.tags.slice(0, 3).map(tag => 
+              `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
+            ).join('')}
+            ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    return await DialogUtility.showConfirmationDialog({
+      title: 'Cancel Scheduled Post',
+      message: 'Are you sure you want to cancel this scheduled post?',
+      confirmText: 'Cancel Schedule',
+      cancelText: 'Keep Schedule',
+      icon: 'cancel_schedule_send',
+      type: 'warning',
+      showPreview: true,
+      previewData: previewData,
+      details: 'This action will remove the post from the publishing queue. You can still edit and reschedule it later.'
+    });
+  }
+
+  /**
+   * Show delete scheduled post confirmation dialog
+   */
+  async showDeleteScheduledPostDialog(draft) {
+    const scheduledTime = new Date(draft.scheduledDateTime).toLocaleString();
+    
+    const previewData = `
+      <div class="scheduled-post-preview">
+        <h4>${this.escapeHtml(draft.title || 'Untitled Scheduled Post')}</h4>
+        <div class="scheduled-meta-info">
+          <span class="meta-item">
+            <span class="material-icons">schedule</span>
+            Scheduled for: ${scheduledTime}
+          </span>
+          <span class="meta-item">
+            <span class="material-icons">subject</span>
+            ${this.getWordCount(draft.body)} words
+          </span>
+          ${draft.community ? `
+            <span class="meta-item">
+              <span class="material-icons">groups</span>
+              ${this.escapeHtml(draft.community)}
+            </span>
+          ` : ''}
+        </div>
+        ${draft.tags && draft.tags.length > 0 ? `
+          <div class="scheduled-tags-preview">
+            ${draft.tags.slice(0, 3).map(tag => 
+              `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
+            ).join('')}
+            ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    return await DialogUtility.showConfirmationDialog({
+      title: 'Delete Scheduled Post',
+      message: 'Are you sure you want to permanently delete this scheduled post?',
+      confirmText: 'Delete Post',
+      cancelText: 'Cancel',
+      icon: 'delete_forever',
+      type: 'danger',
+      showPreview: true,
+      previewData: previewData,
+      details: 'This action cannot be undone. The scheduled post will be permanently removed from the queue.'
+    });
+  }
+
+  /**
    * Delete a draft with confirmation using standard dialog pattern
    */
   async deleteDraft(draft) {
@@ -462,6 +727,7 @@ class DraftsView extends View {
       this.showToast('Failed to delete draft', 'error');
     }
   }
+
   /**
    * Show delete draft confirmation dialog using standardized DialogUtility
    * @param {Object} draft - Draft to delete

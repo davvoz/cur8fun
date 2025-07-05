@@ -1019,15 +1019,16 @@ class CreatePostService {
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
-      debugger
-      // Adatta i dati per api-ridd
+      
+      // Adapt data for api-ridd
       const username = currentUser.username;
       const title = postData.title;
       const body = postData.body;
       const tags = postData.tags || [];
       const community = postData.community || '';
       const scheduledTime = postData.scheduledDateTime;
-      // Calcola timezone locale se non fornito
+      
+      // Calculate local timezone if not provided
       let timezone = options.timezone;
       if (!timezone) {
         try {
@@ -1036,7 +1037,8 @@ class CreatePostService {
           timezone = 'UTC';
         }
       }
-      // Usa api-ridd per salvare il post programmato
+      
+      // Use api-ridd to save the scheduled post
       const savedPost = await this.apiScheduledClient.SchedulePost(
         username,
         title,
@@ -1046,15 +1048,17 @@ class CreatePostService {
         timezone,
         community
       );
-      debugger
+      
       // Clear draft since it's now scheduled
       this.clearDraft();
+      
       // Emit success event for scheduled post
       eventEmitter.emit('post:scheduled', {
         success: true,
         scheduledPost: savedPost,
         scheduledTime: scheduledTime
       });
+      
       return {
         success: true,
         scheduled: true,
@@ -1075,21 +1079,16 @@ class CreatePostService {
    */
   async updateScheduledPost(postId, updatedData) {
     try {
-      // Usa l'API del backend per aggiornare il post programmato
-      const response = await fetch(`/api/scheduled_posts/${postId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update scheduled post');
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No user authenticated');
       }
       
-      const updatedPost = await response.json();
+      const updatedPost = await this.apiScheduledClient.UpdateScheduledPost(
+        postId, 
+        currentUser.username, 
+        updatedData
+      );
       
       // Emit success event for scheduled post update
       eventEmitter.emit('post:schedule-updated', {
@@ -1111,17 +1110,104 @@ class CreatePostService {
    */
   async getScheduledPostById(postId) {
     try {
-      // Usa l'API del backend per ottenere il post programmato
-      const response = await fetch(`/api/scheduled_posts/${postId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get scheduled post');
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No user authenticated');
       }
       
-      return await response.json();
+      // Get all scheduled posts and find the specific one
+      const scheduledPosts = await this.getScheduledPosts(currentUser.username);
+      const post = scheduledPosts.find(p => p.id === postId);
+      
+      if (!post) {
+        throw new Error('Scheduled post not found');
+      }
+      
+      return post;
     } catch (error) {
       console.error('Failed to get scheduled post:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets all scheduled posts for a user using ApiScheduledClient
+   * @param {string} username - Username to get scheduled posts for
+   * @returns {Promise<Array>} - Array of scheduled posts
+   */
+  async getScheduledPosts(username) {
+    try {
+      if (!username) {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) {
+          throw new Error('No user authenticated');
+        }
+        username = currentUser.username;
+      }
+      
+      // Use ApiScheduledClient for scheduled posts
+      const scheduledPosts = await this.apiScheduledClient.Get_ScheduledPosts(username);
+      
+      return scheduledPosts || [];
+    } catch (error) {
+      console.error('Failed to get scheduled posts:', error);
+      // Return empty array instead of throwing to prevent blocking local drafts
+      return [];
+    }
+  }
+
+  /**
+   * Delete a scheduled post by ID
+   * @param {number} postId - ID of the scheduled post to delete
+   * @param {string} username - Username of the post owner
+   * @returns {Promise<boolean>} - true if deleted successfully
+   */
+  async deleteScheduledPost(postId, username) {
+    try {
+      if (!username) {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) {
+          throw new Error('No user authenticated');
+        }
+        username = currentUser.username;
+      }
+      
+      await this.apiScheduledClient.DeleteScheduledPost(postId, username);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete scheduled post:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a scheduled post
+   * @param {number} postId - ID of the scheduled post to update
+   * @param {string} username - Username of the post owner
+   * @param {Object} updatedData - Updated post data
+   * @returns {Promise<Object>} - Updated post data
+   */
+  async updateScheduledPost(postId, username, updatedData) {
+    try {
+      if (!username) {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) {
+          throw new Error('No user authenticated');
+        }
+        username = currentUser.username;
+      }
+      
+      const updatedPost = await this.apiScheduledClient.UpdateScheduledPost(postId, username, updatedData);
+      
+      // Emit success event for scheduled post update
+      eventEmitter.emit('post:schedule-updated', {
+        success: true,
+        scheduledPost: updatedPost
+      });
+      
+      return updatedPost;
+    } catch (error) {
+      console.error('Failed to update scheduled post:', error);
       throw error;
     }
   }

@@ -294,27 +294,101 @@ export class ApiClient {
 
 export class ApiScheduledClient {
     constructor() {
+        this.apiKey = 'your_secret_api_key';
         this.baseUrl = 'https://imridd.eu.pythonanywhere.com/api/steem';
+    }
+
+    Get_ScheduledPosts(username) {
+        const url = `${this.baseUrl}/get_user_scheduled?username=${username}`;
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'API-Key': this.apiKey
+            }
+        }).then(async response => {
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API Error: ${response.status} - ${errorText}`);
+            }
+            return response.json();
+        });
     }
 
     async SchedulePost(username, title, tags = [], body, scheduledTime, timezone = 'UTC', community = '') {
         const url = `${this.baseUrl}/save_scheduled`;
-        const payload = { username, title, tags, body, scheduled_time: scheduledTime, timezone, community };
+        const payload = { 
+            username, 
+            title, 
+            tags, 
+            body, 
+            scheduled_time: scheduledTime, 
+            timezone, 
+            community 
+        };
+        
+        console.log('[DEBUG] ApiScheduledClient.SchedulePost payload:', payload);
+        
         const options = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'API-Key': this.apiKey || ''
+                'API-Key': this.apiKey
             },
             body: JSON.stringify(payload)
         };
+        
         const response = await fetch(url, options);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Errore API: ${response.status} - ${errorText}`);
+            throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
         return response.json();
     }
 
-    // Puoi aggiungere qui altri metodi specifici per scheduled post se necessario
+    async DeleteScheduledPost(postId, username) {
+        const url = `${this.baseUrl}/delete_scheduled`;
+        const payload = { id: postId, username };
+        
+        const options = {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'API-Key': this.apiKey
+            },
+            body: JSON.stringify(payload)
+        };
+        
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error: ${response.status} - ${errorText}`);
+        }
+        return response.json();
+    }
+
+    async UpdateScheduledPost(postId, username, updatedData) {
+        const url = `${this.baseUrl}/update_scheduled`;
+        const payload = { 
+            id: postId, 
+            username, 
+            ...updatedData 
+        };
+        
+        const options = {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'API-Key': this.apiKey
+            },
+            body: JSON.stringify(payload)
+        };
+        
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error: ${response.status} - ${errorText}`);
+        }
+        return response.json();
+    }
 }
