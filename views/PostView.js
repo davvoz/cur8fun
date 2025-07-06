@@ -5,6 +5,7 @@ import ContentRenderer from '../components/ContentRenderer.js';
 import steemService from '../services/SteemService.js'; 
 import communityService from '../services/CommunityService.js';
 import authService from '../services/AuthService.js';
+import metaTagService from '../services/MetaTagService.js';
 
 // Import components
 import PostHeader from '../components/post/PostHeader.js';
@@ -157,8 +158,8 @@ class PostView extends View {  constructor(params = {}) {
 
       this.loadingIndicator.updateProgress(100);
 
-      // Add Open Graph meta tags for better sharing preview
-      this.updateOpenGraphMetaTags();
+      // Add Open Graph meta tags for better sharing preview using MetaTagService
+      metaTagService.updatePostMetaTags(this.post);
       this.initComponents();
       await this.renderComponents(); // Make this call await
       await this.voteController.checkVoteStatus(this.post);

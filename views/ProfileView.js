@@ -3,6 +3,7 @@ import profileService from '../services/ProfileService.js';
 import authService from '../services/AuthService.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
 import router from '../utils/Router.js';
+import metaTagService from '../services/MetaTagService.js';
 import ProfileHeader from '../components/profile/ProfileHeader.js';
 import PostsList from '../components/profile/PostsList.js';
 import CommentsList from '../components/profile/CommentsList.js';
@@ -133,6 +134,9 @@ class ProfileView extends View {
     if (!this.profile) {
       throw new Error(`Profile not found for @${this.username}`);
     }
+
+    // Update meta tags for better social sharing
+    metaTagService.updateProfileMetaTags(this.profile);
 
     // Fetch follower and following counts
     const followerCount = await profileService.getFollowerCount(this.username);

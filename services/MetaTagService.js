@@ -198,18 +198,37 @@ class MetaTagService {
         return this.optimizeImageUrl(metadata.image[0]);
       }
 
-      // 2. Estrai da markdown nel body
+      // 2. Controlla metadata.thumbnail
+      if (metadata?.thumbnail) {
+        return this.optimizeImageUrl(metadata.thumbnail);
+      }
+
+      // 3. Estrai da markdown nel body
       const markdownImageRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+)\)/;
       const markdownMatch = post.body?.match(markdownImageRegex);
       if (markdownMatch) {
         return this.optimizeImageUrl(markdownMatch[1]);
       }
 
-      // 3. Estrai URL di immagini dirette
-      const directImageRegex = /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp))/i;
+      // 4. Estrai da HTML img tags
+      const htmlImageRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/i;
+      const htmlMatch = post.body?.match(htmlImageRegex);
+      if (htmlMatch) {
+        return this.optimizeImageUrl(htmlMatch[1]);
+      }
+
+      // 5. Estrai URL di immagini dirette con parametri
+      const directImageRegex = /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?)/i;
       const directMatch = post.body?.match(directImageRegex);
       if (directMatch) {
         return this.optimizeImageUrl(directMatch[1]);
+      }
+
+      // 6. Estrai da servizi di immagini specifici (Steemit, Hive, ecc.)
+      const steemImageRegex = /https?:\/\/(?:steemitimages\.com|images\.hive\.blog|gateway\.pinata\.cloud|ipfs\.io)\/[^\s<>"']+/i;
+      const steemMatch = post.body?.match(steemImageRegex);
+      if (steemMatch) {
+        return this.optimizeImageUrl(steemMatch[0]);
       }
 
       return null;
@@ -226,7 +245,18 @@ class MetaTagService {
    */
   optimizeImageUrl(url) {
     if (!url || url.includes('steemitimages.com')) return url;
-    return `https://steemitimages.com/1200x630/${url}`;
+    
+    // Pulisci l'URL rimuovendo parametri non necessari
+    const cleanUrl = url.split('?')[0];
+    
+    // Verifica se l'URL è valido
+    try {
+      new URL(cleanUrl);
+      return `https://steemitimages.com/1200x630/${encodeURIComponent(cleanUrl)}`;
+    } catch (e) {
+      console.warn('Invalid image URL:', url);
+      return this.defaultMeta.image;
+    }
   }
 
   /**
@@ -357,6 +387,59 @@ class MetaTagService {
   }
 
   /**
+   * Debug function per testare l'estrazione delle immagini
+   * @param {Object} post - Dati del post
+   * @returns {Object} Dettagli dell'estrazione
+   */
+  debugImageExtraction(post) {
+    console.log('🔍 Debug Image Extraction for post:', post.title);
+    
+    const metadata = this.parseMetadata(post.json_metadata);
+    console.log('📋 Metadata:', metadata);
+    
+    const extractionResults = {
+      metadataImage: metadata?.image?.[0] || null,
+      metadataThumbnail: metadata?.thumbnail || null,
+      markdownImages: [],
+      htmlImages: [],
+      directImages: [],
+      steemImages: []
+    };
+    
+    // Test markdown images
+    const markdownRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+)\)/g;
+    let match;
+    while ((match = markdownRegex.exec(post.body)) !== null) {
+      extractionResults.markdownImages.push(match[1]);
+    }
+    
+    // Test HTML images
+    const htmlRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    while ((match = htmlRegex.exec(post.body)) !== null) {
+      extractionResults.htmlImages.push(match[1]);
+    }
+    
+    // Test direct images
+    const directRegex = /(https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s<>"']*)?)/gi;
+    while ((match = directRegex.exec(post.body)) !== null) {
+      extractionResults.directImages.push(match[1]);
+    }
+    
+    // Test Steem images
+    const steemRegex = /https?:\/\/(?:steemitimages\.com|images\.hive\.blog|gateway\.pinata\.cloud|ipfs\.io)\/[^\s<>"']+/gi;
+    while ((match = steemRegex.exec(post.body)) !== null) {
+      extractionResults.steemImages.push(match[1]);
+    }
+    
+    console.log('🖼️ Extraction Results:', extractionResults);
+    
+    const finalImage = this.extractBestImage(post);
+    console.log('✅ Final Selected Image:', finalImage);
+    
+    return extractionResults;
+  }
+
+  /**
    * Genera anteprima URL per test
    * @param {string} url - URL da testare
    * @returns {Object} Link per test anteprime
@@ -371,6 +454,17 @@ class MetaTagService {
       telegram: `https://t.me/share/url?url=${encodedUrl}`
     };
   }
+}
+
+// Debug helpers - aggiungi alla console globale per testing
+if (typeof window !== 'undefined') {
+  window.debugMetaTags = function(post) {
+    return metaTagService.debugImageExtraction(post);
+  };
+  
+  window.testPreview = function(url) {
+    return metaTagService.getPreviewTestUrls(url);
+  };
 }
 
 export default new MetaTagService();

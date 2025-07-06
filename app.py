@@ -1,13 +1,16 @@
-from flask import Flask, send_from_directory, send_file, request, jsonify
+from flask import Flask, send_from_directory, send_file, request, jsonify, render_template_string
 from flask_cors import CORS
 from datetime import datetime
 import os
 import sys
+import re
+
 
 # Aggiungi la directory app alla path per poter importare il modulo models
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 from python.models import db, ScheduledPost
 from python.publisher import publisher
+from python.meta_generator import meta_generator
 
 app = Flask(__name__)
 CORS(app)  # Abilita CORS per tutte le routes
@@ -85,6 +88,81 @@ def controllers(filename):
         return send_file(f'controllers/{filename}', mimetype='application/javascript')
     return send_from_directory('controllers', filename)
 
+
+
+def get_base_url(request):
+    """Ottieni l'URL base corretto per l'ambiente"""
+    # Usa l'URL della request
+    return request.host_url.rstrip('/')
+
+# Helper function per determinare il tipo di contenuto
+def get_content_type_from_path(path):
+    """Determina il tipo di contenuto dalla path"""
+    if not path:
+        return 'home', {}
+    
+    # Post: /@author/permlink
+    post_pattern = r'^@([^/]+)/(.+)$'
+    post_match = re.match(post_pattern, path)
+    if post_match:
+        return 'post', {'author': post_match.group(1), 'permlink': post_match.group(2)}
+    
+    # Profilo: /@username
+    profile_pattern = r'^@([^/]+)/?$'
+    profile_match = re.match(profile_pattern, path)
+    if profile_match:
+        return 'profile', {'username': profile_match.group(1)}
+    
+    # Community: /community/name
+    community_pattern = r'^community/([^/]+)/?$'
+    community_match = re.match(community_pattern, path)
+    if community_match:
+        return 'community', {'name': community_match.group(1)}
+    
+    # Tag: /tag/tagname
+    tag_pattern = r'^tag/([^/]+)/?$'
+    tag_match = re.match(tag_pattern, path)
+    if tag_match:
+        return 'tag', {'tag': tag_match.group(1)}
+    
+    return 'default', {}
+
+def render_index_with_meta(meta_tags_html):
+    """Renderizza index.html con meta tag dinamici"""
+    try:
+        with open('index.html', 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Sostituisci i meta tag esistenti con quelli dinamici
+        # Trova la posizione dei meta tag statici e sostituiscili
+        meta_start = content.find('<!-- Social Media Sharing Preview Metadata -->')
+        meta_end = content.find('<!-- Server-side rendered meta elements will be generated here -->')
+        
+        if meta_start != -1 and meta_end != -1:
+            # Mantieni il commento iniziale e aggiungi i nuovi meta tag
+            new_content = (
+                content[:meta_start] +
+                '<!-- Social Media Sharing Preview Metadata -->\n    ' +
+                meta_tags_html + '\n    ' +
+                content[meta_end:]
+            )
+            return new_content
+        else:
+            # Fallback: aggiungi i meta tag prima della chiusura del head
+            head_end = content.find('</head>')
+            if head_end != -1:
+                new_content = (
+                    content[:head_end] +
+                    '    ' + meta_tags_html + '\n' +
+                    content[head_end:]
+                )
+                return new_content
+        
+        return content
+    except Exception as e:
+        print(f"Error rendering index with meta: {e}")
+        return send_file('index.html')
+
 # Serve main app for all other routes (SPA fallback)
 @app.route('/')
 @app.route('/<path:path>')
@@ -101,14 +179,43 @@ def serve_spa(path=''):
     ]
     # Estensioni di file statici da NON servire come SPA
     static_exts = ('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.json', '.svg', '.map', '.woff', '.woff2', '.ttf', '.eot')
+    
     # Se è una vera risorsa statica, restituisci 404
     if any(path.lower().endswith(ext) for ext in static_exts):
         return "File not found", 404
-    # Se è una route SPA conosciuta o corrisponde a un pattern, servi index.html
-    if path in spa_routes or any(path.startswith(pattern) for pattern in spa_patterns):
+    
+    # Determina il tipo di contenuto per generare meta tag appropriati
+    content_type, params = get_content_type_from_path(path)
+    
+    try:
+        # Genera meta tag dinamici basati sul tipo di contenuto
+        if content_type == 'post' and params.get('author') and params.get('permlink'):
+            meta_data = meta_generator.generate_post_meta(
+                params['author'], 
+                params['permlink'],
+                get_base_url(request)
+            )
+        elif content_type == 'profile' and params.get('username'):
+            meta_data = meta_generator.generate_profile_meta(
+                params['username'],
+                get_base_url(request)
+            )
+        else:
+            # Default meta per home page, tag, community, ecc.
+            base_url = get_base_url(request)
+            current_url = f"{base_url}/{path}" if path else base_url
+            meta_data = meta_generator.generate_default_meta(current_url)
+        
+        # Genera HTML dei meta tag
+        meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
+        
+        # Renderizza index.html con i meta tag dinamici
+        return render_index_with_meta(meta_tags_html)
+    
+    except Exception as e:
+        print(f"Error generating meta tags for {path}: {e}")
+        # Fallback al file statico in caso di errore
         return send_file('index.html')
-    # Se non è una route conosciuta, servi comunque index.html (il router gestirà il 404)
-    return send_file('index.html')
 
 # API per i post schedulati
 @app.route('/api/scheduled_posts', methods=['GET'])

@@ -5,6 +5,7 @@ import BasePostView from './BasePostView.js';
 import authService from '../services/AuthService.js';
 import steemService from '../services/SteemService.js';
 import communityService from '../services/CommunityService.js';
+import metaTagService from '../services/MetaTagService.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
@@ -110,6 +111,9 @@ class CommunityView extends BasePostView {
       }
       
       this.community = result;
+      
+      // Update meta tags for better social sharing
+      metaTagService.updateCommunityMetaTags(this.community);
       
       // Check if user is subscribed - only if logged in
       if (this.currentUser) {

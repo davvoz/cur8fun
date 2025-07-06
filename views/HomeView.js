@@ -3,6 +3,7 @@ import BasePostView from './BasePostView.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import metaTagService from '../services/MetaTagService.js';
 
 class HomeView extends BasePostView {  constructor(params) {
     super(params);
@@ -137,6 +138,9 @@ class HomeView extends BasePostView {  constructor(params) {
   }
 
   render(container) {
+    // Reset to default meta tags for home page
+    metaTagService.resetToDefault();
+    
     // Get view title based on tag
     let viewTitle = `${this.formatTagName(this.tag)} Posts`;
     
