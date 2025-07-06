@@ -462,15 +462,15 @@ export default class CommentView extends View {
 
     if (navigator.share) {
       navigator.share({
-        title: 'Commento di ' + this.comment.author,
-        text: `Leggi questo commento di @${this.comment.author}`,
+        title: 'Post by ' + this.comment.author,
+        text: `Read this post by @${this.comment.author}`,
         url: url
       }).catch(err => console.error('Error sharing:', err));
     } else {
       navigator.clipboard.writeText(url).then(() => {
         this.emit('notification', {
           type: 'success',
-          message: 'Link copiato negli appunti'
+          message: 'Link copied to clipboard'
         });
       }).catch(err => console.error('Could not copy link:', err));
     }
