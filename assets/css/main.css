@@ -48,6 +48,8 @@
 @import 'pages/settings.css'; /* Added import for settings page */
 @import 'pages/wallet/wallet.css'; 
 @import 'pages/communities-list.css';
+@import 'pages/cur8-stats.css'; /* Added import for CUR8 statistics page */
+@import 'pages/cur8-bot-stats.css'; /* Added import for CUR8 bot statistics page */
 @import 'pages/followers-modal.css';
 @import 'pages/following-modal.css';
 @import 'pages/nested-comments.css'; /* Added import for nested comments styling */

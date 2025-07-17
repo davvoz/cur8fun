@@ -15,6 +15,22 @@ export const mainNavItems = [
     showInBottom: true,
     showInSide: true
   },  {
+    id: 'cur8-stats',
+    label: 'CUR8 Stats',
+    icon: 'analytics',
+    path: '/cur8-stats',
+    showInSide: true,
+    showInBottom: false
+  },
+  {
+    id: 'cur8-bot-stats',
+    label: 'CUR8 Bot',
+    icon: 'smart_toy',
+    path: '/cur8-bot-stats',
+    showInSide: true,
+    showInBottom: false
+  },
+  {
     id: 'new',
     label: 'New',
     icon: 'new_releases',

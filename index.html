@@ -70,6 +70,14 @@
                     <span class="material-icons icon">groups</span>
                     <span class="label">Communities</span>
                 </a>
+                <a href="/cur8-stats" class="menu-item">
+                    <span class="material-icons icon">analytics</span>
+                    <span class="label">CUR8 Stats</span>
+                </a>
+                <a href="/cur8-bot-stats" class="menu-item">
+                    <span class="material-icons icon">smart_toy</span>
+                    <span class="label">CUR8 Bot</span>
+                </a>
                 <a href="/wallet" class="menu-item">
                     <span class="material-icons icon">account_balance_wallet</span>
                     <span class="label">Wallet</span>
@@ -112,9 +120,35 @@
         </nav>
     </div>
 
+
     <!-- Add Markdown parser and HTML sanitizer -->
     <script src="https://cdn.jsdelivr.net/npm/marked@5.1.2/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+    <!-- First-time user check: redirect to /start if no *_posting_key or user data -->
+    <script>
+        function hasPostingKeys() {
+            const keys = Object.keys(localStorage);
+            return keys.some(key => key.endsWith('_posting_key'));
+        }
+        function hasUserData() {
+            const indicators = [
+                'steem_user_data',
+                'steemconnect_user',
+                'user_preferences',
+                'logged_in_user',
+                'current_user'
+            ];
+            return indicators.some(key => localStorage.getItem(key));
+        }
+        function checkFirstTimeUser() {
+            if (window.location.pathname === '/start') return;
+            if (!hasPostingKeys() && !hasUserData()) {
+                window.location.href = '/start';
+            }
+        }
+        checkFirstTimeUser();
+    </script>
 
     <script type="module" src="index.js"></script>
 

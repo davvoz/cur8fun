@@ -89,6 +89,13 @@ def controllers(filename):
     return send_from_directory('controllers', filename)
 
 
+# Serve static files from 'start' directory for /start route
+@app.route('/start/')
+@app.route('/start/<path:filename>')
+def start_static(filename='index.html'):
+    """Serve i file statici dalla cartella 'start' per la route /start"""
+    return send_from_directory('start', filename)
+
 
 def get_base_url(request):
     """Ottieni l'URL base corretto per l'ambiente"""
