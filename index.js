@@ -40,8 +40,6 @@ import WalletView from './views/WalletView.js';
 // Utility views
 import NotFoundView from './views/NotFoundView.js';
 import NotificationsView from './views/NotificationsView.js';
-import Cur8StatsView from './views/Cur8StatsView.js';
-import Cur8BotStatsView from './views/Cur8BotStatsView.js';
 
 // Versione corrente dell'applicazione
 const APP_VERSION = '1.0.0';
@@ -66,8 +64,6 @@ router
   .addRoute('/community/:id', CommunityView)
   .addRoute('/communities', CommunitiesListView) 
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
-  .addRoute('/cur8-stats', Cur8StatsView)
-  .addRoute('/cur8-bot-stats', Cur8BotStatsView)
   .addRoute('/menu', MenuView)
   .addRoute('/faq', FAQView)
   .setNotFound(NotFoundView);
