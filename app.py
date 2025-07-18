@@ -174,15 +174,18 @@ def render_index_with_meta(meta_tags_html):
         return send_file('index.html')
 
 
-# Serve la pagina start come pagina iniziale e fallback SPA
+
+# Serve la landing page solo su / e /start
 @app.route('/')
-@app.route('/<path:path>')
-def serve_start_as_home(path=''):
-    # Estensioni di file statici da NON servire come SPA
-    static_exts = ('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.json', '.svg', '.map', '.woff', '.woff2', '.ttf', '.eot')
-    if path and any(path.lower().endswith(ext) for ext in static_exts):
-        return "File not found", 404
+def serve_landing():
     return send_file('start/index_start.html')
+
+# Serve la SPA/PWA su /app e /app/<path:path>
+@app.route('/app')
+@app.route('/app/<path:path>')
+def serve_spa(path=None):
+    # Serve index.html per tutte le route della SPA
+    return send_file('index.html')
 
 # API per i post schedulati
 @app.route('/api/scheduled_posts', methods=['GET'])
