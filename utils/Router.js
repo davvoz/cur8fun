@@ -1,6 +1,8 @@
 import eventEmitter from './EventEmitter.js';
 import EditPostView from '../views/EditPostView.js';
 import CommentView from '../views/CommentView.js';
+import Cur8StatsView from '../views/Cur8StatsView.js';
+import Cur8BotStatsView from '../views/Cur8BotStatsView.js';
 
 /**
  * Client-side router for handling navigation
@@ -221,6 +223,8 @@ class Router {
     });
     this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, EditPostView);
     this.addRoute(/^\/comment\/@([^\/]+)\/(.+)$/, CommentView);
+    this.addRoute('/cur8-stats', Cur8StatsView);
+    this.addRoute('/cur8-bot-stats', Cur8BotStatsView);
     if (this.useHashRouting) {
       const initialPath = this.getPathFromHash() || '/';
       this.handleRouteChange(initialPath);
