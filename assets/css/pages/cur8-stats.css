@@ -424,9 +424,7 @@
 /* Sections Organization */
 .stats-section {
   margin-bottom: var(--space-xl);
-  padding: var(--space-lg);
   background: var(--background-color);
-  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: var(--subtle-shadow);
   overflow: hidden;

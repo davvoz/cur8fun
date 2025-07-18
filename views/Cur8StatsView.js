@@ -301,11 +301,11 @@ class Cur8StatsView extends View {
       const statCard = document.createElement('div');
       statCard.className = 'stat-card';
       statCard.innerHTML = `
-        <div class="stat-icon">
-          <span class="material-icons">${stat.icon}</span>
-        </div>
         <div class="stat-content">
-          <div class="stat-value">${stat.value}</div>
+          <div class="stat-value">
+            <span class="material-icons">${stat.icon}</span>
+            ${stat.value}
+          </div>
           <div class="stat-label">${stat.label}</div>
         </div>
       `;

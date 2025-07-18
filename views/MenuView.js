@@ -77,7 +77,34 @@ class MenuView extends View {
     ));
     
     menuContainer.appendChild(socialGrid);
-    
+    // stats category - zona più accattivante
+    const statsCategory = this.createCategory('Stats');
+    statsCategory.classList.add('stats-category');
+
+    // Wrapper per i bottoni stats in griglia
+    const statsGrid = document.createElement('div');
+    statsGrid.className = 'stats-menu-grid';
+
+    statsGrid.appendChild(this.createMenuItem(
+      'cur8-stats-link',
+      '/cur8-stats',
+      'fa-chart-bar',
+      'CUR8 Statistics',
+      'View detailed statistics about CUR8'
+    ));
+
+    statsGrid.appendChild(this.createMenuItem(
+      'cur8-bot-stats-link',
+      '/cur8-bot-stats',
+      'fa-robot',
+      'Bot Statistics',
+      'See how the CUR8 bot is performing'
+    ));
+
+    statsCategory.appendChild(statsGrid);
+    menuContainer.appendChild(statsCategory);
+
+
     // Add Help & Support category
     const helpCategory = this.createCategory('Help & Support');
     menuContainer.appendChild(helpCategory);
@@ -98,9 +125,6 @@ class MenuView extends View {
       'Get help with your account or issues'
     ));
     
-    // Add footer with version info
-    const menuFooter = this.createMenuFooter();
-    menuContainer.appendChild(menuFooter);
     
     // Append the menu container to the main element
     this.element.appendChild(menuContainer);
@@ -129,22 +153,6 @@ class MenuView extends View {
     return header;
   }
   
-  /**
-   * Creates a menu footer with version info
-   * @returns {HTMLElement} - The footer element
-   */
-  createMenuFooter() {
-    const footer = document.createElement('div');
-    footer.className = 'menu-footer';
-    
-    const version = document.createElement('span');
-    version.textContent = 'Version 1.0.0';
-    version.className = 'menu-version';
-    
-    footer.appendChild(version);
-    
-    return footer;
-  }
   
   /**
    * Creates a category header for the menu
