@@ -46,7 +46,8 @@ const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
-  .addRoute('/', HomeView, { tag: 'trending' })  .addRoute('/login', LoginView)
+  .addRoute('/', HomeView, { tag: 'trending' })
+  .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/drafts', DraftsView, { requiresAuth: true })
@@ -62,7 +63,7 @@ router
   .addRoute('/@:author/:permlink', PostView)
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
-  .addRoute('/communities', CommunitiesListView) 
+  .addRoute('/communities', CommunitiesListView)
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .addRoute('/menu', MenuView)
   .addRoute('/faq', FAQView)
@@ -84,16 +85,16 @@ function initApp() {
 
   // Crea istanza del NavigationManager
   const navManager = new NavigationManager();
-  
+
   // Attiva la navigazione standard
   initNavigation();
-  
+
   // Inizializzazione del router
   router.init();
-  
+
   // Inizializza l'ascoltatore per eventi di logout richiesto (token scaduto)
   initSessionExpiryHandler();
-  
+
   // Inizializza il service worker e il sistema di aggiornamenti
   initPwaFeatures();
 }
@@ -119,20 +120,20 @@ function initPwaFeatures() {
 function initSessionExpiryHandler() {
   eventEmitter.on('auth:logout-required', (data) => {
     console.log('Session expiry detected, redirecting to login');
-    
+
     // Esegui il logout per pulire lo stato
     authService.logout();
-    
+
     // Memorizza l'URL corrente per tornare dopo il login
     const currentPath = window.location.pathname;
-    
+
     // Mostra notifica all'utente
     eventEmitter.emit('notification', {
       type: 'warning',
       message: data.message || 'La tua sessione è scaduta. Effettua nuovamente il login.',
       duration: 6000 // Mostra la notifica per 6 secondi
     });
-    
+
     // Reindirizza al login con returnUrl
     setTimeout(() => {
       router.navigate('/login', { returnUrl: currentPath });
@@ -146,7 +147,7 @@ function initUpdateNotification() {
   const updateNotificationContainer = document.createElement('div');
   updateNotificationContainer.id = 'update-notification-container';
   document.body.appendChild(updateNotificationContainer);
-  
+
   // Inizializza il componente
   new UpdateNotificationComponent(updateNotificationContainer);
 }
@@ -154,7 +155,7 @@ function initUpdateNotification() {
 function initNavigation() {
   // Initial update
   updateNavigation();
-  
+
   // Subscribe to events that require nav updates
   eventEmitter.on('auth:changed', updateNavigation);
   eventEmitter.on('route:changed', updateNavigation);
@@ -171,12 +172,12 @@ function updateNavigation() {
 function updateNavigationMenu() {
   const navRight = document.querySelector('.nav-right');
   if (!navRight) return;
-  
+
   // Clear existing content
   navRight.innerHTML = '';
-  
+
   const currentUser = authService.getCurrentUser();
-  
+
   if (currentUser) {
     renderAuthenticatedNav(navRight, currentUser);
   } else {
@@ -187,20 +188,20 @@ function updateNavigationMenu() {
 function renderAuthenticatedNav(container, user) {
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
-  
+
   // Mobile Theme Toggle button - aggiunto all'inizio
   const mobileThemeToggle = document.createElement('button');
   mobileThemeToggle.className = 'theme-toggle-btn mobile-theme-toggle';
   mobileThemeToggle.setAttribute('aria-label', 'Toggle theme');
   mobileThemeToggle.title = 'Toggle light/dark theme';
-  
+
   const themeIcon = document.createElement('span');
   themeIcon.className = 'material-icons';
   themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcon
   mobileThemeToggle.appendChild(themeIcon);
-  
+
   navActions.appendChild(mobileThemeToggle);
-  
+
   // Mobile faucet button - add next to search button
   const mobileFaucetButton = document.createElement('a');
   mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
@@ -215,7 +216,7 @@ function renderAuthenticatedNav(container, user) {
   faucetIcon.appendChild(faIcon);
   mobileFaucetButton.appendChild(faucetIcon);
   navActions.appendChild(mobileFaucetButton);
-  
+
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';
@@ -225,13 +226,13 @@ function renderAuthenticatedNav(container, user) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
-  
+
   // Notifications button
   navActions.appendChild(createNotificationsButton());
-  
+
   // User menu
   navActions.appendChild(createUserMenu(user));
-  
+
   container.appendChild(navActions);
 }
 
@@ -239,9 +240,9 @@ function renderUnauthenticatedNav(container) {
   // Contenitore per i pulsanti
   const navActions = document.createElement('div');
   navActions.className = 'nav-actions';
-  
 
-  
+
+
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';
@@ -251,7 +252,7 @@ function renderUnauthenticatedNav(container) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
-  
+
   // Mobile faucet button - add next to search button
   const mobileFaucetButton = document.createElement('a');
   mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
@@ -266,19 +267,19 @@ function renderUnauthenticatedNav(container) {
   faucetIcon.appendChild(faIcon);
   mobileFaucetButton.appendChild(faucetIcon);
   navActions.appendChild(mobileFaucetButton);
-  
+
   // Login button
   const loginBtn = document.createElement('a');
   loginBtn.href = '/login';
   loginBtn.className = 'login-btn';
   loginBtn.textContent = 'Login';
-  
+
   // Register button
   const registerBtn = document.createElement('a');
   registerBtn.href = '/register';
   registerBtn.className = 'register-btn';
   registerBtn.textContent = 'Create Account';
-  
+
   navActions.appendChild(loginBtn);
   navActions.appendChild(registerBtn);
   container.appendChild(navActions);
@@ -288,13 +289,13 @@ function createCreatePostButton() {
   const btn = document.createElement('a');
   btn.href = '/create';
   btn.className = 'create-post-btn';
-  
+
   const icon = document.createElement('span');
   icon.className = 'material-icons';
   icon.textContent = 'add';
   btn.appendChild(icon);
   btn.appendChild(document.createTextNode('Create'));
-  
+
   return btn;
 }
 
@@ -302,27 +303,27 @@ function createNotificationsButton() {
   const link = document.createElement('a');
   link.href = '/notifications';
   link.className = 'nav-icon notification-icon';
-  
+
   const icon = document.createElement('span');
   icon.className = 'material-icons';
   icon.textContent = 'notifications';
   link.appendChild(icon);
-  
+
   // Add badge for unread count
   const badge = document.createElement('span');
   badge.className = 'notification-badge';
   badge.id = 'notification-unread-badge';
   link.appendChild(badge);
-  
+
   // Check current unread count and update badge
   const unreadCount = notificationsService.getUnreadCount();
   updateNotificationBadge(badge, unreadCount);
-  
+
   // Listen for updates to the unread count
   eventEmitter.on('notifications:unread_count_updated', (count) => {
     updateNotificationBadge(badge, count);
   });
-  
+
   return link;
 }
 
@@ -333,10 +334,10 @@ function updateNotificationBadge(badge, count) {
   if (count > 0) {
     badge.textContent = count > 99 ? '99+' : count;
     badge.classList.add('visible');
-    
+
     // Add animation class to draw attention
     badge.classList.add('pulse');
-    
+
     // Remove animation class after animation completes
     setTimeout(() => {
       badge.classList.remove('pulse');
@@ -350,58 +351,58 @@ function updateNotificationBadge(badge, count) {
 function createUserMenu(user) {
   const userMenu = document.createElement('div');
   userMenu.className = 'user-menu';
-  
+
   // Avatar
   const avatar = document.createElement('img');
   avatar.src = `https://steemitimages.com/u/${user.username}/avatar`;
   avatar.alt = user.username;
   avatar.className = 'avatar';
   // Aggiungere un gestore di errore per caricare l'avatar predefinito se l'immagine non è disponibile
-  avatar.onerror = function() {
+  avatar.onerror = function () {
     this.src = './assets/img/default-avatar.png';
   };
   userMenu.appendChild(avatar);
-  
+
   // Dropdown menu
   const dropdown = document.createElement('div');
   dropdown.className = 'dropdown';
-  
+
   // Profile link
   const profileLink = document.createElement('a');
   profileLink.href = `/@${user.username}`;
-  
+
   // Profile icon
   const profileIcon = document.createElement('span');
   profileIcon.className = 'material-icons dropdown-icon';
   profileIcon.textContent = 'person';
   profileLink.appendChild(profileIcon);
-  
+
   profileLink.appendChild(document.createTextNode('Profile'));
   dropdown.appendChild(profileLink);
-  
+
   // Settings link
   const settingsLink = document.createElement('a');
   settingsLink.href = '/settings';
-  
+
   // Settings icon
   const settingsIcon = document.createElement('span');
   settingsIcon.className = 'material-icons dropdown-icon';
   settingsIcon.textContent = 'settings';
   settingsLink.appendChild(settingsIcon);
-  
+
   settingsLink.appendChild(document.createTextNode('Settings'));
   dropdown.appendChild(settingsLink);
-  
+
   // Add Account button
   const addAccountBtn = document.createElement('a');
   addAccountBtn.href = '/login';
-  
+
   // Add Account icon
   const addAccountIcon = document.createElement('span');
   addAccountIcon.className = 'material-icons dropdown-icon';
   addAccountIcon.textContent = 'person_add';
   addAccountBtn.appendChild(addAccountIcon);
-  
+
   addAccountBtn.appendChild(document.createTextNode('Add Account'));
   dropdown.appendChild(addAccountBtn);
 
@@ -409,49 +410,49 @@ function createUserMenu(user) {
   const switchAccountBtn = document.createElement('a');
   switchAccountBtn.href = '#';
   switchAccountBtn.className = 'switch-account-btn';
-  
+
   // Switch Account icon
   const switchAccountIcon = document.createElement('span');
   switchAccountIcon.className = 'material-icons dropdown-icon';
   switchAccountIcon.textContent = 'people';
   switchAccountBtn.appendChild(switchAccountIcon);
-  
+
   switchAccountBtn.appendChild(document.createTextNode('Switch Account'));
-  switchAccountBtn.addEventListener('click', function(e) {
+  switchAccountBtn.addEventListener('click', function (e) {
     e.preventDefault();
     authService.showAccountSwitcher();
   });
   dropdown.appendChild(switchAccountBtn);
-  
+
   // Logout button
   const logoutBtn = document.createElement('a');
   logoutBtn.href = '#';
   logoutBtn.className = 'logout-btn';
-  
+
   // Logout icon
   const logoutIcon = document.createElement('span');
   logoutIcon.className = 'material-icons dropdown-icon';
   logoutIcon.textContent = 'logout';
   logoutBtn.appendChild(logoutIcon);
-  
+
   logoutBtn.appendChild(document.createTextNode('Logout'));
   dropdown.appendChild(logoutBtn);
-  
+
   // Add logout handler
   logoutBtn.addEventListener('click', handleLogout);
-  
+
   userMenu.appendChild(dropdown);
-  
+
   // Handler per gestire l'apertura e la chiusura del dropdown
-  let clickHandler = function(event) {
+  let clickHandler = function (event) {
     // Previeni il comportamento predefinito solo se cliccato sull'avatar
     if (event.target === avatar) {
       event.preventDefault();
     }
-    
+
     // Toggle della classe show-dropdown
     dropdown.classList.toggle('show-dropdown');
-    
+
     // Se il dropdown è ora visibile, aggiungi un listener al document
     if (dropdown.classList.contains('show-dropdown')) {
       // Usiamo setTimeout per assicurarci che questo listener venga aggiunto dopo l'evento corrente
@@ -466,10 +467,10 @@ function createUserMenu(user) {
       }, 10);
     }
   };
-  
+
   // Aggiungi l'event listener all'intero contenitore userMenu invece che solo all'avatar
   userMenu.addEventListener('click', clickHandler);
-  
+
   return userMenu;
 }
 
@@ -491,12 +492,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }).catch(error => {
     console.warn('Failed to preload communities:', error);
   });
-  
+
   // Initialize theme manager
   themeManager.init();
-  
+
   initApp();
-  
+
   // Add theme toggle button to navigation after app is initialized
   addThemeToggleButton();
 });
@@ -508,24 +509,24 @@ function addThemeToggleButton() {
   // Gestisce entrambi i pulsanti del tema (mobile e desktop)
   const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
   if (!themeToggleButtons.length) return;
-  
+
   // Aggiorna le icone in tutti i pulsanti
   themeToggleButtons.forEach(themeToggle => {
     const icon = themeToggle.querySelector('.material-icons');
     if (!icon) return;
-    
+
     // Update the icon based on the current theme
     updateThemeIcon(icon);
-    
+
     // Add click handler to each button
     themeToggle.addEventListener('click', () => {
       const newTheme = themeManager.toggleTheme();
-      
+
       // Aggiorna le icone in tutti i pulsanti
       document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
         updateThemeIcon(i);
       });
-      
+
       // Provide feedback with notification
       eventEmitter.emit('notification', {
         type: 'info',
@@ -551,27 +552,27 @@ function updateThemeIcon(iconElement) {
 function setupThemeButtons() {
   const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
   if (!themeToggleButtons.length) return;
-  
+
   themeToggleButtons.forEach(themeToggle => {
     // Prima rimuovi eventuali click handler esistenti per evitare duplicazioni
     const clone = themeToggle.cloneNode(true);
     themeToggle.parentNode.replaceChild(clone, themeToggle);
-    
+
     const icon = clone.querySelector('.material-icons');
     if (!icon) return;
-    
+
     // Update the icon based on the current theme
     updateThemeIcon(icon);
-    
+
     // Add click handler
     clone.addEventListener('click', () => {
       const newTheme = themeManager.toggleTheme();
-      
+
       // Aggiorna le icone in tutti i pulsanti
       document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
         updateThemeIcon(i);
       });
-      
+
       // Provide feedback with notification
       eventEmitter.emit('notification', {
         type: 'info',

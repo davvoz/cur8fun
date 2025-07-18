@@ -790,7 +790,7 @@ class EditPostView extends View {
 
       // Reindirizza alla pagina del post dopo un breve ritardo
       setTimeout(() => {
-        window.location.href = `/@${this.originalPost.author}/${this.originalPost.permlink}`;
+        window.location.href = `/app/@${this.originalPost.author}/${this.originalPost.permlink}`;
       }, 2000);
     } catch (error) {
       console.error('Failed to update post:', error);

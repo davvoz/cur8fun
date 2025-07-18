@@ -502,7 +502,7 @@ class CommunitiesListView {
     
     // Add click handler to navigate to community page
     card.addEventListener('click', () => {
-      window.location.href = `/community/${communityId}`;
+      window.location.href = `/app/community/${communityId}`;
     });
     
     return card;
@@ -510,7 +510,7 @@ class CommunitiesListView {
 
   async handleSubscribeToggle(button, communityId, isCurrentlySubscribed) {
     if (!this.currentUser) {
-      window.location.href = '/login';
+      window.location.href = '/app/login';
       return;
     }
     

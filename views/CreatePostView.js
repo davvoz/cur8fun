@@ -1580,7 +1580,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         
         // Reindirizza alla pagina del post dopo un breve ritardo
         setTimeout(() => {
-          window.location.href = `/@${username}/${permlink}`;
+          window.location.href = `/app/@${username}/${permlink}`;
         }, 2000);
       }    } catch (error) {
       this.showError(`Failed to ${this.isScheduled ? 'schedule' : 'publish'} post: ${error.message}`);
