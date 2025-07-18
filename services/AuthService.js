@@ -838,7 +838,7 @@ class AuthService {
                     this.completeSteemLogin(parsedData.token)
                         .then(() => {
                             // Reload page to refresh with new account
-                            window.location.reload();
+                            window.location.href = '/app/trending';
                         })
                         .catch(error => {
                             console.error('Failed to switch account with SteemLogin:', error);
@@ -861,7 +861,7 @@ class AuthService {
                 this.loginWithKeychain(account.username, true)
                     .then(() => {
                         // Reload page to refresh with new account
-                        window.location.reload();
+                            window.location.href = '/app/trending';
                     })
                     .catch(error => {
                         console.error('Failed to switch account with Keychain:', error);
