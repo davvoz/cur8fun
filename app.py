@@ -1,3 +1,4 @@
+
 from flask import Flask, send_from_directory, send_file, request, jsonify, render_template_string
 from flask_cors import CORS
 from datetime import datetime
@@ -24,6 +25,10 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
+# Serve static files from the start directory (e.g., /start/style.css)
+@app.route('/start/<path:filename>')
+def start_static(filename):
+    return send_from_directory('start', filename)
 # Serve static files
 @app.route('/assets/<path:filename>')
 def assets(filename):
@@ -57,6 +62,11 @@ def components(filename):
     if filename.endswith('.js'):
         return send_file(f'components/{filename}', mimetype='application/javascript')
     return send_from_directory('components', filename)
+
+# Serve the start page
+@app.route('/start')
+def serve_start_page():
+    return send_file('start/index_start.html')
 
 @app.route('/services/<path:filename>')
 def services(filename):
@@ -163,59 +173,16 @@ def render_index_with_meta(meta_tags_html):
         print(f"Error rendering index with meta: {e}")
         return send_file('index.html')
 
-# Serve main app for all other routes (SPA fallback)
+
+# Serve la pagina start come pagina iniziale e fallback SPA
 @app.route('/')
 @app.route('/<path:path>')
-def serve_spa(path=''):
-    # Lista delle route dell'applicazione che devono servire index.html
-    spa_routes = [
-        '', 'trending', 'hot', 'new', 'login', 'register', 'search', 'create-post',
-        'drafts', 'settings', 'menu', 'faq', 'new-releases', 'communities',
-        'notifications', 'wallet', 'edit-profile'
-    ]
-    # Route con parametri (come /tag/sometag, /@username, ecc.)
-    spa_patterns = [
-        'tag/', '@', 'post/', 'community/', 'edit-post/', 'comment/'
-    ]
+def serve_start_as_home(path=''):
     # Estensioni di file statici da NON servire come SPA
     static_exts = ('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.json', '.svg', '.map', '.woff', '.woff2', '.ttf', '.eot')
-    
-    # Se è una vera risorsa statica, restituisci 404
-    if any(path.lower().endswith(ext) for ext in static_exts):
+    if path and any(path.lower().endswith(ext) for ext in static_exts):
         return "File not found", 404
-    
-    # Determina il tipo di contenuto per generare meta tag appropriati
-    content_type, params = get_content_type_from_path(path)
-    
-    try:
-        # Genera meta tag dinamici basati sul tipo di contenuto
-        if content_type == 'post' and params.get('author') and params.get('permlink'):
-            meta_data = meta_generator.generate_post_meta(
-                params['author'], 
-                params['permlink'],
-                get_base_url(request)
-            )
-        elif content_type == 'profile' and params.get('username'):
-            meta_data = meta_generator.generate_profile_meta(
-                params['username'],
-                get_base_url(request)
-            )
-        else:
-            # Default meta per home page, tag, community, ecc.
-            base_url = get_base_url(request)
-            current_url = f"{base_url}/{path}" if path else base_url
-            meta_data = meta_generator.generate_default_meta(current_url)
-        
-        # Genera HTML dei meta tag
-        meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
-        
-        # Renderizza index.html con i meta tag dinamici
-        return render_index_with_meta(meta_tags_html)
-    
-    except Exception as e:
-        print(f"Error generating meta tags for {path}: {e}")
-        # Fallback al file statico in caso di errore
-        return send_file('index.html')
+    return send_file('start/index_start.html')
 
 # API per i post schedulati
 @app.route('/api/scheduled_posts', methods=['GET'])

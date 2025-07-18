@@ -201,8 +201,8 @@ a:hover {
 .site-header.scrolled {
   background-color: rgba(16, 18, 27, 0.9);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   padding: 1rem 0;
 }
 
