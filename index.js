@@ -46,7 +46,7 @@ const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
-  .addRoute('/', HomeView, { tag: 'trending' })
+  .addRoute('/home', HomeView, { tag: 'trending' })
   .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
