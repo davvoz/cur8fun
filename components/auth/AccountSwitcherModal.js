@@ -236,7 +236,7 @@ export default class AccountSwitcherModal extends Component {
         this.close();
         authService.logout();
         // Redirect to login
-        window.location.href = '/login';
+        window.location.href = '/app/login';
       });
       
       footer.appendChild(logoutBtn);
@@ -295,7 +295,7 @@ export default class AccountSwitcherModal extends Component {
     
     this.registerEventHandler(addAccountBtn, 'click', () => {
       this.close();
-      window.location.href = '/login';
+      window.location.href = '/app/login';
     });
     
     rightButtons.appendChild(cancelBtn);

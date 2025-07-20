@@ -44,3 +44,4 @@ ENV/
 *.iws
 *.iml
 *.ipr
+.hintrc

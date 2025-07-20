@@ -1,6 +1,8 @@
 import eventEmitter from './EventEmitter.js';
 import EditPostView from '../views/EditPostView.js';
 import CommentView from '../views/CommentView.js';
+import Cur8StatsView from '../views/Cur8StatsView.js';
+import Cur8BotStatsView from '../views/Cur8BotStatsView.js';
 
 /**
  * Client-side router for handling navigation
@@ -27,7 +29,30 @@ class Router {
       });
     } else {
       window.addEventListener('popstate', (event) => {
-        this.handleRouteChange(window.location.pathname, event.state || {});
+        // Su popstate, sincronizza navigationHistory con la posizione reale del browser
+        const browserPath = window.location.pathname;
+        const params = event.state || {};
+        let shortPath = browserPath;
+        if (this.basePath && shortPath.startsWith(this.basePath)) {
+          shortPath = shortPath.substring(this.basePath.length) || '/';
+        }
+        // Se la history è vuota o desincronizzata, ricostruiscila
+        const last = this.navigationHistory[this.navigationHistory.length - 1];
+        if (!last || last.path !== shortPath) {
+          // Cerca se il path esiste già in history
+          const idx = this.navigationHistory.findIndex(h => h.path === shortPath);
+          if (idx !== -1) {
+            // Taglia la history dopo questa posizione (forward navigation)
+            this.navigationHistory = this.navigationHistory.slice(0, idx + 1);
+          } else {
+            // Se non trovato, aggiungi la posizione attuale
+            this.navigationHistory.push({ path: shortPath, params });
+            if (this.navigationHistory.length > this.maxHistoryLength) {
+              this.navigationHistory.shift();
+            }
+          }
+        }
+        this.handleRouteChange(shortPath, params);
       });
     }
   }
@@ -35,7 +60,15 @@ class Router {
    * Detect the base path - for local Flask development, no base path needed
    */
   detectBasePath() {
-    this.basePath = '';
+    // Se la SPA è montata su /app o sottopercorsi, imposta basePath
+    const path = window.location.pathname;
+    if (path.startsWith('/app/')) {
+      this.basePath = '/app';
+    } else if (path === '/app') {
+      this.basePath = '/app';
+    } else {
+      this.basePath = '';
+    }
   }
   // Get the current path from pathname (no hash support)
   getCurrentPath() {
@@ -95,10 +128,14 @@ class Router {
     const fullPath = this.basePath ? `${this.basePath}${path}` : path;
     if (replaceState) {
       window.history.replaceState(params, '', fullPath);
+      // Sostituisci l'ultimo elemento della navigationHistory
+      if (this.navigationHistory.length > 0) {
+        this.navigationHistory[this.navigationHistory.length - 1] = { path, params };
+      } else {
+        this.navigationHistory.push({ path, params });
+      }
     } else {
       window.history.pushState(params, '', fullPath);
-    }
-    if (!replaceState) {
       this.navigationHistory.push({ path, params });
       if (this.navigationHistory.length > this.maxHistoryLength) {
         this.navigationHistory.shift();
@@ -154,7 +191,7 @@ class Router {
     this.cleanupCurrentView();
     if (!matchedRoute && this.notFoundHandler) {
       this.currentView = new this.notFoundHandler(this.viewContainer);
-      this.currentView.render();
+      this.currentView.render(this.viewContainer);
       eventEmitter.emit('route:changed', { path, view: 'notFound' });
       return;
     }
@@ -221,6 +258,8 @@ class Router {
     });
     this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, EditPostView);
     this.addRoute(/^\/comment\/@([^\/]+)\/(.+)$/, CommentView);
+    this.addRoute('/cur8-stats', Cur8StatsView);
+    this.addRoute('/cur8-bot-stats', Cur8BotStatsView);
     if (this.useHashRouting) {
       const initialPath = this.getPathFromHash() || '/';
       this.handleRouteChange(initialPath);
@@ -231,13 +270,8 @@ class Router {
     return this;
   }
   goBack() {
-    if (this.navigationHistory.length > 1) {
-      this.navigationHistory.pop();
-      const previous = this.navigationHistory.pop();
-      this.navigate(previous.path, previous.params, true);
-    } else {
-      this.navigate('/');
-    }
+    // Usa la history del browser per una gestione più naturale
+    window.history.back();
   }
 }
 const router = new Router();

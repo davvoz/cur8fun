@@ -9,7 +9,8 @@
 @import 'layout/navigation.css';
 @import 'layout/sidebar.css';
 @import 'layout/sidebar-collapsed.css'; /* Aggiunto import per gli stili della sidebar collassata */
-
+@import 'pages/cur8-stats.css'; /* Added import for CUR8 statistics page */
+@import 'pages/cur8-bot-stats.css'; /* Added import for CUR8 bot statistics page */
 /* Component styles */
 @import 'components/auth.css';
 @import 'components/cards.css';

@@ -838,7 +838,7 @@ class AuthService {
                     this.completeSteemLogin(parsedData.token)
                         .then(() => {
                             // Reload page to refresh with new account
-                            window.location.reload();
+                            window.location.href = '/app/trending';
                         })
                         .catch(error => {
                             console.error('Failed to switch account with SteemLogin:', error);
@@ -861,7 +861,7 @@ class AuthService {
                 this.loginWithKeychain(account.username, true)
                     .then(() => {
                         // Reload page to refresh with new account
-                        window.location.reload();
+                            window.location.href = '/app/trending';
                     })
                     .catch(error => {
                         console.error('Failed to switch account with Keychain:', error);
@@ -919,7 +919,7 @@ class AuthService {
         
         // Redirect to login
         setTimeout(() => {
-            window.location.href = '/login';
+            window.location.href = '/app/login';
         }, 1500);
     }
 
@@ -1035,7 +1035,9 @@ class AuthService {
             console.error('Error checking cur8 authorization:', error);
             return false;
         }
-    }    /**
+    }   
+    
+    /**
      * Autorizza l'account cur8 per pubblicare post schedulati
      * @returns {Promise} - Promise che si risolve quando l'autorizzazione è completata
      */

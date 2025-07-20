@@ -1,0 +1,191 @@
+/* CUR8 Bot Statistics Page Styles */
+
+.cur8-bot-stats-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  color: var(--text-primary);
+}
+
+/* Bot specific card layouts */
+.bot-main-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.bot-rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.bot-stat-card,
+.bot-reward-card {
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  transition: all 0.3s ease;
+  box-shadow: var(--subtle-shadow);
+  min-height: 90px;
+  overflow: hidden;
+}
+
+.bot-stat-card:hover,
+.bot-reward-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hover-shadow);
+  border-color: var(--primary-color);
+}
+
+.bot-stat-card .stat-icon,
+.bot-reward-card .stat-icon {
+  min-width: 48px;
+  min-height: 48px;
+  max-width: 48px;
+  max-height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
+.bot-stat-card .stat-icon .material-icons,
+.bot-reward-card .stat-icon .material-icons {
+  font-size: 1.4rem;
+}
+
+.bot-stat-card .stat-content,
+.bot-reward-card .stat-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bot-stat-card .stat-value,
+.bot-reward-card .stat-value {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bot-stat-card .stat-label,
+.bot-reward-card .stat-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rewards section specific styling */
+.rewards-section {
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.03), var(--background-color));
+}
+
+/* Error state */
+.error-state {
+  text-align: center;
+  padding: var(--space-xl);
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-lg);
+}
+
+.error-state .material-icons {
+  font-size: 4rem;
+  color: var(--error-color);
+  margin-bottom: var(--space-md);
+}
+
+.error-state h3 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.error-state p {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.retry-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+  background: var(--primary-color-dark);
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .cur8-bot-stats-container {
+    padding: var(--space-md);
+  }
+  
+  .bot-main-stats {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+  
+  .bot-rewards-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+  
+  .bot-stat-card,
+  .bot-reward-card {
+    padding: var(--space-sm);
+    min-height: 80px;
+    gap: var(--space-xs);
+  }
+  
+  .bot-stat-card .stat-value,
+  .bot-reward-card .stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .bot-stat-card .stat-label,
+  .bot-reward-card .stat-label {
+    font-size: 0.85rem;
+  }
+  
+  .bot-stat-card .stat-icon,
+  .bot-reward-card .stat-icon {
+    min-width: 40px;
+    min-height: 40px;
+    max-width: 40px;
+    max-height: 40px;
+  }
+  
+  .bot-stat-card .stat-icon .material-icons,
+  .bot-reward-card .stat-icon .material-icons {
+    font-size: 1.2rem;
+  }
+}

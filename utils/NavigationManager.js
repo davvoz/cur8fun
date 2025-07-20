@@ -379,6 +379,33 @@ class NavigationManager {
     toggleBtn.setAttribute('aria-label', 'Toggle sidebar');
     toggleBtn.setAttribute('title', 'Toggle sidebar');
     
+  
+    // --- AGGIUNGI I MENU NELLA SIDEBAR SE ESISTE ---
+    if (this.sideNav) {
+      const menuItems = this.sideNav.querySelector('.menu-items');
+      if (menuItems && !menuItems.querySelector('[href="/cur8-stats"]')) {
+        // CUR8 Statistics
+        const statsItem = document.createElement('a');
+        statsItem.href = '/cur8-stats';
+        statsItem.className = 'menu-item';
+        statsItem.innerHTML = `
+          <span class="material-icons icon">analytics</span>
+          <span class="label">CUR8 Statistics</span>
+        `;
+        menuItems.appendChild(statsItem);
+      }
+      if (menuItems && !menuItems.querySelector('[href="/cur8-bot-stats"]')) {
+        // CUR8 Bot Statistics
+        const botStatsItem = document.createElement('a');
+        botStatsItem.href = '/cur8-bot-stats';
+        botStatsItem.className = 'menu-item';
+        botStatsItem.innerHTML = `
+          <span class="material-icons icon">smart_toy</span>
+          <span class="label">Bot Statistics</span>
+        `;
+        menuItems.appendChild(botStatsItem);
+      }
+    }
     // Imposta l'icona iniziale basata sullo stato della sidebar
     let iconDirection = this.sidebarCollapsed ? 'chevron_left' : 'chevron_right';
     toggleBtn.innerHTML = `<span class="material-icons">${iconDirection}</span>`;
