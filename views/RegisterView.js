@@ -52,7 +52,7 @@ class RegisterView extends View {
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Registrazione disponibile solo con Telegram ID</strong></p>
         <p style="margin: 0 0 10px;">Per creare un account Steem devi accedere tramite il bot Telegram con un ID Telegram valido.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
+        <p style="margin: 0;"><a href="https://t.me/cur8fun_bot/dapp" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri il bot su Telegram</a></p>
       `;
       container.appendChild(telegramWarning);
       element.appendChild(container);
@@ -128,7 +128,7 @@ class RegisterView extends View {
       telegramWarning.innerHTML = `
         <p style="margin: 0 0 10px;"><strong>Nota:</strong> La creazione dell'account richiede un ID Telegram valido.</p>
         <p style="margin: 0 0 10px;">Apri questa app da Telegram per ottenere un ID Telegram valido e creare un nuovo account Steem.</p>
-        <p style="margin: 0;"><a href="https://t.me/cur8_steemBot/cur8_fun" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
+        <p style="margin: 0;"><a href="https://t.me/cur8fun_bot/dapp" target="_blank" style="color: var(--primary-color); font-weight: bold;">Apri in Telegram</a></p>
       `;
       form.appendChild(telegramWarning);
     }
