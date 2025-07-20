@@ -89,16 +89,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       router.navigate('/drafts');
     });quickActions.appendChild(draftsButton);
     
-    // Save button (legacy current draft)
-    const saveButton = document.createElement('button');
-    saveButton.className = 'action-button save-button';
-    saveButton.title = 'Save Current Draft';
-    saveButton.innerHTML = '<span class="material-icons">save</span>';
-    saveButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.saveIfChanged();
-    });
-    quickActions.appendChild(saveButton);
+    // ...rimosso pulsante save-button, autosave attivo...
 
     // Save as new draft button
     const saveAsButton = document.createElement('button');
