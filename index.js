@@ -84,7 +84,7 @@ function initApp() {
   if (!app) return;
 
   // Crea istanza del NavigationManager
-  const navManager = new NavigationManager();
+  const navManager = new NavigationManager();//è assurdo , se non lo mettiamo non si vede il menù mobile
 
   // Attiva la navigazione standard
   initNavigation();
@@ -283,20 +283,6 @@ function renderUnauthenticatedNav(container) {
   navActions.appendChild(loginBtn);
   navActions.appendChild(registerBtn);
   container.appendChild(navActions);
-}
-
-function createCreatePostButton() {
-  const btn = document.createElement('a');
-  btn.href = '/create';
-  btn.className = 'create-post-btn';
-
-  const icon = document.createElement('span');
-  icon.className = 'material-icons';
-  icon.textContent = 'add';
-  btn.appendChild(icon);
-  btn.appendChild(document.createTextNode('Create'));
-
-  return btn;
 }
 
 function createNotificationsButton() {
