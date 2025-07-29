@@ -169,7 +169,7 @@ class NavigationManager {
   
   createNavItem(item, type) {
     const navItem = document.createElement('a');
-    navItem.href = item.path;
+    navItem.href =  item.path == '/' ? '/home' : item.path;
     navItem.className = type === 'bottom' ? 'bottom-nav-item' : 'menu-item';
     navItem.dataset.id = item.id; // Add data attribute for identification
     
