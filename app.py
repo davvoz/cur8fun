@@ -184,7 +184,44 @@ def serve_landing():
 @app.route('/app')
 @app.route('/app/<path:path>')
 def serve_spa(path=None):
-    # Serve index.html per tutte le route della SPA
+    # Se non c'è un path, serve la SPA normale
+    if not path:
+        return send_file('index.html')
+    
+    # Determina il tipo di contenuto dal path
+    content_type, params = get_content_type_from_path(path)
+    
+    # Se è un post, genera meta tag dinamici per l'anteprima
+    if content_type == 'post':
+        try:
+            print(f"[DEBUG] Generating meta tags for post: @{params['author']}/{params['permlink']}")
+            
+            # Genera i meta tag per il post
+            base_url = get_base_url(request)
+            current_url = f"{base_url}/app/{path}"
+            
+            meta_data = meta_generator.generate_post_meta(
+                author=params['author'],
+                permlink=params['permlink'],
+                base_url=base_url
+            )
+            
+            if meta_data:
+                # Aggiorna l'URL con quello corrente
+                meta_data['url'] = current_url
+                
+                # Genera l'HTML dei meta tag
+                meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
+                
+                print(f"[DEBUG] Generated meta tags for @{params['author']}/{params['permlink']}")
+                return render_index_with_meta(meta_tags_html)
+            else:
+                print(f"[DEBUG] No meta tags generated for @{params['author']}/{params['permlink']}, falling back to default")
+                
+        except Exception as e:
+            print(f"[DEBUG] Error generating meta tags for post: {e}")
+    
+    # Per tutti gli altri casi (profili, tag, community, errori), serve la SPA normale
     return send_file('index.html')
 
 # API per i post schedulati
