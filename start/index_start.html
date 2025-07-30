@@ -11,38 +11,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
   <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
-  <link rel="stylesheet" href="style.css">
+  <!-- <link rel="stylesheet" href="style.css"> -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.10.1/tsparticles.bundle.min.js" defer></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Google Analytics (gtag.js) - Will be loaded conditionally based on user consent -->
-  <script id="gtag-script" async src="https://www.googletagmanager.com/gtag/js?id=G-KH4ZJS7469" style="display:none;"></script>
-  <script id="gtag-config">
-    // Google Analytics configuration - will be initialized after consent
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    // Initialize Google Analytics only after user consent
-    window.initializeGoogleAnalytics = function() {
-      // Load the gtag script
-      const gtagScript = document.getElementById('gtag-script');
-      if (gtagScript) {
-        gtagScript.style.display = '';
-        gtagScript.onload = function() {
-          gtag('js', new Date());
-          gtag('config', 'G-KH4ZJS7469', {
-            anonymize_ip: true, // Privacy enhancement
-            allow_google_signals: false, // Disable advertising features for privacy
-            allow_ad_personalization_signals: false
-          });
-          console.log('Google Analytics initialized');
-        };
-      }
-    };
-    // Disable Google Analytics if user hasn't consented
-    window.disableGoogleAnalytics = function() {
-      window['ga-disable-G-KH4ZJS7469'] = true;
-      console.log('Google Analytics disabled');
-    };
+
   </script>
   <meta name="theme-color" content="#10121b">
   <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
@@ -1902,6 +1875,19 @@ input:focus, textarea:focus {
 
 }
   </style>
+  
+  <!-- Google Analytics - Will be loaded dynamically by CookieConsentManager -->
+  <script id="gtag-config">
+    // Google Analytics configuration - will be initialized by CookieConsentManager
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    
+    // Note: Google Analytics script loading and initialization is now handled 
+    // entirely by CookieConsentManager service for consistent behavior
+  </script>
+  
+  <!-- Cookie Consent CSS -->
+  <link rel="stylesheet" href="../assets/css/components/cookie-consent.css">
 </head>
 <body>
   <!-- Dynamic Background -->
@@ -3033,6 +3019,16 @@ input:focus, textarea:focus {
           });
         }
       });
+    });
+  </script>
+  
+  <!-- Cookie Consent Manager - Centralized initialization -->
+  <script type="module">
+    // Import and initialize the centralized cookie consent manager
+    import('../services/CookieConsentManager.js').then(() => {
+      console.log('🍪 Cookie Consent Manager loaded for landing page');
+    }).catch(error => {
+      console.error('Failed to load Cookie Consent Manager:', error);
     });
   </script>
 </body>

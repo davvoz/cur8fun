@@ -9,10 +9,10 @@ import authService from './services/AuthService.js';
 import notificationsService from './services/NotificationsService.js';
 import communityService from './services/CommunityService.js';
 import updateService from './services/UpdateService.js';
+import cookieConsentManager from './services/CookieConsentManager.js';
 
 // Components
 import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
-import CookieConsentBanner from './components/CookieConsentBanner.js';
 import './components/MarkdownFormatterUI.js';
 
 // Content views
@@ -574,17 +574,13 @@ function setupThemeButtons() {
 }
 
 /**
- * Initialize cookie consent banner
+ * Initialize cookie consent system
+ * This is now handled automatically by CookieConsentManager
  */
 function initializeCookieConsent() {
-  // Create and initialize the cookie consent banner
-  const cookieBanner = new CookieConsentBanner(document.body);
-  
-  // Check if banner should be shown after a short delay
-  // This ensures the page is fully loaded
-  setTimeout(() => {
-    cookieBanner.checkAndShow();
-  }, 1000);
+  // Cookie consent is now handled automatically by the imported CookieConsentManager
+  // The manager initializes itself when imported and handles all consent logic
+  console.log('🍪 Cookie consent system ready via CookieConsentManager');
 }
 
 //Per aggiungere una nuova route ,
