@@ -16,7 +16,9 @@ class UserPreferencesService {
                 // Default preferences
                 preferredTags: [],
                 homeViewMode: 'trending', // Default view mode (trending, hot, new, custom)
-                theme: 'light' // Default theme
+                theme: 'light', // Default theme
+                cookieConsent: null, // null = not asked, true = accepted, false = declined
+                analyticsEnabled: false // Google Analytics tracking
             };
             
             const preferences = storedPreferences ? JSON.parse(storedPreferences) : defaultPreferences;
@@ -45,13 +47,24 @@ class UserPreferencesService {
                 preferences.theme = 'light';
             }
             
+            // Add cookie consent defaults if missing
+            if (preferences.cookieConsent === undefined) {
+                preferences.cookieConsent = null;
+            }
+            
+            if (preferences.analyticsEnabled === undefined) {
+                preferences.analyticsEnabled = false;
+            }
+            
             return preferences;
         } catch (error) {
             console.error('Failed to load user preferences:', error);
             return {
                 preferredTags: [],
                 homeViewMode: 'trending',
-                theme: 'light'
+                theme: 'light',
+                cookieConsent: null,
+                analyticsEnabled: false
             };
         }
     }/**
@@ -244,6 +257,49 @@ class UserPreferencesService {
         return this.preferences.homeViewMode === 'custom' && 
                this.preferences.preferredTags && 
                this.preferences.preferredTags.length > 0;
+    }
+    
+    /**
+     * Get cookie consent status
+     * @returns {boolean|null} True if accepted, false if declined, null if not asked
+     */
+    getCookieConsent() {
+        return this.preferences.cookieConsent;
+    }
+    
+    /**
+     * Set cookie consent status
+     * @param {boolean} consent - True to accept, false to decline
+     * @returns {boolean} Success status
+     */
+    setCookieConsent(consent) {
+        this.preferences.cookieConsent = consent;
+        this.preferences.analyticsEnabled = consent;
+        
+        // Initialize or disable Google Analytics based on consent
+        if (consent && window.initializeGoogleAnalytics) {
+            window.initializeGoogleAnalytics();
+        } else if (!consent && window.disableGoogleAnalytics) {
+            window.disableGoogleAnalytics();
+        }
+        
+        return this.savePreferences();
+    }
+    
+    /**
+     * Check if analytics is enabled
+     * @returns {boolean} True if analytics tracking is enabled
+     */
+    isAnalyticsEnabled() {
+        return this.preferences.analyticsEnabled === true;
+    }
+    
+    /**
+     * Check if cookie consent banner should be shown
+     * @returns {boolean} True if consent hasn't been given yet
+     */
+    shouldShowCookieBanner() {
+        return this.preferences.cookieConsent === null;
     }
 }
 

@@ -12,6 +12,7 @@ import updateService from './services/UpdateService.js';
 
 // Components
 import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
+import CookieConsentBanner from './components/CookieConsentBanner.js';
 import './components/MarkdownFormatterUI.js';
 
 // Content views
@@ -483,6 +484,9 @@ document.addEventListener('DOMContentLoaded', () => {
   themeManager.init();
 
   initApp();
+  
+  // Initialize cookie consent banner
+  initializeCookieConsent();
 
   // Add theme toggle button to navigation after app is initialized
   addThemeToggleButton();
@@ -567,6 +571,20 @@ function setupThemeButtons() {
       });
     });
   });
+}
+
+/**
+ * Initialize cookie consent banner
+ */
+function initializeCookieConsent() {
+  // Create and initialize the cookie consent banner
+  const cookieBanner = new CookieConsentBanner(document.body);
+  
+  // Check if banner should be shown after a short delay
+  // This ensures the page is fully loaded
+  setTimeout(() => {
+    cookieBanner.checkAndShow();
+  }, 1000);
 }
 
 //Per aggiungere una nuova route ,

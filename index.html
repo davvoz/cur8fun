@@ -20,6 +20,38 @@
     <script src="https://unpkg.com/steem-content-renderer@latest"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
+    <!-- Google Analytics (gtag.js) - Will be loaded conditionally based on user consent -->
+    <script id="gtag-script" async src="https://www.googletagmanager.com/gtag/js?id=G-KH4ZJS7469" style="display:none;"></script>
+    <script id="gtag-config">
+        // Google Analytics configuration - will be initialized after consent
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        
+        // Initialize Google Analytics only after user consent
+        window.initializeGoogleAnalytics = function() {
+            // Load the gtag script
+            const gtagScript = document.getElementById('gtag-script');
+            if (gtagScript) {
+                gtagScript.style.display = '';
+                gtagScript.onload = function() {
+                    gtag('js', new Date());
+                    gtag('config', 'G-KH4ZJS7469', {
+                        anonymize_ip: true, // Privacy enhancement
+                        allow_google_signals: false, // Disable advertising features for privacy
+                        allow_ad_personalization_signals: false
+                    });
+                    console.log('Google Analytics initialized');
+                };
+            }
+        };
+        
+        // Disable Google Analytics if user hasn't consented
+        window.disableGoogleAnalytics = function() {
+            window['ga-disable-G-KH4ZJS7469'] = true;
+            console.log('Google Analytics disabled');
+        };
+    </script>
+    
     <!-- Social Media Sharing Preview Metadata -->
     <meta property="og:title" content="cur8.fun" id="og-title" />
     <meta property="og:description" content="Your Steem community social platform" id="og-desc" />

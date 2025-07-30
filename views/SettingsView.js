@@ -43,6 +43,10 @@ class SettingsView extends View {
     const tagsSection = this.createPreferredTagsSection();
     content.appendChild(tagsSection);
 
+    // Create privacy settings section
+    const privacySection = this.createPrivacySection();
+    content.appendChild(privacySection);
+
     // Create app information section
     const appInfoSection = this.createAppInfoSection();
     content.appendChild(appInfoSection);
@@ -180,6 +184,73 @@ class SettingsView extends View {
     
     tagsContainer.appendChild(tagsList);
     section.appendChild(tagsContainer);
+
+    return section;
+  }
+
+  createPrivacySection() {
+    const section = document.createElement('section');
+    section.className = 'settings-section privacy-settings';
+
+    const sectionTitle = document.createElement('h2');
+    sectionTitle.textContent = '🔒 Privacy & Analytics';
+    section.appendChild(sectionTitle);
+
+    const description = document.createElement('p');
+    description.textContent = 'Manage your privacy preferences and data collection settings.';
+    section.appendChild(description);
+
+    // Analytics toggle
+    const analyticsContainer = document.createElement('div');
+    analyticsContainer.className = 'privacy-option';
+
+    const analyticsToggle = document.createElement('div');
+    analyticsToggle.className = 'toggle-option';
+
+    const analyticsLabel = document.createElement('label');
+    analyticsLabel.className = 'toggle-label';
+    analyticsLabel.innerHTML = `
+      <div class="toggle-text">
+        <span class="toggle-title">📊 Google Analytics</span>
+        <span class="toggle-description">Help us improve the app by sharing anonymous usage data</span>
+      </div>
+    `;
+
+    const analyticsInput = document.createElement('input');
+    analyticsInput.type = 'checkbox';
+    analyticsInput.id = 'analytics-toggle';
+    analyticsInput.checked = userPreferencesService.isAnalyticsEnabled();
+    analyticsInput.addEventListener('change', (e) => this.handleAnalyticsToggle(e.target.checked));
+
+    const analyticsSwitch = document.createElement('div');
+    analyticsSwitch.className = 'toggle-switch';
+    analyticsSwitch.appendChild(analyticsInput);
+    analyticsSwitch.appendChild(document.createElement('span'));
+
+    analyticsLabel.appendChild(analyticsSwitch);
+    analyticsToggle.appendChild(analyticsLabel);
+    analyticsContainer.appendChild(analyticsToggle);
+
+    // Info about data collection
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'privacy-info';
+    infoContainer.innerHTML = `
+      <div class="privacy-info-item">
+        <span class="material-icons">shield</span>
+        <span>Your IP address is anonymized</span>
+      </div>
+      <div class="privacy-info-item">
+        <span class="material-icons">block</span>
+        <span>No personal data is shared for advertising</span>
+      </div>
+      <div class="privacy-info-item">
+        <span class="material-icons">analytics</span>
+        <span>Data helps us understand how to improve the app</span>
+      </div>
+    `;
+
+    section.appendChild(analyticsContainer);
+    section.appendChild(infoContainer);
 
     return section;
   }
@@ -368,6 +439,16 @@ class SettingsView extends View {
     const selectedOption = this.container.querySelector('input[name="feedType"]:checked');
     return selectedOption ? selectedOption.value : 'trending';
   }
+
+  handleAnalyticsToggle(enabled) {
+    userPreferencesService.setCookieConsent(enabled);
+    
+    const message = enabled ? 
+      'Analytics enabled. Thank you for helping us improve!' : 
+      'Analytics disabled. Your privacy is respected.';
+      
+    this.showSuccessMessage(message);
+  }
   saveSettings() {
     // Get current settings
     const homeViewMode = this.getSelectedHomeViewMode();
@@ -397,7 +478,7 @@ class SettingsView extends View {
     // Show success message
     this.showSuccessMessage();
   }
-  showSuccessMessage() {
+  showSuccessMessage(customMessage) {
     // Check if message already exists
     let message = this.container.querySelector('.settings-success-message');
     
@@ -407,7 +488,7 @@ class SettingsView extends View {
       this.container.querySelector('.content-wrapper').appendChild(message);
     }
     
-    message.textContent = 'Settings saved successfully!';
+    message.textContent = customMessage || 'Settings saved successfully!';
     message.classList.add('show');
     
     // Hide message after 3 seconds

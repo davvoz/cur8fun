@@ -15,6 +15,7 @@
 @import 'components/auth.css';
 @import 'components/cards.css';
 @import 'components/components.css';
+@import 'components/cookie-consent.css';
 @import 'components/filters.css'; /* Aggiunto import per gli stili centralizzati dei filtri */
 @import 'components/image-upload.css';
 @import 'components/loaders.css';
