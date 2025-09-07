@@ -27,7 +27,15 @@ class NotFoundView extends View {
     const errorDesc = document.createElement('p');
     errorDesc.className = 'error-description';
     errorDesc.textContent = "We couldn't find the page you were looking for.";
-    
+
+    //aggiungiamo un messaggio che dice quale pagina non è stata trovata
+    if (window.location && window.location.pathname) {
+      const notFoundMessage = document.createElement('p');
+      notFoundMessage.className = 'not-found-message';
+      notFoundMessage.textContent = `The requested URL ${window.location.pathname} was not found on this server.`;
+      container.appendChild(notFoundMessage);
+    }
+
     const homeButton = document.createElement('button');
     homeButton.className = 'back-to-home-btn';
     homeButton.textContent = 'Back to Home';

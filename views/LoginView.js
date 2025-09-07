@@ -15,9 +15,10 @@ class LoginView {
     this.boundHandlers = {
       handleSubmit: null,
       handleKeychainLogin: null,
-      handleSteemLogin: null
+      handleSteemLogin: null,
+      handleAuthChanged: null
     };
-    
+
     // Rimuove il parametro useActiveKey poiché non ci serve più
     this.useKeychain = params.keychain === true;
   }
@@ -38,7 +39,7 @@ class LoginView {
     loginContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)';
     loginContainer.style.borderRadius = '12px';
     loginContainer.style.overflow = 'hidden';
-    
+
     // Aggiungiamo un bordo colorato in alto
     const topBorder = document.createElement('div');
     topBorder.style.height = '4px';
@@ -53,16 +54,16 @@ class LoginView {
     heading.style.textAlign = 'center';
     heading.style.borderBottom = 'none';
     loginContainer.appendChild(heading);
-    
+
     // Check for saved accounts
     const savedAccounts = authService.getStoredAccounts();
     const savedKeychainAccounts = savedAccounts.filter(account => account.hasKeychain);
-    
+
     if (savedKeychainAccounts.length > 0) {
       const savedAccountsSection = this.createSavedAccountsSection(savedKeychainAccounts);
       savedAccountsSection.style.padding = '0 24px 20px';
       loginContainer.appendChild(savedAccountsSection);
-      
+
       const divider = this.createDivider('or login with a new account');
       divider.style.margin = '10px 24px 20px';
       loginContainer.appendChild(divider);
@@ -87,12 +88,12 @@ class LoginView {
     // Password field (posting key only) con stile migliorato
     const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
     form.appendChild(passwordGroup);
-    
+
     // Remember me checkbox con stile migliorato
     const rememberGroup = this.createRememberMeGroup();
     rememberGroup.style.marginTop = '8px';
     form.appendChild(rememberGroup);
-    
+
     // Login button con stile migliorato
     const loginButton = this.createButton('Login', 'submit', 'btn-primary full-width');
     loginButton.style.marginTop = '16px';
@@ -104,45 +105,45 @@ class LoginView {
     // Il pulsante Keychain viene ora aggiunto DOPO il pulsante login
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
     if (!isMobile || this.useKeychain) {
-        // Divider prima del bottone Keychain
-        const keychainDivider = this.createDivider('or');
-        keychainDivider.style.margin = '20px 0';
-        form.appendChild(keychainDivider);
-        
-        // Keychain button con stile migliorato
-        const keychainButton = this.createButton(
-            'Login with SteemKeychain',
-            'button',
-            'btn-secondary keychain-login-btn full-width'
-        );
-        keychainButton.id = 'keychain-login-btn';
-        keychainButton.style.display = 'flex';
-        keychainButton.style.alignItems = 'center';
-        keychainButton.style.justifyContent = 'center';
-        keychainButton.style.gap = '8px';
-        keychainButton.style.padding = '12px';
-        
-        // Aggiungi icona al bottone Keychain
-        const keychainIcon = document.createElement('img');
-        keychainIcon.src = 'https://play-lh.googleusercontent.com/Yep_Oowoys6_hGqzWZZzY5nYNAB4pHdfQYK5Bp9bzQPbSg-dWAB2gPNQnyjnIXwNR7o=w240-h480-rw'; // URL del logo Keychain
-        keychainIcon.alt = 'Keychain';
-        keychainIcon.style.width = '20px';
-        keychainIcon.style.height = '20px';
-        keychainIcon.style.borderRadius = '50%';
-        keychainButton.prepend(keychainIcon);
-        
-        form.appendChild(keychainButton);
-        
-        // Listener per verificare se Keychain è installato
-        keychainButton.addEventListener('click', async () => {
-            if (authService.isKeychainInstalled()) {
-                keychainButton.disabled = false;
-                keychainButton.classList.remove('disabled');
-            } else {
-                keychainButton.disabled = true;
-                keychainButton.classList.add('disabled');
-            }
-        });
+      // Divider prima del bottone Keychain
+      const keychainDivider = this.createDivider('or');
+      keychainDivider.style.margin = '20px 0';
+      form.appendChild(keychainDivider);
+
+      // Keychain button con stile migliorato
+      const keychainButton = this.createButton(
+        'Login with SteemKeychain',
+        'button',
+        'btn-secondary keychain-login-btn full-width'
+      );
+      keychainButton.id = 'keychain-login-btn';
+      keychainButton.style.display = 'flex';
+      keychainButton.style.alignItems = 'center';
+      keychainButton.style.justifyContent = 'center';
+      keychainButton.style.gap = '8px';
+      keychainButton.style.padding = '12px';
+
+      // Aggiungi icona al bottone Keychain
+      const keychainIcon = document.createElement('img');
+      keychainIcon.src = 'https://play-lh.googleusercontent.com/Yep_Oowoys6_hGqzWZZzY5nYNAB4pHdfQYK5Bp9bzQPbSg-dWAB2gPNQnyjnIXwNR7o=w240-h480-rw'; // URL del logo Keychain
+      keychainIcon.alt = 'Keychain';
+      keychainIcon.style.width = '20px';
+      keychainIcon.style.height = '20px';
+      keychainIcon.style.borderRadius = '50%';
+      keychainButton.prepend(keychainIcon);
+
+      form.appendChild(keychainButton);
+
+      // Listener per verificare se Keychain è installato
+      keychainButton.addEventListener('click', async () => {
+        if (authService.isKeychainInstalled()) {
+          keychainButton.disabled = false;
+          keychainButton.classList.remove('disabled');
+        } else {
+          keychainButton.disabled = true;
+          keychainButton.classList.add('disabled');
+        }
+      });
     }
 
     // Registrazione link con stile migliorato
@@ -167,14 +168,14 @@ class LoginView {
     this.element.appendChild(contentWrapper);
 
     this.bindEvents();
-    
+
     // Focus sul campo username per una migliore esperienza utente
     setTimeout(() => {
       const usernameInput = this.element.querySelector('#username');
       if (usernameInput) usernameInput.focus();
     }, 100);
   }
-  
+
   /**
    * Creates a section for saved accounts
    * @param {Array} accounts - Array of saved account objects
@@ -183,7 +184,7 @@ class LoginView {
   createSavedAccountsSection(accounts) {
     const section = document.createElement('div');
     section.className = 'auth-section saved-accounts-section';
-    
+
     const heading = document.createElement('h3');
     heading.className = 'saved-accounts-heading';
     heading.textContent = 'Saved Accounts';
@@ -191,27 +192,27 @@ class LoginView {
     heading.style.marginBottom = '15px';
     heading.style.textAlign = 'center';
     heading.style.color = 'var(--text-heading, #333)';
-    
+
     section.appendChild(heading);
-    
+
     const accountsList = document.createElement('div');
     accountsList.className = 'saved-accounts-list';
-    
+
     // Stile CSS inline per la lista degli account
     accountsList.style.display = 'flex';
     accountsList.style.flexDirection = 'column';
     accountsList.style.gap = '10px';
     accountsList.style.marginBottom = '10px';
-    
+
     accounts.forEach(account => {
       const accountItem = this.createSavedAccountItem(account);
       accountsList.appendChild(accountItem);
     });
-    
+
     section.appendChild(accountsList);
     return section;
   }
-  
+
   /**
    * Creates an item for a saved account
    * @param {Object} account - The account object
@@ -222,7 +223,7 @@ class LoginView {
     item.type = 'button';
     item.className = 'saved-account-item';
     item.dataset.username = account.username;
-    
+
     // Stili CSS inline per l'elemento account
     item.style.display = 'flex';
     item.style.alignItems = 'center';
@@ -233,7 +234,7 @@ class LoginView {
     item.style.cursor = 'pointer';
     item.style.width = '100%';
     item.style.transition = 'all 0.3s ease';
-    
+
     // Avatar
     const avatar = document.createElement('img');
     avatar.src = account.avatar || './assets/img/default-avatar.png';
@@ -245,28 +246,28 @@ class LoginView {
     avatar.style.marginRight = '12px';
     avatar.style.objectFit = 'cover';
     avatar.style.border = '2px solid var(--primary-color, #ff7518)';
-    avatar.onerror = function() {
+    avatar.onerror = function () {
       this.src = './assets/img/default-avatar.png';
     };
-    
+
     // Username and info
     const accountInfo = document.createElement('div');
     accountInfo.className = 'saved-account-info';
     accountInfo.style.flex = '1';
-    
+
     const username = document.createElement('div');
     username.className = 'saved-account-username';
     username.textContent = account.username;
     username.style.fontWeight = 'bold';
     username.style.color = 'var(--text-color, #333)';
-    
+
     // Login method display
     const loginMethod = document.createElement('div');
     loginMethod.className = 'saved-account-method';
     loginMethod.textContent = this.getLoginMethodText(account);
     loginMethod.style.fontSize = '0.8rem';
     loginMethod.style.color = 'var(--text-secondary, #666)';
-    
+
     // Badge for Keychain
     if (account.hasKeychain) {
       const keychainBadge = document.createElement('span');
@@ -280,10 +281,10 @@ class LoginView {
       keychainBadge.style.marginLeft = '5px';
       loginMethod.appendChild(keychainBadge);
     }
-    
+
     accountInfo.appendChild(username);
     accountInfo.appendChild(loginMethod);
-    
+
     // Icon for login
     const icon = document.createElement('span');
     icon.className = 'material-icons';
@@ -292,12 +293,12 @@ class LoginView {
     icon.style.color = 'var(--primary-color, #ff7518)';
     icon.style.opacity = '0.8';
     icon.style.fontSize = '20px';
-    
+
     // Assemble the item
     item.appendChild(avatar);
     item.appendChild(accountInfo);
     item.appendChild(icon);
-    
+
     // Add hover effects
     item.addEventListener('mouseover', () => {
       item.style.backgroundColor = 'var(--background-lighter, #eaeaea)';
@@ -305,20 +306,20 @@ class LoginView {
       item.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
       icon.style.opacity = '1';
     });
-    
+
     item.addEventListener('mouseout', () => {
       item.style.backgroundColor = 'var(--background-light, #f5f5f5)';
       item.style.transform = 'translateY(0)';
       item.style.boxShadow = 'none';
       icon.style.opacity = '0.8';
     });
-    
+
     // Add click event to login
     item.addEventListener('click', () => this.handleSavedAccountLogin(account));
-    
+
     return item;
   }
-  
+
   /**
    * Get descriptive text for an account's login method
    * @param {Object} account - The account object
@@ -326,14 +327,14 @@ class LoginView {
    */
   getLoginMethodText(account) {
     const methods = [];
-    
+
     if (account.hasKeychain) methods.push('Keychain');
     if (account.hasPostingKey) methods.push('Posting Key');
     if (account.hasSteemLogin) methods.push('SteemLogin');
-    
+
     return methods.join(' • ');
   }
-  
+
   /**
    * Handle click on a saved account item
    * @param {Object} account - The account object
@@ -348,13 +349,13 @@ class LoginView {
           });
           return;
         }
-        
+
         // Fill username field
         const usernameInput = this.element.querySelector('#username');
         if (usernameInput) {
           usernameInput.value = account.username;
         }
-        
+
         await authService.loginWithKeychain(account.username, true);
         this.handleLoginSuccess(account.username);
       } else {
@@ -378,13 +379,13 @@ class LoginView {
     heading.style.fontWeight = '600';
     heading.style.color = 'var(--text-heading, #222)';
     heading.style.margin = '0';
-    
+
     const subheading = document.createElement('p');
     subheading.textContent = 'Welcome back to the community';
     subheading.style.fontSize = '1rem';
     subheading.style.margin = '8px 0 0';
     subheading.style.color = 'var(--text-secondary, #666)';
-    
+
     headingContainer.appendChild(heading);
     headingContainer.appendChild(subheading);
 
@@ -417,28 +418,28 @@ class LoginView {
     input.style.fontSize = '1rem';
     input.style.backgroundColor = 'var(--background-light, #f9f9f9)';
     input.style.transition = 'border-color 0.3s, box-shadow 0.3s';
-    
+
     // Add focus style for better UX
     input.addEventListener('focus', () => {
       input.style.outline = 'none';
       input.style.borderColor = 'var(--primary-color, #ff7518)';
       input.style.boxShadow = '0 0 0 2px rgba(255, 117, 24, 0.2)';
     });
-    
+
     input.addEventListener('blur', () => {
       input.style.boxShadow = 'none';
       if (!input.value) {
         input.style.borderColor = 'var(--border-color, #ddd)';
       }
     });
-    
+
     // For username field, enforce lowercase and add a tooltip
     if (id === 'username') {
       input.autocapitalize = 'none';
       input.autocomplete = 'username';
       input.placeholder = 'Your Steem username';
       input.title = 'Steem usernames are lowercase only';
-      
+
       // Add an input event listener to convert any uppercase to lowercase
       input.addEventListener('input', (e) => {
         const start = e.target.selectionStart;
@@ -448,7 +449,7 @@ class LoginView {
         e.target.setSelectionRange(start, end);
       });
     }
-    
+
     // For password field, add a password-specific placeholder
     if (type === 'password') {
       input.placeholder = 'Enter your private posting key';
@@ -497,7 +498,7 @@ class LoginView {
     button.style.cursor = 'pointer';
     button.style.border = 'none';
     button.style.transition = 'all 0.3s ease';
-    
+
     if (className.includes('btn-primary')) {
       button.style.backgroundColor = 'var(--primary-color, #ff7518)';
       button.style.color = '#fff';
@@ -506,7 +507,7 @@ class LoginView {
       button.style.color = '#333';
       button.style.border = '1px solid #ddd';
     }
-    
+
     button.addEventListener('mouseover', () => {
       if (className.includes('btn-primary')) {
         button.style.backgroundColor = 'var(--primary-dark, #e66000)';
@@ -516,7 +517,7 @@ class LoginView {
         button.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
       }
     });
-    
+
     button.addEventListener('mouseout', () => {
       if (className.includes('btn-primary')) {
         button.style.backgroundColor = 'var(--primary-color, #ff7518)';
@@ -525,7 +526,7 @@ class LoginView {
       }
       button.style.boxShadow = 'none';
     });
-    
+
     return button;
   }
 
@@ -547,29 +548,29 @@ class LoginView {
     divider.style.color = 'var(--text-secondary, #666)';
     divider.style.fontSize = '0.9rem';
     divider.style.margin = '20px 0';
-    
+
     // Divider line before text
     const lineLeft = document.createElement('div');
     lineLeft.style.flex = '1';
     lineLeft.style.height = '1px';
     lineLeft.style.backgroundColor = 'var(--border-color, #ddd)';
     lineLeft.style.marginRight = '15px';
-    
+
     // Text in the middle
     const textSpan = document.createElement('span');
     textSpan.textContent = text;
-    
+
     // Divider line after text
     const lineRight = document.createElement('div');
     lineRight.style.flex = '1';
     lineRight.style.height = '1px';
     lineRight.style.backgroundColor = 'var(--border-color, #ddd)';
     lineRight.style.marginLeft = '15px';
-    
+
     divider.appendChild(lineLeft);
     divider.appendChild(textSpan);
     divider.appendChild(lineRight);
-    
+
     return divider;
   }
 
@@ -581,6 +582,14 @@ class LoginView {
     this.boundHandlers.handleSubmit = this.handleSubmit.bind(this);
     this.boundHandlers.handleKeychainLogin = this.handleKeychainLogin.bind(this);
     this.boundHandlers.handleSteemLogin = this.handleSteemLogin.bind(this);
+    // Redirect to profile when global auth state changes (e.g., SteemLogin callback)
+    this.boundHandlers.handleAuthChanged = (data) => {
+      const uname = data?.user?.username;
+      if (uname) {
+        // Navigate to the user's profile
+        router.navigate(`/@${uname}`);
+      }
+    };
 
     if (loginForm) {
       loginForm.addEventListener('submit', this.boundHandlers.handleSubmit);
@@ -589,10 +598,13 @@ class LoginView {
     if (keychainButton) {
       keychainButton.addEventListener('click', this.boundHandlers.handleKeychainLogin);
     }
-    
+
     if (steemLoginButton) {
       steemLoginButton.addEventListener('click', this.boundHandlers.handleSteemLogin);
     }
+
+    // Listen for authentication changes globally
+    eventEmitter.on('auth:changed', this.boundHandlers.handleAuthChanged);
   }
 
   async handleSubmit(e) {
@@ -616,12 +628,12 @@ class LoginView {
     try {
       // First clear any previous error styling
       this.clearErrorStyles();
-      
+
       await authService.login(username, privateKey, remember, keyType);
       this.handleLoginSuccess(username);
     } catch (error) {
       console.error('Login error:', error);
-      
+
       // Add error styling to the password field for key-related errors
       if (error.message.includes('Invalid key')) {
         passwordInput.classList.add('input-error');
@@ -638,7 +650,7 @@ class LoginView {
         const hintEl = document.createElement('div');
         hintEl.className = 'login-hint';
         hintEl.innerHTML = 'Hint: Steem keys are typically 51 characters long and start with "5" or "P".';
-        
+
         // Insert after the message element
         if (messageEl.nextSibling) {
           messageEl.parentNode.insertBefore(hintEl, messageEl.nextSibling);
@@ -656,7 +668,7 @@ class LoginView {
 
     const username = usernameInput.value.trim();
     const remember = loginForm.remember?.checked ?? true;
-    
+
     // Utilizziamo sempre posting key per il login con Keychain
     const keyType = 'posting';
 
@@ -667,7 +679,7 @@ class LoginView {
     }
 
     this.clearErrorStyles();
-    
+
     try {
       await authService.loginWithKeychain(username, remember, keyType);
       this.handleLoginSuccess(username);
@@ -692,12 +704,14 @@ class LoginView {
   }
 
   handleLoginSuccess(username) {
+    // Show a success toast
     eventEmitter.emit('notification', {
       type: 'success',
       message: `Welcome back, ${username}!`
     });
 
-    router.navigate(this.params.returnUrl || '/');
+    // Always redirect to the user's profile after login
+    router.navigate(`/@${username}`);
   }
 
   showError(element, message) {
@@ -705,7 +719,7 @@ class LoginView {
       element.textContent = message;
       element.classList.add('error');
       element.style.display = 'block';
-      
+
       // Make error more visible
       element.style.padding = '12px';
       element.style.backgroundColor = 'rgba(255, 0, 0, 0.08)';
@@ -718,7 +732,7 @@ class LoginView {
   clearErrorStyles() {
     const inputs = this.element.querySelectorAll('input');
     inputs.forEach(input => input.classList.remove('input-error'));
-    
+
     // Remove any previous hints
     const hints = this.element.querySelectorAll('.login-hint');
     hints.forEach(hint => hint.remove());
@@ -738,12 +752,19 @@ class LoginView {
     if (keychainButton && this.boundHandlers.handleKeychainLogin) {
       keychainButton.removeEventListener('click', this.boundHandlers.handleKeychainLogin);
     }
-    
+
     if (steemLoginButton && this.boundHandlers.handleSteemLogin) {
       steemLoginButton.removeEventListener('click', this.boundHandlers.handleSteemLogin);
     }
 
-    this.boundHandlers = { handleSubmit: null, handleKeychainLogin: null, handleSteemLogin: null };
+    // Remove global listener
+    if (this.boundHandlers.handleAuthChanged) {
+      eventEmitter.off?.('auth:changed', this.boundHandlers.handleAuthChanged);
+      // Fallback if EventEmitter doesn't support off()
+      try { eventEmitter.removeListener && eventEmitter.removeListener('auth:changed', this.boundHandlers.handleAuthChanged); } catch { }
+    }
+
+    this.boundHandlers = { handleSubmit: null, handleKeychainLogin: null, handleSteemLogin: null, handleAuthChanged: null };
   }
 }
 
