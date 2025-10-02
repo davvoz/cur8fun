@@ -51,3 +51,6 @@ ENV/
 # but ignore any local configuration with real credentials
 config/firebase-config.local.js
 config/firebase-credentials.json
+
+# Test files (for development only)
+test-firebase.html
