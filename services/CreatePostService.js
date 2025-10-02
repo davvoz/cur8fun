@@ -3,6 +3,7 @@ import steemService from './SteemService.js';
 import authService from './AuthService.js';
 import telegramService from './TelegramService.js';
 import { ApiClient ,ApiScheduledClient } from './api-ridd.js';
+import firebaseService from './FirebaseService.js';
 
 /**
  * Service for creating and editing posts
@@ -32,6 +33,21 @@ class CreatePostService {
     this.AUTO_SAVE_INTERVAL = 15000; // Auto-save ogni 15 secondi
 
     this.apiClient = new ApiClient();
+    
+    // Initialize Firebase
+    this.initializeFirebase();
+  }
+  
+  /**
+   * Initialize Firebase service
+   * @private
+   */
+  async initializeFirebase() {
+    try {
+      await firebaseService.initialize();
+    } catch (error) {
+      console.warn('[CreatePostService] Firebase initialization failed, falling back to localStorage:', error);
+    }
   }
 
   /**
@@ -525,7 +541,7 @@ class CreatePostService {
    * @param {string} draftId - ID del draft (opzionale, se non fornito ne genera uno nuovo)
    * @returns {Object} - Oggetto con success e draftId
    */
-  saveDraftWithId(draftData, draftId = null) {
+  async saveDraftWithId(draftData, draftId = null) {
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) {
@@ -555,17 +571,35 @@ class CreatePostService {
       // Prepara i dati del draft
       const draft = {
         ...draftData,
+        id: draftId,
         timestamp: new Date().toISOString(),
         lastModified: Date.now(),
         username: username,
         version: '2.0' // Versione del formato draft
       };
 
-      // Salva il draft
+      // Try to save to Firebase first
+      try {
+        const firebaseEnabled = await firebaseService.ensureInitialized();
+        if (firebaseEnabled) {
+          const result = await firebaseService.saveDraft(draft, draftId);
+          console.log('[CreatePostService] Draft saved to Firebase:', draftId);
+          
+          // Also save to localStorage as backup
+          const storageKey = this.getUserDraftPrefix(username) + draftId;
+          localStorage.setItem(storageKey, JSON.stringify(draft));
+          
+          return { success: true, draftId, storageKey, savedToFirebase: true };
+        }
+      } catch (firebaseError) {
+        console.warn('[CreatePostService] Firebase save failed, using localStorage:', firebaseError);
+      }
+
+      // Fallback: save to localStorage only
       const storageKey = this.getUserDraftPrefix(username) + draftId;
       localStorage.setItem(storageKey, JSON.stringify(draft));
 
-      return { success: true, draftId, storageKey };
+      return { success: true, draftId, storageKey, savedToFirebase: false };
     } catch (error) {
       console.error('Failed to save draft with ID:', error);
       return { success: false, error: error.message };
@@ -577,7 +611,7 @@ class CreatePostService {
    * @param {string} draftId - ID del draft da caricare
    * @returns {Object|null} - Draft caricato o null
    */
-  getDraftById(draftId) {
+  async getDraftById(draftId) {
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) return null;
@@ -587,8 +621,23 @@ class CreatePostService {
         return this.getDraft();
       }
 
-      // Cerca il draft specifico
       const username = currentUser.username;
+      
+      // Try to get from Firebase first
+      try {
+        const firebaseEnabled = await firebaseService.ensureInitialized();
+        if (firebaseEnabled) {
+          const firebaseDraft = await firebaseService.getDraft(draftId);
+          if (firebaseDraft && firebaseDraft.username === username) {
+            console.log('[CreatePostService] Draft loaded from Firebase:', draftId);
+            return firebaseDraft;
+          }
+        }
+      } catch (firebaseError) {
+        console.warn('[CreatePostService] Firebase get failed, using localStorage:', firebaseError);
+      }
+
+      // Fallback: get from localStorage
       const storageKey = this.getUserDraftPrefix(username) + draftId;
       const draftJson = localStorage.getItem(storageKey);
       
@@ -613,7 +662,7 @@ class CreatePostService {
    * @param {string} draftId - ID del draft da eliminare
    * @returns {boolean} - true se eliminato con successo
    */
-  deleteDraftById(draftId) {
+  async deleteDraftById(draftId) {
     try {
       const currentUser = authService.getCurrentUser();
       if (!currentUser) return false;
@@ -624,8 +673,20 @@ class CreatePostService {
         return true;
       }
 
-      // Elimina il draft specifico
       const username = currentUser.username;
+      
+      // Try to delete from Firebase first
+      try {
+        const firebaseEnabled = await firebaseService.ensureInitialized();
+        if (firebaseEnabled) {
+          await firebaseService.deleteDraft(draftId);
+          console.log('[CreatePostService] Draft deleted from Firebase:', draftId);
+        }
+      } catch (firebaseError) {
+        console.warn('[CreatePostService] Firebase delete failed:', firebaseError);
+      }
+
+      // Also delete from localStorage
       const storageKey = this.getUserDraftPrefix(username) + draftId;
       localStorage.removeItem(storageKey);
       

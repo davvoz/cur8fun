@@ -121,13 +121,17 @@ For Windows users, you can use the included setup script:
 ## 🧩 Core Technologies
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
+- **Backend**: Python Flask for API and scheduled post management
 - **Blockchain Integration**: Steem JavaScript libraries
 - **Authentication**: SteemLogin, Keychain integration
 - **Content Rendering**: Markdown parser (marked.js), DOMPurify for sanitization
+- **Data Storage**: Firebase Firestore (optional) + localStorage fallback
+- **Database**: SQLite for scheduled posts (Python backend)
 - **Deployment**: Static site deployment (GitHub Pages compatible)
 
 ## 📋 Feature Roadmap
 
+- [x] Firebase integration for cloud data storage
 - [ ] Dark mode support
 - [ ] Multiple language support
 - [ ] Advanced content filtering

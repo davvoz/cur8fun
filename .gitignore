@@ -45,3 +45,9 @@ ENV/
 *.iml
 *.ipr
 .hintrc
+
+# Firebase configuration with real credentials
+# Keep the template file (firebase-config.js) in repo
+# but ignore any local configuration with real credentials
+config/firebase-config.local.js
+config/firebase-credentials.json
