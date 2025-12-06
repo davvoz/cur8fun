@@ -18,7 +18,7 @@ class TelegramService {
     if (!postDetails || !postDetails.username || !postDetails.permlink) {
       throw new Error('Invalid post details: username and permlink are required');
     }
-    return `https://cur8.fun/@${postDetails.username}/${postDetails.permlink}`;
+    return `https://cur8.fun/app/@${postDetails.username}/${postDetails.permlink}`;
   }
 
 
