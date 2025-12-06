@@ -218,6 +218,16 @@ function renderAuthenticatedNav(container, user) {
   mobileFaucetButton.appendChild(faucetIcon);
   navActions.appendChild(mobileFaucetButton);
 
+  // Mobile games button - add after faucet button
+  const mobileGamesButton = document.createElement('a');
+  mobileGamesButton.href = 'https://games.cur8.fun/';
+  mobileGamesButton.className = 'mobile-games-button';
+  const gamesIcon = document.createElement('span');
+  gamesIcon.className = 'material-icons';
+  gamesIcon.textContent = 'sports_esports';
+  mobileGamesButton.appendChild(gamesIcon);
+  navActions.appendChild(mobileGamesButton);
+
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';

@@ -35,6 +35,15 @@ class MenuView extends View {
       'Get free STEEM to start your journey'
     ));
     
+    menuContainer.appendChild(this.createMenuItem(
+      'games-link',
+      'https://games.cur8.fun/',
+      'fa-gamepad',
+      'Games',
+      'Play games and earn rewards',
+      true
+    ));
+    
    
     
     // Add Community category with social links
@@ -182,16 +191,17 @@ class MenuView extends View {
    * @param {string} iconClass - FontAwesome icon class
    * @param {string} text - The text of the menu item
    * @param {string} description - Optional description of the menu item
+   * @param {boolean} samePage - If true, opens link in same page (no target="_blank")
    * @returns {HTMLElement} - The menu item element
    */
-  createMenuItem(className, href, iconClass, text, description) {
+  createMenuItem(className, href, iconClass, text, description, samePage = false) {
     // Create the menu item link
     const menuItem = document.createElement('a');
     menuItem.href = href;
     menuItem.className = `menu-item ${className || ''}`;
     
-    // Set target="_blank" for external links
-    if (href.startsWith('http') || href.startsWith('mailto:')) {
+    // Set target="_blank" for external links unless samePage is true
+    if ((href.startsWith('http') || href.startsWith('mailto:')) && !samePage) {
       menuItem.target = '_blank';
       menuItem.rel = 'noopener noreferrer';
     }

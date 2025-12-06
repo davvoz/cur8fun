@@ -405,6 +405,18 @@ class NavigationManager {
         `;
         menuItems.appendChild(botStatsItem);
       }
+      
+      // Add Games link
+      if (menuItems && !menuItems.querySelector('[href="https://games.cur8.fun/"]')) {
+        const gamesItem = document.createElement('a');
+        gamesItem.href = 'https://games.cur8.fun/';
+        gamesItem.className = 'menu-item';
+        gamesItem.innerHTML = `
+          <span class="material-icons icon">sports_esports</span>
+          <span class="label">Games</span>
+        `;
+        menuItems.appendChild(gamesItem);
+      }
     }
     // Imposta l'icona iniziale basata sullo stato della sidebar
     let iconDirection = this.sidebarCollapsed ? 'chevron_left' : 'chevron_right';

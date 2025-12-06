@@ -75,7 +75,8 @@
 @import 'components/auth-error-popup.css';
 
 .mobile-search-button,
-.mobile-faucet-button {
+.mobile-faucet-button,
+.mobile-games-button {
     display: none;
     color: var(--text-primary);
     margin-right: 12px;
@@ -95,13 +96,15 @@
     }
 
     .mobile-search-button,
-    .mobile-faucet-button {
+    .mobile-faucet-button,
+    .mobile-games-button {
         display: flex;
         align-items: center;
         justify-content: center;
     }
     
-    .mobile-faucet-button {
+    .mobile-faucet-button,
+    .mobile-games-button {
         display: none;
     }
     
