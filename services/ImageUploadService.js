@@ -9,7 +9,7 @@ class ImageUploadService {
   constructor() {
     this.MAX_FILE_SIZE_MB = 15;
     this.UPLOAD_TIMEOUT_MS = 60000; // 60 secondi di timeout
-    this.API_ENDPOINT = 'https://develop-imridd.eu.pythonanywhere.com/api/steem/free_upload_image';
+    this.API_ENDPOINT = 'https://imridd.eu.pythonanywhere.com/api/steem/free_upload_image';
   }
 
   /**
