@@ -18,7 +18,7 @@
 
   </script>
   <meta name="theme-color" content="#10121b">
-  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon">
   <style>
     /* 
 ======================
@@ -1874,6 +1874,181 @@ input:focus, textarea:focus {
   
 
 }
+
+/* ======================
+   Games Section
+   ====================== */
+.games-section {
+  position: relative;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.games-spotlight {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8rem;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.games-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(255, 117, 24, 0.15);
+  border: 1px solid rgba(255, 117, 24, 0.3);
+}
+
+.games-tag i {
+  color: var(--primary);
+}
+
+.games-content .section-title {
+  font-size: 4.4rem;
+  margin-bottom: 2rem;
+}
+
+.games-content .section-text {
+  font-size: 1.8rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 3.2rem;
+}
+
+.games-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  margin-bottom: 4rem;
+}
+
+.games-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  font-size: 1.7rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.games-feature-item i {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 117, 24, 0.15);
+  border-radius: 50%;
+  color: var(--primary);
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+/* Visual side */
+.games-visual {
+  position: relative;
+}
+
+.games-cards-display {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.game-card-preview {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2rem;
+  padding: 2.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.4rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.game-card-preview:hover {
+  border-color: rgba(255, 117, 24, 0.35);
+  background: rgba(255, 117, 24, 0.07);
+  transform: translateY(-6px);
+  box-shadow: var(--glow-primary);
+}
+
+.game-card-icon {
+  width: 5.6rem;
+  height: 5.6rem;
+  background: var(--primary-gradient);
+  border-radius: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.4rem;
+  color: var(--dark);
+  flex-shrink: 0;
+}
+
+.game-card-info h4 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: var(--text-main);
+}
+
+.game-card-info p {
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.games-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50rem;
+  height: 50rem;
+  background: radial-gradient(circle, rgba(255, 117, 24, 0.12) 0%, transparent 65%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Games nav link highlight */
+.nav-link-games {
+  color: var(--primary) !important;
+  font-weight: 600;
+}
+
+.nav-link-games i {
+  margin-right: 0.4rem;
+}
+
+@media (max-width: 1024px) {
+  .games-spotlight {
+    grid-template-columns: 1fr;
+    gap: 5rem;
+  }
+
+  .games-content .section-title {
+    font-size: 3.6rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .games-cards-display {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+
+  .game-card-preview {
+    padding: 1.8rem;
+  }
+}
   </style>
   
   <!-- Google Analytics - Will be loaded dynamically by CookieConsentManager -->
@@ -1904,18 +2079,17 @@ input:focus, textarea:focus {
     <div class="container">
       <nav class="main-nav">
         <a href="https://cur8.fun" class="logo-wrapper" target="_blank">
-          <img src="/start/logo_tra.png" alt="cur8.fun logo" class="logo">
+          <img src="./logo_tra.png" alt="cur8.fun logo" class="logo">
           <span class="logo-text">cur8.fun</span>
         </a>
         
         <div class="nav-menu" id="nav-menu">
           <ul class="nav-links">
-            <li><a href="/app/trending" class="nav-link">Trending</a></li>
-            <li><a href="/app/hot" class="nav-link">Hot</a></li>
-            <li><a href="/app/new" class="nav-link">New</a></li>
+            <li><a href="https://www.cur8.fun/app/home" class="nav-link" target="_blank">Home</a></li>
             <li><a href="/app/communities" class="nav-link">Communities</a></li>
             <li><a href="/app/wallet" class="nav-link">Wallet</a></li>
             <li><a href="/app/faq" class="nav-link">FAQ</a></li>
+            <li><a href="https://games.cur8.fun" class="nav-link nav-link-games" target="_blank"><i class="fa-solid fa-gamepad"></i> Games</a></li>
           </ul>
           
           
@@ -2000,6 +2174,90 @@ input:focus, textarea:focus {
           <div class="mouse-wheel"></div>
         </div>
         <span>Explore</span>
+      </div>
+    </section>
+
+    <!-- Games Section -->
+    <section class="section games-section" id="games">
+      <div class="container">
+        <div class="games-spotlight">
+          <div class="games-content" data-aos="fade-right">
+            <div class="section-tag games-tag">
+              <i class="fa-solid fa-fire"></i>&nbsp; Most Popular Product
+            </div>
+            <h2 class="section-title">Play &amp; Earn with <span class="gradient-text">Cur8 Games</span></h2>
+            <p class="section-text">
+              Our gaming hub is the fastest-growing product in the cur8 ecosystem.
+              Challenge yourself, compete with the community, and earn real STEEM tokens &mdash;
+              all on-chain, provably fair, and completely free to try.
+            </p>
+
+            <div class="games-feature-list">
+              <div class="games-feature-item">
+                <i class="fa-solid fa-trophy"></i>
+                <span>Compete &amp; Win STEEM Prizes</span>
+              </div>
+              <div class="games-feature-item">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>Fun Browser Games</span>
+              </div>
+              <div class="games-feature-item">
+                <i class="fa-solid fa-link"></i>
+                <span>Fully On-Chain, Zero Hidden Fees</span>
+              </div>
+              <div class="games-feature-item">
+                <i class="fa-solid fa-users"></i>
+                <span>Growing Daily Player Community</span>
+              </div>
+            </div>
+
+            <a href="https://games.cur8.fun" class="btn btn-primary btn-lg" target="_blank">
+              Play Now <i class="fa-solid fa-arrow-right"></i>
+            </a>
+          </div>
+
+          <div class="games-visual" data-aos="fade-left">
+            <div class="games-cards-display">
+              <div class="game-card-preview" data-aos="fade-up" data-aos-delay="100">
+                <div class="game-card-icon">
+                  <i class="fa-solid fa-dice"></i>
+                </div>
+                <div class="game-card-info">
+                  <h4>Daily Challenges</h4>
+                  <p>New games &amp; contests every day</p>
+                </div>
+              </div>
+              <div class="game-card-preview" data-aos="fade-up" data-aos-delay="200">
+                <div class="game-card-icon">
+                  <i class="fa-solid fa-ranking-star"></i>
+                </div>
+                <div class="game-card-info">
+                  <h4>Leaderboards</h4>
+                  <p>Compete for top rankings</p>
+                </div>
+              </div>
+              <div class="game-card-preview" data-aos="fade-up" data-aos-delay="300">
+                <div class="game-card-icon">
+                  <i class="fa-solid fa-coins"></i>
+                </div>
+                <div class="game-card-info">
+                  <h4>Real Rewards</h4>
+                  <p>Earn STEEM every week</p>
+                </div>
+              </div>
+              <div class="game-card-preview" data-aos="fade-up" data-aos-delay="400">
+                <div class="game-card-icon">
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="game-card-info">
+                  <h4>Provably Fair</h4>
+                  <p>Blockchain-verified outcomes</p>
+                </div>
+              </div>
+            </div>
+            <div class="games-glow"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -2254,24 +2512,6 @@ input:focus, textarea:focus {
       </div>
     </section>
 
-    <!-- Quote Section -->
-    <section class="section quote-section">
-      <div class="container">
-        <div class="quote-content" data-aos="fade-up">
-          <div class="quote-icon">
-            <i class="fa-solid fa-quote-left"></i>
-          </div>
-          <blockquote>
-            <p>Innovation is what distinguishes between a leader and a follower. <br>We are here to lead the revolution in how people create, share, and get rewarded online.</p>
-          </blockquote>
-          <div class="quote-attribution">
-            <div class="attribution-name">The cur8.fun Team</div>
-          </div>
-        </div>
-      </div>
-      <div class="quote-backdrop"></div>
-    </section>
-
     <!-- Ecosystem Section -->
     <section class="section ecosystem-section" id="ecosystem">
       <div class="container">
@@ -2385,107 +2625,6 @@ input:focus, textarea:focus {
               <h4>Simple Delegation</h4>
               <p>Delegate in just a few clicks and start earning immediately with full flexibility</p>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Testimonials Section -->
-    <section class="section testimonials-section" id="testimonials">
-      <div class="container">
-        <div class="section-header" data-aos="fade-up">
-          <div class="section-tag">Success Stories</div>
-          <h2 class="section-title">Creator <span class="gradient-text">Testimonials</span></h2>
-          <p class="section-subtitle">
-            Hear from people who have transformed their creative journey with cur8.fun
-          </p>
-        </div>
-        
-        <div class="testimonials-slider" data-aos="fade-up" data-aos-delay="200">
-          <div class="swiper" id="testimonials-swiper">
-            <div class="swiper-wrapper">
-              <div class="swiper-slide">
-                <div class="testimonial-card">
-                  <div class="testimonial-content">
-                    <div class="testimonial-quote">
-                      <i class="fa-solid fa-quote-left"></i>
-                    </div>
-                    <p>cur8.fun completely changed my creative career. I've been able to monetize my photography directly through audience appreciation rather than relying on sponsors or selling prints.</p>
-                    <div class="testimonial-rating">
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                    </div>
-                  </div>
-                  <div class="testimonial-author">
-                    <div class="author-image">
-                      <img src="../assets/img/default-avatar.png" alt="Marco Visconti">
-                    </div>
-                    <div class="author-info">
-                      <div class="author-name">Marco Visconti</div>
-                      <div class="author-title">Landscape Photographer</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="swiper-slide">
-                <div class="testimonial-card">
-                  <div class="testimonial-content">
-                    <div class="testimonial-quote">
-                      <i class="fa-solid fa-quote-left"></i>
-                    </div>
-                    <p>As a content creator tired of algorithm changes destroying my visibility, cur8.fun has been a revelation. My audience finds my content based on genuine interest, not mysterious algorithms.</p>
-                    <div class="testimonial-rating">
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                    </div>
-                  </div>
-                  <div class="testimonial-author">
-                    <div class="author-image">
-                      <img src="../assets/img/default-avatar.png" alt="Sofia Chen">
-                    </div>
-                    <div class="author-info">
-                      <div class="author-name">Sofia Chen</div>
-                      <div class="author-title">Lifestyle Content Creator</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="swiper-slide">
-                <div class="testimonial-card">
-                  <div class="testimonial-content">
-                    <div class="testimonial-quote">
-                      <i class="fa-solid fa-quote-left"></i>
-                    </div>
-                    <p>The decentralized nature of cur8.fun means I can express my ideas freely without fear of sudden account suspension. It's genuinely liberating to create without arbitrary restrictions.</p>
-                    <div class="testimonial-rating">
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                      <i class="fa-solid fa-star"></i>
-                    </div>
-                  </div>
-                  <div class="testimonial-author">
-                    <div class="author-image">
-                      <img src="../assets/img/default-avatar.png" alt="Thomas Wagner">
-                    </div>
-                    <div class="author-info">
-                      <div class="author-name">Thomas Wagner</div>
-                      <div class="author-title">Digital Artist & Writer</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="swiper-pagination"></div>
           </div>
         </div>
       </div>
@@ -2613,7 +2752,7 @@ input:focus, textarea:focus {
       <div class="footer-grid">
         <div class="footer-brand">
           <div class="footer-logo">
-            <img src="/start/logo_tra.png" alt="cur8.fun logo" class="logo">
+            <img src="./logo_tra.png" alt="cur8.fun logo" class="logo">
             <span class="logo-text">cur8.fun</span>
           </div>
           <p class="footer-tagline">
@@ -2646,6 +2785,7 @@ input:focus, textarea:focus {
             <li><a href="/app/new">New</a></li>
             <li><a href="/app/communities">Communities</a></li>
             <li><a href="/app/wallet">Wallet</a></li>
+            <li><a href="https://games.cur8.fun" target="_blank">&#127918; Games</a></li>
           </ul>
         </div>
         
@@ -2774,17 +2914,15 @@ input:focus, textarea:focus {
       function update(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        let value = start + (target - start) * progress;
+        const eased = 1 - Math.pow(1 - progress, 3);
+        let value = start + (target - start) * eased;
         counter.textContent = isInt ? Math.floor(value).toLocaleString() : value.toFixed(1);
-        counter.style.opacity = 0.2 + 0.8 * progress;
         if (progress < 1) {
           requestAnimationFrame(update);
         } else {
           counter.textContent = isInt ? Math.floor(target).toLocaleString() : target.toFixed(1);
-          counter.style.opacity = 1;
         }
       }
-      counter.style.opacity = 0.2;
       requestAnimationFrame(update);
     }
     
@@ -2797,7 +2935,7 @@ input:focus, textarea:focus {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           if (entry.target.querySelector('.counter')) {
-            startCounters();
+            setTimeout(startCounters, 600);
           }
           observer.unobserve(entry.target);
         }
