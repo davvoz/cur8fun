@@ -44,8 +44,8 @@ class SettingsView extends View {
     content.appendChild(tagsSection);
 
     // Create privacy settings section
-    const privacySection = this.createPrivacySection();
-    content.appendChild(privacySection);
+   // const privacySection = this.createPrivacySection();
+    // content.appendChild(privacySection);
 
     // Create app information section
     const appInfoSection = this.createAppInfoSection();
