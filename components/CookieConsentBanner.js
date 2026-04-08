@@ -15,9 +15,8 @@ class CookieConsentBanner extends Component {
      * Check if banner should be shown and render it
      */
     checkAndShow() {
-        if (userPreferencesService.shouldShowCookieBanner()) {
-            this.show();
-        }
+        // Banner hidden
+        return;
     }
 
     /**
