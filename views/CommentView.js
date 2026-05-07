@@ -14,6 +14,7 @@ import CommentsSection from '../components/post/CommentsSection.js';
 // Import controllers
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
+import DialogUtility from '../components/DialogUtility.js';
 
 /**
  * Vista dedicata alla visualizzazione di un singolo commento
@@ -227,16 +228,14 @@ export default class CommentView extends View {
       false // Per ora impostiamo hasReblogged a false, aggiornare con verifica effettiva
     );
     
-    // Inizializza il componente per le risposte
-    if (this.replies && this.replies.length > 0) {
-      this.repliesSectionComponent = new CommentsSection(
-        this.replies,
-        this.comment,
-        (reply, text) => this.commentController.handleReply(reply, text),
-        (replyEl, voteBtn) => this.voteController.handleCommentVote(replyEl, voteBtn),
-        this.contentRenderer
-      );
-    }
+    // Inizializza il componente per le risposte (sempre, anche se vuote, per mostrare il form)
+    this.repliesSectionComponent = new CommentsSection(
+      this.replies || [],
+      this.comment,
+      (reply, text) => this.commentController.handleReply(reply, text),
+      (replyEl, voteBtn) => this.voteController.handleCommentVote(replyEl, voteBtn),
+      this.contentRenderer
+    );
     
     // Se abbiamo il post padre, crea il riferimento
     if (this.parentPost) {
@@ -293,16 +292,13 @@ export default class CommentView extends View {
       this.commentContent.appendChild(this.commentContentComponent.render());
       this.commentContent.appendChild(this.commentActionsComponent.render());
       
-      // Se ci sono risposte, renderizza il componente risposte
+      // Se ci sono risposte, renderizza il componente risposte (sempre presente ora)
       if (this.repliesSectionComponent) {
         const repliesElement = await this.repliesSectionComponent.render();
         
         if (repliesElement && repliesElement.nodeType === Node.ELEMENT_NODE) {
           this.repliesContainer.appendChild(repliesElement);
         }
-      } else {
-        // Se non ci sono risposte, mostra un messaggio
-        this.repliesContainer.innerHTML = '<div class="no-replies">No replies yet.</div>';
       }
 
       // Mostra il contenuto
@@ -491,6 +487,17 @@ export default class CommentView extends View {
         router.navigate('/login');
         return;
       }
+
+      // Chiedi conferma
+      const confirmed = await DialogUtility.showConfirmationDialog({
+        title: 'Reblog Post',
+        message: `Reblog this post by @${this.comment.author} to your blog?`,
+        confirmText: 'Reblog',
+        cancelText: 'Cancel',
+        icon: 'repeat',
+        type: 'info'
+      });
+      if (!confirmed) return;
       
       console.log(`Reblogging comment by ${this.comment.author}/${this.comment.permlink}`);
       

@@ -4,6 +4,7 @@ import InfiniteScroll from '../utils/InfiniteScroll.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import metaTagService from '../services/MetaTagService.js';
+import router from '../utils/Router.js';
 
 class HomeView extends BasePostView {  constructor(params) {
     super(params);
@@ -168,6 +169,32 @@ class HomeView extends BasePostView {  constructor(params) {
     if (this.infiniteScroll) {
         this.infiniteScroll.destroy();
     }
+
+    // --- Back navigation: restore from cache instead of API call ---
+    if (router.isBackNavigation) {
+      router.isBackNavigation = false;
+      const cached = this.restoreState();
+      if (cached) {
+        this.posts = cached.posts;
+        this.renderedPostIds = new Set(cached.renderedPostIds);
+        this.loading = false;
+        this.loadingIndicator.hide();
+        this.renderPosts(false); // renders all cached posts, also handles scroll restore
+
+        let endMessage = `No more ${this.formatTagName(this.tag)} posts to load`;
+        this.infiniteScroll = new InfiniteScroll({
+          container: postsContainer,
+          loadMore: (page) => this.loadPosts(page),
+          threshold: '200px',
+          initialPage: cached.currentPage,
+          loadingMessage: 'Loading more posts...',
+          endMessage,
+          errorMessage: 'Failed to load posts. Please check your connection.'
+        });
+        return;
+      }
+    }
+    // --- end back navigation restore ---
     
     // Load first page of posts
     this.loadPosts(1).then((hasMore) => {

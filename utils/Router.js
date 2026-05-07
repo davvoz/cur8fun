@@ -19,6 +19,13 @@ class Router {
     this.viewContainer = null;
     this.useHashRouting = false; // Use HTML5 History API routing
     this.basePath = '';
+    this.pendingScrollRestore = undefined; // undefined=no restore, null=top, string=postId
+    this.isBackNavigation = false;    // flag: current navigation is a popstate (back/forward)
+    this.viewStateCache = new Map(); // Cache view states (posts/page) for back navigation
+    this.scrollPositions = new Map(); // Per-path scroll state: path → { postId }
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
     // Detect if we're on GitHub Pages and set the base path
     this.detectBasePath();
     // Handle browser navigation events
@@ -29,14 +36,18 @@ class Router {
       });
     } else {
       window.addEventListener('popstate', (event) => {
-        // Su popstate, sincronizza navigationHistory con la posizione reale del browser
+        // Compute shortPath first
         const browserPath = window.location.pathname;
         const params = event.state || {};
         let shortPath = browserPath;
         if (this.basePath && shortPath.startsWith(this.basePath)) {
           shortPath = shortPath.substring(this.basePath.length) || '/';
         }
-        // Se la history è vuota o desincronizzata, ricostruiscila
+        // Read scroll state from our Map (never from history.state)
+        const scrollState = this.scrollPositions.get(shortPath);
+        this.pendingScrollRestore = scrollState ? scrollState.scrollTop : 0;
+        this.isBackNavigation = true;
+        // Su popstate, sincronizza navigationHistory con la posizione reale del browser
         const last = this.navigationHistory[this.navigationHistory.length - 1];
         if (!last || last.path !== shortPath) {
           // Cerca se il path esiste già in history
@@ -120,6 +131,21 @@ class Router {
     if (path === this.currentPath && !replaceState) {
       return;
     }
+    // Save scroll state for the page we are LEAVING (keyed by currentPath)
+    // Only do this for pages with a post list. Other pages (PostView etc.) are ignored.
+    if (!replaceState && this.currentPath) {
+      const cards = document.querySelectorAll('.posts-container .post-card');
+      if (cards.length > 0) {
+        const mainContent = document.getElementById('main-content');
+        const scrollTop = mainContent ? mainContent.scrollTop : 0;
+        // Store keyed by path — completely isolated from history.state
+        this.scrollPositions.set(this.currentPath, { scrollTop });
+        // Also save posts/page cache
+        if (this.currentView && typeof this.currentView.saveState === 'function') {
+          this.currentView.saveState();
+        }
+      }
+    }
     if (path.startsWith('/search') && params.q) {
       const searchParams = new URLSearchParams();
       searchParams.append('q', params.q);
@@ -188,6 +214,11 @@ class Router {
       document.body.appendChild(appContainer);
     }
     this.ensureViewContainer(appContainer);
+    // Scroll #main-content to top on every navigation except back (back restore is handled separately)
+    if (!this.isBackNavigation) {
+      const mainContent = document.getElementById('main-content');
+      if (mainContent) mainContent.scrollTop = 0;
+    }
     this.cleanupCurrentView();
     if (!matchedRoute && this.notFoundHandler) {
       this.currentView = new this.notFoundHandler(this.viewContainer);
@@ -206,6 +237,7 @@ class Router {
     };
     this.currentView = new matchedRoute.viewClass(mergedParams);
     this.currentView.render(this.viewContainer);
+    this.isBackNavigation = false; // reset after view has rendered
     eventEmitter.emit('route:changed', {
       path,
       view: matchedRoute.path,

@@ -151,6 +151,7 @@ body:not(:has(style)) {
 #toggle-btn-retract {
     position: absolute;
     bottom: 0;
+    right: var(--space-sm);
 }
 
 /* Toast notification styles */

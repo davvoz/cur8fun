@@ -1,6 +1,7 @@
 import voteService from '../../services/VoteService.js';
 import router from '../../utils/Router.js';
 import steemApi from '../../services/SteemApi.js';
+import VotesPopup from './VotesPopup.js';
 
 // Improved inert attribute polyfill with better event handling
 function ensureInertSupport() {
@@ -557,8 +558,11 @@ class CommentsSection {
   }
   
   formatCommentDate(created) {
-    const postDate = new Date(created);
-    const timeElapsed = Math.floor((Date.now() - new Date(created + "Z").getTime()) / (1000 * 60));
+    // Steem dates have no timezone suffix — treat as UTC by appending Z.
+    // If the string already ends with Z (e.g. from Date.toISOString()), don't add another.
+    const utcString = created && created.endsWith('Z') ? created : (created + 'Z');
+    const postDate = new Date(utcString);
+    const timeElapsed = Math.floor((Date.now() - postDate.getTime()) / (1000 * 60));
     
     if (timeElapsed < 60) {
       return `${timeElapsed} min ago`;
@@ -573,14 +577,11 @@ class CommentsSection {
       return `${Math.floor(timeElapsed / (30 * 24 * 60))} months ago`;
     }
     
-    postDate.textContent = new Date(created + "Z").toLocaleDateString(undefined, {
+    return postDate.toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
-
-    return postDate.textContent;
-
   }
   
   createCommentBody(comment) {
@@ -617,8 +618,8 @@ class CommentsSection {
     commentActions.className = 'comment-actions';
 
     // Upvote button
-    const upvoteBtn = this.createUpvoteButton(comment);
-    
+    const upvoteContainer = this.createUpvoteButton(comment);
+
     // Reply button
     const replyBtn = document.createElement('button');
     replyBtn.className = 'action-btn reply-btn';
@@ -627,7 +628,7 @@ class CommentsSection {
     replyBtn.setAttribute('aria-expanded', 'false');
     replyBtn.dataset.author = comment.author;
 
-    commentActions.appendChild(upvoteBtn);
+    commentActions.appendChild(upvoteContainer);
     commentActions.appendChild(replyBtn);
     
     // Add Edit button if comment is by current user
@@ -691,44 +692,53 @@ class CommentsSection {
   }
   
   createUpvoteButton(comment) {
+    // Container holds button (icon only) + count as siblings
+    const container = document.createElement('div');
+    container.className = 'comment-vote-container';
+
     const upvoteBtn = document.createElement('button');
     upvoteBtn.className = 'action-btn upvote-btn';
     upvoteBtn.setAttribute('aria-label', `Upvote comment by ${comment.author}`);
-    
+
     const upvoteIcon = document.createElement('span');
     upvoteIcon.className = 'material-icons';
     upvoteIcon.textContent = 'thumb_up';
     upvoteIcon.setAttribute('aria-hidden', 'true');
-    
+    upvoteBtn.appendChild(upvoteIcon);
+
+    // Vote count — sibling, opens voters list
     const upvoteCount = document.createElement('span');
-    upvoteCount.className = 'count';
-    
-    // Fix for top-level comments: use net_votes if active_votes is not reliable
+    upvoteCount.className = 'count comment-vote-count';
+
     let votesCount = 0;
     if (comment.net_votes !== undefined && !isNaN(comment.net_votes)) {
-      // Use net_votes as it's more reliable for top-level comments
       votesCount = Math.max(0, parseInt(comment.net_votes, 10));
     } else if (Array.isArray(comment.active_votes)) {
-      // Fallback to active_votes.length for replies
       votesCount = comment.active_votes.length;
     }
-    
     upvoteCount.textContent = votesCount;
-    
-    upvoteBtn.appendChild(upvoteIcon);
-    upvoteBtn.appendChild(upvoteCount);
-    
-    // Add upvote handler
+
+    upvoteCount.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new VotesPopup(comment).show();
+    });
+
+    container.appendChild(upvoteBtn);
+    container.appendChild(upvoteCount);
+
+    // Add upvote handler on button only
     if (this.handleVoteCallback) {
       upvoteBtn.addEventListener('click', () => {
         this.handleVoteCallback(comment, upvoteBtn);
       });
     }
-    
+
     // Check if user has already voted
     this.checkCommentVoteStatus(comment, upvoteBtn);
-    
-    return upvoteBtn;
+
+    // Return container but expose upvoteBtn reference for external use
+    container.upvoteBtn = upvoteBtn;
+    return container;
   }
   
   createReplyForm(comment) {

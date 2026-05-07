@@ -203,21 +203,6 @@ function renderAuthenticatedNav(container, user) {
 
   navActions.appendChild(mobileThemeToggle);
 
-  // Mobile faucet button - add next to search button
-  const mobileFaucetButton = document.createElement('a');
-  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
-  mobileFaucetButton.className = 'mobile-faucet-button';
-  mobileFaucetButton.target = '_blank';
-  mobileFaucetButton.rel = 'noopener noreferrer';
-  const faucetIcon = document.createElement('span');
-  faucetIcon.className = 'icon';
-  // Use FontAwesome icon to match desktop navigation
-  const faIcon = document.createElement('i');
-  faIcon.className = 'fas fa-faucet';
-  faucetIcon.appendChild(faIcon);
-  mobileFaucetButton.appendChild(faucetIcon);
-  navActions.appendChild(mobileFaucetButton);
-
   // Mobile games button - add after faucet button
   const mobileGamesButton = document.createElement('a');
   mobileGamesButton.href = 'https://games.cur8.fun/';

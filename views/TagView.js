@@ -1,6 +1,7 @@
 import steemService from '../services/SteemService.js';
 import BasePostView from './BasePostView.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
+import router from '../utils/Router.js';
 
 class TagView extends BasePostView {
     constructor(params) {
@@ -102,7 +103,31 @@ class TagView extends BasePostView {
         if (this.infiniteScroll) {
             this.infiniteScroll.destroy();
         }
-        
+
+        // --- Back navigation: restore from cache instead of API call ---
+        if (router.isBackNavigation) {
+            router.isBackNavigation = false;
+            const cached = this.restoreState();
+            if (cached) {
+                this.posts = cached.posts;
+                this.renderedPostIds = new Set(cached.renderedPostIds);
+                this.loading = false;
+                this.loadingIndicator.hide();
+                this.renderPosts(false);
+                this.infiniteScroll = new InfiniteScroll({
+                    container: postsContainer,
+                    loadMore: (page) => this.loadPosts(page),
+                    threshold: '200px',
+                    initialPage: cached.currentPage,
+                    loadingMessage: 'Loading more posts...',
+                    endMessage: `No more posts with tag #${this.tag}`,
+                    errorMessage: 'Failed to load posts. Please check your connection.'
+                });
+                return;
+            }
+        }
+        // --- end back navigation restore ---
+
         // Load posts
         this.loadPosts(1).then(hasMore => {
             // Initialize infinite scroll

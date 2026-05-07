@@ -291,9 +291,10 @@ export default class CommentController {
       }
 
       // Usa solo il metodo diretto del componente CommentsSection (quando disponibile)
-      if (this.view.commentsSectionComponent && typeof this.view.commentsSectionComponent.addNewComment === 'function') {
-        this.view.commentsSectionComponent.addNewComment(commentResult);
-      } else {
+      const commentsSection = this.view.commentsSectionComponent || this.view.repliesSectionComponent;
+      if (commentsSection && typeof commentsSection.addNewComment === 'function') {
+        commentsSection.addNewComment(commentResult);
+      } else if (typeof this.view.updateWithNewComment === 'function') {
         // Fallback al metodo updateWithNewComment della view
         this.view.updateWithNewComment(commentResult);
       }
@@ -376,26 +377,33 @@ export default class CommentController {
       return;
     }
 
-    const commentElement = this.findCommentElement(parentComment);
-    if (!commentElement) {
-      this.showCommentNotFoundError();
-      return;
-    }
-
-    const { replyForm, submitButton, textarea } = this.getReplyFormElements(commentElement);
-    if (!replyForm || !submitButton || !textarea) {
-      console.error('Reply form elements missing');
-      return;
-    }
-
-    // Set loading state
-    const originalText = submitButton.textContent;
-    this.setSubmitState(submitButton, textarea, true);
-
     try {
-      await this.submitReply(parentComment, replyText, submitButton, textarea, originalText, replyForm, commentElement);
+      const result = await commentService.createComment({
+        parentAuthor: parentComment.author,
+        parentPermlink: parentComment.permlink,
+        body: replyText,
+        metadata: {
+          app: 'cur8.fun/1.0',
+          format: 'markdown',
+          tags: this.extractTags(replyText)
+        }
+      });
+
+      this.view.emit('notification', {
+        type: 'success',
+        message: 'Your reply was posted successfully'
+      });
+
+      // Find the comment element to append the new reply under it
+      const commentElement = this.findCommentElement(parentComment);
+      this.addNewReplyToUI(result, commentElement, parentComment);
     } catch (error) {
-      this.handleReplyError(error, submitButton, textarea, originalText);
+      console.error('Error posting reply:', error);
+      const errorMessage = this.getErrorMessage(error);
+      this.view.emit('notification', {
+        type: 'error',
+        message: errorMessage
+      });
     }
   }
 
@@ -641,22 +649,47 @@ export default class CommentController {
    * @param {Object} parentComment - The parent comment data
    */
   addNewReplyToUI(result, commentElement, parentComment) {
-    if (!result || !commentElement || !parentComment) {
+    if (!result || !parentComment) {
       console.error('Missing required parameters for adding reply to UI');
       return;
     }
 
     try {
-      const repliesContainer = this.getOrCreateRepliesContainer(commentElement);
-      const repliesWrapper = this.getOrCreateRepliesWrapper(repliesContainer);
-
-      // Construct a new comment object
       const newReply = this.createReplyObject(result, parentComment);
+      const section = this.view.commentsSectionComponent || this.view.repliesSectionComponent;
 
-      this.appendReplyToUI(newReply, repliesWrapper);
-      this.updateReplyCountBadge(commentElement);
-      this.updateDataModels(newReply, parentComment);
+      // Case 1: replying to a nested comment that has data-attributes in the DOM
+      const nestedEl = document.querySelector(
+        `.comment[data-author="${parentComment.author}"][data-permlink="${parentComment.permlink}"]`
+      );
+      if (nestedEl) {
+        const repliesContainer = this.getOrCreateRepliesContainer(nestedEl);
+        const repliesWrapper = this.getOrCreateRepliesWrapper(repliesContainer);
+        if (section) repliesWrapper.appendChild(section.createCommentElement(newReply));
+        this.updateReplyCountBadge(nestedEl);
+        this.updateDataModels(newReply, parentComment);
+        return;
+      }
 
+      // Case 2: replying to the main comment (CommentView) — append to commentsListContainer
+      if (this.view.repliesSectionComponent?.commentsListContainer) {
+        const listContainer = this.view.repliesSectionComponent.commentsListContainer;
+        listContainer.appendChild(this.view.repliesSectionComponent.createCommentElement(newReply));
+        this.updateDataModels(newReply, parentComment);
+        return;
+      }
+
+      // Case 3: PostView fallback — commentElement passed in
+      if (commentElement) {
+        const repliesContainer = this.getOrCreateRepliesContainer(commentElement);
+        const repliesWrapper = this.getOrCreateRepliesWrapper(repliesContainer);
+        if (section) repliesWrapper.appendChild(section.createCommentElement(newReply));
+        this.updateReplyCountBadge(commentElement);
+        this.updateDataModels(newReply, parentComment);
+        return;
+      }
+
+      this.attemptFallbackRefresh();
     } catch (error) {
       console.error('Error adding new reply to UI:', error);
       this.attemptFallbackRefresh();
@@ -721,8 +754,8 @@ export default class CommentController {
       net_votes: 0,
       active_votes: [],
       children: [],
-      depth: 0,
-      isNew: true // Mark as new for highlighting
+      depth: (parentComment.depth !== undefined ? parentComment.depth : 0) + 1,
+      isNew: true
     };
   }
 
@@ -732,8 +765,9 @@ export default class CommentController {
    * @param {HTMLElement} repliesWrapper - The container to append to
    */
   appendReplyToUI(newReply, repliesWrapper) {
-    if (this.view.commentsSectionComponent) {
-      const replyElement = this.view.commentsSectionComponent.createCommentElement(newReply);
+    const section = this.view.commentsSectionComponent || this.view.repliesSectionComponent;
+    if (section) {
+      const replyElement = section.createCommentElement(newReply);
       repliesWrapper.appendChild(replyElement);
     }
   }
@@ -797,7 +831,7 @@ export default class CommentController {
    */
   attemptFallbackRefresh() {
     setTimeout(() => {
-      const component = this.view.commentsSectionComponent;
+      const component = this.view.commentsSectionComponent || this.view.repliesSectionComponent;
       if (component && typeof component.quickRefreshReplies === 'function') {
         component.quickRefreshReplies()
           .then(() => component.renderComments())

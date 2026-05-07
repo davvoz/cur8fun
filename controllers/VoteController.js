@@ -1,6 +1,7 @@
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js';
 import router from '../utils/Router.js';
+import eventEmitter from '../utils/EventEmitter.js';
 
 export default class VoteController {
   constructor(view) {
@@ -188,15 +189,14 @@ export default class VoteController {
   }
   
   showAlreadyVotedNotification(percent) {
-    // Il valore percent può arrivare direttamente dall'API ed essere già in scala -10000 a +10000
-    // Assicuriamoci di formattarlo correttamente
     let formattedPercent = percent;
     if (Math.abs(percent) > 100) {
-      // Se percent è in scala -10000 a +10000, dividiamo per 100
       formattedPercent = percent / 100;
     }
-
-
+    const notify = (this.view && typeof this.view.emit === 'function')
+      ? (data) => this.view.emit('notification', data)
+      : (data) => eventEmitter.emit('notification', data);
+    notify({ type: 'info', message: `You already voted ${formattedPercent}% on this post` });
   }
   
   setVotingState(button, isVoting, weight) {
@@ -472,7 +472,7 @@ export default class VoteController {
   
   setupOutsideClickHandler(popup, targetElement) {
     const closeOnOutsideClick = (event) => {
-      if (!popup.contains(event.target) && event.target !== targetElement) {
+      if (!popup.contains(event.target) && !targetElement.contains(event.target) && event.target !== targetElement) {
         popup.remove();
         const index = this.popups.indexOf(popup);
         if (index > -1) this.popups.splice(index, 1);

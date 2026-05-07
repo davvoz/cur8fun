@@ -14,6 +14,10 @@ import authService from '../services/AuthService.js';
 
 // Controllers
 import VoteController from '../controllers/VoteController.js';
+import VotesPopup from '../components/post/VotesPopup.js';
+import PayoutInfoPopup from '../components/post/PayoutInfoPopup.js';
+import reblogService from '../services/ReblogService.js';
+import DialogUtility from '../components/DialogUtility.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
@@ -201,6 +205,36 @@ class BasePostView {
     
     // Render each post
     uniquePostsToRender.forEach(post => this.renderPostCard(post, postsContainer));
+
+    // Restore scroll after back navigation (fresh render only, not append)
+    if (!append && router.pendingScrollRestore !== undefined) {
+      const targetScrollTop = router.pendingScrollRestore;
+      router.pendingScrollRestore = undefined;
+      requestAnimationFrame(() => {
+        const mainContent = document.getElementById('main-content');
+        if (mainContent) mainContent.scrollTop = targetScrollTop;
+      });
+    }
+  }
+
+  /**
+   * Scroll #main-content to the card matching a postId. Retries via rAF until card appears (max 2s).
+   */
+  _scrollToPost(container, postId, deadline = Date.now() + 2000) {
+    const card = container.querySelector(`[data-post-id="${postId}"]`);
+    const mainContent = document.getElementById('main-content');
+    if (card && mainContent) {
+      const cardRect = card.getBoundingClientRect();
+      const containerRect = mainContent.getBoundingClientRect();
+      const targetScrollTop = mainContent.scrollTop + (cardRect.top - containerRect.top);
+      console.log('[_scrollToPost] postId:', postId, '| cardRect.top:', cardRect.top, '| containerRect.top:', containerRect.top, '| current scrollTop:', mainContent.scrollTop, '| targetScrollTop:', targetScrollTop);
+      mainContent.scrollTop = targetScrollTop;
+    } else if (Date.now() < deadline) {
+      console.log('[_scrollToPost] card not found yet, retrying... postId:', postId);
+      requestAnimationFrame(() => this._scrollToPost(container, postId, deadline));
+    } else {
+      console.warn('[_scrollToPost] GAVE UP finding card:', postId);
+    }
   }
 
   /**
@@ -280,8 +314,9 @@ class BasePostView {
     // Add main content to card
     postCard.appendChild(mainContent);
     
-    // Click event - Navigate to post
+    // Click event - Navigate to post (ignore clicks on action buttons)
     postCard.addEventListener('click', (e) => {
+      if (e.target.closest('.post-actions')) return;
       e.preventDefault();
       const postUrl = `/@${post.author}/${post.permlink}`;
       router.navigate(postUrl);
@@ -836,23 +871,142 @@ class BasePostView {
   createPostActions(post) {
     const actions = document.createElement('div');
     actions.className = 'post-actions';
-    
-    // Vote action with interactive behavior
-    const voteAction = this.createVoteActionItem(post);
-    
+
+    // Vote: icon votes, count opens VotesPopup
+    const voteWrapper = this.createCardVoteAction(post);
+
     // Comments action (non interactive, just shows count)
     const commentAction = this.createActionItem('chat', post.children || 0);
     commentAction.classList.add('comment-action');
-    
-    // Payout action (non interactive, just shows value)
-    const payoutAction = this.createActionItem('attach_money', parseFloat(this.getPendingPayout(post)).toFixed(2));
-    payoutAction.classList.add('payout-action');
-    
-    actions.append(voteAction, commentAction, payoutAction);
-    
+
+    // Reblog button
+    const reblogBtn = this.createCardReblogButton(post);
+
+    // Payout: right-aligned, green, clickable popup
+    const payoutAction = document.createElement('div');
+    payoutAction.className = 'action-item card-payout-info';
+    payoutAction.textContent = `$${parseFloat(this.getPendingPayout(post)).toFixed(2)}`;
+    payoutAction.addEventListener('click', () => new PayoutInfoPopup(post).show());
+
+    actions.append(voteWrapper, commentAction, reblogBtn, payoutAction);
+
     return actions;
   }
-  
+
+  /**
+   * Reblog button for post cards, with confirmation dialog
+   */
+  createCardReblogButton(post) {
+    const btn = document.createElement('div');
+    btn.className = 'action-item card-reblog-btn';
+
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = 'repeat';
+    btn.appendChild(icon);
+
+    // Check if already reblogged on load
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      reblogService.hasReblogged(currentUser.username, post.author, post.permlink)
+        .then(has => {
+          if (has) {
+            btn.classList.add('reblogged');
+            btn.style.pointerEvents = 'none';
+          }
+        })
+        .catch(() => {});
+    }
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+
+      if (!currentUser) {
+        eventEmitter.emit('notification', { type: 'info', message: 'You must be logged in to reblog' });
+        router.navigate('/login');
+        return;
+      }
+
+      const confirmed = await DialogUtility.showConfirmationDialog({
+        message: `Reblog this post to your blog?`,
+        confirmText: 'Reblog',
+        cancelText: 'Cancel',
+        icon: 'repeat',
+        type: 'info'
+      });
+
+      if (!confirmed) return;
+
+      try {
+        btn.style.pointerEvents = 'none';
+        icon.textContent = 'settings';
+        icon.classList.add('reblog-spinning');
+
+        await reblogService.reblogPost(post.author, post.permlink);
+
+        icon.classList.remove('reblog-spinning');
+        icon.textContent = 'repeat';
+        btn.classList.add('reblogged');
+      } catch (err) {
+        icon.classList.remove('reblog-spinning');
+        icon.textContent = 'repeat';
+        btn.style.pointerEvents = '';
+        eventEmitter.emit('notification', { type: 'error', message: err.message || 'Failed to reblog' });
+      }
+    });
+
+    return btn;
+  }
+
+  /**
+   * Vote action for post cards: thumb icon votes, count number opens VotesPopup
+   */
+  createCardVoteAction(post) {
+    // Outer container — holds icon-wrapper + count as siblings (no shared click handler)
+    const container = document.createElement('div');
+    container.className = 'card-vote-container';
+
+    // Icon wrapper — this is what handleVoteAction uses for state (voted class, innerHTML, etc.)
+    const wrapper = document.createElement('div');
+    wrapper.className = 'action-item card-vote-wrapper vote-action';
+    wrapper.dataset.author = post.author;
+    wrapper.dataset.permlink = post.permlink;
+
+    const icon = document.createElement('span');
+    icon.className = 'material-icons';
+    icon.textContent = 'thumb_up';
+    wrapper.appendChild(icon);
+
+    // Count button — sibling of wrapper, completely independent click target
+    const countBtn = document.createElement('span');
+    countBtn.className = 'card-vote-count';
+    countBtn.textContent = this.getVoteCount(post);
+    countBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new VotesPopup(post).show();
+    });
+
+    container.appendChild(wrapper);
+    container.appendChild(countBtn);
+
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      wrapper.classList.add('interactive');
+      this.checkVoteStatus(post, wrapper);
+      wrapper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.handleVoteAction(post, wrapper);
+      });
+    } else {
+      wrapper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        eventEmitter.emit('notification', { type: 'info', message: 'You must be logged in to vote' });
+      });
+    }
+
+    return container;
+  }
+
   /**
    * Create interactive vote action
    */
@@ -1128,11 +1282,15 @@ class BasePostView {
     // Add tag list to the main container
     tagBarContainer.appendChild(tagListContainer);
     
-    // Scroll active tag into view
+    // Scroll active tag into view (horizontal only — scrollIntoView would also
+    // vertically scroll #main-content, undoing back-nav scroll restore)
     setTimeout(() => {
       const activeTag = tagList.querySelector('.tag-item.active');
       if (activeTag) {
-        activeTag.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        const itemOffset = activeTag.offsetLeft;
+        const itemWidth = activeTag.offsetWidth;
+        const containerWidth = tagList.offsetWidth;
+        tagList.scrollLeft = itemOffset - (containerWidth / 2) + (itemWidth / 2);
       }
     }, 100);
     
@@ -1246,6 +1404,32 @@ class BasePostView {
     this.loadingIndicator.show(postsContainer);
     
     return { postsContainer };
+  }
+
+  /**
+   * Returns the cache key for this view's state (path + tag)
+   */
+  _viewCacheKey() {
+    return (router.currentPath || '/') + '__' + (this.tag || '');
+  }
+
+  /**
+   * Save current posts + page to router cache (called before navigation)
+   */
+  saveState() {
+    if (!this.posts || this.posts.length === 0) return;
+    router.viewStateCache.set(this._viewCacheKey(), {
+      posts: this.posts,
+      renderedPostIds: Array.from(this.renderedPostIds),
+      currentPage: this.infiniteScroll ? this.infiniteScroll.currentPage : 1
+    });
+  }
+
+  /**
+   * Retrieve cached state for this view (used on back navigation)
+   */
+  restoreState() {
+    return router.viewStateCache.get(this._viewCacheKey()) || null;
   }
 
   /**

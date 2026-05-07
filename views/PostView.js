@@ -18,6 +18,7 @@ import CommentsSection from '../components/post/CommentsSection.js';
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
 import PostReblogHandler from '../components/post/PostReblogHandler.js';
+import DialogUtility from '../components/DialogUtility.js';
 
 class PostView extends View {  constructor(params = {}) {
     super(params);
@@ -693,6 +694,17 @@ class PostView extends View {  constructor(params = {}) {
         router.navigate('/login');
         return;
       }
+
+      // Chiedi conferma
+      const confirmed = await DialogUtility.showConfirmationDialog({
+        title: 'Reblog Post',
+        message: `Reblog "${this.post.title}" by @${this.post.author} to your blog?`,
+        confirmText: 'Reblog',
+        cancelText: 'Cancel',
+        icon: 'repeat',
+        type: 'info'
+      });
+      if (!confirmed) return;
       
       console.log(`Reblogging post by ${this.post.author}/${this.post.permlink}`);
       
