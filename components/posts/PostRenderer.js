@@ -1,4 +1,5 @@
 import router from '../../utils/Router.js';
+import { proxifyImage, getImageUrl } from '../../utils/ImageUtils.js';
 
 export default class PostRenderer {
   constructor() {
@@ -25,8 +26,13 @@ export default class PostRenderer {
     const mainContent = document.createElement('div');
     mainContent.className = 'post-main-content';
 
-    // Immagine (200px)
-    mainContent.appendChild(this.createPostImage(imageUrl, post.title));
+    // Immagine (null se il post non ha immagini — evita spazio vuoto)
+    const postImageEl = this.createPostImage(imageUrl, post.title);
+    if (postImageEl) {
+      mainContent.appendChild(postImageEl);
+    } else {
+      postItem.classList.add('no-image');
+    }
 
     // Contenuto testuale (100px)
     const contentWrapper = document.createElement('div');
@@ -40,13 +46,9 @@ export default class PostRenderer {
     if (post.body) {
       const excerpt = document.createElement('div');
       excerpt.className = 'post-excerpt';
-      const textExcerpt = this.createExcerpt(post.body);
-      excerpt.textContent ='dioporco'+ textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+      const textExcerpt = this.createExcerpt(post.body, 200);
+      excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
       contentMiddle.appendChild(excerpt);
-    }
-
-    if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
-      contentMiddle.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
     }
 
     contentWrapper.appendChild(contentMiddle);
@@ -150,6 +152,9 @@ export default class PostRenderer {
   }
 
   createPostImage(imageUrl, title) {
+    // Return null when there is no image — callers must check to avoid empty space
+    if (!imageUrl || imageUrl === './assets/img/placeholder.png') return null;
+
     const content = document.createElement('div');
     content.className = 'post-image-container';
     content.classList.add('loading');
@@ -159,79 +164,42 @@ export default class PostRenderer {
     image.loading = 'lazy';
     image.decoding = 'async';
 
-    if (!imageUrl || imageUrl === './assets/img/placeholder.png') {
-      content.classList.remove('loading');
-      content.classList.add('error');
-      image.src = './assets/img/placeholder.png';
-      content.appendChild(image);
-      return content;
-    }
-
     imageUrl = this.sanitizeImageUrl(imageUrl);
 
-    const cardSize = 'medium'; // Default size
-    const layout = 'grid'; // Default layout
-    const sizesToTry = this.getImageSizesToTry( layout);
+    const attempts = imageUrl.includes('steemitimages.com/p/')
+      ? [() => imageUrl]
+      : [
+          () => getImageUrl(imageUrl, 640),
+          () => proxifyImage(imageUrl, 640),
+        ];
+    let attemptIndex = 0;
+    let failed = false;
 
-    let currentSizeIndex = 0;
-    let isLoadingPlaceholder = false;
-
-    const loadNextSize = () => {
-      if (currentSizeIndex >= sizesToTry.length || isLoadingPlaceholder) {
-        loadPlaceholder();
-        return;
-      }
-
-      const sizeOption = sizesToTry[currentSizeIndex++];
-      let url;
-
-      if (sizeOption.direct) {
-        url = imageUrl;
-      } else {
-        url = `https://${sizeOption.cdn}/${sizeOption.size}x0/${imageUrl}`;
-      }
-
-      loadImage(url);
+    const tryNext = () => {
+      if (failed) return;
+      if (attemptIndex >= attempts.length) { showError(); return; }
+      loadImage(attempts[attemptIndex++]());
     };
 
     const loadImage = (url) => {
-      if (isLoadingPlaceholder) return;
-
-      const timeoutId = setTimeout(() => {
-        if (!image.complete) {
-          tryNextOption("Timeout");
-        }
-      }, 5000);
-
+      if (failed) return;
       image.onload = () => {
-        clearTimeout(timeoutId);
         content.classList.remove('loading', 'error');
         content.classList.add('loaded');
       };
-
-      image.onerror = () => {
-        clearTimeout(timeoutId);
-        tryNextOption("Failed to load");
-      };
-
+      image.onerror = () => tryNext();
       image.src = url;
     };
 
-    const tryNextOption = () => {
-      if (isLoadingPlaceholder) return;
-      loadNextSize();
-    };
-
-    const loadPlaceholder = () => {
-      if (isLoadingPlaceholder) return;
-
-      isLoadingPlaceholder = true;
+    const showError = () => {
+      if (failed) return;
+      failed = true;
       content.classList.remove('loading');
       content.classList.add('error');
       image.src = './assets/img/placeholder.png';
     };
 
-    loadNextSize();
+    tryNext();
 
     content.appendChild(image);
     return content;
@@ -294,74 +262,77 @@ export default class PostRenderer {
   }
 
   getBestImage(post, metadata) {
-    if (this.contentRenderer) {
-      try {
-        const renderedContent = this.contentRenderer.render({
-          body: post.body.substring(0, 1500)
-        });
-
-        if (renderedContent.images && renderedContent.images.length > 0) {
-          return renderedContent.images[0].src;
-        }
-      } catch (error) {
-        console.error('Error using SteemContentRenderer for image extraction:', error);
-      }
-    }
-
+    // 1. metadata.image[] — most reliable
     if (metadata && metadata.image && metadata.image.length > 0) {
-      return metadata.image[0];
+      const img = metadata.image[0];
+      if (img && typeof img === 'string' && img.startsWith('http')) return img;
     }
 
-    const previewImageUrl = this.getPreviewImage(post);
-    if (previewImageUrl) {
-      return previewImageUrl;
+    // 2. SteemContentRenderer rendered HTML string — handles any host, bare URLs, etc.
+    if (this.contentRenderer && this.contentRenderer.steemRenderer) {
+      try {
+        const html = this.contentRenderer.steemRenderer.render(
+          (post.body || '').substring(0, 3000)
+        );
+        const srcMatch = html.match(/src=["'](https?:\/\/[^"'\s]+)["']/i);
+        if (srcMatch) return srcMatch[1];
+      } catch (e) { /* ignore */ }
     }
 
-    const imgRegex = /https?:\/\/[^\s'"<>]+?\.(jpg|jpeg|png|gif|webp)(\?[^\s'"<>]+)?/i;
-    const match = post.body.match(imgRegex);
-    if (match) {
-      return match[0];
+    // 3. Regex scan of raw body (fallback when renderer isn't ready).
+    if (post.body) {
+      const mdMatch = post.body.match(/!\[.*?\]\((https?:\/\/[^)\s]+)\)/);
+      if (mdMatch) return mdMatch[1];
+
+      const htmlMatch = post.body.match(/<img[^>]+src=["'](https?:\/\/[^"'\s]+)["']/i);
+      if (htmlMatch) return htmlMatch[1];
+
+      const extMatch = post.body.match(
+        /https?:\/\/[^\s'"<>)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s'"<>)]+)?/i
+      );
+      if (extMatch) return extMatch[0];
     }
 
-    return './assets/img/placeholder.png';
+    return null;
   }
 
   sanitizeImageUrl(url) {
     if (!url) return '';
 
-    let cleanUrl = url.split('?')[0].split('#')[0];
+    // Unwrap legacy proxy URLs recursively (handles double-wrapped URLs, e.g.
+    // steemitimages.com/0x0/https://imgp.blurt.blog/768x0/https://cdn.steemitimages.com/...)
+    let unwrapped = url;
+    let prev;
+    do {
+      prev = unwrapped;
+      const m = unwrapped.match(/^https?:\/\/[^/]+\/\d+x\d+\/(https?:\/\/.+)$/i);
+      if (m) unwrapped = m[1];
+    } while (unwrapped !== prev);
+    url = unwrapped;
 
-    try {
-      cleanUrl = new URL(cleanUrl).href;
-    } catch (e) {
-      return url;
-    }
-
-    return cleanUrl;
+    // Query params are preserved — they may be required (CDN signing, hmac, etc.).
+    return url;
   }
 
   getImageSizesToTry( layout) {
     switch(layout) {
       case 'list':
         return [
-          {size: 800, cdn: 'steemitimages.com'},
-          {size: 640, cdn: 'steemitimages.com'},
-          {size: 400, cdn: 'steemitimages.com'},
-          {direct: true}
+          {direct: true},
+          {size: 800},
+          {size: 640},
         ];
       case 'compact':
         return [
-          {size: 320, cdn: 'steemitimages.com'},
-          {size: 200, cdn: 'steemitimages.com'},
-          {direct: true}
+          {direct: true},
+          {size: 320},
         ];
       case 'grid':
       default:
         return [
-          {size: 640, cdn: 'steemitimages.com'},
-          {size: 400, cdn: 'steemitimages.com'},
-          {size: 200, cdn: 'steemitimages.com'},
-          {direct: true}
+          {direct: true},
+          {size: 640},
+          {size: 400},
         ];
     }
   }

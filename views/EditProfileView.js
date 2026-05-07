@@ -4,6 +4,7 @@ import authService from '../services/AuthService.js';
 import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import { proxifyImage } from '../utils/ImageUtils.js';
 
 class EditProfileView extends View {
     constructor(params) {
@@ -308,10 +309,8 @@ class EditProfileView extends View {
     }
 
     getProxyImageUrl(url) {
-        if (url.startsWith('data:') || url.includes('steemitimages.com/0x0/')) {
-            return url;
-        }
-        return `https://steemitimages.com/0x0/${url}`;
+        if (!url || url.startsWith('data:')) return url;
+        return proxifyImage(url, 640);
     }
 
     showInitialPreviews() {

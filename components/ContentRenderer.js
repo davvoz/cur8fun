@@ -1,3 +1,5 @@
+import { getImageUrl } from '../utils/ImageUtils.js';
+
 /**
  * Content Renderer component for displaying Steem posts and previews
  * Provides consistent rendering across post view and create post preview
@@ -209,25 +211,20 @@ class ContentRenderer {
    */
   optimizeImageUrl(url, options = {}) {
     if (!url) return '';
-    
-    // Clean the URL first
-    url = this.sanitizeUrl(url);
-    
-    // Default options
-    const defaults = {
-      width: this.options.maxImageWidth || 640,
-      height: 0, // 0 means auto height
-      quality: 85
-    };
-    
-    const settings = { ...defaults, ...options };
-    
-    // Return Steem's proxy URL with appropriate dimensions
-    if (settings.height > 0) {
-      return `https://steemitimages.com/${settings.width}x${settings.height}/${url}`;
-    } else {
-      return `https://steemitimages.com/${settings.width}x0/${url}`;
-    }
+
+    // Unwrap old-style proxy URLs recursively before deciding how to serve.
+    // e.g. imgp.blurt.blog/768x0/https://cdn.steemitimages.com/... → cdn.steemitimages.com/...
+    // which getImageUrl then routes through the steemitimages /p/ proxy.
+    let clean = url;
+    let prev;
+    do {
+      prev = clean;
+      const m = clean.match(/^https?:\/\/[^/]+\/\d+x\d+\/(https?:\/\/.+)$/i);
+      if (m) clean = m[1];
+    } while (clean !== prev);
+
+    const width = options.width || this.options.maxImageWidth || 640;
+    return getImageUrl(clean, width);
   }
   
   /**

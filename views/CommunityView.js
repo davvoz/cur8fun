@@ -227,18 +227,20 @@ class CommunityView extends BasePostView {
     // Get numeric ID from community
     const communityId = communityName.replace('hive-', '');
     
-    // Prepare avatar URL (or use placeholder)
-    const avatarUrl = this.community.avatar_url || `https://images.hive.blog/u/hive-${communityId}/avatar`;
-    
+    // steemitimages.com/u/ reads from the account's posting_json_metadata live (same source as steemit.com)
+    // Use avatar_url from API only as onerror fallback (it may be cached/outdated)
+    const avatarSrc = `https://steemitimages.com/u/hive-${communityId}/avatar`;
+    const avatarFallback = this.community.avatar_url || './assets/img/default-avatar.png';
+
     // Prepare banner URL (or use default)
-    const bannerUrl = this.community.banner_url || 'assets/images/default-community-banner.jpg';
+    const bannerUrl = this.community.banner_url || null;
     
     // Render community header
     headerContainer.innerHTML = `
-      <div class="community-banner" style="background-image: url('${bannerUrl}');">
+      <div class="community-banner" style="${bannerUrl ? `background-image: url('${bannerUrl}');` : ''}">
         <div class="community-overlay"></div>
         <div class="community-info">
-          <img src="${avatarUrl}" alt="${this.community.title}" class="community-avatar" />
+          <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${this.community.title}" class="community-avatar" />
           <div class="community-title-area">
             <h1 class="community-title">${this.community.title || communityName}</h1>
             <div class="community-stats">

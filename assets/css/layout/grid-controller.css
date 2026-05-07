@@ -696,12 +696,6 @@
 }
 
 
-/* Tags redesign */
-.posts-container.grid-layout-list .post-tags {
-  margin: auto 0 var(--space-sm);
-}
-
-/* Enhanced post actions */
 .post-actions {
   display: flex;
   justify-content: flex-start;
@@ -952,6 +946,27 @@
   max-width: 100%;
 }
 
+/* Card senza immagine: si restringe al contenuto — solo desktop.
+   align-self:start impedisce alla griglia di allungare la card per riempire la riga. */
+@media (min-width: 769px) {
+  .post-card.no-image {
+    height: auto;
+    align-self: start;
+  }
+
+  /* Lista: senza immagine il main-content torna a colonna singola */
+  .posts-container.grid-layout-list .post-card.no-image .post-main-content {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Compatto: senza immagine si stringe */
+  .posts-container.grid-layout-compact .post-card.no-image {
+    height: auto;
+  }
+}
+
 @media screen and (max-width: 768px) {
   .post-card {
     width: 100%;
@@ -986,13 +1001,23 @@
   width: 100%;
 }
 
-/* Body a altezza fissa con contenuto scrollabile se necessario */
+/* Body — fills the remaining card height after the header */
 .post-main-content {
-  height: 300px;
-  /* Altezza fissa per il body */
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  /* Nasconde il contenuto che eccede */
+  overflow: hidden;
+}
+
+/* When a card has no image, expand the text wrapper to fill the whole main area */
+.post-card.no-image .post-content-wrapper {
+  flex: 1;
+  justify-content: center;
+}
+
+.post-card.no-image .post-content-middle {
+  flex: 1;
 }
 
 /* Immagine a altezza fissa */
@@ -1013,7 +1038,8 @@
 
 /*grid layout*/
 .posts-container.grid-layout-grid .post-image-container {
-  height: 420px;
+  height: 220px;
+  flex-shrink: 0;
 }
 
 .post-image-container img {
@@ -1064,37 +1090,20 @@
   box-shadow: var(--card-box-shadow-sm);
 }
 
-.posts-container.grid-layout-grid .post-tags {
-  position: absolute;
-  bottom: 42px;
-  margin: auto 0 var(--space-sm);
-  display: flex;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
 /*compact layout*/
 .posts-container.grid-layout-compact .post-excerpt {
   display: none;
 }
 
-/* Wrapper contenuto centrale a altezza fissa */
+/* Wrapper contenuto centrale */
 .post-content-wrapper {
-  height: 100px;
-  /* Altezza fissa per la sezione di testo */
-  padding: var(--space-sm);
-
-  display: flex;
-  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   padding: var(--space-sm) var(--space-md);
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: relative;
+  overflow: hidden;
 }
 
 /*layout lista*/
@@ -1207,50 +1216,32 @@
   }
 }
 
-.post-content-middle {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin-bottom: var(--space-sm);
-  color: var(--text-color-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-
-}
-
 .post-content-middle .post-title {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin-bottom: var(--space-xs);
-  line-height: 1.3;
+  line-height: 1.4;
   font-weight: 600;
   color: var(--text-color);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
-/* Evitiamo eccedenze di contenuto che romperebbero l'uniformità */
-.error.post-image-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--background-subtle);
+.post-content-middle .post-excerpt {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
 }
 
-/* Assicura che le immagini di errore siano visualizzate correttamente */
-.post-image-container.error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Rimuovi la classe 'display: none' per le immagini di errore */
-.error {
-  display: flex !important;
-  border-radius: 0;
-  background-color: var(--background-subtle);
-}
+/* post-image-container is removed from DOM on error — no error state styles needed */
 
 /*list layout*/
 .posts-container.grid-layout-list .post-excerpt {

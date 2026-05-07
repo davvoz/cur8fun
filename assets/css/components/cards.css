@@ -62,6 +62,10 @@
 }
 
 /* Tags styling - more compact and right under title */
+.post-card .post-tags {
+  display: none;
+}
+
 .post-tags {
     display: flex;
     flex-wrap: wrap;

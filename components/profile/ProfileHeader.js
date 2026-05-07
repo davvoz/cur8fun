@@ -1,6 +1,7 @@
 import router from '../../utils/Router.js';
 import followersModal from '../FollowersModal.js';
 import followingModal from '../FollowingModal.js';
+import { proxifyImage } from '../../utils/ImageUtils.js';
 
 export default class ProfileHeader {
   constructor(profile, currentUser, onFollowAction) {
@@ -26,40 +27,29 @@ export default class ProfileHeader {
     const coverDiv = document.createElement('div');
     coverDiv.className = 'profile-cover';
 
-    // Check multiple possible locations for cover image
-    let coverImageUrl = null;
+    // Check multiple possible locations for cover image.
+    // Priority: profile model (already prefers posting_json_metadata) → raw posting_json_metadata fallback
+    let coverImageUrl = this.profile.coverImage || null;
 
-    // Check direct coverImage property
-    if (this.profile.coverImage) {
-      coverImageUrl = this.profile.coverImage;
-    }
-    // Check in posting_json_metadata.cover_image as an alternative location
-    else if (this.profile.posting_json_metadata) {
+    if (!coverImageUrl && this.profile.rawData && this.profile.rawData.posting_json_metadata) {
       try {
-        const metadata = typeof this.profile.posting_json_metadata === 'string'
-          ? JSON.parse(this.profile.posting_json_metadata)
-          : this.profile.posting_json_metadata;
-        if (metadata && metadata.cover_image) {
-          coverImageUrl = metadata.cover_image;
-        }
+        const meta = typeof this.profile.rawData.posting_json_metadata === 'string'
+          ? JSON.parse(this.profile.rawData.posting_json_metadata)
+          : this.profile.rawData.posting_json_metadata;
+        // posting_json_metadata structure: { profile: { cover_image, profile_image, ... } }
+        coverImageUrl = meta && meta.profile && meta.profile.cover_image || null;
       } catch (e) {
-        console.error('Error parsing posting_json_metadata:', e);
+        // silently ignore malformed metadata
       }
     }
 
-    if (coverImageUrl) {
-      // Check if URL needs proxy for CORS issues
-      if (!coverImageUrl.startsWith('data:') && !coverImageUrl.includes('steemitimages.com/0x0/')) {
-        // Use Steemit proxy to avoid CORS issues and ensure image loading
-        coverImageUrl = `https://steemitimages.com/0x0/${coverImageUrl}`;
-      }
+    if (coverImageUrl && !coverImageUrl.startsWith('data:')) {
+      coverImageUrl = proxifyImage(coverImageUrl, 1500);
 
       coverDiv.style.backgroundImage = `url(${coverImageUrl})`;
 
-      // Add error handling for cover image
       const testImg = new Image();
       testImg.onerror = () => {
-        console.error('Failed to load cover image, using fallback gradient');
         coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
       };
       testImg.src = coverImageUrl;

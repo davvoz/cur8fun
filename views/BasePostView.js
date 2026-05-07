@@ -1,5 +1,6 @@
 // Router
 import router from '../utils/Router.js';
+import { proxifyImage, getImageUrl } from '../utils/ImageUtils.js';
 
 // Components
 import ContentRenderer from '../components/ContentRenderer.js';
@@ -239,8 +240,13 @@ class BasePostView {
     const mainContent = document.createElement('div');
     mainContent.className = 'post-main-content';
     
-    // 2a. Add image preview
-    mainContent.appendChild(this.createPostImage(imageUrl, post.title));
+    // 2a. Add image preview (null when post has no image — skip to avoid empty space)
+    const postImageEl = this.createPostImage(imageUrl, post.title);
+    if (postImageEl) {
+      mainContent.appendChild(postImageEl);
+    } else {
+      postCard.classList.add('no-image');
+    }
     
     // 2b. Wrapper for text content
     const contentWrapper = document.createElement('div');
@@ -253,19 +259,14 @@ class BasePostView {
     // Title
     contentMiddle.appendChild(this.createPostTitle(post.title));
     
-    // Excerpt for list layout
+    // Excerpt
     if (post.body) {
       const excerpt = document.createElement('div');
       excerpt.className = 'post-excerpt';
-      const textExcerpt = this.createExcerpt(post.body);
+      const textExcerpt = this.createExcerpt(post.body, 200);
       // Make sure all links are completely removed from the excerpt
       excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
       contentMiddle.appendChild(excerpt);
-    }
-    
-    // Tags
-    if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.length > 0) {
-      contentMiddle.appendChild(this.createPostTags(metadata.tags.slice(0, 2)));
     }
     
     contentWrapper.appendChild(contentMiddle);
@@ -290,65 +291,55 @@ class BasePostView {
   }
 
   /**
-   * Extract the best image from a post
+   * Extract the best image from a post.
+   * Priority:
+   *   1. metadata.image[0] — set by author, always a clean raw URL
+   *   2. SteemContentRenderer rendered HTML string — handles bare URLs, any host
+   *   3. Regex scan of raw body — last resort
    */
   getBestImage(post, metadata) {
-    // If we have SteemContentRenderer available, use it for rendering a snippet and extracting image
-    if (this.contentRenderer) {
-      try {
-        // Render a small portion of the content to extract images
-        const renderedContent = this.contentRenderer.render({
-          body: post.body.substring(0, 1500) // Only render the first part for performance
-        });
-        
-        // Check if any images were extracted
-        if (renderedContent.images && renderedContent.images.length > 0) {
-          // Return the first image URL
-          return renderedContent.images[0].src;
-        }
-      } catch (error) {
-        console.error('Error using SteemContentRenderer for image extraction:', error);
-        // Fall back to old methods if SteemContentRenderer fails
-      }
-    }
-    
-    // Fallback method 1: Check if metadata contains an image
+    // 1. metadata.image[] — most reliable
     if (metadata && metadata.image && metadata.image.length > 0) {
-      return metadata.image[0];
+      const img = metadata.image[0];
+      if (img && typeof img === 'string' && img.startsWith('http')) return img;
     }
-    
-    // Fallback method 2: Simple regex extraction of first image
-    const imgRegex = /https?:\/\/[^\s'"<>]+?\.(jpg|jpeg|png|gif|webp)(\?[^\s'"<>]+)?/i;
-    const match = post.body.match(imgRegex);
-    if (match) {
-      return match[0];
+
+    // 2. SteemContentRenderer rendered HTML string.
+    //    imageProxyFn has already correctly resolved the URL.
+    //    Read src from the *string* (not DOM) to avoid browser URL normalisation.
+    if (this.contentRenderer && this.contentRenderer.steemRenderer) {
+      try {
+        const html = this.contentRenderer.steemRenderer.render(
+          (post.body || '').substring(0, 3000)
+        );
+        const srcMatch = html.match(/src=["'](https?:\/\/[^"'\s]+)["']/i);
+        if (srcMatch) return srcMatch[1];
+      } catch (e) { /* ignore */ }
     }
-    
-    // Return placeholder if no image is found
-    return  null;
+
+    // 3. Regex scan of raw body (fallback when renderer isn't ready yet).
+    if (post.body) {
+      const mdMatch = post.body.match(/!\[.*?\]\((https?:\/\/[^)\s]+)\)/);
+      if (mdMatch) return mdMatch[1];
+
+      const htmlMatch = post.body.match(/<img[^>]+src=["'](https?:\/\/[^"'\s]+)["']/i);
+      if (htmlMatch) return htmlMatch[1];
+
+      const extMatch = post.body.match(
+        /https?:\/\/[^\s'"<>)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s'"<>)]+)?/i
+      );
+      if (extMatch) return extMatch[0];
+    }
+
+    return null;
   }
 
   /**
    * Optimize an image URL for display
    */
-  optimizeImageUrl(url) {
-    // Use SteemContentRenderer's proxy if available
-    if (this.contentRenderer && this.contentRenderer.steemRenderer) {
-      try {
-        // Format URL for proper sizing with Steem's proxy
-        return `https://steemitimages.com/640x0/${url}`;
-      } catch (error) {
-        console.error('Error using SteemContentRenderer for image optimization:', error);
-      }
-    }
-    
-    // Fallback to direct URL with proper formatting
-    if (url && url.startsWith('http')) {
-      // Simple proxy URL construction
-      return `https://steemitimages.com/640x0/${url}`;
-    }
-    
-    return url;
+  optimizeImageUrl(url, width = 640) {
+    if (!url) return url;
+    return proxifyImage(url, width);
   }
 
   /**
@@ -356,19 +347,21 @@ class BasePostView {
    */
   sanitizeImageUrl(url) {
     if (!url) return '';
-    
-    // Remove query parameters and fragments
-    let cleanUrl = url.split('?')[0].split('#')[0];
-    
-    // Ensure URL is properly encoded
-    try {
-      cleanUrl = new URL(cleanUrl).href;
-    } catch (e) {
-      // If URL is invalid, return original
-      return url;
-    }
-    
-    return cleanUrl;
+
+    // Unwrap legacy proxy URLs: /{w}x{h}/https://inner-url (applied recursively so that
+    // double-wrapped URLs like steemitimages.com/0x0/https://imgp.blurt.blog/768x0/https://...
+    // are fully resolved to the real inner URL in one call).
+    let unwrapped = url;
+    let prev;
+    do {
+      prev = unwrapped;
+      const m = unwrapped.match(/^https?:\/\/[^/]+\/\d+x\d+\/(https?:\/\/.+)$/i);
+      if (m) unwrapped = m[1];
+    } while (unwrapped !== prev);
+    url = unwrapped;
+
+    // Query params are preserved — they may be required (CDN signing, hmac, etc.).
+    return url;
   }
 
   /**
@@ -674,97 +667,64 @@ class BasePostView {
    * Create post image container
    */
   createPostImage(imageUrl, title) {
+    // Return null when there is no image — callers must check to avoid empty space
+    if (!imageUrl) return null;
+
     const content = document.createElement('div');
     content.className = 'post-image-container';
     content.classList.add('loading');
-    
-    let image = document.createElement('img');
+
+    const image = document.createElement('img');
     image.alt = title || 'Post image';
     image.loading = 'lazy';
     image.decoding = 'async';
-    
-    // Check if we have a valid image URL before attempting to load
-    if (!imageUrl || imageUrl === './assets/img/placeholder.png') {
-      //image ora diventa un div 
-      image = document.createElement('div');
-      //background suraface
-      image.style.backgroundColor = 'var(--background-light)';
-      content.appendChild(image);
-      return content;
-    }
-    
+
     // Enforce a clean URL before we start
     imageUrl = this.sanitizeImageUrl(imageUrl);
-    
-    // Determine current card size AND layout from container classes
-    const { size: cardSize, layout } = this.getCardConfig();
-    
-    // Use different image sizes based on card size setting AND layout
-    const sizesToTry = this.getImageSizesToTry(layout);
-    
-    let currentSizeIndex = 0;
-    let isLoadingPlaceholder = false;
-    
-    const loadNextSize = () => {
-      if (currentSizeIndex >= sizesToTry.length || isLoadingPlaceholder) {
-        loadPlaceholder();
+
+    // If the URL is already a steemitimages /p/ proxy, use it as-is — there is no
+    // meaningful fallback (proxying a proxy just creates a broken double-wrap).
+    // For all other URLs: try direct first, then steemitimages proxy as fallback.
+    const attempts = imageUrl.includes('steemitimages.com/p/')
+      ? [() => imageUrl]
+      : [
+          () => getImageUrl(imageUrl, 640),
+          () => proxifyImage(imageUrl, 640),
+        ];
+    let attemptIndex = 0;
+    let failed = false;
+
+    const tryNext = () => {
+      if (failed) return;
+      if (attemptIndex >= attempts.length) {
+        showError();
         return;
       }
-      
-      const sizeOption = sizesToTry[currentSizeIndex++];
-      let url;
-      
-      if (sizeOption.direct) {
-        url = imageUrl;
-      } else {
-        url = `https://${sizeOption.cdn}/${sizeOption.size}x0/${imageUrl}`;
-      }
-      
+      const url = attempts[attemptIndex++]();
       loadImage(url);
     };
-    
+
     const loadImage = (url) => {
-      if (isLoadingPlaceholder) return;
-      
-      const timeoutId = setTimeout(() => {
-        if (!image.complete) {
-          tryNextOption("Timeout");
-        }
-      }, 5000);
-      
+      if (failed) return;
       image.onload = () => {
-        clearTimeout(timeoutId);
         content.classList.remove('loading', 'error');
         content.classList.add('loaded');
       };
-      
-      image.onerror = () => {
-        clearTimeout(timeoutId);
-        tryNextOption("Failed to load");
-      };
-      
+      image.onerror = () => tryNext();
       image.src = url;
     };
-    
-    const tryNextOption = (errorReason) => {
-      if (isLoadingPlaceholder) return;
-      loadNextSize();
-    };
-    
-    const loadPlaceholder = () => {
-      if (isLoadingPlaceholder) return;
-      
-      isLoadingPlaceholder = true;
+
+    const showError = () => {
+      if (failed) return;
+      failed = true;
+      // Image URL existed but failed to load — show placeholder inside the container
       content.classList.remove('loading');
       content.classList.add('error');
-      
-      // Use placeholder image
       image.src = './assets/img/placeholder.png';
     };
-    
-    // Start loading with first size option
-    loadNextSize();
-    
+
+    tryNext();
+
     content.appendChild(image);
     return content;
   }
@@ -793,28 +753,26 @@ class BasePostView {
    * Get appropriate image sizes based only on layout
    */
   getImageSizesToTry(layout) {
-    // Simplify image sizes based only on layout type
+    // Order: direct/smart-url first, then proxy fallbacks at decreasing sizes.
+    // proxifyImage is used as fallback for hotlink-protected or mixed-content URLs.
     switch(layout) {
       case 'list':
         return [
-          {size: 800, cdn: 'steemitimages.com'}, // Higher quality for list layout
-          {size: 640, cdn: 'steemitimages.com'}, // Medium-high quality
-          {size: 400, cdn: 'steemitimages.com'}, // Medium quality fallback
-          {direct: true} // Direct URL as last resort
+          {direct: true},
+          {size: 800},
+          {size: 640},
         ];
       case 'compact':
         return [
-          {size: 320, cdn: 'steemitimages.com'}, // Smaller size for compact layout
-          {size: 200, cdn: 'steemitimages.com'}, // Even smaller fallback
-          {direct: true} // Direct URL as last resort
+          {direct: true},
+          {size: 320},
         ];
       case 'grid':
       default:
         return [
-          {size: 640, cdn: 'steemitimages.com'}, // Standard quality for grid
-          {size: 400, cdn: 'steemitimages.com'}, // Medium quality
-          {size: 200, cdn: 'steemitimages.com'}, // Lower quality as fallback
-          {direct: true} // Direct URL as last resort
+          {direct: true},
+          {size: 640},
+          {size: 400},
         ];
     }
   }

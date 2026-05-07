@@ -109,20 +109,55 @@ class SteemClient:
         
         return None
     
+    def _base58_encode(self, url_str):
+        """Base58 encode a string (Bitcoin alphabet, used for new Steemit image proxy format)"""
+        alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+        data = url_str.encode('utf-8')
+        num = int.from_bytes(data, 'big')
+        result = []
+        while num > 0:
+            num, rem = divmod(num, 58)
+            result.append(alphabet[rem])
+        result.reverse()
+        pad = sum(1 for b in data if b == 0)
+        encoded = ''.join(result)
+        return '1' * pad + encoded if encoded else '1' * (pad or 1)
+
+    # CDN ecosystem Steem/Hive: pubblici, no hotlink protection — serviti direttamente
+    DIRECT_HOSTS = {
+        'images.ecency.com', 'images.hive.blog', 'ipfs.io',
+        'cloudflare-ipfs.com', 'gateway.ipfs.io', 'peakd.com',
+    }
+
     def optimize_image_url(self, url):
-        """Ottimizza URL immagine usando proxy Steem"""
-        if not url or 'steemitimages.com' in url:
-            return url
-            
-        # Pulisci URL
-        clean_url = url.split('?')[0]
-        
-        try:
-            # Verifica se l'URL è valido
-            encoded_url = urllib.parse.quote(clean_url, safe=':/?#[]@!$&\'()*+,;=')
-            return f"https://steemitimages.com/1200x630/{encoded_url}"
-        except:
+        """Ottimizza URL immagine usando il proxy Steem.
+
+        - CDN ecosystem (ecency, hive, IPFS): serviti direttamente (pubblici, veloci)
+        - Già proxato /p/ o /u/: restituisce invariato
+        - Tutto il resto HTTP/HTTPS: proxa via steemitimages.com /p/<base58>
+        """
+        if not url:
             return "https://cur8.fun/assets/img/logo_tra.png"
+
+        if '/p/' in url or '/u/' in url:
+            return url
+
+        if url.startswith('http://') or url.startswith('https://'):
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                host = parsed.netloc.lower()
+                # Serve ecosystem CDNs directly
+                if any(host == h or host.endswith('.' + h) for h in self.DIRECT_HOSTS):
+                    return url
+                # Proxy everything else
+                clean_url = parsed.scheme + '://' + parsed.netloc + parsed.path
+                encoded = self._base58_encode(clean_url)
+                return f"https://steemitimages.com/p/{encoded}?mode=fit&format=match&width=1200"
+            except Exception:
+                return url
+
+        return url
     
     def create_description(self, content, max_length=160):
         """Crea descrizione pulita dal contenuto"""

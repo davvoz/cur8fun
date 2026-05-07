@@ -1,3 +1,5 @@
+import { proxifyImage } from '../utils/ImageUtils.js';
+
 /**
  * Service per la gestione dinamica dei meta tag per social media sharing
  * Migliora le anteprime di post, profili e community
@@ -244,17 +246,11 @@ class MetaTagService {
    * @returns {string} URL ottimizzato
    */
   optimizeImageUrl(url) {
-    if (!url || url.includes('steemitimages.com')) return url;
-    
-    // Pulisci l'URL rimuovendo parametri non necessari
-    const cleanUrl = url.split('?')[0];
-    
-    // Verifica se l'URL è valido
+    if (!url) return this.defaultMeta.image;
     try {
-      new URL(cleanUrl);
-      return `https://steemitimages.com/1200x630/${encodeURIComponent(cleanUrl)}`;
+      new URL(url);
+      return proxifyImage(url, 1200);
     } catch (e) {
-      console.warn('Invalid image URL:', url);
       return this.defaultMeta.image;
     }
   }

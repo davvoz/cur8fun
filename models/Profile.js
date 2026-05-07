@@ -31,7 +31,8 @@ class Profile {
         this.receivedVestingShares = userData.received_vesting_shares || '0 VESTS';
         
         // Profile metadata
-        this.metadata = this.parseMetadata(userData.json_metadata);
+        // posting_json_metadata is the canonical source since Steem HF21 (2019)
+        this.metadata = this.parseMetadata(userData.json_metadata, userData.posting_json_metadata);
         this.profileImage = this.getProfileImage();
         this.coverImage = this.getCoverImage();
         this.about = this.getAbout();
@@ -47,17 +48,27 @@ class Profile {
      * @param {string} jsonMetadata - JSON metadata string
      * @returns {Object} Parsed metadata object
      */
-    parseMetadata(jsonMetadata) {
-        if (!jsonMetadata) return { profile: {} };
-        
-        try {
-            const metadata = JSON.parse(jsonMetadata);
-            if (!metadata.profile) metadata.profile = {};
-            return metadata;
-        } catch (error) {
-            console.error('Error parsing profile metadata:', error);
-            return { profile: {} };
-        }
+    parseMetadata(jsonMetadata, postingJsonMetadata) {
+        const tryParse = (str) => {
+            if (!str) return null;
+            try {
+                const parsed = typeof str === 'string' ? JSON.parse(str) : str;
+                // Only use if it contains a non-empty profile object
+                if (parsed && parsed.profile && Object.keys(parsed.profile).length > 0) return parsed;
+                return null;
+            } catch (e) {
+                return null;
+            }
+        };
+
+        // Prefer posting_json_metadata (canonical since Steem HF21)
+        const fromPosting = tryParse(postingJsonMetadata);
+        if (fromPosting) return fromPosting;
+
+        const fromJson = tryParse(jsonMetadata);
+        if (fromJson) return fromJson;
+
+        return { profile: {} };
     }
     
     /**

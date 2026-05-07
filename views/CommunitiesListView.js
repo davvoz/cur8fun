@@ -409,8 +409,10 @@ class CommunitiesListView {
     // Check if subscription is pending
     const isPending = this.pendingSubscriptions.has(communityId);
     
-    // Avatar URL (fallback to default if not provided)
-    const avatarUrl = community.avatar_url || `https://images.hive.blog/u/${communityId}/avatar`;
+    // steemitimages.com/u/ reads from the account's posting_json_metadata live (same source as steemit.com)
+    // Use avatar_url from API only as onerror fallback (it may be cached/outdated)
+    const avatarSrc = `https://steemitimages.com/u/${communityId}/avatar`;
+    const avatarFallback = community.avatar_url || './assets/img/default-avatar.png';
     
     // Format description - for featured cards, make it shorter
     const description = community.about || 'No description available.';
@@ -424,7 +426,7 @@ class CommunitiesListView {
       card.innerHTML = `
         <div class="community-card-header compact">
           <div class="avatar-container">
-            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" >
+            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${community.title}" class="community-avatar" >
             <div class="avatar-glow"></div>
           </div>
           <div>
@@ -448,8 +450,7 @@ class CommunitiesListView {
       card.innerHTML = `
         <div class="community-card-header">
           <div class="avatar-container">
-            <img src="${avatarUrl}" alt="${community.title}" class="community-avatar" 
-                onerror="this.src='./assets/img/default-avatar.png'">
+            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${community.title}" class="community-avatar">
             <div class="avatar-glow"></div>
           </div>
           <h3 class="community-title">${community.title || community.name}</h3>
