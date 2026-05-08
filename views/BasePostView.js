@@ -16,6 +16,7 @@ import authService from '../services/AuthService.js';
 import VoteController from '../controllers/VoteController.js';
 import VotesPopup from '../components/post/VotesPopup.js';
 import PayoutInfoPopup from '../components/post/PayoutInfoPopup.js';
+import RebloggersPopup from '../components/post/RebloggersPopup.js';
 import reblogService from '../services/ReblogService.js';
 import DialogUtility from '../components/DialogUtility.js';
 
@@ -914,31 +915,48 @@ class BasePostView {
     icon.textContent = 'repeat';
     btn.appendChild(icon);
 
+    const reblogCountEl = document.createElement('span');
+    reblogCountEl.className = 'reblog-count';
+    const initialReblogCount = Array.isArray(post.reblogged_by)
+      ? post.reblogged_by.length
+      : (post.first_reblogged_by ? 1 : 0);
+    reblogCountEl.textContent = String(initialReblogCount);
+    reblogCountEl.title = 'Show rebloggers';
+    reblogCountEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new RebloggersPopup(post).show();
+    });
+    btn.appendChild(reblogCountEl);
+
     // Check if already reblogged on load
     const currentUser = authService.getCurrentUser();
-    if (currentUser) {
+    if (currentUser?.username) {
+      const normalizedCurrentUser = String(currentUser.username).toLowerCase();
       // Immediate check from post data (populated by getDiscussionsByBlog)
       const alreadyRebloggedInData =
-        (Array.isArray(post.reblogged_by) && post.reblogged_by.includes(currentUser.username)) ||
-        post.first_reblogged_by === currentUser.username;
+        (Array.isArray(post.reblogged_by) &&
+          post.reblogged_by.some(account => String(account || '').toLowerCase() === normalizedCurrentUser)) ||
+        String(post.first_reblogged_by || '').toLowerCase() === normalizedCurrentUser;
+
       if (alreadyRebloggedInData) {
         btn.classList.add('reblogged');
-        btn.style.pointerEvents = 'none';
-      } else {
-        // Async blockchain check for posts where reblogged_by isn't pre-populated
-        reblogService.hasReblogged(currentUser.username, post.author, post.permlink)
-          .then(has => {
-            if (has) {
-              btn.classList.add('reblogged');
-              btn.style.pointerEvents = 'none';
-            }
-          })
-          .catch(() => {});
       }
     }
 
+    // Async blockchain check for exact status + reblog count.
+    reblogService.getReblogInfo(currentUser?.username || null, post.author, post.permlink)
+      .then(({ hasReblogged, reblogCount }) => {
+        reblogCountEl.textContent = String(reblogCount);
+        if (hasReblogged) {
+          btn.classList.add('reblogged');
+        }
+      })
+      .catch(() => {});
+
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
+
+      if (btn.classList.contains('reblogged') || btn.dataset.loading === '1') return;
 
       if (!currentUser) {
         eventEmitter.emit('notification', { type: 'info', message: 'You must be logged in to reblog' });
@@ -957,7 +975,7 @@ class BasePostView {
       if (!confirmed) return;
 
       try {
-        btn.style.pointerEvents = 'none';
+        btn.dataset.loading = '1';
         icon.textContent = 'settings';
         icon.classList.add('reblog-spinning');
 
@@ -966,11 +984,13 @@ class BasePostView {
         icon.classList.remove('reblog-spinning');
         icon.textContent = 'repeat';
         btn.classList.add('reblogged');
+        reblogCountEl.textContent = String((parseInt(reblogCountEl.textContent || '0', 10) || 0) + 1);
       } catch (err) {
         icon.classList.remove('reblog-spinning');
         icon.textContent = 'repeat';
-        btn.style.pointerEvents = '';
         eventEmitter.emit('notification', { type: 'error', message: err.message || 'Failed to reblog' });
+      } finally {
+        delete btn.dataset.loading;
       }
     });
 

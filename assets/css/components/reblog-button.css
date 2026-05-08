@@ -2,11 +2,11 @@
 .reblog-btn {
   position: relative;
   transition: color 0.3s;
+  margin-right: 0;
 }
 
 .reblog-btn.reblogged {
   color: var(--primary-color);
-  pointer-events: none;
 }
 
 .reblog-btn:hover {

@@ -1,5 +1,8 @@
 import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
+import RebloggersPopup from './RebloggersPopup.js';
+import authService from '../../services/AuthService.js';
+import reblogService from '../../services/ReblogService.js';
 
 class PostActions {
   constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false, showReblog = true) {
@@ -12,10 +15,14 @@ class PostActions {
     this.canEdit = canEdit;
     this.hasReblogged = hasReblogged;
     this.showReblog = showReblog;
+    this.reblogCount = Array.isArray(post.reblogged_by)
+      ? post.reblogged_by.length
+      : (post.first_reblogged_by ? 1 : 0);
     
     // Bind methods
     this.handlePayoutClick = this.handlePayoutClick.bind(this);
     this.handleVotesClick = this.handleVotesClick.bind(this);
+    this.handleReblogCountClick = this.handleReblogCountClick.bind(this);
   }
 
   render() {
@@ -30,15 +37,51 @@ class PostActions {
     
     // Aggiungiamo il pulsante reblog (resteem) solo se non è un commento
     let reblogBtn = null;
+    let reblogCountBtn = null;
     if (this.showReblog) {
       reblogBtn = this.createActionButton(
         this.hasReblogged ? 'reblog-btn reblogged' : 'reblog-btn', 
         'repeat', 
-        this.hasReblogged ? 'Reblogged' : isMobile ? '' : 'Reblog'
+        ''
       );
+      reblogBtn.querySelector('span:not(.material-icons)')?.remove();
+      reblogCountBtn = this.createActionButton('reblog-count-btn', '', this.reblogCount);
+      reblogCountBtn.querySelector('.material-icons')?.remove();
+      reblogCountBtn.title = 'Show rebloggers';
+      reblogCountBtn.addEventListener('click', this.handleReblogCountClick);
       if (this.reblogCallback) {
-        reblogBtn.addEventListener('click', this.reblogCallback);
+        reblogBtn.addEventListener('click', async (event) => {
+          if (reblogBtn.classList.contains('reblogged') || reblogBtn.dataset.loading === '1') {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+
+          try {
+            reblogBtn.dataset.loading = '1';
+            await this.reblogCallback(event);
+            reblogBtn.classList.add('reblogged');
+            const countEl = reblogCountBtn?.querySelector('.count');
+            if (countEl) {
+              const current = parseInt(countEl.textContent || '0', 10) || 0;
+              countEl.textContent = String(current + 1);
+            }
+          } finally {
+            delete reblogBtn.dataset.loading;
+          }
+        });
       }
+
+      const currentUser = authService.getCurrentUser();
+      reblogService.getReblogInfo(currentUser?.username || null, this.post.author, this.post.permlink)
+        .then(({ hasReblogged, reblogCount }) => {
+          const countEl = reblogCountBtn?.querySelector('.count');
+          if (countEl) countEl.textContent = String(reblogCount);
+          if (hasReblogged) {
+            reblogBtn.classList.add('reblogged');
+          }
+        })
+        .catch(() => {});
     }
 
     const payoutInfo = document.createElement('div');
@@ -48,7 +91,13 @@ class PostActions {
     
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
-    if (reblogBtn) postActions.appendChild(reblogBtn);
+    if (reblogBtn) {
+      const reblogContainer = document.createElement('div');
+      reblogContainer.className = 'reblog-container';
+      reblogContainer.appendChild(reblogBtn);
+      if (reblogCountBtn) reblogContainer.appendChild(reblogCountBtn);
+      postActions.appendChild(reblogContainer);
+    }
     postActions.appendChild(shareBtn);
     postActions.appendChild(payoutInfo);
     
@@ -117,6 +166,14 @@ class PostActions {
     event.stopPropagation();
     const votesPopup = new VotesPopup(this.post);
     votesPopup.show();
+  }
+
+  // Handler per il click sul conteggio reblog
+  handleReblogCountClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const popup = new RebloggersPopup(this.post);
+    popup.show();
   }
 
   // Nuovo handler per il click sul payout info

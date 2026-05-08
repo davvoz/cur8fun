@@ -24,6 +24,36 @@ class ReblogService {
     this.reblogCache = new Map(); // in-memory layer (session)
   }
 
+  async getRebloggers(author, permlink) {
+    try {
+      const rebloggers = await steemService.getRebloggers(author, permlink);
+      return Array.isArray(rebloggers) ? rebloggers : [];
+    } catch (error) {
+      console.error('Error getting rebloggers list:', error);
+      return [];
+    }
+  }
+
+  async getReblogInfo(username, author, permlink) {
+    try {
+      const info = await steemService.getReblogInfo(username, author, permlink);
+
+      if (username && info?.hasReblogged === true) {
+        const cacheKey = `${username}_${author}_${permlink}`;
+        this.reblogCache.set(cacheKey, true);
+        lsSet(cacheKey);
+      }
+
+      return {
+        hasReblogged: info?.hasReblogged === true,
+        reblogCount: Number.isFinite(info?.reblogCount) ? info.reblogCount : 0
+      };
+    } catch (error) {
+      console.error('Error getting reblog info:', error);
+      return { hasReblogged: false, reblogCount: 0 };
+    }
+  }
+
   async reblogPost(author, permlink) {
     try {
       const currentUser = authService.getCurrentUser();
@@ -70,7 +100,8 @@ class ReblogService {
       }
 
       // 3. Blockchain (slowest, only if not found locally)
-      const result = await steemService.hasReblogged(username, author, permlink);
+      const info = await this.getReblogInfo(username, author, permlink);
+      const result = info.hasReblogged;
       if (result === true) {
         this.reblogCache.set(cacheKey, true);
         lsSet(cacheKey); // persist positive results only

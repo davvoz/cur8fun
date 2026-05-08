@@ -155,12 +155,38 @@
 
 .card-reblog-btn.reblogged {
   color: var(--primary-color);
-  pointer-events: none;
 }
 
 .card-reblog-btn .reblog-spinning {
   animation: reblog-spin 0.8s linear infinite;
   display: inline-block;
+}
+
+.card-reblog-btn .reblog-count {
+  margin-left: 4px;
+  color: #b0b0b0;
+}
+
+.card-reblog-btn:hover .reblog-count,
+.card-reblog-btn.reblogged .reblog-count {
+  color: #b0b0b0;
+}
+
+.card-reblog-count,
+.reblog-count-btn {
+  font-size: 0.85em;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-reblog-count:hover,
+.reblog-count-btn:hover {
+  color: var(--primary-color);
+}
+
+.reblog-container {
+  display: inline-flex;
+  align-items: center;
 }
 
 @keyframes reblog-spin {

@@ -430,24 +430,6 @@ class PostView extends View {  constructor(params = {}) {
       false
     );
 
-    // Check actual reblog status from blockchain async
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      reblogService.hasReblogged(currentUser.username, this.post.author, this.post.permlink)
-        .then(has => {
-          if (has) {
-            const reblogBtn = this.element?.querySelector('.reblog-btn');
-            if (reblogBtn) {
-              reblogBtn.classList.add('reblogged');
-              reblogBtn.style.pointerEvents = 'none';
-              const textSpan = reblogBtn.querySelector('span:last-child');
-              if (textSpan) textSpan.textContent = 'Reblogged';
-            }
-          }
-        })
-        .catch(() => {});
-    }
-    
     this.postTagsComponent = new PostTags(
       this.getPostTags() // Questa ora filtrerà correttamente il tag community
     );
@@ -722,7 +704,6 @@ class PostView extends View {  constructor(params = {}) {
       // Show spinner on reblog button
       const reblogBtn = this.element.querySelector('.reblog-btn');
       const reblogIcon = reblogBtn?.querySelector('.material-icons');
-      if (reblogBtn) reblogBtn.style.pointerEvents = 'none';
       if (reblogIcon) {
         reblogIcon.textContent = 'settings';
         reblogIcon.classList.add('reblog-spinning');
@@ -736,15 +717,12 @@ class PostView extends View {  constructor(params = {}) {
       }
       if (reblogBtn) {
         reblogBtn.classList.add('reblogged');
-        const textSpan = reblogBtn.querySelector('span:last-child');
-        if (textSpan && textSpan !== reblogIcon) textSpan.textContent = 'Reblogged';
       }
     } catch (error) {
       console.error('Error reblogging post:', error);
       const reblogBtn = this.element.querySelector('.reblog-btn');
       const reblogIcon = reblogBtn?.querySelector('.material-icons');
       if (reblogIcon) { reblogIcon.classList.remove('reblog-spinning'); reblogIcon.textContent = 'repeat'; }
-      if (reblogBtn) reblogBtn.style.pointerEvents = '';
       this.emit('notification', { type: 'error', message: error.message || 'Failed to reblog post' });
     }
   }

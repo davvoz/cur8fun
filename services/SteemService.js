@@ -190,17 +190,39 @@ class SteemService {
     }
     
     /**
-     * Check if a post has been reblogged by a user
-     * @param {string} username - Username to check
+     * Get reblog info for a post (count + whether a user has reblogged)
+     * @param {string|null} username - Username to check (optional)
      * @param {string} author - Author of the post
      * @param {string} permlink - Permlink of the post
-     * @returns {Promise<boolean>} - Whether the post has been reblogged
+     * @returns {Promise<{hasReblogged: boolean, reblogCount: number}>}
      */
-    async hasReblogged(username, author, permlink) {
+    async getReblogInfo(username, author, permlink) {
+        try {
+            const rebloggers = await this.getRebloggers(author, permlink);
+            const normalizedUsername = String(username || '').toLowerCase();
+            const hasReblogged = normalizedUsername
+                ? rebloggers.some(account => String(account || '').toLowerCase() === normalizedUsername)
+                : false;
+
+            return {
+                hasReblogged,
+                reblogCount: rebloggers.length
+            };
+        } catch (error) {
+            console.error('Error checking if post was reblogged:', error);
+            return { hasReblogged: false, reblogCount: 0 };
+        }
+    }
+
+    /**
+     * Get the list of users who reblogged a post
+     * @param {string} author - Author of the post
+     * @param {string} permlink - Permlink of the post
+     * @returns {Promise<string[]>}
+     */
+    async getRebloggers(author, permlink) {
         try {
             await this.ensureLibraryLoaded();
-            // Do not switch the global steem-js endpoint here: this method runs in parallel for many posts.
-            // Use direct JSON-RPC calls to stable endpoints for follow_api.get_reblogged_by.
             const rpcEndpoints = [
                 'https://api.moecki.online',
                 'https://api.steemit.com'
@@ -224,8 +246,6 @@ class SteemService {
                         signal: controller.signal
                     });
 
-                    clearTimeout(timeoutId);
-
                     if (!response.ok) {
                         continue;
                     }
@@ -234,8 +254,8 @@ class SteemService {
                     const rebloggers = Array.isArray(payload?.result)
                         ? payload.result
                         : (Array.isArray(payload?.result?.accounts) ? payload.result.accounts : []);
-                    const normalizedUsername = String(username || '').toLowerCase();
-                    return rebloggers.some(account => String(account || '').toLowerCase() === normalizedUsername);
+
+                    return rebloggers.filter(Boolean);
                 } catch (_) {
                     // Try next endpoint.
                 } finally {
@@ -243,7 +263,6 @@ class SteemService {
                 }
             }
 
-            // Fallback for nodes where follow_api is unavailable: use bridge.get_post when possible.
             const post = await new Promise((resolve, reject) => {
                 this.core.steem.api.call('bridge.get_post', { author, permlink }, (err, result) => {
                     if (err) reject(err);
@@ -251,16 +270,30 @@ class SteemService {
                 });
             });
 
-            if (!post) return false;
+            if (!post) return [];
 
-            return (
-                (Array.isArray(post.reblogged_by) && post.reblogged_by.includes(username)) ||
-                post.first_reblogged_by === username
-            );
+            const rebloggers = Array.isArray(post.reblogged_by) ? [...post.reblogged_by] : [];
+            if (post.first_reblogged_by && !rebloggers.includes(post.first_reblogged_by)) {
+                rebloggers.push(post.first_reblogged_by);
+            }
+
+            return rebloggers.filter(Boolean);
         } catch (error) {
-            console.error('Error checking if post was reblogged:', error);
-            return false;
+            console.error('Error getting rebloggers:', error);
+            return [];
         }
+    }
+
+    /**
+     * Check if a post has been reblogged by a user
+     * @param {string} username - Username to check
+     * @param {string} author - Author of the post
+     * @param {string} permlink - Permlink of the post
+     * @returns {Promise<boolean>} - Whether the post has been reblogged
+     */
+    async hasReblogged(username, author, permlink) {
+        const info = await this.getReblogInfo(username, author, permlink);
+        return info.hasReblogged;
     }
     
     /**
