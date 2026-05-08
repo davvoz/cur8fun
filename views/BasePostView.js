@@ -272,7 +272,7 @@ class BasePostView {
       postCard.classList.add('is-pinned');
       const pinnedBadge = document.createElement('div');
       pinnedBadge.className = 'post-pinned-badge';
-      pinnedBadge.innerHTML = '<span class="material-icons">push_pin</span> Pinned';
+      pinnedBadge.innerHTML = '<span class="material-icons">push_pin</span><span class="pinned-label"> Pinned</span>';
       postCard.appendChild(pinnedBadge);
     }
     

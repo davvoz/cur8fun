@@ -25,6 +25,15 @@
   transform: rotate(45deg);
 }
 
+@media (max-width: 768px) {
+  .post-pinned-badge {
+    padding: 3px 5px;
+  }
+  .post-pinned-badge .pinned-label {
+    display: none;
+  }
+}
+
 /* Stili per la community nel post */
 .post-community {
   font-size: 0.8rem;

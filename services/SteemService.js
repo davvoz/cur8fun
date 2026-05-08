@@ -199,30 +199,18 @@ class SteemService {
     async hasReblogged(username, author, permlink) {
         try {
             await this.ensureLibraryLoaded();
-            // Get account history with reblog operations
-            const accountHistory = await this.getAccountHistory(username, -1, 100);
-            
-            // Look for reblog operations in the history
-            for (const historyItem of accountHistory) {
-                const [, operation] = historyItem;
-                
-                if (operation.op[0] === 'custom_json' && operation.op[1].id === 'follow') {
-                    try {
-                        const customData = JSON.parse(operation.op[1].json);
-                        if (Array.isArray(customData) && 
-                            customData[0] === 'reblog' && 
-                            customData[1] && 
-                            customData[1].author === author && 
-                            customData[1].permlink === permlink) {
-                            return true;
-                        }
-                    } catch (e) {
-                        console.error('Error parsing reblog JSON:', e);
+            // bridge.get_post returns a `reblogged_by` array directly on the post object
+            const post = await new Promise((resolve, reject) => {
+                this.core.steem.api.call(
+                    'bridge.get_post',
+                    { author, permlink },
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result);
                     }
-                }
-            }
-            
-            return false;
+                );
+            });
+            return Array.isArray(post?.reblogged_by) && post.reblogged_by.includes(username);
         } catch (error) {
             console.error('Error checking if post was reblogged:', error);
             return false;
