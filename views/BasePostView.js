@@ -917,14 +917,24 @@ class BasePostView {
     // Check if already reblogged on load
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
-      reblogService.hasReblogged(currentUser.username, post.author, post.permlink)
-        .then(has => {
-          if (has) {
-            btn.classList.add('reblogged');
-            btn.style.pointerEvents = 'none';
-          }
-        })
-        .catch(() => {});
+      // Immediate check from post data (populated by getDiscussionsByBlog)
+      const alreadyRebloggedInData =
+        (Array.isArray(post.reblogged_by) && post.reblogged_by.includes(currentUser.username)) ||
+        post.first_reblogged_by === currentUser.username;
+      if (alreadyRebloggedInData) {
+        btn.classList.add('reblogged');
+        btn.style.pointerEvents = 'none';
+      } else {
+        // Async blockchain check for posts where reblogged_by isn't pre-populated
+        reblogService.hasReblogged(currentUser.username, post.author, post.permlink)
+          .then(has => {
+            if (has) {
+              btn.classList.add('reblogged');
+              btn.style.pointerEvents = 'none';
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     btn.addEventListener('click', async (e) => {

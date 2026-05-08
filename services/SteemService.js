@@ -199,18 +199,64 @@ class SteemService {
     async hasReblogged(username, author, permlink) {
         try {
             await this.ensureLibraryLoaded();
-            // bridge.get_post returns a `reblogged_by` array directly on the post object
-            const post = await new Promise((resolve, reject) => {
-                this.core.steem.api.call(
-                    'bridge.get_post',
-                    { author, permlink },
-                    (err, result) => {
-                        if (err) reject(err);
-                        else resolve(result);
+            // Do not switch the global steem-js endpoint here: this method runs in parallel for many posts.
+            // Use direct JSON-RPC calls to stable endpoints for follow_api.get_reblogged_by.
+            const rpcEndpoints = [
+                'https://api.moecki.online',
+                'https://api.steemit.com'
+            ];
+
+            for (const endpoint of rpcEndpoints) {
+                let timeoutId;
+                try {
+                    const controller = new AbortController();
+                    timeoutId = setTimeout(() => controller.abort(), 6000);
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'follow_api.get_reblogged_by',
+                            params: { author, permlink },
+                            id: 1
+                        }),
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        continue;
                     }
-                );
+
+                    const payload = await response.json();
+                    const rebloggers = Array.isArray(payload?.result)
+                        ? payload.result
+                        : (Array.isArray(payload?.result?.accounts) ? payload.result.accounts : []);
+                    const normalizedUsername = String(username || '').toLowerCase();
+                    return rebloggers.some(account => String(account || '').toLowerCase() === normalizedUsername);
+                } catch (_) {
+                    // Try next endpoint.
+                } finally {
+                    if (timeoutId) clearTimeout(timeoutId);
+                }
+            }
+
+            // Fallback for nodes where follow_api is unavailable: use bridge.get_post when possible.
+            const post = await new Promise((resolve, reject) => {
+                this.core.steem.api.call('bridge.get_post', { author, permlink }, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result || null);
+                });
             });
-            return Array.isArray(post?.reblogged_by) && post.reblogged_by.includes(username);
+
+            if (!post) return false;
+
+            return (
+                (Array.isArray(post.reblogged_by) && post.reblogged_by.includes(username)) ||
+                post.first_reblogged_by === username
+            );
         } catch (error) {
             console.error('Error checking if post was reblogged:', error);
             return false;

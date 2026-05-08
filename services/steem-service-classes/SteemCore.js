@@ -7,19 +7,8 @@ export default class SteemCore {
         this.apiEndpoints = [
             'https://api.moecki.online',
             'https://api.steemit.com',
-            'https://api.steemitdev.com',
-            'https://api.steemzzang.com',
-            'https://api.steemit.com',
-            'https://api.steemitstage.com',
             'https://api.steem.house',
             'https://api.steem.place',
-            'https://api.steem.press',
-            'https://api.steemstack.io',
-            'https://api.steemtools.com',
-            'https://api.steemul.com',
-            'https://api.steemworld.org',
-            'https://api.steemyy.com',
-            'https://api.steemzzang.com',
         ];
         this.currentEndpoint = 0;
         this.steem = null;

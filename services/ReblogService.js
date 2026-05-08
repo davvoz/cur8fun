@@ -56,7 +56,11 @@ class ReblogService {
       const cacheKey = `${username}_${author}_${permlink}`;
 
       // 1. In-memory cache (fastest)
-      if (this.reblogCache.has(cacheKey)) return this.reblogCache.get(cacheKey);
+      if (this.reblogCache.has(cacheKey)) {
+        const inMemoryValue = this.reblogCache.get(cacheKey);
+        if (inMemoryValue === true) return true;
+        this.reblogCache.delete(cacheKey);
+      }
 
       // 2. localStorage (survives reload, set when user reblogged this session or previous)
       const lsCached = lsGet(cacheKey);
@@ -67,8 +71,10 @@ class ReblogService {
 
       // 3. Blockchain (slowest, only if not found locally)
       const result = await steemService.hasReblogged(username, author, permlink);
-      this.reblogCache.set(cacheKey, result);
-      if (result) lsSet(cacheKey); // persist positive results only
+      if (result === true) {
+        this.reblogCache.set(cacheKey, true);
+        lsSet(cacheKey); // persist positive results only
+      }
 
       return result;
     } catch (error) {
