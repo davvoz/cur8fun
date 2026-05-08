@@ -7,7 +7,11 @@ class VotesPopup {
     this.popupId = `votes-popup-${VotesPopup.popupCounter++}`;
     this.overlay = null;
     this.popup = null;
+    this.contentContainer = null;
+    this.isLoadingVotes = false;
     this.closePopupHandler = this.close.bind(this);
+
+    this.ensureLoadingStyles();
   }
 
   // Close method to properly clean up the popup
@@ -64,14 +68,19 @@ class VotesPopup {
     const needsFetch = hasVotes && votesIncomplete && !!this.post.author && !!this.post.permlink;
 
     if (needsFetch) {
-      // Fetch first, then open — no layout jump
+      // Open immediately with a lightweight loading state, then hydrate content.
+      this.isLoadingVotes = true;
+      this._openPopup();
+
       window.steem.api.getActiveVotes(this.post.author, this.post.permlink, (err, votes) => {
         if (!err && Array.isArray(votes) && votes.length > 0) {
           this.post = { ...this.post, active_votes: votes };
         }
-        this._openPopup();
+        this.isLoadingVotes = false;
+        this.refreshPopupContent();
       });
     } else {
+      this.isLoadingVotes = false;
       this._openPopup();
     }
   }
@@ -130,7 +139,8 @@ class VotesPopup {
 
     // Create and add content
     this.popup.appendChild(this.createPopupHeader());
-    this.popup.appendChild(this.createPopupContent());
+    this.contentContainer = this.createPopupContent();
+    this.popup.appendChild(this.contentContainer);
   }
 
   createPopupHeader() {
@@ -172,6 +182,11 @@ class VotesPopup {
   createPopupContent() {
     const content = this.createElement('div', 'votes-popup-content');
 
+    if (this.isLoadingVotes) {
+      content.appendChild(this.createLoadingState());
+      return content;
+    }
+
     if (!this.post.active_votes || this.post.active_votes.length === 0) {
       content.appendChild(this.createNoVotesMessage());
       return content;
@@ -183,6 +198,110 @@ class VotesPopup {
 
     content.appendChild(votesList);
     return content;
+  }
+
+  refreshPopupContent() {
+    if (!this.contentContainer || !this.popup || !document.body.contains(this.popup)) return;
+
+    const nextContent = this.createPopupContent();
+    this.contentContainer.replaceWith(nextContent);
+    this.contentContainer = nextContent;
+  }
+
+  createLoadingState() {
+    const wrapper = this.createElement('div', 'votes-loading-wrapper', {
+      padding: this.isMobile ? 'var(--space-sm) 0' : 'var(--space-md) 0'
+    });
+
+    const hint = this.createElement('div', 'votes-loading-hint', {
+      color: 'var(--text-muted)',
+      fontSize: '0.92rem',
+      marginBottom: 'var(--space-sm)'
+    }, 'Loading votes...');
+
+    const list = this.createElement('div', 'votes-loading-list', {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px'
+    });
+
+    const rows = this.isMobile ? 4 : 5;
+    for (let i = 0; i < rows; i++) {
+      list.appendChild(this.createLoadingRow());
+    }
+
+    wrapper.appendChild(hint);
+    wrapper.appendChild(list);
+    return wrapper;
+  }
+
+  createLoadingRow() {
+    const row = this.createElement('div', 'votes-loading-row', {
+      display: 'grid',
+      gridTemplateColumns: this.isMobile ? '24px 1fr 74px' : '32px 1fr 96px 140px',
+      alignItems: 'center',
+      gap: '10px',
+      padding: this.isMobile ? '8px 0' : '10px 0',
+      borderBottom: '1px solid var(--border-color)'
+    });
+
+    const avatar = this.createElement('span', 'votes-loading-pulse', {
+      width: this.isMobile ? '24px' : '32px',
+      height: this.isMobile ? '24px' : '32px',
+      borderRadius: '50%',
+      background: 'var(--background-lighter)'
+    });
+
+    const name = this.createElement('span', 'votes-loading-pulse', {
+      width: this.isMobile ? '120px' : '180px',
+      height: '12px',
+      borderRadius: '999px',
+      background: 'var(--background-lighter)'
+    });
+
+    const value = this.createElement('span', 'votes-loading-pulse', {
+      width: this.isMobile ? '64px' : '84px',
+      justifySelf: 'end',
+      height: '12px',
+      borderRadius: '999px',
+      background: 'var(--background-lighter)'
+    });
+
+    row.appendChild(avatar);
+    row.appendChild(name);
+    row.appendChild(value);
+
+    if (!this.isMobile) {
+      const time = this.createElement('span', 'votes-loading-pulse', {
+        width: '120px',
+        justifySelf: 'end',
+        height: '12px',
+        borderRadius: '999px',
+        background: 'var(--background-lighter)'
+      });
+      row.appendChild(time);
+    }
+
+    return row;
+  }
+
+  ensureLoadingStyles() {
+    if (document.getElementById('votes-popup-loading-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'votes-popup-loading-style';
+    style.textContent = `
+      @keyframes votes-popup-pulse {
+        0% { opacity: 0.42; }
+        50% { opacity: 0.8; }
+        100% { opacity: 0.42; }
+      }
+      .votes-loading-pulse {
+        animation: votes-popup-pulse 1.15s ease-in-out infinite;
+      }
+    `;
+
+    document.head.appendChild(style);
   }
 
   createNoVotesMessage() {
