@@ -14,12 +14,11 @@
 .vote-count-btn {
   background: transparent;
   border: none;
-  padding: 4px 8px;
-  margin-left: 2px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   font-weight: 500;
-  color: var(--text-color);
+  font-size: 0.9rem;
+  color: #b0b0b0;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -47,7 +46,7 @@
 }
 
 /* Quando il post è stato votato, evidenzia anche il contatore */
-.upvote-btn.voted + .vote-count-btn {
+.upvote-btn.voted {
   color: var(--secondary-color);
 }
 
@@ -66,7 +65,6 @@
 .action-btn.upvote-btn.voted,
 .action-item.vote-action.voted {
   color: var(--secondary-color);
-  background-color: rgba(46, 204, 113, 0.08);
 }
 
 .action-btn.upvote-btn.voted .material-icons,

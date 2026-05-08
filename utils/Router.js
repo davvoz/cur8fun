@@ -218,6 +218,8 @@ class Router {
     if (!this.isBackNavigation) {
       const mainContent = document.getElementById('main-content');
       if (mainContent) mainContent.scrollTop = 0;
+      // Clear any leftover scroll-restore value from a previous back navigation
+      this.pendingScrollRestore = undefined;
     }
     this.cleanupCurrentView();
     if (!matchedRoute && this.notFoundHandler) {

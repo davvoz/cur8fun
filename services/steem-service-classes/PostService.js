@@ -477,13 +477,20 @@ export default class PostService {
         try {
             // Use bridge.get_ranked_posts directly with proper pagination
             return await new Promise((resolve, reject) => {
+                const callParams = {
+                    tag: communityTag,
+                    sort: params.sort || 'trending',
+                    limit: limit,
+                };
+                // Pagination: include start_author/start_permlink when provided
+                if (params.start_author && params.start_permlink) {
+                    callParams.start_author = params.start_author;
+                    callParams.start_permlink = params.start_permlink;
+                }
+                console.log('[PostService] bridge.get_ranked_posts callParams:', JSON.stringify(callParams));
                 this.core.steem.api.call(
                     'bridge.get_ranked_posts',
-                    {
-                        tag: communityTag,
-                        sort: params.sort || 'trending',
-                        limit: limit,
-                    },
+                    callParams,
                     (err, result) => {
                         if (err) {
                             console.error('Bridge API error:', err);

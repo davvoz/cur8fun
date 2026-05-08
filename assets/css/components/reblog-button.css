@@ -5,13 +5,30 @@
 }
 
 .reblog-btn.reblogged {
-  color: #1fca9c; /* Green color for reblogged state */
+  color: var(--primary-color);
+  pointer-events: none;
 }
 
 .reblog-btn:hover {
-  color: #1fca9c;
+  color: var(--primary-color);
 }
 
 .reblog-btn:active {
   transform: scale(1.1);
+}
+
+.reblog-btn .reblog-spinning {
+  animation: reblog-spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes reblog-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .reblog-btn span:not(.material-icons):not(.reblog-spinning) {
+    display: none;
+  }
 }

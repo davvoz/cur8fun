@@ -19,6 +19,7 @@ import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
 import PostReblogHandler from '../components/post/PostReblogHandler.js';
 import DialogUtility from '../components/DialogUtility.js';
+import reblogService from '../services/ReblogService.js';
 
 class PostView extends View {  constructor(params = {}) {
     super(params);
@@ -61,7 +62,7 @@ class PostView extends View {  constructor(params = {}) {
     try {
       await this.ensureSteemRendererLoaded();
       this.contentRenderer = new ContentRenderer({
-        containerClass: 'post-content-body',
+        containerClass: 'post-content-body content-body',
         imageClass: 'post-image',
         imagePosition: 'top',
         useProcessBody: false,
@@ -426,8 +427,26 @@ class PostView extends View {  constructor(params = {}) {
       () => this.handleEdit(),
       () => this.handleReblog(),
       this.canEditPost(),
-      false // hasReblogged sarà aggiornato dinamicamente                                  
+      false
     );
+
+    // Check actual reblog status from blockchain async
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      reblogService.hasReblogged(currentUser.username, this.post.author, this.post.permlink)
+        .then(has => {
+          if (has) {
+            const reblogBtn = this.element?.querySelector('.reblog-btn');
+            if (reblogBtn) {
+              reblogBtn.classList.add('reblogged');
+              reblogBtn.style.pointerEvents = 'none';
+              const textSpan = reblogBtn.querySelector('span:last-child');
+              if (textSpan) textSpan.textContent = 'Reblogged';
+            }
+          }
+        })
+        .catch(() => {});
+    }
     
     this.postTagsComponent = new PostTags(
       this.getPostTags() // Questa ora filtrerà correttamente il tag community
@@ -684,56 +703,49 @@ class PostView extends View {  constructor(params = {}) {
    */
   async handleReblog() {
     try {
-      // Verifica che l'utente sia loggato
       const currentUser = authService.getCurrentUser();
       if (!currentUser) {
-        this.emit('notification', {
-          type: 'info',
-          message: 'You must be logged in to reblog a post'
-        });
+        this.emit('notification', { type: 'info', message: 'You must be logged in to reblog a post' });
         router.navigate('/login');
         return;
       }
 
-      // Chiedi conferma
       const confirmed = await DialogUtility.showConfirmationDialog({
-        title: 'Reblog Post',
-        message: `Reblog "${this.post.title}" by @${this.post.author} to your blog?`,
+        message: 'Reblog this post to your blog?',
         confirmText: 'Reblog',
         cancelText: 'Cancel',
         icon: 'repeat',
         type: 'info'
       });
       if (!confirmed) return;
-      
-      console.log(`Reblogging post by ${this.post.author}/${this.post.permlink}`);
-      
-      // Usa il servizio per effettuare il reblog
-      await steemService.reblogPost(currentUser.username, this.post.author, this.post.permlink);
-      
-      // Aggiorna lo stato del pulsante di reblog
-      if (this.postActionsComponent) {
-        const reblogBtn = this.element.querySelector('.reblog-btn');
-        if (reblogBtn) {
-          reblogBtn.classList.add('reblogged');
-          const textSpan = reblogBtn.querySelector('span:last-child');
-          if (textSpan) {
-            textSpan.textContent = 'Reblogged';
-          }
-        }
+
+      // Show spinner on reblog button
+      const reblogBtn = this.element.querySelector('.reblog-btn');
+      const reblogIcon = reblogBtn?.querySelector('.material-icons');
+      if (reblogBtn) reblogBtn.style.pointerEvents = 'none';
+      if (reblogIcon) {
+        reblogIcon.textContent = 'settings';
+        reblogIcon.classList.add('reblog-spinning');
       }
-      
-      // Notifica l'utente
-      this.emit('notification', {
-        type: 'success',
-        message: 'Post reblogged successfully!'
-      });
+
+      await reblogService.reblogPost(this.post.author, this.post.permlink);
+
+      if (reblogIcon) {
+        reblogIcon.classList.remove('reblog-spinning');
+        reblogIcon.textContent = 'repeat';
+      }
+      if (reblogBtn) {
+        reblogBtn.classList.add('reblogged');
+        const textSpan = reblogBtn.querySelector('span:last-child');
+        if (textSpan && textSpan !== reblogIcon) textSpan.textContent = 'Reblogged';
+      }
     } catch (error) {
       console.error('Error reblogging post:', error);
-      this.emit('notification', {
-        type: 'error',
-        message: error.message || 'Failed to reblog post'
-      });
+      const reblogBtn = this.element.querySelector('.reblog-btn');
+      const reblogIcon = reblogBtn?.querySelector('.material-icons');
+      if (reblogIcon) { reblogIcon.classList.remove('reblog-spinning'); reblogIcon.textContent = 'repeat'; }
+      if (reblogBtn) reblogBtn.style.pointerEvents = '';
+      this.emit('notification', { type: 'error', message: error.message || 'Failed to reblog post' });
     }
   }
 

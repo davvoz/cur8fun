@@ -12,8 +12,11 @@ export default class VoteController {
   async handlePostVote(post) {
     const upvoteBtn = this.view.element.querySelector('.upvote-btn');
     if (!upvoteBtn) return;
-    
-    const countElement = upvoteBtn.querySelector('.count');
+
+    // Count is a sibling inside .upvote-container, not inside the button itself
+    const upvoteContainer = upvoteBtn.closest('.upvote-container');
+    const countElement = upvoteContainer?.querySelector('.vote-count-btn .count')
+      || upvoteBtn.querySelector('.count');
 
     // Check if user is logged in
     if (!this.checkLoggedIn()) return;
@@ -35,9 +38,9 @@ export default class VoteController {
         });
 
         const currentCount = parseInt(countElement?.textContent) || 0;
-        
-        // Update UI
-        this.setVoteSuccessState(upvoteBtn, currentCount, weight);
+
+        // Update UI — pass external countElement so it's updated in place, not added inside button
+        this.setVoteSuccessState(upvoteBtn, currentCount, weight, countElement);
         
         // Show success notification
         this.view.emit('notification', {
@@ -89,9 +92,9 @@ export default class VoteController {
 
     // Show vote percentage selector
     this.showVotePercentagePopup(upvoteBtn, async (weight) => {
-      // Safely get the count element
-      const countElement = upvoteBtn.querySelector('.count');
-      // Get current count safely, ensuring we have a default if element is not found
+      // Count is a sibling .comment-vote-count, not inside the button
+      const countElement = upvoteBtn.parentElement?.querySelector('.comment-vote-count')
+        || upvoteBtn.querySelector('.count');
       const currentCount = countElement ? (parseInt(countElement.textContent) || 0) : 0;
 
       try {
@@ -120,26 +123,25 @@ export default class VoteController {
         
         // Clear any existing content
         upvoteBtn.innerHTML = '';
-        
-        // Add icon
+
+        // Restore icon only
         const iconElement = document.createElement('span');
         iconElement.className = 'material-icons';
         iconElement.textContent = 'thumb_up_alt';
         upvoteBtn.appendChild(iconElement);
-        
-        // Add count
-        const newCountElement = document.createElement('span');
-        newCountElement.className = 'count';
-        newCountElement.textContent = currentCount + 1;
-        upvoteBtn.appendChild(newCountElement);
-        
-        // Add percentage indicator with proper formatting
+
+        // Update external count sibling in place
+        if (countElement) {
+          countElement.textContent = currentCount + 1;
+        }
+
+        // Add percentage indicator
         const percentIndicator = document.createElement('span');
         percentIndicator.className = 'vote-percent-indicator';
         const displayPercent = weight / 100;
         percentIndicator.textContent = `${displayPercent}%`;
         upvoteBtn.appendChild(percentIndicator);
-        
+
         this.addSuccessAnimation(upvoteBtn);
         
         // Show success notification
@@ -213,34 +215,33 @@ export default class VoteController {
     }
   }
   
-  setVoteSuccessState(button, currentCount, weight) {
+  setVoteSuccessState(button, currentCount, weight, externalCountEl = null) {
     button.disabled = false;
     button.classList.remove('voting');
     button.classList.add('voted');
 
-    // Clear any existing content first
     button.innerHTML = '';
-    
-    // Add icon
+
+    // Restore icon
     const iconElement = document.createElement('span');
     iconElement.className = 'material-icons';
     iconElement.textContent = 'thumb_up_alt';
     button.appendChild(iconElement);
-    
-    // Add count
-    const countElement = document.createElement('span');
-    countElement.className = 'count';
-    countElement.textContent = currentCount + 1;
-    button.appendChild(countElement);
-    
-    // Add percentage indicator with proper formatting
+
+    // Update count: prefer external element (sibling), else add inside button
+    if (externalCountEl) {
+      externalCountEl.textContent = currentCount + 1;
+    } else {
+      const countElement = document.createElement('span');
+      countElement.className = 'count';
+      countElement.textContent = currentCount + 1;
+      button.appendChild(countElement);
+    }
+
+    // Percentage indicator
     const percentIndicator = document.createElement('span');
     percentIndicator.className = 'vote-percent-indicator';
-    
-    // Ensure the percentage is displayed correctly
-    const displayPercent = weight / 100;
-    percentIndicator.textContent = `${displayPercent}%`;
-    
+    percentIndicator.textContent = `${weight / 100}%`;
     button.appendChild(percentIndicator);
 
     this.addSuccessAnimation(button);

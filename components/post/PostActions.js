@@ -2,15 +2,16 @@ import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
 
 class PostActions {
-  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false) {
+  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false, showReblog = true) {
     this.post = post;
     this.upvoteCallback = upvoteCallback;
     this.commentCallback = commentCallback;
     this.shareCallback = shareCallback;
     this.editCallback = editCallback; 
     this.reblogCallback = reblogCallback;
-    this.canEdit = canEdit; // Store whether current user can edit this post
-    this.hasReblogged = hasReblogged; // Store whether current user has reblogged this post
+    this.canEdit = canEdit;
+    this.hasReblogged = hasReblogged;
+    this.showReblog = showReblog;
     
     // Bind methods
     this.handlePayoutClick = this.handlePayoutClick.bind(this);
@@ -27,23 +28,27 @@ class PostActions {
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
     const shareBtn = this.createActionButton('share-btn', 'share', isMobile ? '' : 'Share');
     
-    // Aggiungiamo il pulsante reblog (resteem)
-    const reblogBtn = this.createActionButton(
-      this.hasReblogged ? 'reblog-btn reblogged' : 'reblog-btn', 
-      'repeat', 
-      this.hasReblogged ? 'Reblogged' : isMobile ? '' : 'Reblog'
-    );
-    
-    // Rimuoviamo il pulsante votes-details-btn poiché ora il conteggio voti sarà cliccabile
+    // Aggiungiamo il pulsante reblog (resteem) solo se non è un commento
+    let reblogBtn = null;
+    if (this.showReblog) {
+      reblogBtn = this.createActionButton(
+        this.hasReblogged ? 'reblog-btn reblogged' : 'reblog-btn', 
+        'repeat', 
+        this.hasReblogged ? 'Reblogged' : isMobile ? '' : 'Reblog'
+      );
+      if (this.reblogCallback) {
+        reblogBtn.addEventListener('click', this.reblogCallback);
+      }
+    }
 
     const payoutInfo = document.createElement('div');
     payoutInfo.className = 'payout-info';
     payoutInfo.textContent = `$${this.getPendingPayout(this.post)}`;
-    payoutInfo.addEventListener('click', this.handlePayoutClick); // Aggiungo l'event listener per il payout
+    payoutInfo.addEventListener('click', this.handlePayoutClick);
     
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);
-    postActions.appendChild(reblogBtn);
+    if (reblogBtn) postActions.appendChild(reblogBtn);
     postActions.appendChild(shareBtn);
     postActions.appendChild(payoutInfo);
     
@@ -68,10 +73,6 @@ class PostActions {
     
     if (this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
-    }
-    
-    if (this.reblogCallback) {
-      reblogBtn.addEventListener('click', this.reblogCallback);
     }
 
     return postActions;

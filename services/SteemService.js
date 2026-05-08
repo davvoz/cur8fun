@@ -154,7 +154,6 @@ class SteemService {
      */
     async reblogPost(username, author, permlink) {
         await this.ensureLibraryLoaded();
-        console.log(`SteemService: Reblogging post ${author}/${permlink} as ${username}`);
         
         // Create the reblog operation using custom_json
         const operations = [
@@ -173,25 +172,15 @@ class SteemService {
             }]
         ];
         
-        console.log('Operations for reblog:', JSON.stringify(operations));
-        
         // Determine authentication method
         const hasKeychain = typeof window.steem_keychain !== 'undefined';
         const postingKey = authService.getPostingKey();
         const loginMethod = authService.getCurrentUser()?.loginMethod || 'privateKey';
         
-        console.log('Authentication details:', {
-            hasKeychain,
-            hasPostingKey: !!postingKey,
-            loginMethod
-        });
-        
         // Broadcast using appropriate method
         if (loginMethod === 'keychain' && hasKeychain) {
-            console.log('Broadcasting with Keychain');
             return await this.broadcastWithKeychain(username, operations);
         } else if (postingKey) {
-            console.log('Broadcasting with posting key');
             return await this.broadcastWithPostingKey(operations, postingKey);
         } else {
             const error = new Error("No authentication method available");
@@ -210,8 +199,6 @@ class SteemService {
     async hasReblogged(username, author, permlink) {
         try {
             await this.ensureLibraryLoaded();
-            console.log(`SteemService: Checking if ${username} has reblogged ${author}/${permlink}`);
-            
             // Get account history with reblog operations
             const accountHistory = await this.getAccountHistory(username, -1, 100);
             
@@ -227,7 +214,6 @@ class SteemService {
                             customData[1] && 
                             customData[1].author === author && 
                             customData[1].permlink === permlink) {
-                            console.log(`SteemService: Found reblog match in history!`);
                             return true;
                         }
                     } catch (e) {
@@ -236,7 +222,6 @@ class SteemService {
                 }
             }
             
-            console.log(`SteemService: No reblog found for ${username} on ${author}/${permlink}`);
             return false;
         } catch (error) {
             console.error('Error checking if post was reblogged:', error);

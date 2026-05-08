@@ -6,7 +6,8 @@ export default class InfiniteScroll {
     initialPage = 1,
     loadingMessage = 'Loading more...',
     endMessage = 'No more posts to load',
-    errorMessage = 'Error loading content. Please try again.'
+    errorMessage = 'Error loading content. Please try again.',
+    scrollRoot = null  // explicit scroll root; auto-detected if null
   }) {
     this.container = container;
     this.loadMore = loadMore;
@@ -19,6 +20,8 @@ export default class InfiniteScroll {
     this.loadingMessage = loadingMessage;
     this.endMessage = endMessage;
     this.errorMessage = errorMessage;
+    // Use provided root or auto-detect the nearest scrollable ancestor
+    this.scrollRoot = scrollRoot || document.getElementById('main-content') || null;
     
     this.setupObserver();
   }
@@ -46,7 +49,8 @@ export default class InfiniteScroll {
       this.observer.disconnect();
     }
 
-    // Create new intersection observer with better thresholds
+    // Create new intersection observer — use the actual scroll container as root
+    // so the observer fires relative to #main-content, not the browser viewport
     this.observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !this.isLoading && this.hasMore) {
@@ -54,8 +58,9 @@ export default class InfiniteScroll {
         }
       },
       { 
+        root: this.scrollRoot,
         rootMargin: this.threshold,
-        threshold: [0, 0.1, 0.5, 1.0] 
+        threshold: 0
       }
     );
 

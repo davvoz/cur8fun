@@ -43,7 +43,6 @@ class CommunityView extends BasePostView {
     if (page === 1) {
       this.posts = [];
       this.renderedPostIds.clear();
-      this.renderPosts();
     }
 
     try {
@@ -71,19 +70,25 @@ class CommunityView extends BasePostView {
 
       const { posts, hasMore } = result;
 
-      // Filtra i duplicati
+      // Filter duplicates without touching renderedPostIds —
+      // renderPosts() owns that set and will update it during render
+      const existingIds = new Set(this.posts.map(p => `${p.author}_${p.permlink}`));
       const uniquePosts = posts.filter(post => {
         const postId = `${post.author}_${post.permlink}`;
-        if (!this.renderedPostIds.has(postId)) {
-          this.renderedPostIds.add(postId);
-          return true;
-        }
-        return false;
+        return !existingIds.has(postId);
       });
 
       if (uniquePosts.length > 0) {
         this.posts = [...this.posts, ...uniquePosts];
         this.renderPosts(page > 1);
+        return hasMore;
+      }
+
+      // API returned posts but all were already known — cursor didn't advance
+      // (can happen with trending sort). Stop to avoid infinite loop.
+      if (page > 1 && posts.length > 0) {
+        console.warn(`[CommunityView] Page ${page}: all ${posts.length} posts were duplicates (sort=${this.sortOrder}). Stopping.`);
+        return false;
       }
 
       return hasMore;
@@ -208,6 +213,12 @@ class CommunityView extends BasePostView {
             this.renderedPostIds = new Set(cached.renderedPostIds);
             this.loading = false;
             this.loadingIndicator.hide();
+
+            // Consume pendingScrollRestore before renderPosts uses it,
+            // so we can apply it ourselves after the header images settle
+            const scrollTarget = router.pendingScrollRestore;
+            router.pendingScrollRestore = undefined;
+
             this.renderPosts(false);
             this.infiniteScroll = new InfiniteScroll({
               container: postsContainer,
@@ -218,25 +229,26 @@ class CommunityView extends BasePostView {
               endMessage: 'No more posts in this community',
               errorMessage: 'Failed to load posts. Please check your connection.'
             });
+
+            // Restore scroll after header + sort controls + grid have all settled.
+            // Hide content during restore to avoid the visible position jump.
+            if (scrollTarget !== undefined) {
+              const mainContent = document.getElementById('main-content');
+              if (mainContent) {
+                mainContent.style.visibility = 'hidden';
+                requestAnimationFrame(() => setTimeout(() => {
+                  mainContent.scrollTop = scrollTarget;
+                  mainContent.style.visibility = '';
+                }, 100));
+              }
+            }
             return;
           }
         }
         // --- end back navigation restore ---
 
-        // Load initial posts
-        this.loadPosts(1).then((hasMore) => {
-          // Initialize infinite scroll
-          if (postsContainer) {
-            this.infiniteScroll = new InfiniteScroll({
-              container: postsContainer,
-              loadMore: (page) => this.loadPosts(page),
-              threshold: '200px',
-              loadingMessage: 'Loading more posts...',
-              endMessage: `No more posts in this community`,
-              errorMessage: 'Failed to load posts. Please check your connection.'
-            });
-          }
-        });
+        // Load initial posts with fresh InfiniteScroll
+        this._reloadWithInfiniteScroll();
       }
     });
   }
@@ -333,26 +345,48 @@ class CommunityView extends BasePostView {
    */
   changeSortOrder(order) {
     if (this.sortOrder === order) {
-      // Forza il ricaricamento anche se l'ordine è lo stesso
-      this.loadPosts(1);
+      // Force reload even if same order
+      this._reloadWithInfiniteScroll();
       return;
     }
 
     this.sortOrder = order;
 
-    // Aggiorna l'interfaccia utente per evidenziare la scheda attiva
+    // Update active button
     const sortButtons = this.container.querySelectorAll('.sort-button');
     sortButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.sort === order);
     });
 
-    // Svuota i post della scheda precedente
-    this.posts = [];
-    this.renderedPostIds.clear();
-    this.renderPosts();
+    this._reloadWithInfiniteScroll();
+  }
 
-    // Ricarica i post con il nuovo ordine
-    this.loadPosts(1);
+  _reloadWithInfiniteScroll() {
+    // 1. Destroy old InfiniteScroll (removes observer target from DOM)
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+
+    // 2. Clear posts container cleanly
+    const postsContainer = this.container.querySelector('.posts-container');
+    if (postsContainer) {
+      postsContainer.innerHTML = '';
+    }
+
+    // 3. Load first page, then attach fresh InfiniteScroll
+    this.loadPosts(1).then(() => {
+      if (postsContainer) {
+        this.infiniteScroll = new InfiniteScroll({
+          container: postsContainer,
+          loadMore: (page) => this.loadPosts(page),
+          threshold: '200px',
+          loadingMessage: 'Loading more posts...',
+          endMessage: 'No more posts in this community',
+          errorMessage: 'Failed to load posts. Please check your connection.'
+        });
+      }
+    });
   }
 
   /**
@@ -632,8 +666,11 @@ class CommunityView extends BasePostView {
         break;
         
       case 'posts':
-        const postsContainer = this.container.querySelector('.posts-container');
-        if (postsContainer) this.loadingIndicator.show(postsContainer);
+        // Show spinner only for first page load — subsequent pages use InfiniteScroll's own indicator
+        if (this.posts.length === 0) {
+          const postsContainer = this.container.querySelector('.posts-container');
+          if (postsContainer) this.loadingIndicator.show(postsContainer);
+        }
         break;
         
       case 'subscribe':

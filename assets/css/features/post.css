@@ -1,6 +1,5 @@
 .post-actions-post {
   display: flex;
-  align-items: flex-end;
   gap: var(--space-sm);
   margin-top: var(--space-md);
   margin-bottom: var(--space-lg);
@@ -442,7 +441,6 @@
   .payout-info {
     margin-left: 0;
     width: 100%;
-    margin-top: var(--space-sm);
   }
 
   /* Handle specific large images that might have inline width/height */

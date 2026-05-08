@@ -223,9 +223,10 @@ export default class CommentView extends View {
       () => this.commentController.handleNewComment(this.comment),
       () => this.handleShare(),
       () => this.handleEdit(),
-      () => this.handleReblog(), // Aggiungiamo il callback per il reblog
-      this.canEditComment(), // Verifica se l'utente può modificare questo commento
-      false // Per ora impostiamo hasReblogged a false, aggiornare con verifica effettiva
+      null,   // no reblog for comments
+      this.canEditComment(),
+      false,  // hasReblogged
+      false   // showReblog — comments cannot be reblogged
     );
     
     // Inizializza il componente per le risposte (sempre, anche se vuote, per mostrare il form)

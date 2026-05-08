@@ -266,6 +266,15 @@ class BasePostView {
     
     // Get the best available image
     const imageUrl = this.getBestImage(post, metadata);
+
+    // Pinned badge (community pinned posts)
+    if (post.stats?.is_pinned) {
+      postCard.classList.add('is-pinned');
+      const pinnedBadge = document.createElement('div');
+      pinnedBadge.className = 'post-pinned-badge';
+      pinnedBadge.innerHTML = '<span class="material-icons">push_pin</span> Pinned';
+      postCard.appendChild(pinnedBadge);
+    }
     
     // 1. Add header (author info) - Always at the top
     postCard.appendChild(this.createPostHeader(post));
@@ -1101,8 +1110,9 @@ class BasePostView {
       return;
     }
     
-    // Get the current count
-    const countSpan = voteActionElement.querySelector('.vote-count');
+    // Get the current count from the sibling count element (card-vote-count is outside wrapper)
+    const countSpan = voteActionElement.parentElement?.querySelector('.card-vote-count')
+      || voteActionElement.querySelector('.vote-count');
     const currentCount = countSpan ? parseInt(countSpan.textContent) || 0 : 0;
     
     // Use vote controller to show percentage selector popup
@@ -1131,18 +1141,19 @@ class BasePostView {
         voteActionElement.classList.remove('voting', 'disabled');
         voteActionElement.classList.add('voted');
         voteActionElement.innerHTML = '';
-        
-        // Add icon
+
+        // Restore icon
         const iconElement = document.createElement('span');
         iconElement.className = 'material-icons';
         iconElement.textContent = 'thumb_up_alt';
         voteActionElement.appendChild(iconElement);
-        
-        // Add count
-        const newCountElement = document.createElement('span');
-        newCountElement.className = 'vote-count';
-        newCountElement.textContent = ` ${currentCount + 1}`;
-        voteActionElement.appendChild(newCountElement);
+
+        // Update the sibling count element (card-vote-count) or inner vote-count
+        const countEl = voteActionElement.parentElement?.querySelector('.card-vote-count')
+          || voteActionElement.querySelector('.vote-count');
+        if (countEl) {
+          countEl.textContent = currentCount + 1;
+        }
         
         // Store the vote percentage in the dataset
         voteActionElement.dataset.percent = weight;

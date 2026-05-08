@@ -15,18 +15,25 @@ class VotesPopup {
     // Remove the key event listener first to prevent multiple calls
     document.removeEventListener('keydown', this.escKeyHandler);
 
-    // Clean up popup elements if they exist
-    if (this.overlay && document.body.contains(this.overlay)) {
-      document.body.removeChild(this.overlay);
-    }
+    const overlay = this.overlay;
+    const popup = this.popup;
 
-    if (this.popup && document.body.contains(this.popup)) {
-      document.body.removeChild(this.popup);
-    }
-
-    // Clean up references
+    // Null out references immediately so re-entrant calls are no-ops
     this.overlay = null;
     this.popup = null;
+
+    // Animate out then remove
+    if (overlay || popup) {
+      if (overlay) { overlay.style.opacity = '0'; }
+      if (popup) {
+        popup.style.opacity = '0';
+        popup.style.transform = 'translate(-50%, -50%) scale(0.95)';
+      }
+      setTimeout(() => {
+        if (overlay && document.body.contains(overlay)) document.body.removeChild(overlay);
+        if (popup && document.body.contains(popup)) document.body.removeChild(popup);
+      }, 180);
+    }
   }
 
   // Escape key handler
@@ -44,18 +51,45 @@ class VotesPopup {
   }
 
   show() {
-    // First close any existing popups to prevent stacking
+    // Close any existing popup first
     this.close();
 
-    // Create new popup elements
+    // Fetch when: active_votes is empty/missing but net_votes > 0 (votes exist but not loaded)
+    //          OR active_votes has entries but time is missing (feed/home data)
+    const hasVotes = (this.post.net_votes > 0) ||
+      (Array.isArray(this.post.active_votes) && this.post.active_votes.length > 0);
+    const votesIncomplete = !Array.isArray(this.post.active_votes) ||
+      this.post.active_votes.length === 0 ||
+      this.post.active_votes[0].time == null;
+    const needsFetch = hasVotes && votesIncomplete && !!this.post.author && !!this.post.permlink;
+
+    if (needsFetch) {
+      // Fetch first, then open — no layout jump
+      window.steem.api.getActiveVotes(this.post.author, this.post.permlink, (err, votes) => {
+        if (!err && Array.isArray(votes) && votes.length > 0) {
+          this.post = { ...this.post, active_votes: votes };
+        }
+        this._openPopup();
+      });
+    } else {
+      this._openPopup();
+    }
+  }
+
+  _openPopup() {
     this.createPopupElements();
-
-    // Add Escape key listener
     document.addEventListener('keydown', this.escKeyHandler);
-
-    // Add to DOM
     document.body.appendChild(this.overlay);
     document.body.appendChild(this.popup);
+
+    // Double-rAF: ensures initial state is painted before transition starts
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (this.overlay) this.overlay.style.opacity = '1';
+      if (this.popup) {
+        this.popup.style.opacity = '1';
+        this.popup.style.transform = 'translate(-50%, -50%) scale(1)';
+      }
+    }));
   }
 
   createPopupElements() {
@@ -63,7 +97,7 @@ class VotesPopup {
       position: 'fixed',
       top: '50%',
       left: '50%',
-      transform: 'translate(-50%, -50%)',
+      transform: 'translate(-50%, -50%) scale(0.95)',
       backgroundColor: 'var(--background-light)',
       color: 'var(--text-color)',
       padding: this.isMobile ? 'var(--space-sm)' : 'var(--space-lg)',
@@ -74,7 +108,9 @@ class VotesPopup {
       overflow: 'auto',
       width: this.isMobile ? '90%' : null,
       maxWidth: this.isMobile ? '100%' : '90%',
-      minWidth: this.isMobile ? 'auto' : '500px'
+      minWidth: this.isMobile ? 'auto' : '500px',
+      opacity: '0',
+      transition: 'opacity 0.18s ease, transform 0.18s ease'
     });
 
     this.overlay = this.createElement('div', `popup-overlay ${this.popupId}-overlay`, {
@@ -84,7 +120,9 @@ class VotesPopup {
       width: '100%',
       height: '100%',
       backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      zIndex: 'calc(var(--z-modal) - 1)'
+      zIndex: 'calc(var(--z-modal) - 1)',
+      opacity: '0',
+      transition: 'opacity 0.18s ease'
     });
 
     // Add overlay click handler
@@ -316,10 +354,24 @@ class VotesPopup {
       color: isMobile ? 'var(--text-muted)' : null
     });
 
-    const voteDate = new Date(voteTime);
-    const formattedDate = isMobile ?
+    // Parse Steem vote timestamp robustly
+    let voteDate;
+    if (!voteTime) {
+      voteDate = null;
+    } else if (typeof voteTime === 'number') {
+      // Unix timestamp: Steem uses seconds if < 1e10, else ms
+      voteDate = new Date(voteTime < 1e10 ? voteTime * 1000 : voteTime);
+    } else if (typeof voteTime === 'string') {
+      // Steem timestamps are UTC but lack 'Z', e.g. "2020-01-01T12:00:00"
+      const ts = voteTime.endsWith('Z') || voteTime.includes('+') ? voteTime : voteTime + 'Z';
+      voteDate = new Date(ts);
+    } else {
+      voteDate = new Date(voteTime);
+    }
+    const isValidDate = voteDate && !isNaN(voteDate.getTime());
+    const formattedDate = !isValidDate ? '—' : isMobile ?
       this.formatDateForMobile(voteDate) :
-      new Date(voteDate + 'Z').toLocaleString();
+      voteDate.toLocaleString();
 
     const timeElement = this.createElement('span', 'vote-time', {
       color: 'var(--text-secondary)',
