@@ -134,6 +134,8 @@
   cursor: pointer;
   font-weight: 500;
   padding: 2px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
   border-radius: 4px;
   transition: background 0.15s, color 0.15s;
 }
@@ -214,5 +216,15 @@
 @media (max-width: 767px) {
   .post-info-top-row {
     gap: 2px; /* Spazio leggermente minore sui dispositivi mobili */
+  }
+
+  .post-actions {
+    gap: var(--space-md);
+  }
+
+  .post-actions .card-payout-info {
+    margin-left: auto;
+    flex: 0 0 auto;
+    min-width: max-content;
   }
 }
