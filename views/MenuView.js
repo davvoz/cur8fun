@@ -28,14 +28,6 @@ class MenuView extends View {
     menuContainer.appendChild(accountCategory);
     
     menuContainer.appendChild(this.createMenuItem(
-      'faucet-link',
-      'https://davvoz.github.io/steem-faucet-game/#/faucet',
-      'fa-faucet',
-      'Steem Faucet',
-      'Get free STEEM to start your journey'
-    ));
-    
-    menuContainer.appendChild(this.createMenuItem(
       'games-link',
       'https://games.cur8.fun/',
       'fa-gamepad',
@@ -98,8 +90,8 @@ class MenuView extends View {
       'cur8-stats-link',
       '/cur8-stats',
       'fa-chart-bar',
-      'CUR8 Statistics',
-      'View detailed statistics about CUR8'
+      'Cur8 Statistics',
+      'View detailed statistics about Cur8'
     ));
 
     statsGrid.appendChild(this.createMenuItem(
@@ -107,7 +99,7 @@ class MenuView extends View {
       '/cur8-bot-stats',
       'fa-robot',
       'Bot Statistics',
-      'See how the CUR8 bot is performing'
+      'See how the Cur8 bot is performing'
     ));
 
     statsCategory.appendChild(statsGrid);

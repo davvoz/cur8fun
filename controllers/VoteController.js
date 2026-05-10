@@ -205,10 +205,7 @@ export default class VoteController {
     if (isVoting) {
       button.disabled = true;
       button.classList.add('voting');
-      button.innerHTML = `
-        <span class="material-icons loading">refresh</span>
-        <span>Voting ${weight / 100}%...</span>
-      `;
+      button.innerHTML = `<span class="material-icons loading">refresh</span>`;
     } else {
       button.disabled = false;
       button.classList.remove('voting');

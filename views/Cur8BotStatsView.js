@@ -9,7 +9,7 @@ import metaTagService from '../services/MetaTagService.js';
 class Cur8BotStatsView extends View {
   constructor(params = {}) {
     super(params);
-    this.title = 'CUR8 Bot Statistics | cur8.fun';
+    this.title = 'Cur8 Bot Statistics | cur8.fun';
     this.loadingIndicator = new LoadingIndicator();
     this.botData = null;
     this.loading = false;
@@ -20,7 +20,7 @@ class Cur8BotStatsView extends View {
 
     // Set meta tags for the bot statistics page
     metaTagService.setMetaTags({
-      title: 'CUR8 Bot Statistics - Curation Performance & Metrics',
+      title: 'Cur8 Bot Statistics - Curation Performance & Metrics',
       description: 'Real-time performance metrics and curation data from the @cur8 automated curation bot on Steem blockchain.',
       image: 'https://cur8.fun/assets/img/logo_tra.png',
       url: `${window.location.origin}/cur8-bot-stats`,
@@ -62,7 +62,7 @@ class Cur8BotStatsView extends View {
           <span class="material-icons">smart_toy</span>
         </div>
         <div class="header-text">
-          <h1>CUR8 Bot Statistics</h1>
+          <h1>Cur8 Bot Statistics</h1>
           <p>Performance metrics and curation data from the automated @cur8 account</p>
         </div>
       </div>
@@ -73,7 +73,7 @@ class Cur8BotStatsView extends View {
   async loadBotStatistics(container) {
     try {
       this.loading = true;
-      console.log('Loading CUR8 bot statistics...');
+      console.log('Loading Cur8 bot statistics...');
 
       const data = await imRiddApiService.getCur8Stats();
       if (!data || !Array.isArray(data) || data.length === 0) {
@@ -85,7 +85,7 @@ class Cur8BotStatsView extends View {
       this.renderBotStats(container);
 
     } catch (error) {
-      console.error('Error loading CUR8 bot statistics:', error);
+      console.error('Error loading Cur8 bot statistics:', error);
       this.renderError(container, error.message);
     } finally {
       this.loading = false;

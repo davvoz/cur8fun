@@ -5,8 +5,64 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
   gap: var(--space-sm);
+}
+
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.header-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+  color: var(--primary-color);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.header-title {
+  margin: 0;
+}
+
+.header-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.header-area-home {
+  position: relative;
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, var(--primary-color) 30%);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--primary-color) 18%, transparent) 0%, transparent 48%),
+    linear-gradient(140deg, color-mix(in srgb, var(--background-light) 84%, transparent) 0%, color-mix(in srgb, var(--background-color) 88%, transparent) 100%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.header-area-home .header-title {
+  font-size: clamp(2rem, 2.8vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(92deg, var(--text-color) 0%, color-mix(in srgb, var(--text-color) 85%, var(--primary-color) 15%) 70%, var(--primary-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header-area-home .grid-controller-container {
+  margin-bottom: 0;
 }
 
 .grid-controller-container {
@@ -194,6 +250,20 @@
 
 /* Responsive handling - update for better mobile experience */
 @media (max-width: 768px) {
+
+  .header-area-home {
+    margin-top: var(--space-xxs);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+  }
+
+  .header-area-home .header-title {
+    font-size: clamp(1.25rem, 6vw, 1.6rem);
+  }
+
+  .header-subtitle {
+    font-size: 0.82rem;
+  }
 
   /* Show the grid controller on mobile with compact layout */
   .grid-controller-container {

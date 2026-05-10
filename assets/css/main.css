@@ -79,7 +79,7 @@
 .mobile-games-button {
     display: none;
     color: var(--text-primary);
-    margin-right: 12px;
+    margin-right: 0;
     cursor: pointer;
 }
 

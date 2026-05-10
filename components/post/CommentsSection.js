@@ -2,6 +2,7 @@ import voteService from '../../services/VoteService.js';
 import router from '../../utils/Router.js';
 import steemApi from '../../services/SteemApi.js';
 import VotesPopup from './VotesPopup.js';
+import PayoutInfoPopup from './PayoutInfoPopup.js';
 
 // Improved inert attribute polyfill with better event handling
 function ensureInertSupport() {
@@ -157,58 +158,92 @@ class CommentsSection {
     }
     
     try {
-      // 1. Primo passo: otteniamo le risposte dirette al post principale
-      
-      // Per maggiore sicurezza, recuperiamo nuovamente anche le risposte dirette al post
-      const directReplies = await steemApi.getContentReplies(
-        this.parentPost.author, 
-        this.parentPost.permlink
-      );
-      
-      // 2. Creiamo una mappa per tenere traccia di tutti i commenti
+      // Use existing top-level replies first (already loaded by PostView).
+      // Only refetch direct replies if initial list is unexpectedly empty.
+      const directReplies = this.comments.length > 0
+        ? this.comments
+        : await steemApi.getContentReplies(this.parentPost.author, this.parentPost.permlink);
+
       const allCommentsMap = new Map();
-      // Inizializza con i commenti che già abbiamo
-      this.comments.forEach(c => allCommentsMap.set(`${c.author}/${c.permlink}`, c));
-      // Aggiungi le risposte dirette se non le abbiamo già
-      directReplies.forEach(reply => {
-        const key = `${reply.author}/${reply.permlink}`;
+      const expanded = new Set();
+      const queue = [];
+
+      const addComment = (comment, depth = 0, forceExpand = false) => {
+        if (!comment || !comment.author || !comment.permlink) return;
+        const key = `${comment.author}/${comment.permlink}`;
+        const hasChildren = Number(comment.children || 0) > 0;
+
         if (!allCommentsMap.has(key)) {
-          allCommentsMap.set(key, reply);
-        }
-      });
-      
-      // 3. Per ogni commento/risposta che abbiamo, procediamo a recuperare tutte le risposte
-      const allComments = Array.from(allCommentsMap.values());
-      let totalRepliesFound = 0;
-      
-      // 4. La magia avviene qui: per OGNI commento, recuperiamo le risposte come se fosse un post
-      for (const comment of allComments) {
-        try {
-          // Questo è il cambiamento fondamentale: trattiamo OGNI commento come un post
-          const replies = await steemApi.getContentReplies(comment.author, comment.permlink);
-          
-          if (replies && replies.length > 0) {
-            totalRepliesFound += replies.length;
-            
-            // Aggiungi solo le risposte che non abbiamo già
-            for (const reply of replies) {
-              const key = `${reply.author}/${reply.permlink}`;
-              if (!allCommentsMap.has(key)) {
-                allCommentsMap.set(key, reply);
-                allComments.push(reply); // Aggiungi anche all'array che stiamo iterando
-              }
-            }
+          allCommentsMap.set(key, comment);
+          // Expand only when likely useful: either explicitly forced (top-level)
+          // or comment metadata says it has replies.
+          if (forceExpand || hasChildren) {
+            queue.push({ comment, depth });
           }
-        } catch (err) {
-          console.error(`❌ Errore nel recupero risposte per ${comment.permlink}:`, err);
         }
+      };
+
+      // Initial direct replies are worth checking at least once.
+      this.comments.forEach(c => addComment(c, 0, true));
+      (directReplies || []).forEach(c => addComment(c, 0, true));
+
+      // Bound deep traversal to keep old posts responsive.
+      const MAX_EXPANSIONS = 80;
+      const MAX_TOTAL_COMMENTS = 800;
+      const MAX_DURATION_MS = 4500;
+      const BATCH_SIZE = 8;
+      const MAX_DEPTH = 3;
+
+      let expansions = 0;
+      const startedAt = Date.now();
+
+      while (
+        queue.length > 0 &&
+        expansions < MAX_EXPANSIONS &&
+        allCommentsMap.size < MAX_TOTAL_COMMENTS &&
+        (Date.now() - startedAt) < MAX_DURATION_MS
+      ) {
+        const batch = [];
+
+        while (batch.length < BATCH_SIZE && queue.length > 0) {
+          const candidate = queue.shift();
+          if (!candidate) continue;
+          // Compatibility for old queue entries (if any)
+          const c = candidate.comment || candidate;
+          if (!c || !c.author || !c.permlink) continue;
+          const depth = Number.isFinite(candidate.depth) ? candidate.depth : 0;
+          const key2 = `${c.author}/${c.permlink}`;
+          if (expanded.has(key2)) continue;
+          expanded.add(key2);
+          // Never expand beyond depth cap
+          if (depth > MAX_DEPTH) continue;
+          batch.push({ comment: c, depth });
+        }
+
+        if (batch.length === 0) break;
+
+        const results = await Promise.allSettled(
+          batch.map(item => steemApi.getContentReplies(item.comment.author, item.comment.permlink))
+        );
+
+        for (let i = 0; i < results.length; i++) {
+          const parent = batch[i];
+          const nextDepth = (parent?.depth || 0) + 1;
+          const result = results[i];
+          if (result.status !== 'fulfilled' || !Array.isArray(result.value)) continue;
+          result.value.forEach(reply => addComment(reply, nextDepth, false));
+        }
+
+        expansions += batch.length;
       }
-      
-      // 5. Ora abbiamo tutti i commenti e tutte le risposte
+
       this.comments = Array.from(allCommentsMap.values());
-      
-      // IMPORTANTE: analizza la struttura dei commenti per debug
-      this.analyzeComments();
+
+      if (queue.length > 0) {
+        console.info(
+          `[CommentsSection] Deep reply scan capped (${this.comments.length} comments loaded, queue remaining: ${queue.length}).`
+        );
+      }
       
     } catch (error) {
       console.error('❌ Errore generale nel recupero risposte:', error);
@@ -685,10 +720,30 @@ class CommentsSection {
       commentActions.appendChild(editBtn);
     }
 
+    // Payout info (same UX as post actions): keep it on the right side
+    const payoutBtn = document.createElement('button');
+    payoutBtn.className = 'action-btn comment-payout-info';
+    payoutBtn.type = 'button';
+    payoutBtn.textContent = `$${this.getPendingPayout(comment)}`;
+    payoutBtn.title = 'Show payout details';
+    payoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      new PayoutInfoPopup(comment).show();
+    });
+    commentActions.appendChild(payoutBtn);
+
     // Reply form
     const { replyForm, replyTextarea } = this.createReplyForm(comment);
     
     return { commentActions, replyForm, replyBtn, replyTextarea };
+  }
+
+  getPendingPayout(content) {
+    const pending = parseFloat(content?.pending_payout_value?.split(' ')[0] || 0);
+    const total = parseFloat(content?.total_payout_value?.split(' ')[0] || 0);
+    const curator = parseFloat(content?.curator_payout_value?.split(' ')[0] || 0);
+    return (pending + total + curator).toFixed(2);
   }
   
   createUpvoteButton(comment) {

@@ -1401,8 +1401,14 @@ class BasePostView {
   /**
    * Base render implementation that can be called by subclasses
    */
-  renderBaseView(container, title) {
+  renderBaseView(container, title, options = {}) {
     this.container = container;
+
+    const {
+      headerVariant = 'default',
+      headerEyebrow = '',
+      headerSubtitle = ''
+    } = options;
     
     // Create content wrapper
     const contentWrapper = document.createElement('div');
@@ -1411,11 +1417,34 @@ class BasePostView {
     // Create header area with title and grid controls
     const headerArea = document.createElement('div');
     headerArea.className = 'header-area';
-    
-    // Create heading
+    if (headerVariant && headerVariant !== 'default') {
+      headerArea.classList.add(`header-area-${headerVariant}`);
+    }
+
+    // Create heading block
+    const headerCopy = document.createElement('div');
+    headerCopy.className = 'header-copy';
+
+    if (headerEyebrow) {
+      const eyebrow = document.createElement('span');
+      eyebrow.className = 'header-eyebrow';
+      eyebrow.textContent = headerEyebrow;
+      headerCopy.appendChild(eyebrow);
+    }
+
     const heading = document.createElement('h1');
+    heading.className = 'header-title';
     heading.textContent = title;
-    headerArea.appendChild(heading);
+    headerCopy.appendChild(heading);
+
+    if (headerSubtitle) {
+      const subtitle = document.createElement('p');
+      subtitle.className = 'header-subtitle';
+      subtitle.textContent = headerSubtitle;
+      headerCopy.appendChild(subtitle);
+    }
+
+    headerArea.appendChild(headerCopy);
     
     // Create grid controller container
     const gridControllerContainer = document.createElement('div');

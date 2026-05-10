@@ -142,8 +142,44 @@
 
 .create-post-btn:hover {
     background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
+  color: #fff;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(255, 117, 24, 0.3);
+}
+
+.top-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.top-search-btn .material-icons {
+  font-size: 1.1rem;
+}
+
+.top-search-btn:hover {
+  background-color: var(--background-lighter);
+  color: var(--primary-color);
+  border-color: rgba(255, 117, 24, 0.35);
+}
+
+.desktop-nav-action {
+  display: inline-flex;
+}
+
+.top-theme-toggle {
+  margin-right: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  width: 38px;
+  height: 38px;
 }
 
 /* Notification Badge Styles */
@@ -206,6 +242,10 @@
 }
 
 @media (max-width: 768px) {
+  .desktop-nav-action {
+    display: none !important;
+  }
+
   /* Hide sidebar on mobile */
   .side-nav {
     display: none;
@@ -502,6 +542,47 @@ body.menu-open {
   .mobile-theme-toggle {
     display: flex; /* Visibile solo su mobile */
     margin-right: var(--space-sm);
+  }
+
+  .nav-actions {
+    gap: var(--space-md);
+  }
+
+  .nav-actions .mobile-theme-toggle,
+  .nav-actions .mobile-search-button,
+  .nav-actions .mobile-games-button,
+  .nav-actions .mobile-faucet-button,
+  .nav-actions .nav-icon,
+  .nav-actions .user-menu {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    margin-right: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 36px;
+    border-radius: var(--radius-md);
+  }
+
+  .nav-actions .nav-icon .material-icons,
+  .nav-actions .mobile-theme-toggle .material-icons,
+  .nav-actions .mobile-search-button .material-icons,
+  .nav-actions .mobile-games-button .material-icons,
+  .nav-actions .mobile-faucet-button .material-icons {
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-actions .user-menu .avatar {
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    display: block;
   }
   
   /* Nascondiamo il pulsante nella sidebar su mobile */

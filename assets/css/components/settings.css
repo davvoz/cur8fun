@@ -89,7 +89,7 @@
 }
 
 .tag-pill {
-  background-color: #f0f0f0;
+  background-color: var(--primary-color);
   padding: 5px 10px;
   border-radius: 15px;
   display: inline-flex;
@@ -101,13 +101,14 @@
   margin-right: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-color);
 }
 
 .tag-remove {
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
-  color: #999;
+  color: var(--text-color);
   transition: color 0.2s;
 }
 

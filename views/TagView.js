@@ -96,7 +96,11 @@ class TagView extends BasePostView {
     render(container) {
         const { postsContainer } = this.renderBaseView(
             container,
-            `#${this.tag} Posts`
+            `#${this.tag} Posts`,
+            {
+                headerVariant: 'home',
+                headerSubtitle: `Explore posts tagged #${this.tag}.`
+            }
         );
         
         // Destroy existing infinite scroll if it exists

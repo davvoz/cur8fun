@@ -18,7 +18,7 @@
   cursor: pointer;
   font-weight: 500;
   font-size: 0.9rem;
-  color: #b0b0b0;
+  color: var(--text-color-secondary);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -37,6 +37,7 @@
 
 .vote-count-btn .count {
   font-weight: 500;
+  color: var(--text-color-secondary);
 }
 
 /* Upvote action button (solo icona) */
@@ -76,7 +77,6 @@
 /* Hover effect enhancement for voted buttons */
 .action-btn.upvote-btn.voted:hover,
 .action-item.vote-action.voted:hover {
-  background-color: rgba(46, 204, 113, 0.15);
   color: var(--secondary-color);
 }
 

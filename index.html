@@ -12,7 +12,24 @@
     <base href="/">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/assets/img/logo_tra.png">
-    <title>cur8.fun</title>    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <title>cur8.fun</title>
+    <script>
+        // Apply theme before CSS paints to avoid light/dark flash on reload.
+        (function () {
+            try {
+                var THEME_KEY = 'steem-theme-preference';
+                var savedTheme = localStorage.getItem(THEME_KEY);
+                var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var theme = savedTheme || (systemDark ? 'dark' : 'light');
+
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.style.colorScheme = theme;
+            } catch (_) {
+                // If storage is unavailable, keep default theme.
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/components/markdown-formatter.css">
@@ -67,34 +84,64 @@
 
         <aside class="side-nav">
             <div class="menu-items">
-                <a href="/home" class="menu-item active">
-                    <span class="material-icons icon">home</span>
-                    <span class="label">Home</span>
-                </a>
-                <a href="/new" class="menu-item">
-                    <span class="material-icons icon">new_releases</span>
-                    <span class="label">New</span>
-                </a>
-                <a href="/communities" class="menu-item">
-                    <span class="material-icons icon">groups</span>
-                    <span class="label">Communities</span>
-                </a>
-                <a href="/wallet" class="menu-item">
-                    <span class="material-icons icon">account_balance_wallet</span>
-                    <span class="label">Wallet</span>
-                </a>
-                <a href="/cur8-stats" class="menu-item">
-                    <span class="material-icons icon">analytics</span>
-                    <span class="label">CUR8 Statistics</span>
-                </a>
-                <a href="/cur8-bot-stats" class="menu-item">
-                    <span class="material-icons icon">smart_toy</span>
-                    <span class="label">Bot Statistics</span>
-                </a>
-                <a href="https://games.cur8.fun/" class="menu-item">
-                    <span class="material-icons icon">sports_esports</span>
-                    <span class="label">Games</span>
-                </a>
+                <div class="menu-section">
+                    <div class="menu-section-title">Main</div>
+                    <a href="/home" class="menu-item active" data-tooltip="Home">
+                        <span class="material-icons icon">home</span>
+                        <span class="label">Home</span>
+                    </a>
+                    <a href="/communities" class="menu-item" data-tooltip="Communities">
+                        <span class="material-icons icon">groups</span>
+                        <span class="label">Communities</span>
+                    </a>
+                    <a href="/wallet" class="menu-item" data-tooltip="Wallet">
+                        <span class="material-icons icon">account_balance_wallet</span>
+                        <span class="label">Wallet</span>
+                    </a>
+                    <a href="/witnesses" class="menu-item is-disabled" data-tooltip="Witnesses (coming soon)" aria-disabled="true" tabindex="-1">
+                        <span class="material-icons icon">gavel</span>
+                        <span class="label">Witnesses</span>
+                    </a>
+                </div>
+
+                <div class="menu-section-divider"></div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title">Fun</div>
+                    <a href="https://games.cur8.fun/" class="menu-item" target="_blank" rel="noopener noreferrer" data-tooltip="Games">
+                        <span class="material-icons icon">sports_esports</span>
+                        <span class="label">Games</span>
+                    </a>
+                </div>
+
+                <div class="menu-section-divider"></div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title">Tools</div>
+                    <a href="/cur8-bot-stats" class="menu-item" data-tooltip="Bot Statistics">
+                        <span class="material-icons icon">smart_toy</span>
+                        <span class="label">Bot Statistics</span>
+                    </a>
+                    <a href="/cur8-stats" class="menu-item" data-tooltip="Cur8 Statistics">
+                        <span class="material-icons icon">analytics</span>
+                        <span class="label">Cur8 Statistics</span>
+                    </a>
+                </div>
+
+                <div class="menu-section-divider"></div>
+
+                <div class="menu-section">
+                    <div class="menu-section-title">Connect With Us</div>
+                    <a href="https://discord.com/invite/hE7dB6wXb5" class="menu-item" target="_blank" rel="noopener noreferrer" data-tooltip="Discord">
+                        <i class="fa-brands fa-discord icon" aria-hidden="true"></i>
+                        <span class="label">Discord</span>
+                    </a>
+                    <a href="https://t.me/steemchat" class="menu-item" target="_blank" rel="noopener noreferrer" data-tooltip="Telegram">
+                        <i class="fa-brands fa-telegram icon" aria-hidden="true"></i>
+                        <span class="label">Telegram</span>
+                    </a>
+                </div>
+
                 <a href="/create" class="menu-item create-post-nav">
                     <span class="material-icons icon">add_circle</span>
                     <span class="label">Create Post</span>

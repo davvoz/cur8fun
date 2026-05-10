@@ -289,6 +289,21 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-top: var(--space-sm);
+  align-items: center;
+}
+
+.comment-actions .comment-payout-info {
+  margin-left: auto;
+  color: var(--color-success, #4caf50);
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.comment-actions .comment-payout-info:hover {
+  background: rgba(76, 175, 80, 0.12);
+  color: #388e3c;
 }
 
 /* Container: upvote button + count as siblings */
@@ -506,6 +521,11 @@
   /* Stack action buttons if needed */
   .comment-actions {
     gap: var(--space-xs);
+  }
+
+  .comment-actions .comment-payout-info {
+    margin-left: auto;
+    width: auto;
   }
   
   /* Make the collapse button more compact */

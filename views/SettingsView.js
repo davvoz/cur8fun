@@ -28,12 +28,17 @@ class SettingsView extends View {
     this.container.className = 'settings-view';
 
     const content = document.createElement('div');
-    content.className = 'content-wrapper';
+    content.className = 'content-wrapper settings-content';
 
     // Create page header
     const header = document.createElement('h1');
     header.textContent = this.title;
     content.appendChild(header);
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'settings-subtitle';
+    subtitle.textContent = 'Personalize your home feed and manage how content is shown.';
+    content.appendChild(subtitle);
 
     // Create home feed preferences section
     const homeFeedSection = this.createHomeFeedSection();
@@ -75,7 +80,7 @@ class SettingsView extends View {
         { id: 'trending', label: 'Trending', description: 'Posts that are trending on the platform' },
         { id: 'hot', label: 'Hot', description: 'Posts that are currently hot on the platform' },
         { id: 'new', label: 'New', description: 'Recently created posts' },
-        { id: 'custom', label: 'Custom Feed', description: 'Posts based on your preferred tags below' }
+        { id: 'custom', label: 'Custom Feed', description: 'Posts based on your preferred tags' }
     ];
 
     const optionsContainer = document.createElement('div');
@@ -110,7 +115,7 @@ class SettingsView extends View {
       
       // Add warning for custom feed if no tags
       if (option.id === 'custom' && !this.isCustomModeValid()) {
-        labelDescription.textContent += ' (Add preferred tags below to enable this option)';
+        labelDescription.textContent += ' (Add preferred tags to enable this option)';
         labelDescription.style.color = '#ff6b6b';
       }
       
@@ -122,7 +127,7 @@ class SettingsView extends View {
           const radio = radioContainer.querySelector('input[type="radio"]');
           if (radio && radio.disabled) {
             e.preventDefault();
-            this.showErrorMessage('Please add at least one preferred tag below to enable the Custom Feed option.');
+            this.showErrorMessage('Please add at least one preferred tag to enable the Custom Feed option.');
           }
         });
       }
@@ -393,7 +398,7 @@ class SettingsView extends View {
           radioContainer.classList.remove('disabled-option');
           const description = radioContainer.querySelector('.option-description');
           if (description) {
-            description.textContent = 'Posts based on your preferred tags below';
+            description.textContent = 'Posts based on your preferred tags';
             description.style.color = ''; // Reset color
           }
         }
@@ -427,7 +432,7 @@ class SettingsView extends View {
           radioContainer.classList.add('disabled-option');
           const description = radioContainer.querySelector('.option-description');
           if (description) {
-            description.textContent = 'Posts based on your preferred tags below (Add preferred tags below to enable this option)';
+            description.textContent = 'Posts based on your preferred tags (Add preferred tags to enable this option)';
             description.style.color = '#ff6b6b';
           }
         }

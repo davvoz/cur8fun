@@ -36,6 +36,11 @@ class HomeView extends BasePostView {  constructor(params) {
     this.setupPreferencesListener();
   }
     setupPreferencesListener() {
+    // Explicit routes like /hot or /trending should not be overridden by settings changes.
+    if (this.params?.forceTag) {
+      return;
+    }
+
     // Listen for tag preference changes
     eventEmitter.on('user:preferences:updated', () => {
       // Get current home view mode from preferences
@@ -119,13 +124,14 @@ class HomeView extends BasePostView {  constructor(params) {
     }
     
     // Use getPostsByTag for any custom tag not in the special list
-    if (!['trending', 'hot', 'created', 'promoted'].includes(this.tag)) {
+    if (!['trending', 'hot', 'new', 'created', 'promoted'].includes(this.tag)) {
       return steemService.getPostsByTag(this.tag, page);
     }
     
     const postFetchers = {
       'trending': () => steemService.getTrendingPosts(page),
       'hot': () => steemService.getHotPosts(page),
+      'new': () => steemService.getNewPosts(page),
       'created': () => steemService.getNewPosts(page),
       'promoted': () => steemService.getPromotedPosts(page)
     };
@@ -159,10 +165,18 @@ class HomeView extends BasePostView {  constructor(params) {
       }
     }
     
+    const headerSubtitle = this.tag === 'custom'
+      ? 'Posts curated from your preferred tags.'
+      : 'Discover what the community is reading right now.';
+
     const { postsContainer } = this.renderBaseView(
       container,
       viewTitle,
-      { showSearchForm: false }
+      {
+        showSearchForm: false,
+        headerVariant: 'home',
+        headerSubtitle
+      }
     );
     
     // Destroy existing infinite scroll if it exists

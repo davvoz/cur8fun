@@ -58,7 +58,6 @@
 
 .communities-list-view .communities-search input {
   width: 100%;
-  padding: var(--space-md) var(--space-md) var(--space-md) var(--space-xl);
   border-radius: var(--radius-full);
   border: 2px solid var(--border-color);
   font-size: 1rem;

@@ -11,7 +11,7 @@ import router from '../utils/Router.js';
 class Cur8StatsView extends View {
   constructor(params = {}) {
     super(params);
-    this.title = 'CUR8 Statistics | cur8.fun';
+    this.title = 'Cur8 Statistics | cur8.fun';
     this.loadingIndicator = new LoadingIndicator();
     this.stats = null;
     this.posts = [];
@@ -23,8 +23,8 @@ class Cur8StatsView extends View {
 
     // Set meta tags for the statistics page
     metaTagService.setMetaTags({
-      title: 'CUR8 Statistics - Content Performance & Analytics',
-      description: 'Discover statistics and analytics for CUR8 tagged content on the blockchain. View top performing posts, community engagement, and content trends.',
+      title: 'Cur8 Statistics - Content Performance & Analytics',
+      description: 'Discover statistics and analytics for Cur8 tagged content on the blockchain. View top performing posts, community engagement, and content trends.',
       image: 'https://cur8.fun/assets/img/logo_tra.png',
       url: `${window.location.origin}/cur8-stats`,
       type: 'website'
@@ -74,8 +74,8 @@ class Cur8StatsView extends View {
           <span class="material-icons">analytics</span>
         </div>
         <div class="header-text">
-          <h1>CUR8 Statistics</h1>
-          <p>Analytics and insights for CUR8 tagged content on the blockchain</p>
+          <h1>Cur8 Statistics</h1>
+          <p>Analytics and insights for Cur8 tagged content on the blockchain</p>
         </div>
       </div>
     `;
@@ -87,7 +87,7 @@ class Cur8StatsView extends View {
       this.loading = true;
 
       // Fetch CUR8 tagged posts
-      console.log('Loading CUR8 statistics...');
+      console.log('Loading Cur8 statistics...');
       
       // Load multiple pages to get comprehensive data
       const promises = [];
@@ -110,7 +110,7 @@ class Cur8StatsView extends View {
         index === self.findIndex(p => p.author === post.author && p.permlink === post.permlink)
       );
 
-      console.log(`Loaded ${this.posts.length} CUR8 posts for analysis`);
+      console.log(`Loaded ${this.posts.length} Cur8 posts for analysis`);
 
       // Calculate statistics
       this.stats = this.calculateStatistics(this.posts);
@@ -119,7 +119,7 @@ class Cur8StatsView extends View {
       this.renderStatistics(container);
 
     } catch (error) {
-      console.error('Error loading CUR8 statistics:', error);
+      console.error('Error loading Cur8 statistics:', error);
       this.renderError(container, error.message);
     } finally {
       this.loading = false;
@@ -270,7 +270,7 @@ class Cur8StatsView extends View {
     activitySection.innerHTML = `
       <div class="section-header">
         <h2><span class="material-icons">schedule</span> Recent Activity</h2>
-        <p>Latest and top performing posts from the CUR8 community</p>
+        <p>Latest and top performing posts from the Cur8 community</p>
       </div>
     `;
     container.appendChild(activitySection);
@@ -549,10 +549,10 @@ class Cur8StatsView extends View {
       <div class="empty-icon">
         <span class="material-icons">analytics</span>
       </div>
-      <h3>No CUR8 Posts Found</h3>
+      <h3>No Cur8 Posts Found</h3>
       <p>There are currently no posts tagged with "cur8" to analyze.</p>
       <button class="primary-btn" onclick="window.location.href='/tag/cur8'">
-        View CUR8 Tag
+        View Cur8 Tag
       </button>
     `;
     container.appendChild(emptyState);

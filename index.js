@@ -47,15 +47,15 @@ const APP_VERSION = '1.0.0';
 
 // Setup routes with proper handlers
 router
-  .addRoute('/home', HomeView, { tag: 'trending' })
+  .addRoute('/home', HomeView)
   .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/drafts', DraftsView, { requiresAuth: true })
-  .addRoute('/trending', HomeView, { tag: 'trending' })
-  .addRoute('/hot', HomeView, { tag: 'hot' })
+  .addRoute('/trending', HomeView, { tag: 'trending', forceTag: true })
+  .addRoute('/hot', HomeView, { tag: 'hot', forceTag: true })
   .addRoute('/new', NewReleasesView) // Usando la nuova vista dedicata invece di HomeView
-  .addRoute('/promoted', HomeView, { tag: 'promoted' })
+  .addRoute('/promoted', HomeView, { tag: 'promoted', forceTag: true })
   .addRoute('/settings', SettingsView)
   .addRoute('/wallet', WalletView, { requiresAuth: true })
   .addRoute('/search', SearchView)
@@ -203,16 +203,6 @@ function renderAuthenticatedNav(container, user) {
 
   navActions.appendChild(mobileThemeToggle);
 
-  // Mobile games button - add after faucet button
-  const mobileGamesButton = document.createElement('a');
-  mobileGamesButton.href = 'https://games.cur8.fun/';
-  mobileGamesButton.className = 'mobile-games-button';
-  const gamesIcon = document.createElement('span');
-  gamesIcon.className = 'material-icons';
-  gamesIcon.textContent = 'sports_esports';
-  mobileGamesButton.appendChild(gamesIcon);
-  navActions.appendChild(mobileGamesButton);
-
   // Mobile search button - add before other elements
   const mobileSearchButton = document.createElement('a');
   mobileSearchButton.href = '/search';
@@ -222,6 +212,11 @@ function renderAuthenticatedNav(container, user) {
   searchIcon.textContent = 'search';
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
+
+  // Desktop quick actions
+  navActions.appendChild(createTopSearchButton());
+  navActions.appendChild(createTopCreatePostButton());
+  navActions.appendChild(createTopThemeToggleButton());
 
   // Notifications button
   navActions.appendChild(createNotificationsButton());
@@ -249,20 +244,10 @@ function renderUnauthenticatedNav(container) {
   mobileSearchButton.appendChild(searchIcon);
   navActions.appendChild(mobileSearchButton);
 
-  // Mobile faucet button - add next to search button
-  const mobileFaucetButton = document.createElement('a');
-  mobileFaucetButton.href = 'https://davvoz.github.io/steem-faucet-game/#/faucet'; // rimane hash perché è un link esterno
-  mobileFaucetButton.className = 'mobile-faucet-button';
-  mobileFaucetButton.target = '_blank';
-  mobileFaucetButton.rel = 'noopener noreferrer';
-  const faucetIcon = document.createElement('span');
-  faucetIcon.className = 'icon';
-  // Use FontAwesome icon to match desktop navigation
-  const faIcon = document.createElement('i');
-  faIcon.className = 'fas fa-faucet';
-  faucetIcon.appendChild(faIcon);
-  mobileFaucetButton.appendChild(faucetIcon);
-  navActions.appendChild(mobileFaucetButton);
+  // Desktop quick actions
+  navActions.appendChild(createTopSearchButton());
+  navActions.appendChild(createTopCreatePostButton());
+  navActions.appendChild(createTopThemeToggleButton());
 
   // Login button
   const loginBtn = document.createElement('a');
@@ -279,6 +264,46 @@ function renderUnauthenticatedNav(container) {
   navActions.appendChild(loginBtn);
   navActions.appendChild(registerBtn);
   container.appendChild(navActions);
+}
+
+function createTopSearchButton() {
+  const searchBtn = document.createElement('a');
+  searchBtn.href = '/search';
+  searchBtn.className = 'top-search-btn desktop-nav-action';
+
+  const icon = document.createElement('span');
+  icon.className = 'material-icons';
+  icon.textContent = 'search';
+
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = 'Search';
+
+  searchBtn.appendChild(icon);
+  searchBtn.appendChild(label);
+  return searchBtn;
+}
+
+function createTopCreatePostButton() {
+  const createBtn = document.createElement('a');
+  createBtn.href = '/create';
+  createBtn.className = 'create-post-btn desktop-nav-action';
+  createBtn.textContent = 'Create Post';
+  return createBtn;
+}
+
+function createTopThemeToggleButton() {
+  const themeToggle = document.createElement('button');
+  themeToggle.className = 'theme-toggle-btn top-theme-toggle desktop-nav-action';
+  themeToggle.setAttribute('aria-label', 'Toggle theme');
+  themeToggle.title = 'Toggle light/dark theme';
+
+  const icon = document.createElement('span');
+  icon.className = 'material-icons';
+  icon.textContent = 'dark_mode';
+  themeToggle.appendChild(icon);
+
+  return themeToggle;
 }
 
 function createNotificationsButton() {

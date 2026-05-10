@@ -207,7 +207,12 @@ export default class CommentView extends View {
     this.commentHeaderComponent = new PostHeader(
       this.comment,
       null, // Non ci sono community per i commenti
-      true // Indica che è un commento
+      {
+        showActionsMenu: true,
+        onShare: () => this.handleShare(),
+        onEdit: () => this.handleEdit(),
+        canEdit: this.canEditComment()
+      }
     );
     
     // Inizializza il componente per il contenuto del commento
@@ -226,7 +231,8 @@ export default class CommentView extends View {
       null,   // no reblog for comments
       this.canEditComment(),
       false,  // hasReblogged
-      false   // showReblog — comments cannot be reblogged
+      false,  // showReblog — comments cannot be reblogged
+      false   // showShareEditInFooter — moved to header 3-dots menu
     );
     
     // Inizializza il componente per le risposte (sempre, anche se vuote, per mostrare il form)

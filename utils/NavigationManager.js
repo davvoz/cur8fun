@@ -390,7 +390,7 @@ class NavigationManager {
         statsItem.className = 'menu-item';
         statsItem.innerHTML = `
           <span class="material-icons icon">analytics</span>
-          <span class="label">CUR8 Statistics</span>
+          <span class="label">Cur8 Statistics</span>
         `;
         menuItems.appendChild(statsItem);
       }

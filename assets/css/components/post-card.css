@@ -123,7 +123,6 @@
 }
 
 .card-vote-count:hover {
-  background: var(--background-lighter, rgba(255,255,255,0.1));
   color: var(--primary-color);
 }
 
@@ -151,11 +150,12 @@
   transition: color 0.15s;
 }
 
-.card-reblog-btn:hover {
-  color: var(--primary-color);
+.card-reblog-btn .material-icons {
+  transition: color 0.15s;
 }
 
-.card-reblog-btn.reblogged {
+.card-reblog-btn .material-icons:hover,
+.card-reblog-btn.reblogged .material-icons {
   color: var(--primary-color);
 }
 
@@ -167,11 +167,11 @@
 .card-reblog-btn .reblog-count {
   margin-left: 4px;
   color: #b0b0b0;
+  transition: color 0.15s;
 }
 
-.card-reblog-btn:hover .reblog-count,
-.card-reblog-btn.reblogged .reblog-count {
-  color: #b0b0b0;
+.card-reblog-btn .reblog-count:hover {
+  color: var(--primary-color);
 }
 
 .card-reblog-count,
@@ -189,6 +189,7 @@
 .reblog-container {
   display: inline-flex;
   align-items: center;
+  margin-right: 30px;
 }
 
 @keyframes reblog-spin {

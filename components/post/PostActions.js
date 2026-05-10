@@ -5,7 +5,7 @@ import authService from '../../services/AuthService.js';
 import reblogService from '../../services/ReblogService.js';
 
 class PostActions {
-  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false, showReblog = true) {
+  constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false, showReblog = true, showShareEditInFooter = true) {
     this.post = post;
     this.upvoteCallback = upvoteCallback;
     this.commentCallback = commentCallback;
@@ -15,6 +15,7 @@ class PostActions {
     this.canEdit = canEdit;
     this.hasReblogged = hasReblogged;
     this.showReblog = showReblog;
+    this.showShareEditInFooter = showShareEditInFooter;
     this.reblogCount = Array.isArray(post.reblogged_by)
       ? post.reblogged_by.length
       : (post.first_reblogged_by ? 1 : 0);
@@ -33,7 +34,9 @@ class PostActions {
     // Creiamo il pulsante upvote con contatore cliccabile per mostrare i votanti
     const upvoteBtn = this.createUpvoteButtonWithClickableCount();
     const commentBtn = this.createActionButton('comment-btn', 'chat', this.post.children || 0);
-    const shareBtn = this.createActionButton('share-btn', 'share', isMobile ? '' : 'Share');
+    const shareBtn = this.showShareEditInFooter
+      ? this.createActionButton('share-btn', 'share', isMobile ? '' : 'Share')
+      : null;
     
     // Aggiungiamo il pulsante reblog (resteem) solo se non è un commento
     let reblogBtn = null;
@@ -59,7 +62,10 @@ class PostActions {
 
           try {
             reblogBtn.dataset.loading = '1';
-            await this.reblogCallback(event);
+            const reblogSucceeded = await this.reblogCallback(event);
+            if (reblogSucceeded !== true) {
+              return;
+            }
             reblogBtn.classList.add('reblogged');
             const countEl = reblogCountBtn?.querySelector('.count');
             if (countEl) {
@@ -98,11 +104,13 @@ class PostActions {
       if (reblogCountBtn) reblogContainer.appendChild(reblogCountBtn);
       postActions.appendChild(reblogContainer);
     }
-    postActions.appendChild(shareBtn);
+    if (shareBtn) {
+      postActions.appendChild(shareBtn);
+    }
     postActions.appendChild(payoutInfo);
     
     // Only add edit button if user can edit the post
-    if (this.canEdit) {
+    if (this.canEdit && this.showShareEditInFooter) {
       const editBtn = this.createActionButton('edit-btn', 'edit', 'Edit');
       postActions.appendChild(editBtn);
       
@@ -120,7 +128,7 @@ class PostActions {
       commentBtn.addEventListener('click', this.commentCallback);
     }
     
-    if (this.shareCallback) {
+    if (shareBtn && this.shareCallback) {
       shareBtn.addEventListener('click', this.shareCallback);
     }
 

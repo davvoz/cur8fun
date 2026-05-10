@@ -411,7 +411,13 @@ class PostView extends View {  constructor(params = {}) {
     
     this.postHeaderComponent = new PostHeader(
       this.post,
-      (community) => this.renderCommunityBadge(community)
+      (community) => this.renderCommunityBadge(community),
+      {
+        showActionsMenu: true,
+        onShare: () => this.handleShare(),
+        onEdit: () => this.handleEdit(),
+        canEdit: this.canEditPost()
+      }
     );
     
     this.postContentComponent = new PostContent(
@@ -427,6 +433,8 @@ class PostView extends View {  constructor(params = {}) {
       () => this.handleEdit(),
       () => this.handleReblog(),
       this.canEditPost(),
+      false,
+      true,
       false
     );
 
@@ -689,7 +697,7 @@ class PostView extends View {  constructor(params = {}) {
       if (!currentUser) {
         this.emit('notification', { type: 'info', message: 'You must be logged in to reblog a post' });
         router.navigate('/login');
-        return;
+        return false;
       }
 
       const confirmed = await DialogUtility.showConfirmationDialog({
@@ -699,7 +707,7 @@ class PostView extends View {  constructor(params = {}) {
         icon: 'repeat',
         type: 'info'
       });
-      if (!confirmed) return;
+      if (!confirmed) return false;
 
       // Show spinner on reblog button
       const reblogBtn = this.element.querySelector('.reblog-btn');
@@ -718,12 +726,14 @@ class PostView extends View {  constructor(params = {}) {
       if (reblogBtn) {
         reblogBtn.classList.add('reblogged');
       }
+      return true;
     } catch (error) {
       console.error('Error reblogging post:', error);
       const reblogBtn = this.element.querySelector('.reblog-btn');
       const reblogIcon = reblogBtn?.querySelector('.material-icons');
       if (reblogIcon) { reblogIcon.classList.remove('reblog-spinning'); reblogIcon.textContent = 'repeat'; }
       this.emit('notification', { type: 'error', message: error.message || 'Failed to reblog post' });
+      return false;
     }
   }
 
