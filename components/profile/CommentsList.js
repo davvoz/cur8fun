@@ -82,15 +82,23 @@ export default class CommentsList extends BasePostView {
       const commentsContainer = this.container?.querySelector(`#${this.uniqueContainerId}`);
       if (!commentsContainer) return;
       
-      // Crea e mostra loading indicator
-      if (!this.loadingIndicator) {
-        this.loadingIndicator = new LoadingIndicator('spinner');
-      }
-      this.loadingIndicator.show(commentsContainer, `Loading comments from @${this.username}...`);
+      // Show skeleton rows while loading
+      commentsContainer.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
+          ${[1,2,3,4].map(() => `
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                <div class="sk-block" style="height:11px;width:30%;border-radius:5px"></div>
+                <div class="sk-block" style="height:11px;width:90%;border-radius:5px"></div>
+                <div class="sk-block" style="height:11px;width:75%;border-radius:5px"></div>
+              </div>
+            </div>`).join('')}
+        </div>`;
       
       // Carica i commenti
       const comments = await this._loader.loadComments(this.commentsPerPage, 1);
-      this.loadingIndicator.hide();
+      this.loadingIndicator?.hide();
       
       // Aggiorna lo stato
       this.allComments = comments;

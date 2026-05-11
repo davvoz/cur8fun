@@ -94,8 +94,8 @@ export default class PostsList extends BasePostView {
         this.renderedPostIds.clear();
         this.currentPage = 1;
         
-        // Show loading indicator
-        this.loadingIndicator.show(this.container?.querySelector('.posts-container'));
+        // Show skeletons instead of spinner
+        this.showPostSkeletons(6);
         
         // Reset infinite scroll if it exists
         if (this.infiniteScroll) {

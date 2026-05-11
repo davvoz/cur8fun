@@ -63,7 +63,7 @@ class WalletView extends View {
     rewardsContainer.id = 'wallet-rewards-container';
     walletContainer.appendChild(rewardsContainer);
     
-    // Create component containers
+    // Create component containers (components handle their own loading skeleton)
     const balancesContainer = document.createElement('div');
     balancesContainer.id = 'wallet-balances-container';
     walletContainer.appendChild(balancesContainer);

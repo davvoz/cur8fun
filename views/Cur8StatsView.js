@@ -11,7 +11,7 @@ import router from '../utils/Router.js';
 class Cur8StatsView extends View {
   constructor(params = {}) {
     super(params);
-    this.title = 'Cur8 Statistics | cur8.fun';
+    this.title = 'Analytics | cur8.fun';
     this.loadingIndicator = new LoadingIndicator();
     this.stats = null;
     this.posts = [];
@@ -23,7 +23,7 @@ class Cur8StatsView extends View {
 
     // Set meta tags for the statistics page
     metaTagService.setMetaTags({
-      title: 'Cur8 Statistics - Content Performance & Analytics',
+      title: 'Analytics - Content Performance & Analytics',
       description: 'Discover statistics and analytics for Cur8 tagged content on the blockchain. View top performing posts, community engagement, and content trends.',
       image: 'https://cur8.fun/assets/img/logo_tra.png',
       url: `${window.location.origin}/cur8-stats`,
@@ -56,8 +56,15 @@ class Cur8StatsView extends View {
     contentStatsSection.appendChild(statsContent);
     container.appendChild(contentStatsSection);
 
-    // Add loading indicator
-    this.loadingIndicator.show(statsContent);
+    // Skeleton placeholder while stats load (stat cards grid)
+    statsContent.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;padding:8px 0">
+        ${[1,2,3,4,5,6].map(() => `
+          <div style="border:1px solid var(--border-color-light);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:10px">
+            <div class="sk-block" style="height:11px;width:60%;border-radius:5px"></div>
+            <div class="sk-block" style="height:28px;width:50%;border-radius:7px"></div>
+          </div>`).join('')}
+      </div>`;
 
     this.element.appendChild(container);
 
@@ -74,7 +81,7 @@ class Cur8StatsView extends View {
           <span class="material-icons">analytics</span>
         </div>
         <div class="header-text">
-          <h1>Cur8 Statistics</h1>
+          <h1>Analytics</h1>
           <p>Analytics and insights for Cur8 tagged content on the blockchain</p>
         </div>
       </div>

@@ -1,0 +1,29 @@
+TEST                                       wherein        justyy       steemyy        moecki       steemit   api3.justyy    steemitdev       pennsif    steemworld       steemyy
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+condenser.get_accounts                    OK 747ms      OK 540ms     OK 1162ms      OK 835ms      OK 817ms      OK 750ms      OK 804ms      OK 475ms      OK 464ms     OK 1338ms
+condenser.get_dynamic_global_props        OK 663ms      OK 420ms      OK 725ms      OK 562ms      OK 854ms      OK 539ms      OK 755ms      OK 467ms      OK 448ms      OK 860ms
+condenser.get_discussions_trending        OK 630ms      OK 576ms     OK 1153ms      OK 685ms      OK 892ms      OK 533ms      OK 760ms    ERR -32003    ERR -32003     OK 1404ms
+condenser.get_discussions_hot             OK 572ms      OK 564ms      OK 602ms      OK 616ms      OK 734ms      OK 648ms      OK 813ms    ERR -32003    ERR -32003     OK 1345ms
+condenser.get_discussions_created         OK 682ms      OK 547ms      OK 826ms      OK 688ms      OK 775ms      OK 944ms      OK 778ms      OK 475ms    ERR -32003     OK 1334ms
+condenser.get_discussions_promoted        OK 980ms      OK 534ms      OK 677ms      OK 559ms      OK 847ms      OK 670ms      OK 778ms      OK 493ms    ERR -32003     OK 1677ms
+condenser.get_discussions_blog            OK 769ms      OK 606ms      OK 700ms      OK 853ms      OK 730ms      OK 981ms      OK 895ms      OK 541ms    ERR -32003     OK 2600ms
+condenser.get_discussions_comments        OK 572ms      OK 807ms      OK 728ms      OK 581ms      OK 841ms      OK 979ms      OK 798ms      OK 485ms    ERR -32003     OK 1226ms
+condenser.get_content                     OK 683ms      OK 652ms      OK 999ms      OK 827ms     OK 1068ms      OK 546ms      OK 878ms      OK 556ms      OK 533ms     OK 1670ms
+condenser.get_content_replies            OK 1114ms      OK 933ms     OK 1042ms     OK 1204ms     OK 1306ms      OK 617ms     OK 1095ms      OK 867ms      OK 590ms     OK 2197ms
+condenser.get_trending_tags               OK 622ms      OK 555ms      OK 850ms      OK 524ms      OK 787ms      OK 911ms      OK 935ms      OK 448ms    ERR -32003     OK 1475ms
+condenser.lookup_accounts                 OK 578ms      OK 445ms      OK 765ms      OK 614ms      OK 738ms      OK 626ms      OK 813ms      OK 464ms      OK 467ms     OK 1037ms
+condenser.get_active_votes                OK 942ms      OK 603ms      OK 853ms      OK 827ms      OK 813ms      OK 621ms      OK 912ms      OK 578ms      OK 609ms     OK 1128ms
+condenser.get_reward_fund                 OK 557ms      OK 414ms      OK 757ms      OK 617ms      OK 792ms      OK 565ms      OK 785ms      OK 444ms      OK 465ms     OK 1188ms
+condenser.get_median_price                OK 559ms      OK 641ms      OK 739ms      OK 531ms      OK 803ms      OK 511ms      OK 741ms      OK 492ms      OK 462ms     OK 1380ms
+condenser.get_account_history             OK 577ms      OK 509ms      OK 829ms     OK 1584ms      OK 790ms      OK 922ms      OK 796ms      OK 468ms      OK 487ms     OK 1607ms
+condenser.get_vesting_delegations         OK 711ms      OK 432ms      OK 877ms      OK 549ms      OK 852ms      OK 563ms      OK 810ms      OK 462ms      OK 458ms     OK 1324ms
+follow.get_reblogged_by                   OK 552ms      OK 530ms     OK 1042ms      OK 566ms      OK 789ms      OK 602ms      OK 786ms    ERR -32602    ERR -32002     OK 1146ms
+follow.get_followers                      OK 609ms      OK 668ms      OK 681ms      OK 629ms      OK 742ms     OK 1014ms      OK 795ms      OK 494ms    ERR -32002     OK 1042ms
+follow.get_following                      OK 553ms      OK 510ms      OK 823ms      OK 564ms      OK 785ms      OK 592ms      OK 864ms      OK 575ms    ERR -32002      OK 833ms
+bridge.get_ranked_posts                       FAIL      OK 616ms      OK 728ms      OK 544ms      OK 930ms     OK 1996ms      OK 779ms    ERR -32602    ERR -32002     OK 1715ms
+rc_api.find_rc_accounts                   OK 532ms      OK 421ms      OK 872ms      OK 804ms      OK 739ms      OK 641ms      OK 787ms      OK 460ms      OK 477ms     OK 1160ms
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+===== RIEPILOGO =====
+Chiamate OK / 22                             21/22         22/22         22/22         22/22         22/22         22/22         22/22         18/22         11/22         22/22
+Latenza media (ms)                           676ms         569ms         837ms         716ms         837ms         762ms         825ms         513ms         496ms        1394ms

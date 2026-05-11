@@ -119,23 +119,17 @@ export default class WalletBalancesComponent extends Component {
   showLoadingState() {
     if (!this.balanceContainer) return;
 
-    // Clear existing content
-    this.balanceContainer.innerHTML = '';
-
-    // Create loading state elements
-    const loadingState = document.createElement('div');
-    loadingState.className = 'loading-state';
-
-    const spinner = document.createElement('div');
-    spinner.className = 'spinner';
-
-    const loadingText = document.createElement('p');
-    loadingText.textContent = 'Loading wallet data...';
-
-    // Append elements
-    loadingState.appendChild(spinner);
-    loadingState.appendChild(loadingText);
-    this.balanceContainer.appendChild(loadingState);
+    // Show skeleton cards that mirror the real 3-card layout (STEEM · SBD · SP)
+    this.balanceContainer.innerHTML = `
+      <div class="balance-cards-row" style="display:flex;gap:12px;flex-wrap:wrap">
+        ${[1,2,3].map(() => `
+          <div class="balance-card" style="flex:1;min-width:140px;padding:16px;display:flex;flex-direction:column;gap:10px">
+            <div class="sk-block" style="width:28px;height:28px;border-radius:50%"></div>
+            <div class="sk-block" style="width:55%;height:11px;border-radius:5px"></div>
+            <div class="sk-block" style="width:80%;height:18px;border-radius:6px"></div>
+            <div class="sk-block" style="width:45%;height:10px;border-radius:5px"></div>
+          </div>`).join('')}
+      </div>`;
   }
   
   showErrorState() {

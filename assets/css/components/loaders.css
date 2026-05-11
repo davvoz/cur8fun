@@ -1,4 +1,283 @@
 /* Loading States and Animations */
+
+/* ============================================================
+   SKELETON SHIMMER — used by post cards, community header, etc.
+   ============================================================ */
+@keyframes sk-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+/* Single shimmer block — use as inline element or span */
+.sk-block {
+  display: block;
+  border-radius: 6px;
+  background: var(--background-lighter);
+  background-image: linear-gradient(
+    90deg,
+    var(--background-lighter)  0px,
+    var(--background-light)   150px,
+    var(--background-lighter) 300px
+  );
+  background-size: 600px 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+
+/* ---- Post card skeleton ---- */
+.skeleton-post-card {
+  background: var(--card-background, var(--background-color));
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color-light);
+  overflow: hidden;
+  pointer-events: none;
+  width: 100%;          /* stretch inside flex/grid container on all viewports */
+  display: flex;
+  flex-direction: column;
+}
+
+/* header row */
+.skeleton-post-card .sk-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color-light);
+}
+.skeleton-post-card .sk-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skeleton-post-card .sk-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.skeleton-post-card .sk-author { width: 35%; height: 12px; border-radius: 6px; }
+.skeleton-post-card .sk-date   { width: 20%; height: 10px; border-radius: 6px; }
+
+/* image placeholder — matches grid layout (220px) */
+.skeleton-post-card .sk-image {
+  width: 100%;
+  height: 220px;
+  flex-shrink: 0;
+}
+
+/* content block */
+.skeleton-post-card .sk-content {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.skeleton-post-card .sk-title  { width: 85%; height: 14px; border-radius: 6px; }
+.skeleton-post-card .sk-title2 { width: 60%; height: 14px; border-radius: 6px; }
+.skeleton-post-card .sk-line   { width: 95%; height: 11px; border-radius: 5px; }
+.skeleton-post-card .sk-line2  { width: 75%; height: 11px; border-radius: 5px; }
+
+/* actions bar */
+.skeleton-post-card .sk-actions {
+  display: flex;
+  gap: 20px;
+  padding: 10px 16px;
+  height: 40px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color-light);
+  align-items: center;
+}
+.skeleton-post-card .sk-action { width: 48px; height: 10px; border-radius: 5px; }
+
+/* Mobile: on narrow screens match real .post-card mobile overrides */
+@media (max-width: 768px) {
+  .skeleton-post-card {
+    background-color: var(--background-light);
+    border-radius: var(--radius-sm, 4px);
+    padding: 8px;
+  }
+  /* Reduce inner padding to compensate for card-level 8px padding */
+  .skeleton-post-card .sk-header  { padding: 6px 8px; }
+  .skeleton-post-card .sk-content { padding: 8px; }
+  .skeleton-post-card .sk-actions { padding: 6px 8px; }
+  .skeleton-post-card .sk-image   { height: 180px; border-radius: var(--radius-sm, 4px); }
+  .skeleton-post-card .sk-line,
+  .skeleton-post-card .sk-line2   { display: none; }
+
+  /* Grid layout on mobile: square images (mirrors padding-bottom: 100% trick) */
+  .posts-container.grid-layout-grid .skeleton-post-card .sk-image,
+  .posts-container:not([class*="grid-layout-"]) .skeleton-post-card .sk-image {
+    height: 0;
+    padding-bottom: 100%;
+    border-radius: var(--radius-sm, 4px);
+    position: relative;
+    overflow: hidden;
+    /* shimmer must cover the padding area — use ::after overlay */
+    background: none;
+    animation: none;
+  }
+  .posts-container.grid-layout-grid .skeleton-post-card .sk-image::after,
+  .posts-container:not([class*="grid-layout-"]) .skeleton-post-card .sk-image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--background-lighter);
+    background-image: linear-gradient(
+      90deg,
+      var(--background-lighter)  0px,
+      var(--background-light)   150px,
+      var(--background-lighter) 300px
+    );
+    background-size: 600px 100%;
+    animation: sk-shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+/* ---- Community header skeleton ---- */
+.skeleton-community-header {
+  border-radius: var(--radius-lg, 10px);
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color-light);
+}
+.skeleton-community-header .sk-banner {
+  height: 200px;
+  width: 100%;
+  border-radius: 0;
+}
+.skeleton-community-header .sk-info {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.skeleton-community-header .sk-comm-title { width: 45%; height: 18px; border-radius: 8px; }
+.skeleton-community-header .sk-comm-sub   { width: 25%; height: 12px; border-radius: 6px; }
+.skeleton-community-header .sk-comm-desc  { width: 70%; height: 12px; border-radius: 6px; }
+@media (max-width: 768px) {
+  .skeleton-community-header .sk-banner { height: 150px; }
+}
+
+/* ---- Profile header skeleton ---- */
+/* Mirrors .profile-header card + .profile-tabs below */
+.skeleton-profile {
+  /* matches .profile-header */
+  border-radius: var(--radius-lg, 10px);
+  overflow: hidden;
+  box-shadow: var(--card-box-shadow);
+  background: var(--surface-color, var(--background-color));
+  margin-bottom: var(--space-lg, 24px);
+}
+.sk-prof-banner {
+  width: 100%;
+  height: 240px;
+  border-radius: 0;
+}
+/* matches .profile-info — flex row: avatar | stats */
+.sk-prof-info {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 0 var(--space-lg, 24px) var(--space-lg, 24px);
+  flex-wrap: wrap;
+  position: relative;
+}
+.sk-prof-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 4px solid var(--surface-color, #fff);
+  background-clip: padding-box;
+  margin-top: -60px;
+  margin-right: var(--space-lg, 24px);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+/* matches .profile-stats — flex column of text blocks */
+.sk-prof-stats {
+  flex: 1;
+  padding-top: var(--space-md, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.sk-prof-name   { height: 22px; width: 40%; border-radius: 8px; }
+.sk-prof-handle { height: 13px; width: 24%; border-radius: 6px; }
+.sk-prof-bio1   { height: 12px; width: 70%; border-radius: 5px; }
+.sk-prof-bio2   { height: 12px; width: 52%; border-radius: 5px; }
+.sk-prof-metrics { display: flex; gap: var(--space-md, 16px); flex-wrap: wrap; }
+.sk-prof-stat    { height: 52px; width: 72px; border-radius: var(--radius-sm, 4px); }
+.sk-prof-action  { height: 34px; width: 110px; border-radius: var(--radius-sm, 4px); }
+/* matches .profile-tabs — sticky bar below the header card */
+.sk-prof-tabs {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-xs, 4px) 0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  margin-bottom: var(--space-md, 16px);
+}
+.sk-prof-tab { height: 38px; width: 88px; border-radius: var(--radius-sm, 4px); }
+
+/* Profile skeleton — mobile (column, centered) */
+@media (max-width: 768px) {
+  .sk-prof-info {
+    flex-direction: column;
+    align-items: center;
+    padding: 0 var(--space-md, 16px) var(--space-md, 16px);
+  }
+  .sk-prof-avatar {
+    margin-right: 0;
+    margin-bottom: var(--space-md, 16px);
+    margin-top: -50px;
+  }
+  .sk-prof-stats {
+    width: 100%;
+    align-items: center; /* center each child block */
+  }
+  .sk-prof-name, .sk-prof-handle, .sk-prof-bio1, .sk-prof-bio2 {
+    width: 60%;
+  }
+  .sk-prof-metrics { justify-content: center; }
+  .sk-prof-tabs    { justify-content: center; }
+}
+@media (max-width: 480px) {
+  .sk-prof-banner { height: 160px; }
+  .sk-prof-avatar { width: 100px; height: 100px; margin-top: -40px; }
+}
+
+/* ---- Wallet skeleton ---- */
+.skeleton-wallet-section {
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color-light);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.skeleton-wallet-section .sk-wallet-header {
+  height: 52px;
+  width: 100%;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-color-light);
+}
+.skeleton-wallet-section .sk-wallet-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.skeleton-wallet-section .sk-wallet-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.skeleton-wallet-section .sk-w-label { width: 40%; height: 12px; border-radius: 6px; }
+.skeleton-wallet-section .sk-w-value { width: 25%; height: 12px; border-radius: 6px; }
+
+/* ---- Legacy shimmer (kept for compatibility) ---- */
 .loading-skeleton {
     background: linear-gradient(90deg, 
         rgba(255, 255, 255, 0.05) 25%, 

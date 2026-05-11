@@ -1,77 +1,18 @@
+import steemService from './SteemService.js';
+
 class SteemApi {
   constructor() {
-    // Default API nodes for Hive blockchain
-    this.apiNodes = [
-        'https://api.moecki.online',
-        'https://api.steemit.com',
-        'https://api.steemitdev.com',
-        'https://api.steemzzang.com',
-        'https://api.steemit.com',
-        'https://api.steemitstage.com',
-        'https://api.steem.house',
-        'https://api.steem.place',
-        'https://api.steem.press',
-        'https://api.steemstack.io',
-        'https://api.steemtools.com',
-        'https://api.steemul.com',
-        'https://api.steemworld.org',
-        'https://api.steemyy.com',
-        'https://api.steemzzang.com',
-    ];
-    
-    this.currentNode = 0; // Index of the current node to use
-    this.maxRetries = 3; // Maximum number of node switching retries
+    // Node list and retry logic is managed centrally by SteemCore via steemService.rpcCall
   }
 
   /**
-   * Makes a direct API call to the blockchain without using a client library
+   * Makes a direct API call to the blockchain, delegating to SteemCore for node failover.
    * @param {string} method - The API method to call
-   * @param {Array} params - The parameters for the API call
+   * @param {*} params - The parameters for the API call
    * @returns {Promise<any>} - The API response
    */
   async callApi(method, params) {
-    let retriesLeft = this.maxRetries;
-    let error;
-    
-    while (retriesLeft > 0) {
-      try {
-        const node = this.apiNodes[this.currentNode];
-        console.log(`Calling ${method} on ${node}`);
-        
-        const response = await fetch(node, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: method,
-            params: params,
-            id: 1
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(`API error: ${data.error.message || JSON.stringify(data.error)}`);
-        }
-        
-        return data.result;
-      } catch (err) {
-        console.error(`Error on node ${this.apiNodes[this.currentNode]}:`, err);
-        error = err;
-        // Switch to next node
-        this.currentNode = (this.currentNode + 1) % this.apiNodes.length;
-        retriesLeft--;
-      }
-    }
-    
-    throw error || new Error('Failed to call API after multiple retries');
+    return steemService.rpcCall(method, params);
   }
 
   /**

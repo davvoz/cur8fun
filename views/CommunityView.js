@@ -43,6 +43,11 @@ class CommunityView extends BasePostView {
     if (page === 1) {
       this.posts = [];
       this.renderedPostIds.clear();
+      // Show post skeletons on sort change / initial load (render() already shows them on first open)
+      const postsContainer = this.container?.querySelector('.posts-container');
+      if (postsContainer && postsContainer.querySelectorAll('.post-card').length === 0) {
+        this.showPostSkeletons(8);
+      }
     }
 
     try {
@@ -169,13 +174,17 @@ class CommunityView extends BasePostView {
     const isBack = router.isBackNavigation;
     if (isBack) router.isBackNavigation = false;
     
-    // Create community header
+    // Create community header — skeleton until data arrives
     const headerContainer = document.createElement('div');
     headerContainer.className = 'community-header';
     headerContainer.innerHTML = `
-      <div class="community-header-loading">
-        <div class="spinner"></div>
-        <p>Loading community...</p>
+      <div class="skeleton-community-header" style="border:none;margin:0">
+        <div class="sk-block sk-banner"></div>
+        <div class="sk-info">
+          <div class="sk-block sk-comm-title"></div>
+          <div class="sk-block sk-comm-sub"></div>
+          <div class="sk-block sk-comm-desc"></div>
+        </div>
       </div>
     `;
     this.container.appendChild(headerContainer);
@@ -195,6 +204,9 @@ class CommunityView extends BasePostView {
     contentWrapper.appendChild(postsContainer);
     
     this.container.appendChild(contentWrapper);
+
+    // Show post skeletons immediately so the page looks populated
+    this.showPostSkeletons(8);
     
     // Load community details first
     this.fetchCommunityDetails().then(success => {
@@ -581,10 +593,12 @@ class CommunityView extends BasePostView {
           
         case 'posts':
           const postsPerPage = params.limit || 30; // Aumenta il limite predefinito a 30
+          const currentUser = authService.getCurrentUser();
           const fetchParams = {
             community: params.communityId.replace(/^hive-/, ''),
             sort: params.sort || 'trending',
-            limit: postsPerPage
+            limit: postsPerPage,
+            observer: currentUser?.username || ''
           };
 
           if (params.lastAuthor && params.lastPermlink) {
@@ -666,11 +680,7 @@ class CommunityView extends BasePostView {
         break;
         
       case 'posts':
-        // Show spinner only for first page load — subsequent pages use InfiniteScroll's own indicator
-        if (this.posts.length === 0) {
-          const postsContainer = this.container.querySelector('.posts-container');
-          if (postsContainer) this.loadingIndicator.show(postsContainer);
-        }
+        // Skeletons are already shown by loadPosts() — no spinner needed here
         break;
         
       case 'subscribe':

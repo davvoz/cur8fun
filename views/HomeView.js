@@ -64,7 +64,7 @@ class HomeView extends BasePostView {  constructor(params) {
       this.loading = true;
       this.posts = [];
       this.renderedPostIds.clear();
-      this.renderPosts();
+      this.showPostSkeletons(8);
       
       // Reset infinite scroll if it exists
       if (this.infiniteScroll) {

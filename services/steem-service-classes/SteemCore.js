@@ -6,9 +6,10 @@ export default class SteemCore {
     constructor() {
         this.apiEndpoints = [
             'https://api.moecki.online',
+            'https://api.steemitdev.com',
             'https://api.steemit.com',
-            'https://api.steem.house',
-            'https://api.steem.place',
+            'https://api.steemyy.com',
+            'https://steemyy.com/node/',
         ];
         this.currentEndpoint = 0;
         this.steem = null;
@@ -104,5 +105,51 @@ export default class SteemCore {
                 });
             });
         });
+    }
+
+    /**
+     * Raw JSON-RPC call with automatic node failover.
+     * Tries all endpoints in order until one returns a valid result.
+     * @param {string} method - e.g. 'condenser_api.get_accounts'
+     * @param {*} params - params array or object
+     * @returns {Promise<*>} The `result` field from the RPC response
+     */
+    async rpcCall(method, params) {
+        const body = JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 });
+        let lastError;
+
+        for (let i = 0; i < this.apiEndpoints.length; i++) {
+            const endpoint = this.apiEndpoints[(this.currentEndpoint + i) % this.apiEndpoints.length];
+            let timeoutId;
+            try {
+                const controller = new AbortController();
+                timeoutId = setTimeout(() => controller.abort(), 7000);
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) continue;
+
+                const data = await response.json();
+
+                if (data.error) {
+                    lastError = new Error(data.error.message || JSON.stringify(data.error));
+                    continue;
+                }
+
+                return data.result;
+            } catch (err) {
+                if (timeoutId) clearTimeout(timeoutId);
+                lastError = err;
+            }
+        }
+
+        throw lastError || new Error(`rpcCall failed for method: ${method}`);
     }
 }

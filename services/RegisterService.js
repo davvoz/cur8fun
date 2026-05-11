@@ -90,21 +90,8 @@ class RegisterService {
    */
   async checkAccountExists(username) {
     try {
-      const response = await fetch('https://api.moecki.online', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "condenser_api.get_accounts",
-          params: [[username]],
-          id: 1
-        })
-      });
-
-      const data = await response.json();
-      return data.result && data.result.length > 0;
+      const result = await steemService.rpcCall('condenser_api.get_accounts', [[username]]);
+      return Array.isArray(result) && result.length > 0;
     } catch (error) {
       console.error('Failed to check account existence:', error);
       throw new Error('Failed to check account availability');

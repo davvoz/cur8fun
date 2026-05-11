@@ -1071,26 +1071,13 @@ class WalletService {
       if (!user) throw new Error('No username provided');
 
       // Fetch RC data using Steem API
-      const response = await fetch('https://api.steemit.com', {
-        method: 'POST',
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'rc_api.find_rc_accounts',
-          params: { accounts: [user] },
-          id: 1
-        }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const rcResult = await steemService.rpcCall('rc_api.find_rc_accounts', { accounts: [user] });
 
-      if (!response.ok) throw new Error('Failed to fetch RC data');
-
-      const data = await response.json();
-
-      if (!data.result || !data.result.rc_accounts || !data.result.rc_accounts[0]) {
+      if (!rcResult || !rcResult.rc_accounts || !rcResult.rc_accounts[0]) {
         throw new Error('Invalid RC data response');
       }
 
-      const rcAccount = data.result.rc_accounts[0];
+      const rcAccount = rcResult.rc_accounts[0];
       const currentMana = parseInt(rcAccount.rc_manabar.current_mana);
       const maxMana = parseInt(rcAccount.max_rc); // Max mana from account
 
@@ -1207,22 +1194,14 @@ class WalletService {
         console.warn('Could not extract STEEM price from CoinGecko API response', coingeckoData);
 
         // Fallback to Steemit API
-        const fallbackResponse = await fetch('https://api.steemit.com', {
-          method: 'POST',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'market_history_api.get_ticker',
-            id: 1
-          }),
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackData.result && fallbackData.result.latest) {
-            steemPrice = parseFloat(fallbackData.result.latest);
+        try {
+          const fallbackResult = await steemService.rpcCall('market_history_api.get_ticker', {});
+          if (fallbackResult && fallbackResult.latest) {
+            steemPrice = parseFloat(fallbackResult.latest);
             console.log('Using fallback STEEM price:', steemPrice);
           }
+        } catch (_) {
+          // fallback also failed
         }
       }
 
@@ -1234,26 +1213,11 @@ class WalletService {
       console.error('Error fetching crypto prices:', error);
       // Try fallback to Steemit API if CoinGecko API fails
       try {
-        const fallbackResponse = await fetch('https://api.steemit.com', {
-          method: 'POST',
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'market_history_api.get_ticker',
-            id: 1
-          }),
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackData.result && fallbackData.result.latest) {
-            const steemPrice = parseFloat(fallbackData.result.latest);
-            console.log('Using fallback STEEM price after error:', steemPrice);
-            return {
-              steem: steemPrice,
-              sbd: 1
-            };
-          }
+        const fallbackResult = await steemService.rpcCall('market_history_api.get_ticker', {});
+        if (fallbackResult && fallbackResult.latest) {
+          const steemPrice = parseFloat(fallbackResult.latest);
+          console.log('Using fallback STEEM price after error:', steemPrice);
+          return { steem: steemPrice, sbd: 1 };
         }
       } catch (fallbackError) {
         console.error('Fallback price fetch also failed:', fallbackError);

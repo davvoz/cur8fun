@@ -97,12 +97,42 @@ class ProfileView extends View {
     profileContainer.className = 'profile-container';
     container.appendChild(profileContainer);
 
-    // Show loading indicator
-    this.loadingIndicator.show(profileContainer);
+    // Show profile skeleton (mirrors: cover banner, avatar, name/handle, bio, metrics, tabs)
+    const skeletonEl = document.createElement('div');
+    skeletonEl.className = 'skeleton-profile-wrapper';
+    skeletonEl.innerHTML = `
+      <div class="skeleton-profile">
+        <div class="sk-block sk-prof-banner"></div>
+        <div class="sk-prof-info">
+          <div class="sk-block sk-prof-avatar"></div>
+          <div class="sk-prof-stats">
+            <div class="sk-block sk-prof-name"></div>
+            <div class="sk-block sk-prof-handle"></div>
+            <div class="sk-block sk-prof-bio1"></div>
+            <div class="sk-block sk-prof-bio2"></div>
+            <div class="sk-prof-metrics">
+              <div class="sk-block sk-prof-stat"></div>
+              <div class="sk-block sk-prof-stat"></div>
+              <div class="sk-block sk-prof-stat"></div>
+            </div>
+            <div class="sk-block sk-prof-action"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sk-prof-tabs">
+        <div class="sk-block sk-prof-tab"></div>
+        <div class="sk-block sk-prof-tab"></div>
+        <div class="sk-block sk-prof-tab"></div>
+      </div>
+    `;
+    profileContainer.appendChild(skeletonEl);
 
     try {
       // Load profile data
       await this.loadProfileData();
+
+      // Remove skeleton before rendering real content
+      skeletonEl.remove();
 
       // Render profile structure
       this.renderProfile(profileContainer);
@@ -119,9 +149,8 @@ class ProfileView extends View {
       // Check if logged-in user is following this profile
       await this.checkFollowStatus();
     } catch (error) {
+      skeletonEl.remove();
       this.renderErrorState(profileContainer, error);
-    } finally {
-      this.loadingIndicator.hide();
     }
   }
 

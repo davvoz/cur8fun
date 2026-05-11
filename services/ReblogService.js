@@ -114,6 +114,18 @@ class ReblogService {
     }
   }
 
+  /**
+   * Synchronous cache-only check — no network call.
+   * Returns true if the in-memory or localStorage cache says the user reblogged.
+   */
+  isRebloggedInCache(username, author, permlink) {
+    if (!username || !author || !permlink) return false;
+    const cacheKey = `${username}_${author}_${permlink}`;
+    if (this.reblogCache.get(cacheKey) === true) return true;
+    if (lsGet(cacheKey) === true) return true;
+    return false;
+  }
+
   clearCache(username, author, permlink) {
     if (username && author && permlink) {
       const cacheKey = `${username}_${author}_${permlink}`;

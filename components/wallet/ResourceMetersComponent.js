@@ -43,15 +43,25 @@ export default class ResourceMetersComponent extends Component {
    */
   createLoadingElement() {
     const container = document.createElement('div');
-    container.className = 'loading-state';
+    container.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:4px 0';
     
-    const spinner = document.createElement('div');
-    spinner.className = 'spinner';
-    container.appendChild(spinner);
-    
-    const text = document.createElement('p');
-    text.textContent = 'Loading resource data...';
-    container.appendChild(text);
+    // Two skeleton rows for Voting Power and RC bars
+    [1, 2].forEach(() => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+      
+      const label = document.createElement('div');
+      label.className = 'sk-block';
+      label.style.cssText = 'height:11px;width:35%;border-radius:5px';
+      
+      const bar = document.createElement('div');
+      bar.className = 'sk-block';
+      bar.style.cssText = 'height:10px;width:100%;border-radius:999px';
+      
+      row.appendChild(label);
+      row.appendChild(bar);
+      container.appendChild(row);
+    });
     
     return container;
   }

@@ -1,4 +1,5 @@
 import router from '../utils/Router.js';
+import steemService from './SteemService.js';
 
 export class SearchService {
     constructor() {
@@ -7,7 +8,6 @@ export class SearchService {
             TAG: '#',
             COMMUNITY: 'hive-'
         };
-        this.API_ENDPOINT = 'https://api.steemit.com';  // Usa sempre l'API di Hive per coerenza
         this.suggestionsContainer = null;
         this.currentSearchTerm = '';
         this.debounceTimeout = null;
@@ -109,29 +109,13 @@ export class SearchService {
             const normalizedQuery = cleanQuery.toLowerCase();
             
             // Usa l'API Hive per cercare account simili
-            const params = {
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'condenser_api.lookup_accounts',
-                params: [normalizedQuery, limit + offset]
-            };
-            
             console.log('Looking up accounts with query:', normalizedQuery);
-            
-            const response = await fetch(this.API_ENDPOINT, {
-                method: 'POST',
-                body: JSON.stringify(params),
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const result = await response.json();
-            
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
-            
+
             // Prendi solo gli account a partire dall'offset
-            const accountNames = result.result || [];
+            const accountNames = await steemService.rpcCall(
+                'condenser_api.lookup_accounts',
+                [normalizedQuery, limit + offset]
+            ) || [];
             
             if (accountNames.length === 0) {
                 return [];
@@ -159,27 +143,13 @@ export class SearchService {
                 return [];
             }
             
-            const params = {
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'condenser_api.get_accounts',
-                params: [accountNames]
-            };
-            
-            const response = await fetch(this.API_ENDPOINT, {
-                method: 'POST',
-                body: JSON.stringify(params),
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const result = await response.json();
-            
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
-            
+            const accounts = await steemService.rpcCall(
+                'condenser_api.get_accounts',
+                [accountNames]
+            ) || [];
+
             // Arricchisci il risultato con i dati del profilo già estratti
-            return (result.result || []).map(account => {
+            return accounts.map(account => {
                 try {
                     // Estrai i dati del profilo dai metadati JSON
                     const metadata = typeof account.json_metadata === 'string' 
@@ -268,27 +238,13 @@ export class SearchService {
             // Converti in lowercase per garantire risultati più coerenti
             const normalizedQuery = cleanQuery.trim().toLowerCase();
 
-            const params = {
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'condenser_api.get_trending_tags',
-                params: [normalizedQuery, 10]  // Limit to 10 suggestions
-            };
-
-            const response = await fetch(this.API_ENDPOINT, {
-                method: 'POST',
-                body: JSON.stringify(params),
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const result = await response.json();
-
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
+            const tags = await steemService.rpcCall(
+                'condenser_api.get_trending_tags',
+                [normalizedQuery, 10]
+            ) || [];
 
             // Filter and map the results
-            return (result.result || [])
+            return tags
                 .filter(tag => tag.name.toLowerCase().startsWith(normalizedQuery))
                 .map(tag => ({
                     type: 'tag',

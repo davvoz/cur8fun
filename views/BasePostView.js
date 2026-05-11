@@ -18,6 +18,7 @@ import VotesPopup from '../components/post/VotesPopup.js';
 import PayoutInfoPopup from '../components/post/PayoutInfoPopup.js';
 import RebloggersPopup from '../components/post/RebloggersPopup.js';
 import reblogService from '../services/ReblogService.js';
+import steemService from '../services/SteemService.js';
 import DialogUtility from '../components/DialogUtility.js';
 
 // Utilities
@@ -28,6 +29,43 @@ import eventEmitter from '../utils/EventEmitter.js';
  * Shared by HomeView, TagView, and potentially other views
  */
 class BasePostView {
+  // --- Lazy reblog-count queue (one request every 300 ms, no concurrency) ---
+  static _rcQueue = [];
+  static _rcTimer = null;
+
+  static _enqueueReblogCount(post, countEl) {
+    BasePostView._rcQueue.push({ post, countEl });
+    if (!BasePostView._rcTimer) {
+      BasePostView._rcTimer = setTimeout(BasePostView._drainReblogCount, 800);
+    }
+  }
+
+  static async _drainReblogCount() {
+    BasePostView._rcTimer = null;
+    const item = BasePostView._rcQueue.shift();
+    if (!item) return;
+
+    // Skip if element was removed from DOM
+    if (!item.countEl.isConnected) {
+      if (BasePostView._rcQueue.length) {
+        BasePostView._rcTimer = setTimeout(BasePostView._drainReblogCount, 50);
+      }
+      return;
+    }
+
+    try {
+      const rebloggers = await steemService.getRebloggers(item.post.author, item.post.permlink);
+      if (Array.isArray(rebloggers) && rebloggers.length > 0) {
+        item.countEl.textContent = String(rebloggers.length);
+      }
+    } catch (_) {}
+
+    if (BasePostView._rcQueue.length) {
+      BasePostView._rcTimer = setTimeout(BasePostView._drainReblogCount, 300);
+    }
+  }
+  // -------------------------------------------------------------------------
+
   constructor(params = {}) {
     this.params = params;
     this.posts = [];
@@ -162,6 +200,45 @@ class BasePostView {
     
     errorDiv.append(errorHeading, errorMessage, retryButton);
     return errorDiv;
+  }
+
+  // ---- Skeleton helpers ----
+
+  /**
+   * Fill the posts-container with N skeleton post cards.
+   * Called at the start of a fresh load so the user sees structure immediately.
+   */
+  showPostSkeletons(count = 8) {
+    const postsContainer = this.container?.querySelector('.posts-container');
+    if (!postsContainer) return;
+    this.clearContainer(postsContainer);
+
+    for (let i = 0; i < count; i++) {
+      const card = document.createElement('div');
+      card.className = 'skeleton-post-card';
+      card.innerHTML = `
+        <div class="sk-header">
+          <div class="sk-block sk-avatar"></div>
+          <div class="sk-meta">
+            <div class="sk-block sk-author"></div>
+            <div class="sk-block sk-date"></div>
+          </div>
+        </div>
+        <div class="sk-block sk-image"></div>
+        <div class="sk-content">
+          <div class="sk-block sk-title"></div>
+          <div class="sk-block sk-title2"></div>
+          <div class="sk-block sk-line"></div>
+          <div class="sk-block sk-line2"></div>
+        </div>
+        <div class="sk-actions">
+          <div class="sk-block sk-action"></div>
+          <div class="sk-block sk-action"></div>
+          <div class="sk-block sk-action"></div>
+        </div>
+      `;
+      postsContainer.appendChild(card);
+    }
   }
 
   /**
@@ -917,10 +994,18 @@ class BasePostView {
 
     const reblogCountEl = document.createElement('span');
     reblogCountEl.className = 'reblog-count';
-    const initialReblogCount = Array.isArray(post.reblogged_by)
-      ? post.reblogged_by.length
-      : (post.first_reblogged_by ? 1 : 0);
+    // bridge returns num_reblogs (or reblogs) in stats; condenser blog posts use reblogged_by array
+    const initialReblogCount = post.stats?.num_reblogs
+      ?? post.stats?.reblogs
+      ?? (Array.isArray(post.reblogged_by) ? post.reblogged_by.length : (post.first_reblogged_by ? 1 : 0));
     reblogCountEl.textContent = String(initialReblogCount);
+
+    // If we have no count yet, schedule a lazy async fetch.
+    // Both bridge posts (post.stats present but no count) and condenser posts
+    // (post.stats undefined, reblogged_by empty) hit this path.
+    if (initialReblogCount === 0 && post.author && post.permlink) {
+      BasePostView._enqueueReblogCount(post, reblogCountEl);
+    }
     reblogCountEl.title = 'Show rebloggers';
     reblogCountEl.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -928,37 +1013,30 @@ class BasePostView {
     });
     btn.appendChild(reblogCountEl);
 
-    // Check if already reblogged on load
+    // Check reblog status: bridge observer field, post data, or local cache (no network call).
     const currentUser = authService.getCurrentUser();
     if (currentUser?.username) {
       const normalizedCurrentUser = String(currentUser.username).toLowerCase();
-      // Immediate check from post data (populated by getDiscussionsByBlog)
-      const alreadyRebloggedInData =
+      const alreadyReblogged =
+        post.reblogged === true ||
         (Array.isArray(post.reblogged_by) &&
-          post.reblogged_by.some(account => String(account || '').toLowerCase() === normalizedCurrentUser)) ||
-        String(post.first_reblogged_by || '').toLowerCase() === normalizedCurrentUser;
+          post.reblogged_by.some(a => String(a || '').toLowerCase() === normalizedCurrentUser)) ||
+        String(post.first_reblogged_by || '').toLowerCase() === normalizedCurrentUser ||
+        reblogService.isRebloggedInCache(currentUser.username, post.author, post.permlink);
 
-      if (alreadyRebloggedInData) {
+      if (alreadyReblogged) {
         btn.classList.add('reblogged');
       }
     }
-
-    // Async blockchain check for exact status + reblog count.
-    reblogService.getReblogInfo(currentUser?.username || null, post.author, post.permlink)
-      .then(({ hasReblogged, reblogCount }) => {
-        reblogCountEl.textContent = String(reblogCount);
-        if (hasReblogged) {
-          btn.classList.add('reblogged');
-        }
-      })
-      .catch(() => {});
 
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
 
       if (btn.classList.contains('reblogged') || btn.dataset.loading === '1') return;
 
-      if (!currentUser) {
+      // Re-read current user at click time (handles login-after-render)
+      const clickUser = authService.getCurrentUser();
+      if (!clickUser) {
         eventEmitter.emit('notification', { type: 'info', message: 'You must be logged in to reblog' });
         router.navigate('/login');
         return;
@@ -1469,9 +1547,6 @@ class BasePostView {
     
     // Initialize grid controller
     this.gridController.render(gridControllerContainer);
-    
-    // Show loading indicator while posts are loading
-    this.loadingIndicator.show(postsContainer);
     
     return { postsContainer };
   }

@@ -139,6 +139,51 @@ class PostView extends View {  constructor(params = {}) {
     this.postContent.style.display = 'none';
     this.errorMessage.style.display = 'none';
 
+    // Show post skeleton while loading
+    this._postSkeleton = document.createElement('div');
+    this._postSkeleton.className = 'post-skeleton';
+    this._postSkeleton.innerHTML = `
+      <div style="max-width:860px;margin:0 auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px">
+        <!-- Title -->
+        <div class="sk-block" style="height:28px;width:75%;border-radius:8px"></div>
+        <div class="sk-block" style="height:28px;width:45%;border-radius:8px"></div>
+        <!-- Meta row (avatar + author + date) -->
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+          <div class="sk-block" style="width:120px;height:13px;border-radius:6px"></div>
+          <div class="sk-block" style="width:80px;height:13px;border-radius:6px;margin-left:auto"></div>
+        </div>
+        <!-- Featured image -->
+        <div class="sk-block" style="width:100%;height:340px;border-radius:10px"></div>
+        <!-- Body lines -->
+        <div class="sk-block" style="height:13px;width:100%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:97%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:90%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:94%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:60%;border-radius:5px"></div>
+        <!-- Actions row -->
+        <div style="display:flex;gap:14px;margin-top:8px">
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+        </div>
+        <!-- Comments heading -->
+        <div class="sk-block" style="height:16px;width:120px;border-radius:6px;margin-top:12px"></div>
+        <!-- Comment rows -->
+        ${[1,2,3].map(() => `
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+              <div class="sk-block" style="height:11px;width:28%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:92%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:78%;border-radius:5px"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    `;
+    const postView = this.element.querySelector('.post-view');
+    if (postView) postView.insertBefore(this._postSkeleton, this.postContent);
+
     try {
       const { author, permlink } = this.params;
 
@@ -160,6 +205,9 @@ class PostView extends View {  constructor(params = {}) {
 
       this.loadingIndicator.updateProgress(100);
 
+      // Remove skeleton before showing real content
+      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
+
       // Add Open Graph meta tags for better sharing preview using MetaTagService
       metaTagService.updatePostMetaTags(this.post);
       this.initComponents();
@@ -177,6 +225,7 @@ class PostView extends View {  constructor(params = {}) {
     } finally {
       this.isLoading = false;
       this.loadingIndicator.hide();
+      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
     }
   }
 

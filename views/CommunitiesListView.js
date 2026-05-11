@@ -5,6 +5,7 @@ import communityService from '../services/CommunityService.js';
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
+import router from '../utils/Router.js';
 
 class CommunitiesListView {
   constructor() {
@@ -441,7 +442,7 @@ class CommunitiesListView {
             </span>
           </div>
           <div class="community-actions">
-            <a href="/community/${communityId}" class="view-btn">View</a>
+            <a href="/community/${communityId}" class="view-btn" data-link>View</a>
           </div>
         </div>
       `;
@@ -465,7 +466,7 @@ class CommunitiesListView {
             </span>
           </div>
           <div class="community-actions">
-            <a href="/community/${communityId}" class="view-btn">View</a>
+            <a href="/community/${communityId}" class="view-btn" data-link>View</a>
             ${this.currentUser ? `
               <button class="subscribe-btn ${isSubscribed ? 'subscribed' : ''} ${isPending ? 'pending' : ''}" 
                 data-community="${communityId}" ${isPending ? 'disabled' : ''}>
@@ -502,8 +503,10 @@ class CommunitiesListView {
     }
     
     // Add click handler to navigate to community page
-    card.addEventListener('click', () => {
-      window.location.href = `/app/community/${communityId}`;
+    card.addEventListener('click', (e) => {
+      // Ignore clicks on subscribe button (handled separately)
+      if (e.target.closest('.subscribe-btn')) return;
+      router.navigate(`/community/${communityId}`);
     });
     
     return card;
@@ -511,7 +514,7 @@ class CommunitiesListView {
 
   async handleSubscribeToggle(button, communityId, isCurrentlySubscribed) {
     if (!this.currentUser) {
-      window.location.href = '/app/login';
+      router.navigate('/login');
       return;
     }
     

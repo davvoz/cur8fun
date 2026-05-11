@@ -459,36 +459,8 @@ class CommunityService {
     }
     
     try {
-      // Prepara la richiesta JSON-RPC
-      const requestBody = {
-        jsonrpc: "2.0", 
-        method: "bridge.list_all_subscriptions", 
-        params: { account: username }, 
-        id: 1
-      };
-      
       // Esegui chiamata diretta all'API di Steemit
-      const response = await fetch('https://api.moecki.online', {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Verifica se la risposta contiene errori
-      if (data.error) {
-        throw new Error(`API error: ${data.error.message || JSON.stringify(data.error)}`);
-      }
-      
-      // Estrai le community sottoscritte dalla risposta
-      const rawCommunities = data.result || [];
+      const rawCommunities = await steemService.rpcCall('bridge.list_all_subscriptions', { account: username }) || [];
       
       // Trasforma gli array in oggetti con proprietà significative
       const communities = rawCommunities.map(communityData => {

@@ -32,6 +32,10 @@ class SteemService {
         return this.core.ensureLibraryLoaded();
     }
 
+    async rpcCall(method, params) {
+        return this.core.rpcCall(method, params);
+    }
+
     /**
      * Clears any cached data to ensure fresh results on next request
      */
@@ -222,61 +226,10 @@ class SteemService {
      */
     async getRebloggers(author, permlink) {
         try {
-            await this.ensureLibraryLoaded();
-            const rpcEndpoints = [
-                'https://api.moecki.online',
-                'https://api.steemit.com'
-            ];
-
-            for (const endpoint of rpcEndpoints) {
-                let timeoutId;
-                try {
-                    const controller = new AbortController();
-                    timeoutId = setTimeout(() => controller.abort(), 6000);
-
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'follow_api.get_reblogged_by',
-                            params: { author, permlink },
-                            id: 1
-                        }),
-                        signal: controller.signal
-                    });
-
-                    if (!response.ok) {
-                        continue;
-                    }
-
-                    const payload = await response.json();
-                    const rebloggers = Array.isArray(payload?.result)
-                        ? payload.result
-                        : (Array.isArray(payload?.result?.accounts) ? payload.result.accounts : []);
-
-                    return rebloggers.filter(Boolean);
-                } catch (_) {
-                    // Try next endpoint.
-                } finally {
-                    if (timeoutId) clearTimeout(timeoutId);
-                }
-            }
-
-            const post = await new Promise((resolve, reject) => {
-                this.core.steem.api.call('bridge.get_post', { author, permlink }, (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result || null);
-                });
-            });
-
-            if (!post) return [];
-
-            const rebloggers = Array.isArray(post.reblogged_by) ? [...post.reblogged_by] : [];
-            if (post.first_reblogged_by && !rebloggers.includes(post.first_reblogged_by)) {
-                rebloggers.push(post.first_reblogged_by);
-            }
-
+            const result = await this.core.rpcCall('follow_api.get_reblogged_by', { author, permlink });
+            const rebloggers = Array.isArray(result)
+                ? result
+                : (Array.isArray(result?.accounts) ? result.accounts : []);
             return rebloggers.filter(Boolean);
         } catch (error) {
             console.error('Error getting rebloggers:', error);

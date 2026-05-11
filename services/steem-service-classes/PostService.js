@@ -475,46 +475,45 @@ export default class PostService {
         console.log(`Fetching community posts for ${communityTag} using bridge API with sort: ${params.sort}, limit: ${limit}`);
         
         try {
-            // Use bridge.get_ranked_posts directly with proper pagination
-            return await new Promise((resolve, reject) => {
-                const callParams = {
-                    tag: communityTag,
-                    sort: params.sort || 'trending',
-                    limit: limit,
-                };
-                // Pagination: include start_author/start_permlink when provided
-                if (params.start_author && params.start_permlink) {
-                    callParams.start_author = params.start_author;
-                    callParams.start_permlink = params.start_permlink;
-                }
-                console.log('[PostService] bridge.get_ranked_posts callParams:', JSON.stringify(callParams));
-                this.core.steem.api.call(
-                    'bridge.get_ranked_posts',
-                    callParams,
-                    (err, result) => {
-                        if (err) {
-                            console.error('Bridge API error:', err);
-                            reject(err);
-                        } else {
-                            console.log(`Bridge API returned ${result ? result.length : 0} posts`);
-                            
-                            // Se il sort è 'created', assicurati che l'ordinamento sia corretto
-                            if (params.sort === 'created' && Array.isArray(result)) {
-                                // Ordina esplicitamente per data di creazione (più recente prima)
-                                result.sort((a, b) => {
-                                    return new Date(b.created) - new Date(a.created);
-                                });
-                            }
-                            
-                            // Limita i risultati al numero massimo richiesto
-                            const limitedResult = Array.isArray(result) && result.length > limit ? 
-                                result.slice(0, limit) : result;
-                            
-                            resolve(limitedResult || []);
-                        }
-                    }
-                );
-            });
+            const callParams = {
+                tag: communityTag,
+                sort: params.sort || 'trending',
+                limit: limit,
+                observer: params.observer || ''
+            };
+            // Pagination: include start_author/start_permlink when provided
+            if (params.start_author && params.start_permlink) {
+                callParams.start_author = params.start_author;
+                callParams.start_permlink = params.start_permlink;
+            }
+            console.log('[PostService] bridge.get_ranked_posts callParams:', JSON.stringify(callParams));
+
+            // Use rpcCall (direct JSON-RPC) so params are sent as a plain object (not wrapped
+            // in an array by the Steem.js library), ensuring observer is recognised by the bridge.
+            const result = await this.core.rpcCall('bridge.get_ranked_posts', callParams);
+            console.log(`Bridge API returned ${result ? result.length : 0} posts`);
+
+            if (!Array.isArray(result)) return [];
+
+            // Debug: log which reblog-related fields the bridge actually returns
+            if (result.length > 0) {
+                const p = result[0];
+                console.log('[Bridge post sample] reblog fields:', {
+                    'reblogged': p.reblogged,
+                    'stats.reblogs': p.stats?.reblogs,
+                    'stats.num_reblogs': p.stats?.num_reblogs,
+                    'reblogs': p.reblogs,
+                    'reblog_count': p.reblog_count,
+                    'stats_keys': p.stats ? Object.keys(p.stats) : null
+                });
+            }
+
+            // Se il sort è 'created', assicurati che l'ordinamento sia corretto
+            if (params.sort === 'created') {
+                result.sort((a, b) => new Date(b.created) - new Date(a.created));
+            }
+
+            return result.length > limit ? result.slice(0, limit) : result;
         } catch (error) {
             console.error('Error fetching community posts:', error);
             return [];

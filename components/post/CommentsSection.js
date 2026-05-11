@@ -143,15 +143,21 @@ class CommentsSection {
   async fetchAllReplies() {
     if (!this.comments || this.comments.length === 0) return;
     
-    // Crea un indicatore di caricamento
+    // Skeleton rows while deep replies load
     const loadingIndicator = document.createElement('div');
     loadingIndicator.className = 'loading-replies';
-    loadingIndicator.textContent = 'Caricamento commenti e risposte...';
-    loadingIndicator.style.padding = '10px';
-    loadingIndicator.style.backgroundColor = '#f0f0f0';
-    loadingIndicator.style.borderRadius = '5px';
-    loadingIndicator.style.margin = '10px 0';
-    loadingIndicator.style.textAlign = 'center';
+    loadingIndicator.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
+        ${[1,2,3].map(() => `
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="sk-block" style="width:32px;height:32px;border-radius:50%;flex-shrink:0"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+              <div class="sk-block" style="height:11px;width:28%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:88%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:72%;border-radius:5px"></div>
+            </div>
+          </div>`).join('')}
+      </div>`;
     
     if (this.commentsListContainer) {
       this.commentsListContainer.appendChild(loadingIndicator);

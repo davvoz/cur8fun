@@ -11,123 +11,38 @@ class MenuView extends View {
 
   async render(element) {
     this.element = element;
+    while (this.element.firstChild) this.element.removeChild(this.element.firstChild);
 
-    // Clear container
-    while (this.element.firstChild) {
-      this.element.removeChild(this.element.firstChild);
-    }
-
-    // Create menu container with header
     const menuContainer = document.createElement('div');
     menuContainer.className = 'menu-container';
-    
-    
-    
-    // Add Account Tools category
-    const accountCategory = this.createCategory('Tools');
-    menuContainer.appendChild(accountCategory);
-    
-    menuContainer.appendChild(this.createMenuItem(
-      'games-link',
-      'https://games.cur8.fun/',
-      'fa-gamepad',
-      'Games',
-      'Play games and earn rewards',
-      true
-    ));
-    
-   
-    
-    // Add Community category with social links
-    const socialCategory = this.createCategory('Connect With Us');
-    menuContainer.appendChild(socialCategory);
-    
-    // Add social links in a grid layout
+
+    // ── Tools — 2-col cards ───────────────────────────────────────────────
+    menuContainer.appendChild(this.createCategory('Tools'));
+    const toolsGrid = document.createElement('div');
+    toolsGrid.className = 'menu-tools-grid';
+    toolsGrid.appendChild(this.createToolCard('/cur8-bot-stats', 'favorite',  'Cur8 Statistics', 'Curation bot performance & metrics'));
+    toolsGrid.appendChild(this.createToolCard('/cur8-stats',     'bar_chart', 'Analytics',       'Stats for #cur8 tagged posts'));
+    toolsGrid.appendChild(this.createToolCard('https://games.cur8.fun/', 'sports_esports', 'Games', 'Play games and earn rewards', true));
+    menuContainer.appendChild(toolsGrid);
+
+    // ── Connect ───────────────────────────────────────────────────────────
+    menuContainer.appendChild(this.createCategory('Connect With Us'));
     const socialGrid = document.createElement('div');
     socialGrid.className = 'social-links-grid';
-    
-    socialGrid.appendChild(this.createSocialMenuItem(
-      'discord-link',
-      'https://discord.com/invite/hE7dB6wXb5',
-      'fa-brands fa-discord',
-      'Discord',
-      'Join the Steem Discord server'
-    ));
-    
-    socialGrid.appendChild(this.createSocialMenuItem(
-      'twitter-link',
-      'https://x.com/cur8_earn',
-      'fa-brands fa-x-twitter',
-      'X',
-      'Follow us on X (formerly Twitter)'
-    ));
-    
-    socialGrid.appendChild(this.createSocialMenuItem(
-      'instagram-link',
-      'https://www.instagram.com/stories/cur8_earn/',
-      'fa-brands fa-instagram',
-      'Instagram',
-      'Check out our Instagram stories'
-    ));
-    
-    socialGrid.appendChild(this.createSocialMenuItem(
-      'telegram-link',
-      'https://t.me/steemchat',
-      'fa-brands fa-telegram',
-      'Telegram'
-    ));
-    
+    socialGrid.appendChild(this.createSocialMenuItem('discord-link',   'https://discord.com/invite/hE7dB6wXb5',        'fa-brands fa-discord',   'Discord'));
+    socialGrid.appendChild(this.createSocialMenuItem('twitter-link',   'https://x.com/cur8_earn',                      'fa-brands fa-x-twitter', 'X'));
+    socialGrid.appendChild(this.createSocialMenuItem('instagram-link', 'https://www.instagram.com/stories/cur8_earn/', 'fa-brands fa-instagram', 'Instagram'));
+    socialGrid.appendChild(this.createSocialMenuItem('telegram-link',  'https://t.me/steemchat',                       'fa-brands fa-telegram',  'Telegram'));
     menuContainer.appendChild(socialGrid);
-    // stats category - zona più accattivante
-    const statsCategory = this.createCategory('Stats');
-    statsCategory.classList.add('stats-category');
 
-    // Wrapper per i bottoni stats in griglia
-    const statsGrid = document.createElement('div');
-    statsGrid.className = 'stats-menu-grid';
+    // ── Help ──────────────────────────────────────────────────────────────
+    menuContainer.appendChild(this.createCategory('Help & Support'));
+    const helpGrid = document.createElement('div');
+    helpGrid.className = 'menu-tools-grid';
+    helpGrid.appendChild(this.createToolCard('/faq',                   'help_outline', 'FAQ',             'Frequently asked questions'));
+    helpGrid.appendChild(this.createToolCard('mailto:support@cur8.fun','email',        'Contact Support', 'Get help with your account'));
+    menuContainer.appendChild(helpGrid);
 
-    statsGrid.appendChild(this.createMenuItem(
-      'cur8-stats-link',
-      '/cur8-stats',
-      'fa-chart-bar',
-      'Cur8 Statistics',
-      'View detailed statistics about Cur8'
-    ));
-
-    statsGrid.appendChild(this.createMenuItem(
-      'cur8-bot-stats-link',
-      '/cur8-bot-stats',
-      'fa-robot',
-      'Bot Statistics',
-      'See how the Cur8 bot is performing'
-    ));
-
-    statsCategory.appendChild(statsGrid);
-    menuContainer.appendChild(statsCategory);
-
-
-    // Add Help & Support category
-    const helpCategory = this.createCategory('Help & Support');
-    menuContainer.appendChild(helpCategory);
-    
-    menuContainer.appendChild(this.createMenuItem(
-      'faq-link',
-      '/faq',
-      'fa-question-circle',
-      'FAQ',
-      'Frequently asked questions'
-    ));
-    
-    menuContainer.appendChild(this.createMenuItem(
-      'contact-link',
-      'mailto:support@cur8.fun',
-      'fa-envelope',
-      'Contact Support',
-      'Get help with your account or issues'
-    ));
-    
-    
-    // Append the menu container to the main element
     this.element.appendChild(menuContainer);
   }
   
@@ -177,14 +92,36 @@ class MenuView extends View {
   }
   
   /**
-   * Creates a menu item
-   * @param {string} className - Additional class for the menu item
-   * @param {string} href - The URL the menu item links to
-   * @param {string} iconClass - FontAwesome icon class
-   * @param {string} text - The text of the menu item
-   * @param {string} description - Optional description of the menu item
-   * @param {boolean} samePage - If true, opens link in same page (no target="_blank")
-   * @returns {HTMLElement} - The menu item element
+   * Creates a compact navigation tile for the 3-col grid
+   */
+  createNavTile(href, materialIcon, label) {
+    const tile = document.createElement('a');
+    tile.href = href;
+    tile.className = 'menu-nav-tile';
+    tile.innerHTML = `<span class="material-icons">${materialIcon}</span><span class="nav-tile-label">${label}</span>`;
+    return tile;
+  }
+
+  /**
+   * Creates a horizontal tool card (icon + title + description)
+   */
+  createToolCard(href, materialIcon, title, description, external = false) {
+    const card = document.createElement('a');
+    card.href = href;
+    card.className = 'menu-tool-card';
+    if (external) { card.target = '_blank'; card.rel = 'noopener noreferrer'; }
+    card.innerHTML = `
+      <span class="material-icons tool-card-icon">${materialIcon}</span>
+      <span class="tool-card-body">
+        <span class="tool-card-title">${title}</span>
+        <span class="tool-card-desc">${description}</span>
+      </span>
+    `;
+    return card;
+  }
+
+  /**
+   * Creates a menu item (legacy — kept for compatibility)
    */
   createMenuItem(className, href, iconClass, text, description, samePage = false) {
     // Create the menu item link
