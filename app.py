@@ -180,14 +180,9 @@ def render_index_with_meta(meta_tags_html):
 def serve_landing():
     return send_file('start/index_start.html')
 
-# Serve la SPA/PWA su /app e /app/<path:path>
-@app.route('/app')
-@app.route('/app/<path:path>')
-def serve_spa(path=None):
-    # Se non c'è un path, serve la SPA normale
-    if not path:
-        return send_file('index.html')
-    
+# Serve la SPA/PWA per tutti i path non gestiti da route statiche
+@app.route('/<path:path>')
+def serve_spa(path):
     # Determina il tipo di contenuto dal path
     content_type, params = get_content_type_from_path(path)
     
@@ -198,7 +193,7 @@ def serve_spa(path=None):
             
             # Genera i meta tag per il post
             base_url = get_base_url(request)
-            current_url = f"{base_url}/app/{path}"
+            current_url = f"{base_url}/{path}"
             
             meta_data = meta_generator.generate_post_meta(
                 author=params['author'],

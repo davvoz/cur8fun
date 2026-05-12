@@ -1,4 +1,5 @@
 import reblogService from '../../services/ReblogService.js';
+import router from '../../utils/Router.js';
 
 class RebloggersPopup {
   static popupCounter = 0;
@@ -207,7 +208,7 @@ class RebloggersPopup {
 
     item.addEventListener('click', () => {
       this.close();
-      window.open(`/@${username}`, '_self');
+      router.navigate(`/@${username}`);
     });
 
     return item;

@@ -59,11 +59,11 @@ class Cur8BotStatsView extends View {
     header.innerHTML = `
       <div class="header-content">
         <div class="header-icon">
-          <span class="material-icons">smart_toy</span>
+          <span class="material-icons">favorite</span>
         </div>
         <div class="header-text">
           <h1>Cur8 Statistics</h1>
-          <p>Performance metrics and curation data from the automated @cur8 account</p>
+          <p>Performance metrics and curation data from @cur8 account</p>
         </div>
       </div>
     `;
@@ -172,7 +172,7 @@ class Cur8BotStatsView extends View {
     rewardsSection.innerHTML = `
       <div class="section-header">
         <h2><span class="material-icons">monetization_on</span> Curation Rewards</h2>
-        <p>Earnings from automated content curation over different time periods</p>
+        <p>Earnings from content curation over different time periods</p>
       </div>
     `;
 

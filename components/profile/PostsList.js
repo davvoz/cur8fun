@@ -218,11 +218,8 @@ export default class PostsList extends BasePostView {
   }
   
   renderNoPostsMessage(container) {
-    // Rimuovi eventuali messaggi esistenti
-    const existingMessage = container.querySelector('.no-posts-message');
-    if (existingMessage) {
-      existingMessage.remove();
-    }
+    // Clear skeletons and any existing content
+    this.clearContainer(container);
 
     // Crea e aggiungi il nuovo messaggio
     const noPostsMessage = document.createElement('div');

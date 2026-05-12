@@ -319,8 +319,14 @@ class BasePostView {
    * Show a message when no posts are found
    */
   renderNoPostsMessage(container) {
-    // Do nothing - we don't want to show any message
-    // The container will simply remain empty
+    this.clearContainer(container);
+    const empty = document.createElement('div');
+    empty.className = 'no-posts-message';
+    empty.innerHTML = `
+      <span class="material-icons">article</span>
+      <p>No posts yet</p>
+    `;
+    container.appendChild(empty);
   }
 
   /**

@@ -1,3 +1,5 @@
+import router from '../../utils/Router.js';
+
 class VotesPopup {
   static popupCounter = 0;
 
@@ -425,7 +427,7 @@ class VotesPopup {
       // Close popup first
       this.close();
       // Then navigate
-      window.open(`/@${username}`, '_self');
+      router.navigate(`/@${username}`);
     });
 
     element.addEventListener('mouseover', () => {

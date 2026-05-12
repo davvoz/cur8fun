@@ -406,7 +406,7 @@ class CommunityView extends BasePostView {
    */
   async handleSubscription() {
     if (!this.currentUser) {
-      window.location.href = '/app/login';
+      window.location.href = '/login';
       return;
     }
     

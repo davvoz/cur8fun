@@ -126,7 +126,7 @@ export default class UpdateNotificationComponent extends Component {
     // Notification content
     const message = document.createElement('div');
     message.className = 'update-notification-message';
-    message.textContent = `È disponibile una nuova versione dell'app (v${newVersion})!`;
+    message.textContent = `A new version is available — v${this.currentVersion} → v${newVersion}. Refresh to update.`;
     
     // Notification actions
     const actionsContainer = document.createElement('div');
@@ -135,12 +135,12 @@ export default class UpdateNotificationComponent extends Component {
     // Refresh button
     const refreshButton = document.createElement('button');
     refreshButton.className = 'primary';
-    refreshButton.textContent = 'Aggiorna ora';
+    refreshButton.textContent = 'Update now';
     refreshButton.addEventListener('click', this.refreshApp);
     
     // Dismiss button
     const dismissButton = document.createElement('button');
-    dismissButton.textContent = 'Più tardi';
+    dismissButton.textContent = 'Later';
     dismissButton.addEventListener('click', this.dismissNotification);
     
     // Assemble notification

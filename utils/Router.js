@@ -71,15 +71,7 @@ class Router {
    * Detect the base path - for local Flask development, no base path needed
    */
   detectBasePath() {
-    // Se la SPA è montata su /app o sottopercorsi, imposta basePath
-    const path = window.location.pathname;
-    if (path.startsWith('/app/')) {
-      this.basePath = '/app';
-    } else if (path === '/app') {
-      this.basePath = '/app';
-    } else {
-      this.basePath = '';
-    }
+    this.basePath = '';
   }
   // Get the current path from pathname (no hash support)
   getCurrentPath() {
