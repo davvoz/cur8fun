@@ -22,12 +22,21 @@ function lsSet(cacheKey) {
 class ReblogService {
   constructor() {
     this.reblogCache = new Map(); // in-memory layer (session)
+    this._rebloggersCache = new Map(); // author_permlink → { list, ts }
   }
 
   async getRebloggers(author, permlink) {
+    const key = `${author}_${permlink}`;
+    const cached = this._rebloggersCache.get(key);
+    // Reuse within 5 minutes
+    if (cached && (Date.now() - cached.ts) < 5 * 60 * 1000) {
+      return cached.list;
+    }
     try {
       const rebloggers = await steemService.getRebloggers(author, permlink);
-      return Array.isArray(rebloggers) ? rebloggers : [];
+      const list = Array.isArray(rebloggers) ? rebloggers : [];
+      this._rebloggersCache.set(key, { list, ts: Date.now() });
+      return list;
     } catch (error) {
       console.error('Error getting rebloggers list:', error);
       return [];

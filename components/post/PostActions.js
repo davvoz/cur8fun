@@ -79,6 +79,18 @@ class PostActions {
       }
 
       const currentUser = authService.getCurrentUser();
+      // Synchronous check first (same sources as card reblog button)
+      if (currentUser?.username) {
+        const normalizedUser = String(currentUser.username).toLowerCase();
+        const alreadyReblogged =
+          this.post.reblogged === true ||
+          (Array.isArray(this.post.reblogged_by) &&
+            this.post.reblogged_by.some(a => String(a || '').toLowerCase() === normalizedUser)) ||
+          String(this.post.first_reblogged_by || '').toLowerCase() === normalizedUser ||
+          reblogService.isRebloggedInCache(currentUser.username, this.post.author, this.post.permlink);
+        if (alreadyReblogged) reblogBtn.classList.add('reblogged');
+      }
+      // Async fallback for cases not covered by local data (network check)
       reblogService.getReblogInfo(currentUser?.username || null, this.post.author, this.post.permlink)
         .then(({ hasReblogged, reblogCount }) => {
           const countEl = reblogCountBtn?.querySelector('.count');

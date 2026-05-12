@@ -205,13 +205,11 @@ class PostView extends View {  constructor(params = {}) {
 
       this.loadingIndicator.updateProgress(100);
 
-      // Remove skeleton before showing real content
-      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
-
-      // Add Open Graph meta tags for better sharing preview using MetaTagService
       metaTagService.updatePostMetaTags(this.post);
       this.initComponents();
-      await this.renderComponents(); // Make this call await
+      await this.renderComponents();
+      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
+      this.postContent.style.display = 'block';
       await this.voteController.checkVoteStatus(this.post);
     } catch (error) {
       console.error('Failed to load post:', error);
@@ -586,7 +584,7 @@ class PostView extends View {  constructor(params = {}) {
       errorMessage.className = 'component-render-error';
       errorMessage.textContent = 'Could not display post components';
       this.postContent.appendChild(errorMessage);
-      this.postContent.style.display = 'block';
+      // caller will show postContent
     }
   }
 
