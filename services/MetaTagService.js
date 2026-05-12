@@ -51,10 +51,11 @@ class MetaTagService {
   updateProfileMetaTags(profile) {
     if (!profile) return;
 
+    const username = profile.username || profile.name;
     const metaData = {
-      title: `@${profile.name} su cur8.fun`,
-      description: profile.profile?.about || `Profilo di ${profile.name} su Steem`,
-      image: profile.profile?.profile_image || `https://steemitimages.com/u/${profile.name}/avatar`,
+      title: `@${username} on cur8.fun`,
+      description: profile.about || profile.profile?.about || `${username}'s profile on Steem`,
+      image: profile.profileImage || profile.profile?.profile_image || `https://steemitimages.com/u/${username}/avatar`,
       url: window.location.href,
       type: 'profile'
     };
