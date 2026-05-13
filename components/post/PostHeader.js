@@ -63,6 +63,11 @@ class PostHeader {
     authorAvatar.className = 'author-avatar';
     authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
     authorAvatar.alt = this.post.author;
+    authorAvatar.style.cursor = 'pointer';
+    authorAvatar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      router.navigate(`/@${this.post.author}`);
+    });
 
     const authorName = document.createElement('a');
     // Use click event handler instead of href for more reliable routing
