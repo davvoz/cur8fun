@@ -9,7 +9,6 @@ export default class SteemCore {
             'https://api.steemitdev.com',
             'https://api.steemit.com',
             'https://api.steemyy.com',
-            'https://steemyy.com/node/',
         ];
         this.currentEndpoint = 0;
         this.steem = null;

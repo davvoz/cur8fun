@@ -646,6 +646,12 @@ class BasePostView {
     
     loadAvatar();
     
+    avatarContainer.style.cursor = 'pointer';
+    avatarContainer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      router.navigate(`/@${post.author}`);
+    });
+    
     avatarContainer.appendChild(avatar);
     
     const info = document.createElement('div');
@@ -658,6 +664,11 @@ class BasePostView {
     const author = document.createElement('div');
     author.className = 'post-author';
     author.textContent = `@${post.author}`;
+    author.style.cursor = 'pointer';
+    author.addEventListener('click', (e) => {
+      e.stopPropagation();
+      router.navigate(`/@${post.author}`);
+    });
     
     infoTopRow.appendChild(author);
     

@@ -85,8 +85,9 @@ class FilterService {
         if (isActionByUser && !dirByUser) return false;
         if (isActionOnUser && !dirOnUser) return false;
         
-        // Se non è né by né on user, non dovrebbe essere mostrato
-        if (!isActionByUser && !isActionOnUser) return false;
+        // If neither by nor on user is recognized, the op is still in the
+        // user's history so it's inherently relevant — show it unconditionally.
+        // (This avoids hiding unclassified operation types entirely.)
       }
       
       // 3. Filtra per intervallo di date

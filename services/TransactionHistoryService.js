@@ -85,15 +85,45 @@ class TransactionHistoryService {
         return data.author === username;
       case 'transfer_to_vesting':
         return data.from === username;
+      case 'withdraw_vesting':
+        return data.account === username;
+      case 'set_withdraw_vesting_route':
+        return data.from_account === username;
       case 'delegate_vesting_shares':
         return data.delegator === username;
       case 'claim_reward_balance':
-        return data.account === username;
       case 'account_update':
+      case 'account_update2':
         return data.account === username;
       case 'custom_json':
-        return Array.isArray(data.required_posting_auths) && 
-               data.required_posting_auths.includes(username);
+        return (Array.isArray(data.required_posting_auths) && data.required_posting_auths.includes(username)) ||
+               (Array.isArray(data.required_auths) && data.required_auths.includes(username));
+      case 'transfer_to_savings':
+      case 'transfer_from_savings':
+      case 'cancel_transfer_from_savings':
+        return data.from === username;
+      case 'limit_order_create':
+      case 'limit_order_create2':
+      case 'limit_order_cancel':
+        return data.owner === username;
+      case 'witness_vote':
+        return data.account === username;
+      case 'witness_update':
+        return data.owner === username;
+      case 'escrow_transfer':
+      case 'escrow_dispute':
+        return data.from === username;
+      case 'escrow_approve':
+      case 'escrow_release':
+        return data.who === username || data.from === username;
+      case 'return_vesting_delegation':
+        return data.account === username;
+      case 'create_claimed_account':
+        return data.creator === username;
+      case 'feed_publish':
+        return data.publisher === username;
+      case 'proposal_pay':
+        return data.payer === username;
       default:
         return false;
     }
@@ -121,6 +151,29 @@ class TransactionHistoryService {
       case 'author_reward':
       case 'comment_reward':
         return data.author === username;
+      case 'interest':
+        return data.owner === username;
+      case 'producer_reward':
+        return data.producer === username;
+      case 'return_vesting_delegation':
+        return data.account === username;
+      case 'fill_convert_request':
+        return data.owner === username;
+      case 'transfer_to_savings':
+        return data.to === username;
+      case 'transfer_from_savings':
+        return data.to === username;
+      case 'comment_benefactor_reward':
+        return data.author === username || data.benefactor === username;
+      case 'fill_order':
+        return data.current_owner === username || data.open_owner === username;
+      case 'escrow_transfer':
+        return data.to === username || data.agent === username;
+      case 'escrow_approve':
+      case 'escrow_release':
+        return data.to === username;
+      case 'proposal_pay':
+        return data.receiver === username;
       default:
         return false;
     }
@@ -147,17 +200,61 @@ class TransactionHistoryService {
         return { icon: 'trending_up', iconClass: 'power-up' };
       case 'withdraw_vesting':
         return { icon: 'trending_down', iconClass: 'power-down' };
+      case 'set_withdraw_vesting_route':
+        return { icon: 'alt_route', iconClass: 'power-down' };
       case 'curation_reward':
         return { icon: 'stars', iconClass: 'curation' };
       case 'author_reward':
       case 'comment_reward':
         return { icon: 'payment', iconClass: 'reward' };
+      case 'comment_benefactor_reward':
+        return { icon: 'volunteer_activism', iconClass: 'reward' };
       case 'delegate_vesting_shares':
         return { icon: 'share', iconClass: 'delegation' };
+      case 'return_vesting_delegation':
+        return { icon: 'keyboard_return', iconClass: 'delegation' };
       case 'account_update':
+      case 'account_update2':
         return { icon: 'manage_accounts', iconClass: 'account-update' };
       case 'custom_json':
         return { icon: 'code', iconClass: 'custom' };
+      case 'transfer_to_savings':
+        return { icon: 'savings', iconClass: 'transfer' };
+      case 'transfer_from_savings':
+        return { icon: 'move_up', iconClass: 'transfer' };
+      case 'cancel_transfer_from_savings':
+        return { icon: 'cancel', iconClass: 'transfer' };
+      case 'interest':
+        return { icon: 'percent', iconClass: 'reward' };
+      case 'producer_reward':
+        return { icon: 'verified', iconClass: 'reward' };
+      case 'fill_convert_request':
+        return { icon: 'sync_alt', iconClass: 'transfer' };
+      case 'limit_order_create':
+      case 'limit_order_create2':
+        return { icon: 'receipt_long', iconClass: 'transfer' };
+      case 'limit_order_cancel':
+        return { icon: 'cancel', iconClass: 'transfer' };
+      case 'fill_order':
+        return { icon: 'shopping_cart', iconClass: 'transfer' };
+      case 'witness_vote':
+        return { icon: 'how_to_vote', iconClass: 'custom' };
+      case 'witness_update':
+        return { icon: 'update', iconClass: 'account-update' };
+      case 'feed_publish':
+        return { icon: 'publish', iconClass: 'custom' };
+      case 'escrow_transfer':
+        return { icon: 'security', iconClass: 'transfer' };
+      case 'escrow_approve':
+        return { icon: 'check_circle', iconClass: 'transfer' };
+      case 'escrow_dispute':
+        return { icon: 'gavel', iconClass: 'transfer' };
+      case 'escrow_release':
+        return { icon: 'lock_open', iconClass: 'transfer' };
+      case 'proposal_pay':
+        return { icon: 'description', iconClass: 'transfer' };
+      case 'create_claimed_account':
+        return { icon: 'person_add', iconClass: 'account-update' };
       default:
         return { icon: 'receipt', iconClass: 'other' };
     }
@@ -168,27 +265,42 @@ class TransactionHistoryService {
    */
   formatTitle(type) {
     switch (type) {
-      case 'transfer':
-        return 'Transfer';
-      case 'vote':
-        return 'Vote';
-      case 'comment':
-        return 'Comment/Post';
-      case 'claim_reward_balance':
-        return 'Claim Rewards';
-      case 'transfer_to_vesting':
-        return 'Power Up';
-      case 'withdraw_vesting':
-        return 'Power Down';
-      case 'curation_reward':
-        return 'Curation Reward';
+      case 'transfer':               return 'Transfer';
+      case 'vote':                   return 'Vote';
+      case 'comment':                return 'Comment/Post';
+      case 'comment_options':        return 'Post Options';
+      case 'claim_reward_balance':   return 'Claim Rewards';
+      case 'transfer_to_vesting':    return 'Power Up';
+      case 'withdraw_vesting':       return 'Power Down';
+      case 'set_withdraw_vesting_route': return 'Power Down Route';
+      case 'curation_reward':        return 'Curation Reward';
       case 'author_reward':
-      case 'comment_reward':
-        return 'Author Reward';
-      case 'delegate_vesting_shares':
-        return 'Delegation';
-      case 'custom_json':
-        return 'Custom JSON';
+      case 'comment_reward':         return 'Author Reward';
+      case 'comment_benefactor_reward': return 'Benefactor Reward';
+      case 'delegate_vesting_shares': return 'Delegation';
+      case 'return_vesting_delegation': return 'Delegation Returned';
+      case 'account_update':
+      case 'account_update2':        return 'Account Update';
+      case 'custom_json':            return 'Custom JSON';
+      case 'transfer_to_savings':    return 'Transfer to Savings';
+      case 'transfer_from_savings':  return 'Withdraw from Savings';
+      case 'cancel_transfer_from_savings': return 'Cancel Savings Withdrawal';
+      case 'interest':               return 'SBD Interest';
+      case 'producer_reward':        return 'Block Producer Reward';
+      case 'fill_convert_request':   return 'Convert Completed';
+      case 'limit_order_create':
+      case 'limit_order_create2':    return 'Limit Order Created';
+      case 'limit_order_cancel':     return 'Limit Order Cancelled';
+      case 'fill_order':             return 'Order Filled';
+      case 'witness_vote':           return 'Witness Vote';
+      case 'witness_update':         return 'Witness Update';
+      case 'feed_publish':           return 'Price Feed Published';
+      case 'escrow_transfer':        return 'Escrow Transfer';
+      case 'escrow_approve':         return 'Escrow Approved';
+      case 'escrow_dispute':         return 'Escrow Dispute';
+      case 'escrow_release':         return 'Escrow Released';
+      case 'proposal_pay':           return 'Proposal Payment';
+      case 'create_claimed_account': return 'Account Created';
       default:
         return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
@@ -304,7 +416,92 @@ class TransactionHistoryService {
         // Converti vesting_shares in SP
         const withdrawSP = await this.convertVestsToSP(data.vesting_shares);
         return `Power down of ${withdrawSP}`;
-        
+      
+      case 'set_withdraw_vesting_route':
+        return `Route ${data.percent / 100}% of power-down to @${data.to_account}`;
+
+      case 'transfer_to_savings':
+        if (currentUsername) {
+          if (data.from === currentUsername) return `Saved ${data.amount} → @${data.to}`;
+          if (data.to === currentUsername) return `Received savings ${data.amount} from @${data.from}`;
+        }
+        return `${data.from} → ${data.to}: ${data.amount}`;
+
+      case 'transfer_from_savings':
+        if (currentUsername) {
+          if (data.from === currentUsername) return `Withdrew ${data.amount} from savings → @${data.to}`;
+          if (data.to === currentUsername) return `Received ${data.amount} from @${data.from} savings`;
+        }
+        return `${data.from} withdrew ${data.amount} → ${data.to}`;
+
+      case 'cancel_transfer_from_savings':
+        return `Cancelled savings withdrawal #${data.request_id}`;
+
+      case 'interest':
+        return `Received ${data.interest} SBD interest`;
+
+      case 'producer_reward': {
+        const prSP = await this.convertVestsToSP(data.vesting_shares);
+        return `Block producer reward: ${prSP}`;
+      }
+
+      case 'return_vesting_delegation': {
+        const retSP = await this.convertVestsToSP(data.vesting_shares);
+        return `Delegation returned: ${retSP}`;
+      }
+
+      case 'fill_convert_request':
+        return `Converted ${data.amount_in} → ${data.amount_out}`;
+
+      case 'limit_order_create':
+      case 'limit_order_create2':
+        return `Sell ${data.amount_to_sell} for ${data.min_to_receive}`;
+
+      case 'limit_order_cancel':
+        return `Cancelled order #${data.orderid}`;
+
+      case 'fill_order':
+        return `Order filled: ${data.current_pays} for ${data.open_pays}`;
+
+      case 'witness_vote':
+        return data.approve
+          ? `Approved witness @${data.witness}`
+          : `Removed vote for witness @${data.witness}`;
+
+      case 'witness_update':
+        return `Updated witness configuration`;
+
+      case 'feed_publish':
+        return `Published price feed: ${data.exchange_rate?.base} per ${data.exchange_rate?.quote}`;
+
+      case 'comment_benefactor_reward': {
+        const bSP = await this.convertVestsToSP(data.vesting_payout);
+        if (currentUsername === data.benefactor)
+          return `Benefactor reward ${data.sbd_payout || '0 SBD'}, ${bSP} on @${data.author}'s post`;
+        return `Paid ${data.sbd_payout || '0 SBD'}, ${bSP} to benefactor @${data.benefactor}`;
+      }
+
+      case 'escrow_transfer':
+        return `Escrow ${data.steem_amount || data.sbd_amount} to @${data.to} (agent: @${data.agent})`;
+
+      case 'escrow_approve':
+        return `Approved escrow #${data.escrow_id} between @${data.from} and @${data.to}`;
+
+      case 'escrow_dispute':
+        return `Disputed escrow #${data.escrow_id}`;
+
+      case 'escrow_release':
+        return `Released ${data.steem_amount || data.sbd_amount} from escrow #${data.escrow_id}`;
+
+      case 'proposal_pay':
+        return `Proposal payment: ${data.payment} to @${data.receiver}`;
+
+      case 'create_claimed_account':
+        return `Created new account @${data.new_account_name}`;
+
+      case 'comment_options':
+        return `Options set for post @${data.author}/${data.permlink?.substring(0, 20)}...`;
+      
       default:
         return `Operation: ${type}`;
     }

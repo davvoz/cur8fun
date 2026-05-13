@@ -944,7 +944,7 @@ class AuthService {
      * @param {Object} account - The account to switch to
      */
     switchToAccount(account) {
-        try {
+        (async () => { try {
             // Based on available authentication methods, try to log in
             if (account.hasSteemLogin) {
                 const tokenData = localStorage.getItem(`${account.username}_steemlogin_token`);
@@ -983,33 +983,41 @@ class AuthService {
                         this.showLoginFailedNotification();
                     });
             } else if (account.hasPostingKey) {
-                const postingKey = localStorage.getItem(`${account.username}_posting_key`);
-                if (postingKey) {
-                    this.loginWithPostingKey(account.username, postingKey)
-                        .then(() => {
-                            // Reload page to refresh with new account
-                            window.location.reload();
-                        })
-                        .catch(error => {
-                            console.error('Failed to switch account with posting key:', error);
-                            this.showLoginFailedNotification();
-                        });
+                const storedRaw = localStorage.getItem(`${account.username}_posting_key`);
+                if (storedRaw) {
+                    // Key may be encrypted with the device key — decrypt before use
+                    cryptoService.decrypt(storedRaw).then(plainKey => {
+                        if (!plainKey) throw new Error('Failed to decrypt posting key');
+                        return this.loginWithPostingKey(account.username, plainKey);
+                    }).then(() => {
+                        window.location.reload();
+                    }).catch(error => {
+                        console.error('Failed to switch account with posting key:', error);
+                        this.showLoginFailedNotification();
+                    });
                 } else {
                     this.showLoginFailedNotification();
                 }
             } else if (account.hasActiveKey) {
-                const activeKey = localStorage.getItem(`${account.username}_active_key`);
-                if (activeKey) {
-                    this.loginWithActiveKey(account.username, activeKey)
-                        .then(() => {
-                            // Reload page to refresh with new account
-                            window.location.reload();
-                        })
-                        .catch(error => {
-                            console.error('Failed to switch account with active key:', error);
-                            this.showLoginFailedNotification();
-                        });
-                } else {
+                // Active key is PIN-protected — prompt for PIN to decrypt
+                try {
+                    const { default: DialogUtility } = await import('../components/DialogUtility.js');
+                    const pin = await DialogUtility.showInputDialog({
+                        title: `Unlock account @${account.username}`,
+                        message: 'Enter your wallet PIN to switch to this account',
+                        inputType: 'password',
+                        inputPlaceholder: 'Wallet PIN',
+                        confirmText: 'Unlock & Switch',
+                        compact: true
+                    });
+                    if (!pin) return; // user cancelled
+                    const stored = localStorage.getItem(`${account.username}_active_key`);
+                    const plainKey = await cryptoService.decryptWithPin(stored, pin);
+                    if (!plainKey) throw new Error('Wrong PIN');
+                    await this.loginWithActiveKey(account.username, plainKey);
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Failed to switch account with active key:', error);
                     this.showLoginFailedNotification();
                 }
             } else {
@@ -1019,7 +1027,7 @@ class AuthService {
         } catch (error) {
             console.error('Error switching account:', error);
             this.showLoginFailedNotification();
-        }
+        } })();
     }
 
     /**

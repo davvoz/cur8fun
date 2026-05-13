@@ -12,6 +12,8 @@ class WalletService {
       sbd: '0.000',
       steemPower: '0.000'
     };
+    // Cache for incoming delegations: keyed by username, value { data, ts }
+    this._incomingDelegationsCache = {};
 
     // Listen for auth changes
     eventEmitter.on('auth:changed', ({ user }) => {
@@ -213,14 +215,16 @@ class WalletService {
         });
       });
 
-      // Convert vests to SP for each delegation
-      return Promise.all(delegations.map(async (delegation) => {
+      // Convert vests to SP and sort by amount descending
+      const result = await Promise.all(delegations.map(async (delegation) => {
         const sp_amount = await this.vestsToSteem(delegation.vesting_shares);
         return {
           ...delegation,
           sp_amount: parseFloat(sp_amount).toFixed(3)
         };
       }));
+      result.sort((a, b) => parseFloat(b.sp_amount) - parseFloat(a.sp_amount));
+      return result;
     } catch (error) {
       console.error('Error fetching delegations:', error);
       return [];
@@ -240,73 +244,37 @@ class WalletService {
       const user = username || authService.getCurrentUser()?.username;
       if (!user) return [];
 
-      const steem = await steemService.ensureLibraryLoaded();
-
-      // Get the authoritative total received vests from account data so we can
-      // stop early as soon as our found delegations account for the full total.
-      let targetVests = null;
-      try {
-        const [account] = await new Promise((resolve, reject) =>
-          steem.api.getAccounts([user], (err, r) => err ? reject(err) : resolve(r || []))
-        );
-        if (account?.received_vesting_shares) {
-          targetVests = parseFloat(account.received_vesting_shares);
-        }
-      } catch { /* non-blocking — just won't have early-stop */ }
-
-      const LIMIT = 1000;
-      const MAX_PAGES = 20; // up to 20 000 ops maximum
-
-      // byDelegator: keyed by delegator username, value = most recent op data.
-      // Because we scan newest→oldest, the FIRST time we see a delegator is their
-      // current state; subsequent (older) entries for the same delegator are ignored.
-      const byDelegator = {};
-      let start = -1;
-
-      for (let page = 0; page < MAX_PAGES; page++) {
-        const history = await new Promise((resolve, reject) => {
-          steem.api.getAccountHistory(user, start, LIMIT, (err, result) => {
-            if (err) reject(err);
-            else resolve(result || []);
-          });
-        });
-
-        if (!history.length) break;
-
-        // history is sorted ascending by seq; iterate newest→oldest
-        for (let i = history.length - 1; i >= 0; i--) {
-          const [, entry] = history[i];
-          const [opType, opData] = entry.op;
-          if (opType === 'delegate_vesting_shares' && opData.delegatee === user) {
-            if (!byDelegator[opData.delegator]) {
-              byDelegator[opData.delegator] = { ...opData, timestamp: entry.timestamp };
-            }
-          }
-        }
-
-        // Early-stop: sum of active vests found so far matches account total
-        if (targetVests !== null && targetVests > 0) {
-          const foundVests = Object.values(byDelegator)
-            .reduce((sum, d) => sum + parseFloat(d.vesting_shares), 0);
-          if (Math.abs(foundVests - targetVests) < 0.001) break;
-        }
-
-        // Reached beginning of history
-        if (history.length < LIMIT) break;
-
-        // Move cursor to just before the oldest entry in this page
-        const minSeq = history[0][0];
-        if (minSeq <= 0) break;
-        start = minSeq - 1;
+      // Return cached result if fresh (5 minutes TTL)
+      const cached = this._incomingDelegationsCache[user];
+      if (cached && (Date.now() - cached.ts) < 5 * 60 * 1000) {
+        return cached.data;
       }
 
-      // Filter out delegations that have been zeroed out (removed)
-      const active = Object.values(byDelegator).filter(d => parseFloat(d.vesting_shares) > 0);
+      const res = await fetch(
+        `https://sds.steemworld.org/delegations_api/getIncomingDelegations/${encodeURIComponent(user)}/10000`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) throw new Error(`SDS HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.code !== 0 || !Array.isArray(json.result?.rows)) throw new Error('SDS unexpected response');
 
-      return Promise.all(active.map(async (d) => {
-        const sp_amount = await this.vestsToSteem(parseFloat(d.vesting_shares));
-        return { ...d, sp_amount: parseFloat(sp_amount).toFixed(3) };
+      const { cols, rows } = json.result;
+      const active = rows.filter(r => r[cols.vests] > 0);
+      const result = await Promise.all(active.map(async (r) => {
+        const vests = r[cols.vests];
+        const sp_amount = await this.vestsToSteem(vests);
+        return {
+          delegator: r[cols.from],
+          delegatee: r[cols.to],
+          vesting_shares: `${vests.toFixed(6)} VESTS`,
+          timestamp: new Date(r[cols.time] * 1000).toISOString().replace('.000Z', ''),
+          sp_amount: parseFloat(sp_amount).toFixed(3),
+        };
       }));
+      result.sort((a, b) => parseFloat(b.sp_amount) - parseFloat(a.sp_amount));
+
+      this._incomingDelegationsCache[user] = { data: result, ts: Date.now() };
+      return result;
     } catch (error) {
       console.error('Error fetching incoming delegations:', error);
       return [];

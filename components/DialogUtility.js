@@ -93,6 +93,86 @@ class DialogUtility {
   }
 
   /**
+   * Show a dialog with a single text/password input field.
+   * @returns {Promise<string|null>} - resolves with the entered value, or null if cancelled
+   */
+  static async showInputDialog(options = {}) {
+    const {
+      title = 'Enter value',
+      message = '',
+      inputType = 'text',
+      inputPlaceholder = '',
+      confirmText = 'Confirm',
+      cancelText = 'Cancel',
+      compact = false
+    } = options;
+
+    return new Promise((resolve) => {
+      const existingDialog = document.querySelector('.standard-dialog-overlay');
+      if (existingDialog) existingDialog.remove();
+
+      const dialog = document.createElement('div');
+      dialog.className = 'standard-dialog-overlay modal-overlay';
+      const compactClass = compact ? ' compact' : '';
+
+      dialog.innerHTML = `
+        <div class="modal-dialog standard-dialog${compactClass}">
+          <div class="modal-header">
+            <h3>
+              <span class="material-icons">lock</span>
+              ${this.escapeHtml(title)}
+            </h3>
+            <button class="close-button" type="button" aria-label="Close">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            ${message ? `<div class="dialog-message"><p>${this.escapeHtml(message)}</p></div>` : ''}
+            <div class="form-group" style="margin-top:var(--space-sm,8px)">
+              <input id="dialog-input-field" type="${this.escapeHtml(inputType)}"
+                placeholder="${this.escapeHtml(inputPlaceholder)}"
+                class="form-control" autocomplete="off" style="width:100%" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn secondary-btn" id="dialog-cancel-btn">
+              <span class="material-icons">close</span>
+              ${this.escapeHtml(cancelText)}
+            </button>
+            <button type="button" class="btn primary-btn" id="dialog-confirm-btn">
+              <span class="material-icons">check</span>
+              ${this.escapeHtml(confirmText)}
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+
+      const inputEl = dialog.querySelector('#dialog-input-field');
+      const confirmBtn = dialog.querySelector('#dialog-confirm-btn');
+      const cancelBtn = dialog.querySelector('#dialog-cancel-btn');
+      const closeBtn = dialog.querySelector('.close-button');
+
+      const cleanup = () => { if (dialog.parentNode) dialog.parentNode.removeChild(dialog); };
+
+      const handleConfirm = () => { cleanup(); resolve(inputEl.value); };
+      const handleCancel = () => { cleanup(); resolve(null); };
+
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      closeBtn.addEventListener('click', handleCancel);
+      dialog.addEventListener('click', (e) => { if (e.target === dialog) handleCancel(); });
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleConfirm();
+        if (e.key === 'Escape') handleCancel();
+      });
+
+      setTimeout(() => inputEl.focus(), 100);
+    });
+  }
+
+  /**
    * Show a standard info dialog
    * @param {Object} options - Dialog configuration
    * @returns {Promise<void>} - resolves when dialog is closed

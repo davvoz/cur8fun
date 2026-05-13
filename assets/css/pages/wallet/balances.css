@@ -221,6 +221,10 @@
   align-items: stretch;
 }
 
+.sp-card .balance-card-icon {
+  align-self: center;
+}
+
 .sp-card .balance-card-content {
   flex: 1;
 }
