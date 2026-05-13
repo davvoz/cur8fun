@@ -19,7 +19,8 @@ class DialogUtility {
       type = 'warning', // 'warning', 'danger', 'info'
       details = null,
       showPreview = false,
-      previewData = null
+      previewData = null,
+      compact = false
     } = options;
 
     return new Promise((resolve) => {
@@ -34,9 +35,10 @@ class DialogUtility {
       
       const iconClass = type === 'danger' ? 'error' : icon;
       const confirmButtonClass = type === 'danger' ? 'danger-btn' : 'primary-btn';
+      const compactClass = compact ? ' compact' : '';
 
       dialog.innerHTML = `
-        <div class="modal-dialog standard-dialog">
+        <div class="modal-dialog standard-dialog${compactClass}">
           <div class="modal-header">
             <h3>
               <span class="material-icons">${iconClass}</span>

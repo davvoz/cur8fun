@@ -1,6 +1,7 @@
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
+import cryptoService from './CryptoService.js';
 
 /**
  * Service for handling user authentication
@@ -8,6 +9,7 @@ import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
 class AuthService {
     constructor() {
         this.currentUser = this.loadUserFromStorage();
+        this._keyCache = {}; // in-memory decrypted key cache
         
         // Aggiungi configurazione per SteemLogin
         this.steemLoginConfig = {
@@ -150,8 +152,8 @@ class AuthService {
             if (remember) {
                 localStorage.setItem('currentUser', JSON.stringify(user));
                 
-                // Store the key securely
-                this.securelyStoreKey(username, privateKey, keyType, remember);
+                // Store the key securely (encrypted)
+                await this.securelyStoreKey(username, privateKey, keyType, remember);
             }
             
             // Emit auth changed event
@@ -266,19 +268,32 @@ class AuthService {
     }
 
     /**
-     * Store key securely (as securely as possible in a web context)
+     * Store key securely using AES-GCM encryption (Web Crypto API).
+     * Also populates the in-memory cache so getKey() works immediately.
      * @param {string} username - Username
      * @param {string} key - Private key
      * @param {string} keyType - Type of key ('posting' or 'active')
      * @param {boolean} remember - Whether to store long-term
      */
-    securelyStoreKey(username, key, keyType = 'posting', remember = true) {
+    async securelyStoreKey(username, key, keyType = 'posting', remember = true) {
+        // Active key is protected by PIN — never stored with the device key.
+        // Use storeActiveKeyWithPin() instead.
+        if (keyType === 'active') {
+            // Still cache in memory for the current session
+            if (!this._keyCache[username]) this._keyCache[username] = {};
+            this._keyCache[username][keyType] = key;
+            return;
+        }
+
+        // Always cache in memory for the current session
+        if (!this._keyCache[username]) this._keyCache[username] = {};
+        this._keyCache[username][keyType] = key;
+
         if (remember) {
             try {
-                // Store the key with key type indicator
-                localStorage.setItem(`${username}_${keyType}_key`, key);
-                
-                // Add expiry timestamp (expiring in 2099)
+                const encrypted = await cryptoService.encrypt(key);
+                localStorage.setItem(`${username}_${keyType}_key`, encrypted);
+
                 const expiry = new Date('2099-12-31').getTime();
                 localStorage.setItem(`${username}_${keyType}_key_expiry`, expiry.toString());
             } catch (error) {
@@ -288,36 +303,126 @@ class AuthService {
     }
 
     /**
-     * Get the specified key for the current user
+     * Store the active key encrypted with a user-supplied PIN.
+     * Also populates the in-memory cache so getActiveKey() works immediately.
+     * @param {string} username
+     * @param {string} key - Private active key
+     * @param {string} pin  - 4-digit PIN chosen by the user
+     */
+    async storeActiveKeyWithPin(username, key, pin) {
+        const encrypted = await cryptoService.encryptWithPin(key, pin);
+        localStorage.setItem(`${username}_active_key`, encrypted);
+        // Remove old device-key-encrypted version if any
+        localStorage.removeItem(`${username}_active_key_expiry`);
+        // Cache in memory for this session
+        if (!this._keyCache[username]) this._keyCache[username] = {};
+        this._keyCache[username].active = key;
+    }
+
+    /**
+     * Unlock the active key by decrypting the PIN-protected blob.
+     * Populates the in-memory cache so subsequent getActiveKey() calls work.
+     * Throws 'Wrong PIN' if the PIN is incorrect.
+     * @param {string} pin
+     */
+    async unlockActiveKeyWithPin(pin) {
+        const user = this.getCurrentUser();
+        if (!user) throw new Error('Not logged in');
+        const stored = localStorage.getItem(`${user.username}_active_key`);
+        if (!cryptoService.isPinEncrypted(stored)) throw new Error('No PIN-protected active key found');
+        const key = await cryptoService.decryptWithPin(stored, pin); // throws 'Wrong PIN'
+        if (!this._keyCache[user.username]) this._keyCache[user.username] = {};
+        this._keyCache[user.username].active = key;
+    }
+
+    /**
+     * Returns true if a PIN-encrypted active key exists in localStorage.
+     * @returns {boolean}
+     */
+    hasActiveKeyPinProtected() {
+        const user = this.getCurrentUser();
+        if (!user) return false;
+        const stored = localStorage.getItem(`${user.username}_active_key`);
+        return cryptoService.isPinEncrypted(stored);
+    }
+
+    /**
+     * Decrypt and cache the posting key on startup.
+     * Active key is PIN-protected and is NOT auto-decrypted here.
+     * Call once at app startup (non-blocking — safe to fire-and-forget).
+     */
+    async initKeysAsync() {
+        try {
+            const user = this.getCurrentUser();
+            if (!user || user.loginMethod !== 'privateKey') return;
+
+            const stored = localStorage.getItem(`${user.username}_posting_key`);
+            if (stored && !cryptoService.isPinEncrypted(stored)) {
+                const expiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
+                if (expiry && parseInt(expiry) < Date.now()) {
+                    localStorage.removeItem(`${user.username}_posting_key`);
+                    localStorage.removeItem(`${user.username}_posting_key_expiry`);
+                } else {
+                    const plainKey = await cryptoService.decrypt(stored);
+                    if (plainKey) {
+                        if (!this._keyCache[user.username]) this._keyCache[user.username] = {};
+                        this._keyCache[user.username].posting = plainKey;
+                        // Migrate plain-text → encrypted on first load
+                        if (!cryptoService.isEncrypted(stored)) {
+                            const enc = await cryptoService.encrypt(plainKey);
+                            localStorage.setItem(`${user.username}_posting_key`, enc);
+                        }
+                    }
+                }
+            }
+
+            // Remove any old unprotected active key
+            const oldActive = localStorage.getItem(`${user.username}_active_key`);
+            if (oldActive && !cryptoService.isPinEncrypted(oldActive)) {
+                localStorage.removeItem(`${user.username}_active_key`);
+                localStorage.removeItem(`${user.username}_active_key_expiry`);
+            }
+        } catch (error) {
+            console.error('initKeysAsync failed:', error);
+        }
+    }
+
+    /**
+     * Get the specified key for the current user.
+     * Returns from in-memory cache (populated by initKeysAsync on startup,
+     * or by securelyStoreKey at login time). Falls back to raw localStorage
+     * value for backwards compatibility if cache is empty.
      * @param {string} keyType - Type of key to retrieve ('posting' or 'active')
      * @returns {string|null} The private key or null if not available
      */
     getKey(keyType = 'posting') {
         const user = this.getCurrentUser();
-        
-        if (!user) {
-            return null;
-        }
-        
-        // For Keychain users
-        if (user.loginMethod === 'keychain') {
-            return null; // Keychain will handle the operation
-        }
-        
-        // For direct key login
+
+        if (!user) return null;
+        if (user.loginMethod === 'keychain') return null;
+
+        // Try in-memory cache first (already decrypted)
+        const cached = this._keyCache[user.username]?.[keyType];
+        if (cached) return cached;
+
+        // Fallback: read raw value from localStorage
+        // This may be plain text (old) or encrypted (new). If encrypted we
+        // can't decrypt synchronously — return null and let the async cache
+        // fill on next initKeysAsync() call.
         try {
-            const keyExpiry = localStorage.getItem(`${user.username}_${keyType}_key_expiry`);
-            
-            // Check expiry
-            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
-                // Key expired, remove it
+            const expiry = localStorage.getItem(`${user.username}_${keyType}_key_expiry`);
+            if (expiry && parseInt(expiry) < Date.now()) {
                 localStorage.removeItem(`${user.username}_${keyType}_key`);
                 localStorage.removeItem(`${user.username}_${keyType}_key_expiry`);
                 return null;
             }
-            
-            const key = localStorage.getItem(`${user.username}_${keyType}_key`);
-            return key;
+            const stored = localStorage.getItem(`${user.username}_${keyType}_key`);
+            // Return plain-text values (pre-migration) directly.
+            // Encrypted (enc:) or PIN-protected (pin:) blobs are unusable
+            // synchronously — return null so the caller triggers the right
+            // async unlock path (initKeysAsync or unlockActiveKeyWithPin).
+            if (cryptoService.isEncrypted(stored) || cryptoService.isPinEncrypted(stored)) return null;
+            return stored;
         } catch (error) {
             console.error(`getKey: Error retrieving ${keyType} key:`, error);
             return null;
@@ -325,10 +430,16 @@ class AuthService {
     }
     
     /**
-     * Get the posting key for the current user (legacy method for compatibility)
+     * Get the posting key for the current user.
+     * Falls back to the active key if posting key is not available:
+     * on Steem, active authority implies posting authority, so the
+     * active key can sign any posting-level operation.
      */
     getPostingKey() {
-        return this.getKey('posting');
+        const postingKey = this.getKey('posting');
+        if (postingKey) return postingKey;
+        // Active key has full posting-level authority on Steem
+        return this.getKey('active');
     }
     
     /**
@@ -337,7 +448,18 @@ class AuthService {
     getActiveKey() {
         return this.getKey('active');
     }
-    
+
+    /**
+     * Cache the active key in memory only (never persisted to localStorage).
+     * Posting key is left untouched.
+     */
+    cacheActiveKey(key) {
+        const user = this.getCurrentUser();
+        if (!user) return;
+        if (!this._keyCache[user.username]) this._keyCache[user.username] = {};
+        this._keyCache[user.username].active = key;
+    }
+
     /**
      * Check if the current user has a valid active key available
      * @returns {boolean} True if active key is available
@@ -345,65 +467,88 @@ class AuthService {
     hasActiveKeyAccess() {
         const user = this.getCurrentUser();
         if (!user) return false;
-        
-        // User explicitly logged in with active key
-        if (user.keyType === 'active') {
-            return true;
-        }
-        
-        // Check if we have a stored active key
-        const activeKey = this.getActiveKey();
-        if (activeKey) {
-            return true;
-        }
-        
-        // Per gli utenti Keychain, assumiamo che abbiano accesso a active key
-        // Keychain richiederà la conferma al momento dell'operazione
-        if (user.loginMethod === 'keychain') {
-            const keychainInstalled = this.isKeychainInstalled();
-            if (keychainInstalled) {
-                return true;
-            }
-        }
-        
+
+        if (user.keyType === 'active') return true;
+
+        // Active key is in memory (unlocked this session)
+        if (this._keyCache[user.username]?.active) return true;
+
+        // Active key exists as PIN-protected blob (will prompt on first use)
+        if (this.hasActiveKeyPinProtected()) return true;
+
+        if (user.loginMethod === 'keychain' && this.isKeychainInstalled()) return true;
+
         return false;
     }
 
     /**
-     * Log out the current user
+     * Log out the current user.
+     * Removes the current account's keys/tokens, then automatically switches to
+     * another stored account if one exists — otherwise fully clears auth state.
      */
     logout() {
         try {
             const user = this.getCurrentUser();
             if (user) {
-                // If SteemLogin, clear token
+                // Clear keys/tokens for this account
                 if (user.loginMethod === 'steemlogin') {
                     sessionStorage.removeItem('steemLoginToken');
                     localStorage.removeItem(`${user.username}_steemlogin_token`);
                 } else if (user.loginMethod === 'privateKey') {
-                    // Clear stored private keys
                     localStorage.removeItem(`${user.username}_posting_key`);
                     localStorage.removeItem(`${user.username}_posting_key_expiry`);
                     localStorage.removeItem(`${user.username}_active_key`);
                     localStorage.removeItem(`${user.username}_active_key_expiry`);
                 } else if (user.loginMethod === 'keychain') {
-                    // Per keychain, rimuoviamo solo il flag di autenticazione
                     localStorage.removeItem(`${user.username}_keychain_auth`);
                 }
             }
-            
-            // Clear general auth state
+
+            // Wipe in-memory key cache and current user
+            this._keyCache = {};
             this.currentUser = null;
             localStorage.removeItem('currentUser');
-            
-            // Emit event to update UI
-            eventEmitter.emit('auth:changed', { user: null });
-            
-            // Notify user
-            eventEmitter.emit('notification', {
-                type: 'info',
-                message: 'You have been logged out'
-            });
+
+            // Try to switch to another stored account
+            const remaining = this.getStoredAccounts();
+            const next = remaining.find(a => a.username !== user?.username);
+
+            if (next) {
+                // Reconstruct a minimal user object from stored data
+                const loginMethod = localStorage.getItem(`${next.username}_keychain_auth`) !== null
+                    ? 'keychain'
+                    : localStorage.getItem(`${next.username}_steemlogin_token`) !== null
+                        ? 'steemlogin'
+                        : 'privateKey';
+
+                const nextUser = {
+                    username: next.username,
+                    avatar: `https://steemitimages.com/u/${next.username}/avatar`,
+                    isAuthenticated: true,
+                    profile: {},
+                    timestamp: Date.now(),
+                    loginMethod
+                };
+
+                this.currentUser = nextUser;
+                localStorage.setItem('currentUser', JSON.stringify(nextUser));
+
+                // Decrypt and cache the new account's posting key
+                this.initKeysAsync().catch(err => console.warn('Key init after switch failed:', err));
+
+                eventEmitter.emit('auth:changed', { user: nextUser });
+                eventEmitter.emit('notification', {
+                    type: 'info',
+                    message: `Switched to @${nextUser.username}`
+                });
+            } else {
+                // No other accounts — fully logged out
+                eventEmitter.emit('auth:changed', { user: null });
+                eventEmitter.emit('notification', {
+                    type: 'info',
+                    message: 'You have been logged out'
+                });
+            }
         } catch (error) {
             console.error('Error during logout:', error);
         }
@@ -418,39 +563,9 @@ class AuthService {
 
     /**
      * Get the posting key for the current user
-     * Note: For security, this should be improved in production
-     * Ideally, keys should not be stored in localStorage
      */
     getPostingKey() {
-        const user = this.getCurrentUser();
-        
-        if (!user) {
-            return null;
-        }
-        
-        // Per utenti Keychain
-        if (user.loginMethod === 'keychain') {
-            return null; // Keychain gestirà l'operazione 
-        }
-        
-        // Per login con chiave diretta
-        try {
-            const keyExpiry = localStorage.getItem(`${user.username}_posting_key_expiry`);
-            
-            // Verifica scadenza
-            if (keyExpiry && parseInt(keyExpiry) < Date.now()) {
-                // Chiave scaduta, rimuovila
-                localStorage.removeItem(`${user.username}_posting_key`);
-                localStorage.removeItem(`${user.username}_posting_key_expiry`);
-                return null;
-            }
-            
-            const key = localStorage.getItem(`${user.username}_posting_key`);
-            return key;
-        } catch (error) {
-            console.error('getPostingKey: Error retrieving posting key:', error);
-            return null;
-        }
+        return this.getKey('posting');
     }
 
     /**

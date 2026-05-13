@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>cur8.fun â€“ Create, Earn, Connect | The Premium Blockchain Social Platform</title>
+  <script>
+    // Redirect logged-in users straight to the app
+    try {
+      if (localStorage.getItem('currentUser')) {
+        window.location.replace('/home');
+      }
+    } catch (e) {}
+  </script>
+  <title>cur8.fun – Create, Earn, Connect | The Premium Blockchain Social Platform</title>
   <meta name="description" content="cur8.fun: the premium blockchain-based social platform that celebrates and rewards authentic creativity. Create content, earn real tokens, build genuine connections.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2049,6 +2057,26 @@ input:focus, textarea:focus {
     padding: 1.8rem;
   }
 }
+  /* Page transition overlay */
+  #page-transition {
+    position: fixed;
+    inset: 0;
+    background: #0a0a0f;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #page-transition.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+  #page-transition .pt-logo {
+    width: 64px;
+    height: 64px;
+  }
   </style>
   
   <!-- Google Analytics - Will be loaded dynamically by CookieConsentManager -->
@@ -2085,10 +2113,9 @@ input:focus, textarea:focus {
         
         <div class="nav-menu" id="nav-menu">
           <ul class="nav-links">
-            <li><a href="https://www.cur8.fun/home" class="nav-link" target="_blank">Home</a></li>
+            <li><a href="/home" class="nav-link">Home</a></li>
             <li><a href="/communities" class="nav-link">Communities</a></li>
             <li><a href="/wallet" class="nav-link">Wallet</a></li>
-            <li><a href="/faq" class="nav-link">FAQ</a></li>
             <li><a href="https://games.cur8.fun" class="nav-link nav-link-games" target="_blank"><i class="fa-solid fa-gamepad"></i> Games</a></li>
           </ul>
           
@@ -2097,7 +2124,7 @@ input:focus, textarea:focus {
         
         <div class="nav-actions">
           <a href="/login" class="btn btn-outline btn-sm">Log In</a>
-          <a href="/register" class="btn btn-primary btn-sm">Get Started</a>
+          <a href="https://join.cur8.fun" class="btn btn-primary btn-sm">Get Started</a>
           <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
             <span></span>
             <span></span>
@@ -2139,12 +2166,12 @@ input:focus, textarea:focus {
           
           <div class="hero-metrics" data-aos="fade-up" data-aos-delay="500">
             <div class="metric">
-              <div class="metric-value"><span class="counter" data-value="70">0</span>+</div>
+              <div class="metric-value"><span id="live-delegators-hero">–</span></div>
               <div class="metric-label">Active Delegators</div>
             </div>
             <div class="metric-divider"></div>
             <div class="metric">
-              <div class="metric-value"><span class="counter" data-value="700">0</span>K+</div>
+              <div class="metric-value"><span id="live-sp-hero">–</span>K</div>
               <div class="metric-label">Steem Power</div>
             </div>
             <div class="metric-divider"></div>
@@ -2478,7 +2505,7 @@ input:focus, textarea:focus {
           
           <div class="signup-cta" data-aos="fade-up">
             <h3>Ready to join the creative revolution?</h3>
-            <a href="/register" class="btn btn-primary btn-lg">Create Your Account</a>
+            <a href="https://join.cur8.fun" class="btn btn-primary btn-lg">Create Your Account</a>
             <span class="no-credit-card">No credit card required</span>
           </div>
         </div>
@@ -2490,23 +2517,23 @@ input:focus, textarea:focus {
       <div class="container">
         <div class="stats-grid">
           <div class="stat-card" data-aos="fade-up" data-aos-delay="100">
-            <div class="stat-value"><span class="counter" data-value="43">0</span>K+</div>
-            <div class="stat-label">Upvotes Distributed</div>
+            <div class="stat-value">$<span id="live-vote-value">–</span></div>
+            <div class="stat-label">100% Vote Value</div>
           </div>
           
           <div class="stat-card" data-aos="fade-up" data-aos-delay="200">
-            <div class="stat-value">$<span class="counter" data-value="10">0</span>K+</div>
+            <div class="stat-value">$<span id="live-rewards">–</span></div>
             <div class="stat-label">Rewards Distributed</div>
           </div>
           
           <div class="stat-card" data-aos="fade-up" data-aos-delay="300">
-            <div class="stat-value"><span class="counter" data-value="70">0</span>+</div>
+            <div class="stat-value"><span id="live-delegators-stats">–</span></div>
             <div class="stat-label">Active Delegators</div>
           </div>
           
           <div class="stat-card" data-aos="fade-up" data-aos-delay="400">
-            <div class="stat-value"><span class="counter" data-value="170">0</span>+</div>
-            <div class="stat-label">Monthly Content Published</div>
+            <div class="stat-value"><span id="live-posts-week">–</span></div>
+            <div class="stat-label">Posts This Week</div>
           </div>
         </div>
       </div>
@@ -2732,7 +2759,7 @@ input:focus, textarea:focus {
             Join thousands of creators who have discovered a more rewarding way to share their passion online
           </p>
           <div class="cta-actions">
-            <a href="/register" class="btn btn-primary btn-xl">
+            <a href="https://join.cur8.fun" class="btn btn-primary btn-xl">
               Create Your Free Account
               <i class="fa-solid fa-arrow-right"></i>
             </a>
@@ -3160,6 +3187,80 @@ input:focus, textarea:focus {
     });
   </script>
   
+  <!-- Live stats from cur8 API -->
+  <script>
+    (async function () {
+      function countUp(el, target, decimals) {
+        const duration = 1500;
+        const startTime = performance.now();
+        function update(now) {
+          const progress = Math.min((now - startTime) / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const val = target * eased;
+          el.textContent = decimals ? val.toFixed(decimals) : Math.floor(val).toLocaleString();
+          if (progress < 1) requestAnimationFrame(update);
+          else el.textContent = decimals ? target.toFixed(decimals) : target.toLocaleString();
+        }
+        requestAnimationFrame(update);
+      }
+
+      try {
+        const [statsRes, priceRes, postsRes] = await Promise.all([
+          fetch('https://imridd.eu.pythonanywhere.com/api/steem'),
+          fetch('https://api.coingecko.com/api/v3/simple/price?ids=steem&vs_currencies=usd'),
+          fetch('https://api.steemit.com', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'condenser_api.get_discussions_by_created', params: [{ tag: 'cur8', limit: 100 }], id: 1 })
+          })
+        ]);
+
+        if (!statsRes.ok) throw new Error('API error');
+        const data = await statsRes.json();
+        const stats = Array.isArray(data) ? data[0] : data;
+        if (!stats) throw new Error('No data');
+
+        let steemUsd = 0;
+        if (priceRes.ok) {
+          const priceData = await priceRes.json();
+          steemUsd = priceData?.steem?.usd || 0;
+        }
+
+        // Weekly posts count
+        if (postsRes.ok) {
+          const postsData = await postsRes.json();
+          const posts = postsData?.result || [];
+          const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          const weeklyCount = posts.filter(p => new Date(p.created).getTime() >= cutoff).length;
+          const postsEl = document.getElementById('live-posts-week');
+          if (postsEl && weeklyCount > 0) countUp(postsEl, weeklyCount);
+        }
+
+        const delegCount = stats.deleg_count;
+        const spK = Math.round(stats.current_sp / 1000);
+        const voteValue = stats.vote_value;
+        const rewardsUsd = steemUsd > 0 ? Math.round(stats.total_rewards * steemUsd) : null;
+
+        ['live-delegators-hero', 'live-delegators-stats'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) countUp(el, delegCount);
+        });
+
+        const spEl = document.getElementById('live-sp-hero');
+        if (spEl) countUp(spEl, spK);
+
+        const voteEl = document.getElementById('live-vote-value');
+        if (voteEl) countUp(voteEl, voteValue, 2);
+
+        const rewardsEl = document.getElementById('live-rewards');
+        if (rewardsEl && rewardsUsd !== null) countUp(rewardsEl, rewardsUsd);
+
+      } catch (e) {
+        // API unavailable – leave the – placeholder
+      }
+    })();
+  </script>
+
   <!-- Cookie Consent Manager - Centralized initialization -->
   <script type="module">
     // Import and initialize the centralized cookie consent manager
@@ -3167,8 +3268,37 @@ input:focus, textarea:focus {
       console.log('ðŸª Cookie Consent Manager loaded for landing page');
     }).catch(error => {
       console.error('Failed to load Cookie Consent Manager:', error);
-    });
+    });  
+  </script>
+
+  <!-- Page transition overlay -->
+  <div id="page-transition">
+    <img src="/assets/img/logo_tra.png" alt="" class="pt-logo">
+  </div>
+
+  <script>
+    (function () {
+      const overlay = document.getElementById('page-transition');
+      document.addEventListener('click', function (e) {
+        const a = e.target.closest('a[href]');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        const isExternal = a.target === '_blank' || (a.hostname && a.hostname !== location.hostname);
+        const isSpaRoute = href && href.startsWith('/') && !href.startsWith('//');
+        if (!isExternal && isSpaRoute) {
+          e.preventDefault();
+          overlay.classList.add('active');
+          // Double rAF ensures the overlay is painted before navigation freezes the page
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              window.location.href = href;
+            });
+          });
+        }
+      });
+    })();
   </script>
 </body>
 </html>
+
 

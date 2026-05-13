@@ -63,4 +63,77 @@ export default class Component {
     });
     this.emitterHandlers = [];
   }
+
+  /**
+   * Gate active-key operations: if no active key is in memory, transform all
+   * submit buttons inside this.element into "Unlock wallet" buttons.
+   * After the user enters their active key the buttons revert to normal.
+   */
+  async _applyActiveKeyGate() {
+    if (!this.element) return;
+
+    // Dynamic import avoids a circular dependency (ActiveKeyInputComponent extends Component)
+    const { default: authService } = await import('../services/AuthService.js');
+
+    const user = authService.getCurrentUser();
+    // Keychain and SteemLogin never need a manual key entry
+    if (!user || user.loginMethod === 'keychain' || user.loginMethod === 'steemlogin') return;
+    if (authService.getActiveKey()) return; // already unlocked in this session
+    if (authService.hasActiveKeyPinProtected()) return; // PIN-protected in localStorage — _broadcastOperation will unlock on demand
+
+    const submitBtns = this.element.querySelectorAll('button[type="submit"]');
+    if (!submitBtns.length) return;
+
+    submitBtns.forEach(btn => {
+      // Save original state
+      btn.dataset.walletLocked = '1';
+      btn.dataset.originalHtml = btn.innerHTML;
+      btn.dataset.originalClass = btn.className;
+      btn.dataset.originalDisabled = btn.disabled ? '1' : '';
+
+      // Unlock appearance
+      btn.innerHTML = '<span class="material-icons" style="font-size:16px;vertical-align:text-bottom;margin-right:6px">lock_open</span>Unlock wallet';
+      btn.className = 'btn btn-secondary';
+      btn.disabled = false;
+      btn.type = 'button'; // prevent form submit
+
+      const handler = async () => {
+        const { default: activeKeyInput } = await import('./auth/ActiveKeyInputComponent.js');
+        const key = await activeKeyInput.promptForActiveKey('Enter Active Key');
+        if (!key) return;
+
+        // Ask the user to set a PIN to protect the active key
+        const { default: pinInput } = await import('./auth/PinInputComponent.js');
+        const pin = await pinInput.promptSetPin('Set a PIN for your Active Key');
+        if (!pin) return; // user cancelled PIN setup
+
+        const { default: authService } = await import('../services/AuthService.js');
+        const user = authService.getCurrentUser();
+        if (!user) return;
+        await authService.storeActiveKeyWithPin(user.username, key, pin);
+
+        // Restore ALL locked wallet buttons across every tab in the page
+        document.querySelectorAll('button[data-wallet-locked]').forEach(b => {
+          b.innerHTML = b.dataset.originalHtml;
+          b.className = b.dataset.originalClass;
+          b.type = 'submit';
+          b.disabled = b.dataset.originalDisabled === '1';
+          if (b._walletUnlockHandler) {
+            b.removeEventListener('click', b._walletUnlockHandler);
+            delete b._walletUnlockHandler;
+          }
+          delete b.dataset.walletLocked;
+          delete b.dataset.originalHtml;
+          delete b.dataset.originalClass;
+          delete b.dataset.originalDisabled;
+        });
+
+        // Re-run submit-state validator for this component
+        this._updateSubmitState?.();
+      };
+
+      btn._walletUnlockHandler = handler;
+      btn.addEventListener('click', handler);
+    });
+  }
 }

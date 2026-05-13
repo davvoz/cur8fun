@@ -84,6 +84,9 @@ function initApp() {
   const app = document.getElementById('app');
   if (!app) return;
 
+  // Decrypt and cache any stored private keys (non-blocking)
+  authService.initKeysAsync().catch(err => console.warn('Key init failed:', err));
+
   // Crea istanza del NavigationManager
   const navManager = new NavigationManager();//è assurdo , se non lo mettiamo non si vede il menù mobile
 
@@ -257,7 +260,7 @@ function renderUnauthenticatedNav(container) {
 
   // Register button
   const registerBtn = document.createElement('a');
-  registerBtn.href = '/register';
+  registerBtn.href = 'https://join.cur8.fun';
   registerBtn.className = 'register-btn';
   registerBtn.textContent = 'Create Account';
 
@@ -489,7 +492,7 @@ function handleLogout(e) {
     type: 'info',
     message: 'You have been logged out'
   });
-  router.navigate('/');
+  router.navigate('/home');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

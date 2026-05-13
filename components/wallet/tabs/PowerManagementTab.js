@@ -2,6 +2,7 @@ import Component from '../../Component.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
+import DialogUtility from '../../DialogUtility.js';
 
 export default class PowerManagementTab extends Component {
   constructor(parentElement, options = {}) {
@@ -10,6 +11,7 @@ export default class PowerManagementTab extends Component {
     this.handlePowerDownSubmit = this.handlePowerDownSubmit.bind(this);
     this.handleStopPowerDown = this.handleStopPowerDown.bind(this);
     this.currentUser = authService.getCurrentUser()?.username;
+    this.viewedUsername = options.username || this.currentUser;
     this.powerDownInfo = null;
   }
   
@@ -27,13 +29,41 @@ export default class PowerManagementTab extends Component {
     this.element.appendChild(powerDownCard);
     
     this.parentElement.appendChild(this.element);
+
+    // Async: set max on both amount inputs
+    this._initAmountLimits();
     
     // Load power down status
     this.loadPowerDownStatus();
+
+    // Gate active-key operations if only posting key is available
+    this._applyActiveKeyGate();
     
     return this.element;
   }
   
+  async _initAmountLimits() {
+    try {
+      const balances = await walletService.fetchBalances();
+      // Power Up: max = liquid STEEM
+      const puInput = this.element?.querySelector('#power-up-amount');
+      const puHint = this.element?.querySelector('#power-up-amount-hint');
+      const steemMax = parseFloat(balances.steem || 0);
+      if (puInput && !isNaN(steemMax)) {
+        puInput.max = steemMax.toFixed(3);
+        if (puHint) { puHint.textContent = `Available: ${steemMax.toFixed(3)} STEEM`; puHint.className = 'amount-hint'; }
+      }
+      // Power Down: max = own SP
+      const pdInput = this.element?.querySelector('#power-down-amount');
+      const pdHint = this.element?.querySelector('#power-down-amount-hint');
+      const spMax = parseFloat(balances.steemPowerDetails?.own ?? balances.steemPower ?? 0);
+      if (pdInput && !isNaN(spMax)) {
+        pdInput.max = spMax.toFixed(3);
+        if (pdHint) { pdHint.textContent = `Available: ${spMax.toFixed(3)} SP`; pdHint.className = 'amount-hint'; }
+      }
+    } catch { /* non-blocking */ }
+  }
+
   createPowerUpCard() {
     const formCard = document.createElement('div');
     formCard.className = 'form-card';
@@ -58,10 +88,40 @@ export default class PowerManagementTab extends Component {
     const amountGroup = document.createElement('div');
     amountGroup.className = 'form-group';
     
+    const amountLabelRowPU = document.createElement('div');
+    amountLabelRowPU.className = 'label-row';
     const amountLabel = document.createElement('label');
     amountLabel.setAttribute('for', 'power-up-amount');
     amountLabel.textContent = 'Amount to Power Up';
-    amountGroup.appendChild(amountLabel);
+    amountLabelRowPU.appendChild(amountLabel);
+    const maxSteemBtn = document.createElement('button');
+    maxSteemBtn.type = 'button';
+    maxSteemBtn.className = 'max-btn';
+    maxSteemBtn.textContent = 'Max';
+    this.registerEventHandler(maxSteemBtn, 'click', () => {
+      // Use cached balances instantly
+      const cached = walletService.balances;
+      if (cached) {
+        const max = parseFloat(cached.steem);
+        const input = this.element.querySelector('#power-up-amount');
+        const hint = this.element.querySelector('#power-up-amount-hint');
+        input.value = max.toFixed(3);
+        input.max = max.toFixed(3);
+        if (hint) { hint.textContent = `Available: ${max.toFixed(3)} STEEM`; hint.className = 'amount-hint'; }
+        const btn = this.element?.querySelector('#power-up-form button[type="submit"]');
+        if (btn) btn.disabled = false;
+      }
+      // Refresh in background
+      walletService.fetchBalances().then(b => {
+        const max = parseFloat(b.steem);
+        const input = this.element?.querySelector('#power-up-amount');
+        const hint = this.element?.querySelector('#power-up-amount-hint');
+        if (input) { input.max = max.toFixed(3); }
+        if (hint) { hint.textContent = `Available: ${max.toFixed(3)} STEEM`; hint.className = 'amount-hint'; }
+      }).catch(() => {});
+    });
+    amountLabelRowPU.appendChild(maxSteemBtn);
+    amountGroup.appendChild(amountLabelRowPU);
     
     const inputGroup = document.createElement('div');
     inputGroup.className = 'input-group';
@@ -80,7 +140,35 @@ export default class PowerManagementTab extends Component {
     currencyLabel.textContent = 'STEEM';
     inputGroup.appendChild(currencyLabel);
     
+    // Live validation + 3 decimal cap (locale-safe: handles both . and ,)
+    this.registerEventHandler(amountInput, 'input', (e) => {
+      const num = e.target.valueAsNumber;
+      if (!isNaN(num)) {
+        const truncated = Math.round(num * 1000) / 1000;
+        if (num !== truncated) e.target.valueAsNumber = truncated;
+      }
+      const hint = amountGroup.querySelector('#power-up-amount-hint');
+      const max = parseFloat(amountInput.max);
+      const val = amountInput.valueAsNumber;
+      const btn = this.element?.querySelector('#power-up-form button[type="submit"]');
+      if (!isNaN(val) && !isNaN(max) && val > max) {
+        hint.textContent = `Available: ${max.toFixed(3)} STEEM`;
+        hint.className = 'amount-hint invalid';
+        if (btn) btn.disabled = true;
+      } else {
+        hint.textContent = !isNaN(max) ? `Available: ${max.toFixed(3)} STEEM` : '';
+        hint.className = 'amount-hint';
+        if (btn) btn.disabled = false;
+      }
+    });
+
     amountGroup.appendChild(inputGroup);
+
+    const puHint = document.createElement('small');
+    puHint.id = 'power-up-amount-hint';
+    puHint.className = 'amount-hint';
+    amountGroup.appendChild(puHint);
+
     form.appendChild(amountGroup);
     
     // Message container
@@ -145,10 +233,42 @@ export default class PowerManagementTab extends Component {
     const amountGroup = document.createElement('div');
     amountGroup.className = 'form-group';
     
-    const amountLabel = document.createElement('label');
-    amountLabel.setAttribute('for', 'power-down-amount');
-    amountLabel.textContent = 'Amount to Power Down';
-    amountGroup.appendChild(amountLabel);
+    const amountLabelRowPD = document.createElement('div');
+    amountLabelRowPD.className = 'label-row';
+    const amountLabel2 = document.createElement('label');
+    amountLabel2.setAttribute('for', 'power-down-amount');
+    amountLabel2.textContent = 'Amount to Power Down';
+    amountLabelRowPD.appendChild(amountLabel2);
+    const maxSpBtnPD = document.createElement('button');
+    maxSpBtnPD.type = 'button';
+    maxSpBtnPD.className = 'max-btn';
+    maxSpBtnPD.textContent = 'Max';
+    this.registerEventHandler(maxSpBtnPD, 'click', () => {
+      // Use cached balances instantly
+      const cached = walletService.balances;
+      if (cached) {
+        const rawMax = cached.steemPowerDetails?.own ?? cached.steemPower ?? '0.000';
+        const max = parseFloat(rawMax);
+        const input = this.element.querySelector('#power-down-amount');
+        const hint = this.element.querySelector('#power-down-amount-hint');
+        input.value = max.toFixed(3);
+        input.max = max.toFixed(3);
+        if (hint) { hint.textContent = `Available: ${max.toFixed(3)} SP`; hint.className = 'amount-hint'; }
+        const btn = this.element?.querySelector('#power-down-form button[type="submit"]');
+        if (btn) btn.disabled = false;
+      }
+      // Refresh in background
+      walletService.fetchBalances().then(b => {
+        const rawMax = b.steemPowerDetails?.own ?? b.steemPower ?? '0.000';
+        const max = parseFloat(rawMax);
+        const input = this.element?.querySelector('#power-down-amount');
+        const hint = this.element?.querySelector('#power-down-amount-hint');
+        if (input) { input.max = max.toFixed(3); }
+        if (hint) { hint.textContent = `Available: ${max.toFixed(3)} SP`; hint.className = 'amount-hint'; }
+      }).catch(() => {});
+    });
+    amountLabelRowPD.appendChild(maxSpBtnPD);
+    amountGroup.appendChild(amountLabelRowPD);
     
     const inputGroup = document.createElement('div');
     inputGroup.className = 'input-group';
@@ -162,15 +282,41 @@ export default class PowerManagementTab extends Component {
     amountInput.required = true;
     inputGroup.appendChild(amountInput);
     
-    const currencyLabel = document.createElement('div');
-    currencyLabel.className = 'input-suffix';
-    currencyLabel.textContent = 'SP';
-    inputGroup.appendChild(currencyLabel);
-    
+    const currencyLabel2 = document.createElement('div');
+    currencyLabel2.className = 'input-suffix';
+    currencyLabel2.textContent = 'SP';
+    inputGroup.appendChild(currencyLabel2);
+
+    // Live validation + 3 decimal cap (locale-safe: handles both . and ,)
+    this.registerEventHandler(amountInput, 'input', (e) => {
+      const num = e.target.valueAsNumber;
+      if (!isNaN(num)) {
+        const truncated = Math.round(num * 1000) / 1000;
+        if (num !== truncated) e.target.valueAsNumber = truncated;
+      }
+      const hint = amountGroup.querySelector('#power-down-amount-hint');
+      const max = parseFloat(amountInput.max);
+      const val = amountInput.valueAsNumber;
+      const btn = this.element?.querySelector('#power-down-form button[type="submit"]');
+      if (!isNaN(val) && !isNaN(max) && val > max) {
+        hint.textContent = `Available: ${max.toFixed(3)} SP`;
+        hint.className = 'amount-hint invalid';
+        if (btn) btn.disabled = true;
+      } else {
+        hint.textContent = !isNaN(max) ? `Available: ${max.toFixed(3)} SP` : '';
+        hint.className = 'amount-hint';
+        if (btn) btn.disabled = false;
+      }
+    });
+
     amountGroup.appendChild(inputGroup);
+
+    const pdHint = document.createElement('small');
+    pdHint.id = 'power-down-amount-hint';
+    pdHint.className = 'amount-hint';
+    amountGroup.appendChild(pdHint);
+
     form.appendChild(amountGroup);
-    
-    // Info text with icon
     const infoText = document.createElement('p');
     infoText.className = 'info-text';
     
@@ -221,7 +367,7 @@ export default class PowerManagementTab extends Component {
       }
       
       // Get power down information from service
-      this.powerDownInfo = await walletService.getPowerDownInfo();
+      this.powerDownInfo = await walletService.getPowerDownInfo(this.viewedUsername);
       
       if (this.powerDownInfo.isPoweringDown) {
         this.createActivePowerDownUI(statusContainer);
@@ -267,8 +413,7 @@ export default class PowerManagementTab extends Component {
     // Create status details
     const statusItems = [
       { label: 'Weekly rate', value: `${this.powerDownInfo.weeklyRate} SP` },
-      { label: 'Next payment', value: new Date(this.powerDownInfo.nextPowerDown).toLocaleDateString() },
-      { label: 'Remaining payments', value: this.powerDownInfo.remainingWeeks }
+      { label: 'Next payment', value: new Date(this.powerDownInfo.nextPowerDown).toLocaleDateString() }
     ];
     
     statusItems.forEach(item => {
@@ -327,6 +472,12 @@ export default class PowerManagementTab extends Component {
     const stopButton = document.createElement('button');
     stopButton.id = 'stop-power-down';
     stopButton.className = 'btn btn-danger with-icon';
+
+    const hasActive = authService.hasActiveKeyAccess();
+    if (!hasActive) {
+      stopButton.disabled = true;
+      stopButton.title = 'Unlock wallet to stop power down';
+    }
     
     const stopIcon = document.createElement('span');
     stopIcon.className = 'material-icons';
@@ -393,12 +544,18 @@ export default class PowerManagementTab extends Component {
       return;
     }
     
-    // Check if Keychain is installed
-    if (typeof window.steem_keychain === 'undefined') {
-      this.showMessage('Steem Keychain extension is not installed. Please install it to use this feature.', false, messageEl);
+    // Pre-flight: STEEM balance check (fetch fresh data)
+    this.showMessage('Checking balance…', null, messageEl);
+    const freshBalancesPU = await walletService.fetchBalances();
+    const steemBalance = parseFloat(freshBalancesPU.steem || 0);
+    if (!isNaN(steemBalance) && parseFloat(amount) > steemBalance) {
+      this.showMessage(
+        `Insufficient STEEM balance. Available: ${steemBalance.toFixed(3)} STEEM`,
+        false, messageEl
+      );
       return;
     }
-    
+
     try {
       const submitBtn = e.target.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -419,9 +576,9 @@ export default class PowerManagementTab extends Component {
       if (response.success) {
         this.showMessage('Power up successful!', true, messageEl);
         amountInput.value = '';
-        
-        // Update balances
-        walletService.updateBalances();
+
+        // Refresh balances and amount limits immediately
+        this._initAmountLimits();
       } else {
         this.showMessage(`Power up failed: ${response.message || 'Unknown error'}`, false, messageEl);
       }
@@ -475,12 +632,20 @@ export default class PowerManagementTab extends Component {
       return;
     }
     
-    // Check if Keychain is installed
-    if (typeof window.steem_keychain === 'undefined') {
-      this.showMessage('Steem Keychain extension is not installed. Please install it to use this feature.', false, messageEl);
+    // Pre-flight: own SP balance check (fetch fresh data)
+    this.showMessage('Checking balance…', null, messageEl);
+    const freshBalancesPD = await walletService.fetchBalances();
+    const ownSP = parseFloat(
+      freshBalancesPD.steemPowerDetails?.own ?? freshBalancesPD.steemPower ?? 0
+    );
+    if (!isNaN(ownSP) && parseFloat(amount) > ownSP) {
+      this.showMessage(
+        `Insufficient STEEM POWER. Available to power down: ${ownSP.toFixed(3)} SP`,
+        false, messageEl
+      );
       return;
     }
-    
+
     try {
       const submitBtn = e.target.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -501,9 +666,9 @@ export default class PowerManagementTab extends Component {
       if (response.success) {
         this.showMessage('Power down initiated successfully!', true, messageEl);
         amountInput.value = '';
-        
-        // Update balances and power down status
-        walletService.updateBalances();
+
+        // Refresh balances, amount limits and power-down status immediately
+        this._initAmountLimits();
         this.loadPowerDownStatus();
       } else {
         this.showMessage(`Power down failed: ${response.message || 'Unknown error'}`, false, messageEl);
@@ -534,9 +699,16 @@ export default class PowerManagementTab extends Component {
   }
   
   async handleStopPowerDown(e) {
-    if (!confirm('Are you sure you want to stop your current power down?')) {
-      return;
-    }
+    const confirmed = await DialogUtility.showConfirmationDialog({
+      title: 'Stop Power Down',
+      message: 'Stop the current power down?',
+      confirmText: 'Stop',
+      cancelText: 'Cancel',
+      icon: 'cancel',
+      type: 'warning',
+      compact: true
+    });
+    if (!confirmed) return;
     
     e.target.disabled = true;
     
@@ -558,9 +730,9 @@ export default class PowerManagementTab extends Component {
         // Show success message
         const messageEl = this.element.querySelector('#power-down-message');
         this.showMessage('Power down stopped successfully!', true, messageEl);
-        
-        // Update balances and power down status
-        walletService.updateBalances();
+
+        // Refresh balances, amount limits and power-down status immediately
+        this._initAmountLimits();
         this.loadPowerDownStatus();
       } else {
         const messageEl = this.element.querySelector('#power-down-message');
@@ -588,8 +760,10 @@ export default class PowerManagementTab extends Component {
   
   showMessage(message, isSuccess, element) {
     element.textContent = message;
-    element.classList.remove('hidden', 'success', 'error');
-    element.classList.add(isSuccess ? 'success' : 'error');
+    element.classList.remove('hidden', 'success', 'error', 'info');
+    if (isSuccess === true) element.classList.add('success');
+    else if (isSuccess === false) element.classList.add('error');
+    else element.classList.add('info');
   }
   
   destroy() {

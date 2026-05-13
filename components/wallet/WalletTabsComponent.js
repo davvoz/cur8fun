@@ -3,7 +3,6 @@ import TransferTab from './tabs/TransferTab.js';
 import PowerManagementTab from './tabs/PowerManagementTab.js';
 import DelegationTab from './tabs/DelegationTab.js';
 import TransactionHistoryTab from './tabs/TransactionHistoryTab.js';
-import CurationTab from './tabs/CurationTab.js';
 
 export default class WalletTabsComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -27,8 +26,7 @@ export default class WalletTabsComponent extends Component {
       { id: 'history', label: 'History', isActive: true },
       { id: 'transfer', label: 'Transfer', isActive: false },
       { id: 'power', label: 'Power Up/Down', isActive: false },
-      { id: 'delegate', label: 'Delegate', isActive: false },
-      { id: 'curation', label: 'Curation', isActive: false }
+      { id: 'delegate', label: 'Delegate', isActive: false }
     ];
     
     // Create all tab buttons
@@ -99,19 +97,16 @@ export default class WalletTabsComponent extends Component {
     
     switch (tabName) {
       case 'transfer':
-        tabComponent = new TransferTab(this.tabContent);
+        tabComponent = new TransferTab(this.tabContent, { username: this.options.username });
         break;
       case 'power':
-        tabComponent = new PowerManagementTab(this.tabContent);
+        tabComponent = new PowerManagementTab(this.tabContent, { username: this.options.username });
         break;
       case 'delegate':
-        tabComponent = new DelegationTab(this.tabContent);
+        tabComponent = new DelegationTab(this.tabContent, { username: this.options.username });
         break;
       case 'history':
-        tabComponent = new TransactionHistoryTab(this.tabContent);
-        break;
-      case 'curation':
-        tabComponent = new CurationTab(this.tabContent);
+        tabComponent = new TransactionHistoryTab(this.tabContent, { username: this.options.username });
         break;
     }
     

@@ -240,14 +240,26 @@ class ActiveKeyWarningComponent extends Component {
         });
         return;
       }
-      
+
+      // Ask user to set a PIN to protect the active key
+      const { default: pinInput } = await import('../auth/PinInputComponent.js');
+      const pin = await pinInput.promptSetPin('Protect Your Active Key with a PIN');
+
+      if (!pin) {
+        // User cancelled PIN setup — abort
+        return;
+      }
+
       // Tenta di autenticarsi con la active key
       try {
         // Esegui il logout per sicurezza
         authService.logout();
         
-        // Esegui il login con l'active key
+        // Esegui il login con l'active key (session upgrade)
         await authService.loginWithActiveKey(username, activeKey);
+
+        // Store the active key encrypted with the user's PIN
+        await authService.storeActiveKeyWithPin(username, activeKey, pin);
         
         // Se arriviamo qui, l'autenticazione è riuscita
         eventEmitter.emit('notification', {

@@ -184,6 +184,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  margin-top: 0;
   margin-bottom: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background-color: var(--background-lighter);
@@ -215,21 +216,118 @@
   margin-top: 2px;
 }
 
+/* SP card: delegation badges on the right */
+.sp-card {
+  align-items: stretch;
+}
+
+.sp-card .balance-card-content {
+  flex: 1;
+}
+
 /* Updated styles for delegation details */
 .delegation-details {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
+  gap: 6px;
+  justify-content: center;
+  align-items: flex-end;
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--border-color, rgba(0,0,0,0.1));
+  margin-left: var(--space-sm);
 }
 
-.delegation-details span {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+.delegation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface-2, var(--background-lighter));
+  border: 1px solid var(--border-color, rgba(0,0,0,0.12));
+  border-radius: var(--radius-sm, 4px);
+  padding: 3px 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
 }
+.delegation-badge .material-icons { font-size: 13px; }
+.delegation-badge:hover {
+  background: var(--background-light, #e8eaf6);
+  border-color: var(--primary-color);
+}
+.delegated-out { color: var(--error-color, #c62828); border-color: rgba(198,40,40,0.25); }
+.delegated-out:hover { background: rgba(198,40,40,0.07); border-color: var(--error-color, #c62828); }
+.delegated-in { color: var(--success-dark, #2e7d32); border-color: rgba(46,125,50,0.25); }
+.delegated-in:hover { background: rgba(46,125,50,0.07); border-color: var(--success-dark, #2e7d32); }
 
-.delegation-details span.hidden {
-  display: none;
+/* Delegation detail modal */
+.delegation-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.delegation-modal-card {
+  background: var(--background-lighter);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow, 0 8px 32px rgba(0,0,0,0.18));
+  border: 1px solid var(--border-color);
+  min-width: 300px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.delegation-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-light, var(--background-lighter));
+}
+.delegation-modal-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.delegation-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 2px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.delegation-modal-close:hover {
+  background: var(--background-light);
+  color: var(--text-primary);
+}
+.delegation-modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+.delegation-modal-info {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+}
+.delegation-modal-note, .delegation-modal-empty {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* Responsive adjustments */

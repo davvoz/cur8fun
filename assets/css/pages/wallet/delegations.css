@@ -1,4 +1,21 @@
 /* Delegation table styles */
+.delegation-lists-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .delegation-lists-row {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .delegation-lists-row > .form-card {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .delegations-table {
   width: 100%;
   border-collapse: collapse;

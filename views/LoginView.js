@@ -12,6 +12,7 @@ class LoginView {
   constructor(params = {}) {
     this.params = params;
     this.element = null;
+    this.activeTab = null;
     this.boundHandlers = {
       handleSubmit: null,
       handleKeychainLogin: null,
@@ -19,7 +20,6 @@ class LoginView {
       handleAuthChanged: null
     };
 
-    // Rimuove il parametro useActiveKey poiché non ci serve più
     this.useKeychain = params.keychain === true;
   }
 
@@ -35,12 +35,10 @@ class LoginView {
 
     const loginContainer = document.createElement('div');
     loginContainer.className = 'login-container';
-    // Aggiungiamo stile per rendere più attraente il container
     loginContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)';
     loginContainer.style.borderRadius = '12px';
     loginContainer.style.overflow = 'hidden';
 
-    // Aggiungiamo un bordo colorato in alto
     const topBorder = document.createElement('div');
     topBorder.style.height = '4px';
     topBorder.style.background = 'linear-gradient(to right, var(--primary-color), var(--secondary-color))';
@@ -48,14 +46,13 @@ class LoginView {
 
     contentWrapper.appendChild(loginContainer);
 
-    // Heading con stile migliorato
     const heading = this.createHeading();
     heading.style.padding = '24px 20px 10px';
     heading.style.textAlign = 'center';
     heading.style.borderBottom = 'none';
     loginContainer.appendChild(heading);
 
-    // Check for saved accounts
+    // Saved accounts
     const savedAccounts = authService.getStoredAccounts();
     const savedKeychainAccounts = savedAccounts.filter(account => account.hasKeychain);
 
@@ -69,7 +66,6 @@ class LoginView {
       loginContainer.appendChild(divider);
     }
 
-    // Password form section con stile migliorato
     const passwordSection = document.createElement('div');
     passwordSection.className = 'auth-section password-section';
     passwordSection.style.padding = '0 24px 24px';
@@ -78,98 +74,124 @@ class LoginView {
     form.id = 'login-form';
     form.style.display = 'flex';
     form.style.flexDirection = 'column';
-    form.style.gap = '16px';
+    form.style.gap = '12px';
 
-    // Username field con stile migliorato
+    // Tab bar — above username
+    const tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--border-color,#ddd);';
+
+    const tabKeychain = document.createElement('button');
+    tabKeychain.type = 'button';
+    tabKeychain.style.cssText = 'flex:1;padding:10px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;display:flex;align-items:center;justify-content:center;gap:6px;transition:background 0.2s,color 0.2s;';
+    const tabKeychainIcon = document.createElement('img');
+    tabKeychainIcon.src = '/assets/img/keychain-logo.png';
+    tabKeychainIcon.style.cssText = 'width:16px;height:16px;border-radius:50%;';
+    tabKeychain.appendChild(tabKeychainIcon);
+    tabKeychain.appendChild(document.createTextNode('Keychain'));
+
+    const tabPosting = document.createElement('button');
+    tabPosting.type = 'button';
+    tabPosting.style.cssText = 'flex:1;padding:10px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;display:flex;align-items:center;justify-content:center;gap:6px;transition:background 0.2s,color 0.2s;';
+    const tabPostingIcon = document.createElement('span');
+    tabPostingIcon.className = 'material-icons';
+    tabPostingIcon.textContent = 'vpn_key';
+    tabPostingIcon.style.fontSize = '16px';
+    tabPosting.appendChild(tabPostingIcon);
+    tabPosting.appendChild(document.createTextNode('Posting Key'));
+
+    tabBar.appendChild(tabKeychain);
+    tabBar.appendChild(tabPosting);
+    form.appendChild(tabBar);
+
+    // Username — always visible below tabs
     const usernameGroup = this.createFormGroup('username', 'Username', 'text');
-    usernameGroup.className = 'form-group shared-username';
     form.appendChild(usernameGroup);
 
-    // Password field (posting key only) con stile migliorato
-    const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password');
-    form.appendChild(passwordGroup);
+    // Keychain panel
+    const keychainPanel = document.createElement('div');
+    keychainPanel.id = 'tab-panel-keychain';
 
-    // Remember me checkbox con stile migliorato
-    const rememberGroup = this.createRememberMeGroup();
-    rememberGroup.style.marginTop = '8px';
-    form.appendChild(rememberGroup);
+    const keychainButton = this.createButton('Login with SteemKeychain', 'button', 'btn-secondary keychain-login-btn full-width');
+    keychainButton.id = 'keychain-login-btn';
+    keychainButton.style.display = 'flex';
+    keychainButton.style.alignItems = 'center';
+    keychainButton.style.justifyContent = 'center';
+    keychainButton.style.gap = '8px';
+    keychainButton.style.padding = '12px';
 
-    // Login button con stile migliorato
+    const keychainIcon = document.createElement('img');
+    keychainIcon.src = '/assets/img/keychain-logo.png';
+    keychainIcon.alt = 'Keychain';
+    keychainIcon.style.width = '20px';
+    keychainIcon.style.height = '20px';
+    keychainIcon.style.borderRadius = '50%';
+    keychainButton.prepend(keychainIcon);
+    keychainPanel.appendChild(keychainButton);
+    form.appendChild(keychainPanel);
+
+    // Posting key panel
+    const postingPanel = document.createElement('div');
+    postingPanel.id = 'tab-panel-posting';
+    postingPanel.style.display = 'none';
+    postingPanel.style.flexDirection = 'column';
+    postingPanel.style.gap = '16px';
+
+    const passwordGroup = this.createFormGroup('password', 'Private Posting Key', 'password', false);
+    postingPanel.appendChild(passwordGroup);
+
     const loginButton = this.createButton('Login', 'submit', 'btn-primary full-width');
-    loginButton.style.marginTop = '16px';
     loginButton.style.padding = '12px';
     loginButton.style.fontWeight = 'bold';
     loginButton.style.fontSize = '1rem';
-    form.appendChild(loginButton);
+    postingPanel.appendChild(loginButton);
+    form.appendChild(postingPanel);
 
-    // Il pulsante Keychain viene ora aggiunto DOPO il pulsante login
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    if (!isMobile || this.useKeychain) {
-      // Divider prima del bottone Keychain
-      const keychainDivider = this.createDivider('or');
-      keychainDivider.style.margin = '20px 0';
-      form.appendChild(keychainDivider);
-
-      // Keychain button con stile migliorato
-      const keychainButton = this.createButton(
-        'Login with SteemKeychain',
-        'button',
-        'btn-secondary keychain-login-btn full-width'
-      );
-      keychainButton.id = 'keychain-login-btn';
-      keychainButton.style.display = 'flex';
-      keychainButton.style.alignItems = 'center';
-      keychainButton.style.justifyContent = 'center';
-      keychainButton.style.gap = '8px';
-      keychainButton.style.padding = '12px';
-
-      // Aggiungi icona al bottone Keychain
-      const keychainIcon = document.createElement('img');
-      keychainIcon.src = 'https://play-lh.googleusercontent.com/Yep_Oowoys6_hGqzWZZzY5nYNAB4pHdfQYK5Bp9bzQPbSg-dWAB2gPNQnyjnIXwNR7o=w240-h480-rw'; // URL del logo Keychain
-      keychainIcon.alt = 'Keychain';
-      keychainIcon.style.width = '20px';
-      keychainIcon.style.height = '20px';
-      keychainIcon.style.borderRadius = '50%';
-      keychainButton.prepend(keychainIcon);
-
-      form.appendChild(keychainButton);
-
-      // Listener per verificare se Keychain è installato
-      keychainButton.addEventListener('click', async () => {
-        if (authService.isKeychainInstalled()) {
-          keychainButton.disabled = false;
-          keychainButton.classList.remove('disabled');
-        } else {
-          keychainButton.disabled = true;
-          keychainButton.classList.add('disabled');
-        }
-      });
-    }
-
-    // Registrazione link con stile migliorato
+    // Register link
     const registerLink = document.createElement('div');
     registerLink.className = 'auth-link';
-    registerLink.innerHTML = 'Don\'t have an account? <a href="/register">Create one here</a>';
-    registerLink.style.marginTop = '24px';
+    registerLink.innerHTML = 'Don\'t have an account? <a href="https://join.cur8.fun" target="_blank" rel="noopener">Create one here</a>';
     registerLink.style.textAlign = 'center';
     registerLink.style.fontSize = '0.9rem';
     form.appendChild(registerLink);
 
+    // Tab switching logic
+    const activateTab = (tab) => {
+      this.activeTab = tab;
+      if (tab === 'keychain') {
+        tabKeychain.style.background = 'var(--primary-color,#ff7518)';
+        tabKeychain.style.color = '#fff';
+        tabPosting.style.background = 'var(--background-light,#f5f5f5)';
+        tabPosting.style.color = 'var(--text-secondary,#666)';
+        keychainPanel.style.display = 'block';
+        postingPanel.style.display = 'none';
+      } else {
+        tabPosting.style.background = 'var(--primary-color,#ff7518)';
+        tabPosting.style.color = '#fff';
+        tabKeychain.style.background = 'var(--background-light,#f5f5f5)';
+        tabKeychain.style.color = 'var(--text-secondary,#666)';
+        keychainPanel.style.display = 'none';
+        postingPanel.style.display = 'flex';
+      }
+    };
+
+    tabKeychain.addEventListener('click', () => activateTab('keychain'));
+    tabPosting.addEventListener('click', () => activateTab('posting'));
+
+    // Default: keychain if installed, else posting key
+    activateTab(authService.isKeychainInstalled() ? 'keychain' : 'posting');
+
     passwordSection.appendChild(form);
     loginContainer.appendChild(passwordSection);
 
-    // Error message section
     const messageEl = this.createMessageElement();
-    messageEl.style.margin = '20px 24px 0';
+    messageEl.style.margin = '0 24px 16px';
     loginContainer.appendChild(messageEl);
 
-    // Clear and append to container
     this.element.innerHTML = '';
     this.element.appendChild(contentWrapper);
 
     this.bindEvents();
 
-    // Focus sul campo username per una migliore esperienza utente
     setTimeout(() => {
       const usernameInput = this.element.querySelector('#username');
       if (usernameInput) usernameInput.focus();
@@ -461,7 +483,8 @@ class LoginView {
     return group;
   }
 
-  createRememberMeGroup() {
+  createRememberMeGroup(suffix = '') {
+    const id = suffix ? `remember-${suffix}` : 'remember';
     const group = document.createElement('div');
     group.className = 'form-group checkbox-group';
     group.style.display = 'flex';
@@ -470,15 +493,15 @@ class LoginView {
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.id = 'remember';
-    checkbox.name = 'remember';
+    checkbox.id = id;
+    checkbox.name = id;
     checkbox.checked = true;
     checkbox.style.width = '18px';
     checkbox.style.height = '18px';
     checkbox.style.accentColor = 'var(--primary-color, #ff7518)';
 
     const label = document.createElement('label');
-    label.setAttribute('for', 'remember');
+    label.setAttribute('for', id);
     label.textContent = 'Remember me';
     label.style.fontSize = '0.95rem';
     label.style.cursor = 'pointer';
@@ -609,13 +632,20 @@ class LoginView {
 
   async handleSubmit(e) {
     e.preventDefault();
+
+    // If keychain tab is active, route to keychain login (e.g. Enter key pressed)
+    if (this.activeTab === 'keychain') {
+      await this.handleKeychainLogin();
+      return;
+    }
+
     const loginForm = e.target;
     const messageEl = this.element.querySelector('.login-message');
     const passwordInput = loginForm.password;
 
     const username = loginForm.username.value.trim();
     const privateKey = passwordInput.value.trim();
-    const remember = loginForm.remember?.checked ?? true;
+    const remember = true;
 
     // Utilizziamo sempre posting key per il login tramite form
     const keyType = 'posting';
@@ -667,9 +697,7 @@ class LoginView {
     const messageEl = this.element.querySelector('.login-message');
 
     const username = usernameInput.value.trim();
-    const remember = loginForm.remember?.checked ?? true;
-
-    // Utilizziamo sempre posting key per il login con Keychain
+    const remember = true;
     const keyType = 'posting';
 
     if (!username) {

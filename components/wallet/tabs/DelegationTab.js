@@ -2,13 +2,17 @@ import Component from '../../Component.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
+import DialogUtility from '../../DialogUtility.js';
 
 export default class DelegationTab extends Component {
   constructor(parentElement, options = {}) {
     super(parentElement, options);
     this.handleDelegateSubmit = this.handleDelegateSubmit.bind(this);
     this.currentUser = authService.getCurrentUser()?.username;
+    this.viewedUsername = options.username || this.currentUser;
     this.delegations = [];
+    this._delegateeValid = true;
+    this._amountValid = true;
   }
   
   render() {
@@ -21,19 +25,60 @@ export default class DelegationTab extends Component {
     
     // Create delegations section
     const delegationsContainer = this.createDelegationsSection();
-    
+
+    // Create expiring delegations section
+    const expiringContainer = this.createExpiringSection();
+
+    // Wrap the two list cards side-by-side on desktop
+    const listsRow = document.createElement('div');
+    listsRow.className = 'delegation-lists-row';
+    listsRow.appendChild(delegationsContainer);
+    listsRow.appendChild(expiringContainer);
+
     // Append sections to main element
     this.element.appendChild(formCard);
-    this.element.appendChild(delegationsContainer);
-    
+    this.element.appendChild(listsRow);
+
     this.parentElement.appendChild(this.element);
-    
+
+    // Async: set max on SP input
+    this._initAmountLimits();
+
     // Load delegations
     this.loadDelegations();
-    
+    this.loadExpiringDelegations();
+
+    // Gate active-key operations if only posting key is available
+    this._applyActiveKeyGate();
+
     return this.element;
   }
   
+  _updateSubmitState() {
+    const btn = this.element?.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = !this._delegateeValid || !this._amountValid;
+  }
+
+  async _initAmountLimits() {
+    try {
+      const balances = await walletService.fetchBalances();
+      const input = this.element?.querySelector('#delegate-amount');
+      const hint = this.element?.querySelector('#delegate-amount-hint');
+      if (!input) return;
+      const details = balances.steemPowerDetails;
+      const max = parseFloat(details?.delegatable ?? details?.own ?? balances.steemPower ?? 0);
+      const powerDown = parseFloat(details?.powerDown ?? 0);
+      if (!isNaN(max)) {
+        input.max = max.toFixed(3);
+        input.dataset.powerDown = powerDown.toFixed(3);
+        hint.textContent = powerDown > 0
+          ? `Available: ${max.toFixed(3)} SP (${powerDown.toFixed(3)} SP in power-down)`
+          : `Available: ${max.toFixed(3)} SP`;
+        hint.className = 'amount-hint';
+      }
+    } catch { /* non-blocking */ }
+  }
+
   createFormSection() {
     const formCard = document.createElement('div');
     formCard.className = 'form-card';
@@ -55,23 +100,98 @@ export default class DelegationTab extends Component {
     toInput.placeholder = 'Username';
     toInput.required = true;
     
-    // Force lowercase input for usernames
+    // Force lowercase + reset state while typing
     this.registerEventHandler(toInput, 'input', (e) => {
-      // Store current cursor position
       const cursorPos = e.target.selectionStart;
-      
-      // Set the value to lowercase
       e.target.value = e.target.value.toLowerCase();
-      
-      // Restore cursor position
       e.target.setSelectionRange(cursorPos, cursorPos);
+      const hint = toGroup.querySelector('.username-hint');
+      if (hint) { hint.textContent = ''; hint.className = 'username-hint'; }
+      this._delegateeValid = true;
+      this._updateSubmitState();
     });
-    
+
+    // Live validation on blur
+    const delegateHint = document.createElement('small');
+    delegateHint.className = 'username-hint';
+    this.registerEventHandler(toInput, 'blur', async (e) => {
+      const val = e.target.value.trim();
+      if (!val) {
+        delegateHint.textContent = ''; delegateHint.className = 'username-hint';
+        this._delegateeValid = true;
+        this._updateSubmitState();
+        return;
+      }
+      delegateHint.textContent = 'Checking...';
+      delegateHint.className = 'username-hint';
+      const exists = await walletService.validateAccountExists(val);
+      if (exists) {
+        delegateHint.textContent = '✓ Account found';
+        delegateHint.className = 'username-hint valid';
+        this._delegateeValid = true;
+      } else {
+        delegateHint.textContent = '✗ Account not found';
+        delegateHint.className = 'username-hint invalid';
+        this._delegateeValid = false;
+      }
+      this._updateSubmitState();
+    });
+
     toGroup.appendChild(toInput);
+    toGroup.appendChild(delegateHint);
     form.appendChild(toGroup);
     
     // Amount input group
-    const amountGroup = this.createFormGroup('Amount');
+    const amountGroup = document.createElement('div');
+    amountGroup.className = 'form-group';
+    const amountLabelRow = document.createElement('div');
+    amountLabelRow.className = 'label-row';
+    const amountLabel = document.createElement('label');
+    amountLabel.textContent = 'Amount';
+    amountLabelRow.appendChild(amountLabel);
+    const maxSpBtn = document.createElement('button');
+    maxSpBtn.type = 'button';
+    maxSpBtn.className = 'max-btn';
+    maxSpBtn.textContent = 'Max SP';
+    this.registerEventHandler(maxSpBtn, 'click', () => {
+      // Use cached balances instantly
+      const cached = walletService.balances;
+      if (cached) {
+        const cd = cached.steemPowerDetails;
+        const max = parseFloat(cd?.delegatable ?? cd?.own ?? cached.steemPower ?? 0);
+        const powerDown = parseFloat(cd?.powerDown ?? 0);
+        const input = this.element.querySelector('#delegate-amount');
+        const hint = this.element.querySelector('#delegate-amount-hint');
+        input.value = max.toFixed(3);
+        input.max = max.toFixed(3);
+        input.dataset.powerDown = powerDown.toFixed(3);
+        if (hint) {
+          hint.textContent = powerDown > 0
+            ? `Available: ${max.toFixed(3)} SP (${powerDown.toFixed(3)} SP in power-down)`
+            : `Available: ${max.toFixed(3)} SP`;
+          hint.className = 'amount-hint';
+        }
+        this._amountValid = true;
+        this._updateSubmitState();
+      }
+      // Refresh in background
+      walletService.fetchBalances().then(b => {
+        const bd = b.steemPowerDetails;
+        const max = parseFloat(bd?.delegatable ?? bd?.own ?? b.steemPower ?? 0);
+        const powerDown = parseFloat(bd?.powerDown ?? 0);
+        const input = this.element?.querySelector('#delegate-amount');
+        const hint = this.element?.querySelector('#delegate-amount-hint');
+        if (input) { input.max = max.toFixed(3); input.dataset.powerDown = powerDown.toFixed(3); }
+        if (hint) {
+          hint.textContent = powerDown > 0
+            ? `Available: ${max.toFixed(3)} SP (${powerDown.toFixed(3)} SP in power-down)`
+            : `Available: ${max.toFixed(3)} SP`;
+          hint.className = 'amount-hint';
+        }
+      }).catch(() => {});
+    });
+    amountLabelRow.appendChild(maxSpBtn);
+    amountGroup.appendChild(amountLabelRow);
     const amountContainer = document.createElement('div');
     amountContainer.className = 'input-group';
     
@@ -82,6 +202,32 @@ export default class DelegationTab extends Component {
     amountInput.step = '0.001';
     amountInput.placeholder = '0.000';
     amountInput.required = true;
+
+    // Live amount validation + 3 decimal cap (locale-safe: handles both . and ,)
+    this.registerEventHandler(amountInput, 'input', (e) => {
+      const num = e.target.valueAsNumber;
+      if (!isNaN(num)) {
+        const truncated = Math.round(num * 1000) / 1000;
+        if (num !== truncated) e.target.valueAsNumber = truncated;
+      }
+      const hint = amountGroup.querySelector('#delegate-amount-hint');
+      const max = parseFloat(amountInput.max);
+      const val = amountInput.valueAsNumber;
+      if (!isNaN(val) && !isNaN(max) && val > max) {
+        hint.textContent = `Max: ${max.toFixed(3)} SP`;
+        hint.className = 'amount-hint invalid';
+        this._amountValid = false;
+      } else {
+        const pd = parseFloat(amountInput.dataset.powerDown ?? 0);
+        hint.textContent = !isNaN(max)
+          ? (pd > 0 ? `Available: ${max.toFixed(3)} SP (${pd.toFixed(3)} SP in power-down)` : `Available: ${max.toFixed(3)} SP`)
+          : '';
+        hint.className = 'amount-hint';
+        this._amountValid = true;
+      }
+      this._updateSubmitState();
+    });
+
     amountContainer.appendChild(amountInput);
     
     const amountSuffix = document.createElement('div');
@@ -90,6 +236,13 @@ export default class DelegationTab extends Component {
     amountContainer.appendChild(amountSuffix);
     
     amountGroup.appendChild(amountContainer);
+
+    // Inline hint below the input group
+    const amountHint = document.createElement('small');
+    amountHint.id = 'delegate-amount-hint';
+    amountHint.className = 'amount-hint';
+    amountGroup.appendChild(amountHint);
+
     form.appendChild(amountGroup);
     
     // Message container
@@ -122,26 +275,88 @@ export default class DelegationTab extends Component {
   
   createDelegationsSection() {
     const delegationsContainer = document.createElement('div');
-    delegationsContainer.className = 'delegations-container';
-    
-    const heading = document.createElement('h3');
-    heading.textContent = 'Your Delegations';
+    delegationsContainer.className = 'form-card';
+
+    const heading = document.createElement('h4');
+    heading.textContent = 'Outgoing Delegations';
     delegationsContainer.appendChild(heading);
-    
+
     const listContainer = document.createElement('div');
     listContainer.id = 'delegations-list';
     listContainer.className = 'delegations-list';
-    
+
     const loadingIndicator = document.createElement('div');
     loadingIndicator.className = 'loading-indicator';
     loadingIndicator.textContent = 'Loading your delegations...';
-    
+
     listContainer.appendChild(loadingIndicator);
     delegationsContainer.appendChild(listContainer);
-    
+
     return delegationsContainer;
   }
-    async handleDelegateSubmit(e) {
+
+  createExpiringSection() {
+    const container = document.createElement('div');
+    container.className = 'form-card';
+
+    const heading = document.createElement('h4');
+    heading.textContent = 'Returning Delegations';
+    container.appendChild(heading);
+
+    const desc = document.createElement('p');
+    desc.className = 'power-description';
+    desc.style.marginBottom = '0';
+    desc.textContent = 'Delegations removed and in the 5-day return window before SP is available again.';
+    container.appendChild(desc);
+
+    const listContainer = document.createElement('div');
+    listContainer.id = 'expiring-delegations-list';
+    listContainer.className = 'delegations-list';
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.textContent = 'Loading...';
+    listContainer.appendChild(loadingIndicator);
+    container.appendChild(listContainer);
+
+    return container;
+  }
+
+  async loadExpiringDelegations() {
+    const container = this.element?.querySelector('#expiring-delegations-list');
+    if (!container) return;
+    try {
+      const delegations = await walletService.getExpiringDelegations(this.viewedUsername);
+      while (container.firstChild) container.removeChild(container.firstChild);
+      if (!delegations || delegations.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'No delegations currently returning.';
+        container.appendChild(empty);
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'delegations-table';
+      table.innerHTML = `<thead><tr><th>Amount</th><th>Returns on</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      delegations.forEach(d => {
+        const tr = document.createElement('tr');
+        const expiry = new Date((d.expiration || d.expiration_date || '') + 'Z').toLocaleString();
+        tr.innerHTML = `<td>${d.sp_amount} SP</td><td>${expiry}</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    } catch (error) {
+      console.error('Failed to load expiring delegations:', error);
+      while (container.firstChild) container.removeChild(container.firstChild);
+      const err = document.createElement('p');
+      err.className = 'error-state';
+      err.textContent = 'Failed to load expiring delegations.';
+      container.appendChild(err);
+    }
+  }
+
+  async handleDelegateSubmit(e) {
     e.preventDefault();
     
     const delegatee = this.element.querySelector('#delegate-to').value.trim().toLowerCase();
@@ -172,7 +387,29 @@ export default class DelegationTab extends Component {
       this.showMessage('You need to be logged in to delegate', false);
       return;
     }
-    
+
+    // Pre-flight: own SP balance check (fetch fresh data)
+    this.showMessage('Checking balance…', null);
+    const freshBalances = await walletService.fetchBalances();
+    const delegatableSP = parseFloat(
+      freshBalances.steemPowerDetails?.delegatable ?? freshBalances.steemPowerDetails?.own ?? freshBalances.steemPower ?? 0
+    );
+    if (!isNaN(delegatableSP) && parseFloat(amount) > delegatableSP) {
+      this.showMessage(
+        `Insufficient STEEM POWER. Available to delegate: ${delegatableSP.toFixed(3)} SP`,
+        false
+      );
+      return;
+    }
+
+    // Pre-flight: delegatee existence
+    this.showMessage('Verifying account...', null);
+    const delegateeExists = await walletService.validateAccountExists(delegatee);
+    if (!delegateeExists) {
+      this.showMessage(`Account @${delegatee} does not exist on the Steem blockchain`, false);
+      return;
+    }
+
     try {
       // Disable button during processing
       const submitBtn = this.element.querySelector('button[type="submit"]');
@@ -185,10 +422,11 @@ export default class DelegationTab extends Component {
       if (response.success) {
         this.showMessage('Delegation completed successfully!', true);
         this.element.querySelector('#delegate-form').reset();
-        
-        // Update balances and delegations
-        walletService.updateBalances();
+
+        // Refresh balances, amount limits and delegations immediately
+        this._initAmountLimits();
         this.loadDelegations();
+        this.loadExpiringDelegations();
         
         // Emit event so other components can update
         eventEmitter.emit('wallet:delegation-updated');
@@ -214,8 +452,10 @@ export default class DelegationTab extends Component {
   showMessage(message, isSuccess) {
     const messageEl = this.element.querySelector('#delegate-message');
     messageEl.textContent = message;
-    messageEl.classList.remove('hidden', 'success', 'error');
-    messageEl.classList.add(isSuccess ? 'success' : 'error');
+    messageEl.classList.remove('hidden', 'success', 'error', 'info');
+    if (isSuccess === true) messageEl.classList.add('success');
+    else if (isSuccess === false) messageEl.classList.add('error');
+    else messageEl.classList.add('info');
   }
   
   async loadDelegations() {
@@ -224,7 +464,7 @@ export default class DelegationTab extends Component {
     
     try {
       // Get delegations from wallet service
-      this.delegations = await walletService.getDelegations();
+      this.delegations = await walletService.getDelegations(this.viewedUsername);
       
       // Clear container
       while (container.firstChild) {
@@ -317,6 +557,13 @@ export default class DelegationTab extends Component {
       removeBtn.className = 'remove-btn';
       removeBtn.textContent = 'Remove';
       removeBtn.setAttribute('data-user', delegation.delegatee);
+      const hasActive = authService.hasActiveKeyAccess();
+      if (!hasActive) {
+        editBtn.disabled = true;
+        editBtn.title = 'Unlock wallet to edit delegation';
+        removeBtn.disabled = true;
+        removeBtn.title = 'Unlock wallet to remove delegation';
+      }
       this.registerEventHandler(removeBtn, 'click', () => {
         this.removeDelegation(delegation.delegatee);
       });
@@ -342,32 +589,40 @@ export default class DelegationTab extends Component {
     this.element.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
   }
     async removeDelegation(delegatee) {
-    // Ensure delegatee is in lowercase
     const delegateeLower = delegatee.toLowerCase();
-    
-    if (confirm(`Are you sure you want to remove delegation to @${delegateeLower}?`)) {
-      try {
-        // To remove a delegation, delegate 0 SP
-        const zeroAmount = "0.000"; // Properly formatted zero amount
-        
-        // Use the centralized delegateSteemPower service method with zero amount
-        const response = await walletService.delegateSteemPower(delegateeLower, zeroAmount);
-          if (response.success) {
-          this.showMessage(`Delegation to @${delegateeLower} successfully removed`, true);
-          
-          // Update balances and delegations
-          walletService.updateBalances();
-          this.loadDelegations();
-          
-          // Emit event
-          eventEmitter.emit('wallet:delegation-updated');
-        } else {
-          this.showMessage(`Failed to remove delegation: ${response.message || 'Unknown error'}`, false);
-        }
-      } catch (error) {
-        console.error('Remove delegation error:', error);
-        this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+
+    const confirmed = await DialogUtility.showConfirmationDialog({
+      title: 'Remove Delegation',
+      message: `Remove delegation to @${delegateeLower}?`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      icon: 'link_off',
+      type: 'warning',
+      compact: true
+    });
+    if (!confirmed) return;
+
+    try {
+      // To remove a delegation, delegate 0 SP
+      const zeroAmount = "0.000";
+
+      const response = await walletService.delegateSteemPower(delegateeLower, zeroAmount);
+      if (response.success) {
+        this.showMessage(`Delegation to @${delegateeLower} successfully removed`, true);
+
+        // Refresh balances, amount limits and delegations immediately
+        this._initAmountLimits();
+        this.loadDelegations();
+        this.loadExpiringDelegations();
+
+        // Emit event
+        eventEmitter.emit('wallet:delegation-updated');
+      } else {
+        this.showMessage(`Failed to remove delegation: ${response.message || 'Unknown error'}`, false);
       }
+    } catch (error) {
+      console.error('Remove delegation error:', error);
+      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
     }
   }
   

@@ -54,6 +54,53 @@ class WalletService {
   }
 
   /**
+   * Check whether a Steem account exists on the blockchain.
+   * @param {string} username
+   * @returns {Promise<boolean>}
+   */
+  async validateAccountExists(username) {
+    if (!username || !username.trim()) return false;
+    try {
+      const account = await steemService.getUser(username.toLowerCase().trim());
+      return !!account;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Convert a raw Steem RPC error into a user-friendly message.
+   * Handles "Assert Exception:condition: Human message..." format and
+   * converts NAI amount objects to readable "X.XXX TOKEN" strings.
+   * @private
+   */
+  _parseRpcError(err) {
+    const raw = (err && err.message) ? err.message : String(err);
+
+    // Extract the human-readable part after "Assert Exception:condition: "
+    const assertMatch = raw.match(/^Assert Exception:[^:]+:\s*(.+)$/s);
+    let message = assertMatch ? assertMatch[1].trim() : raw;
+
+    // Convert NAI amount objects: {"amount":"X","precision":N,"nai":"@@..."}
+    const NAI_SYMBOLS = {
+      '@@000000013': 'STEEM',
+      '@@000000021': 'SBD',
+      '@@000000037': 'VESTS'
+    };
+    message = message.replace(
+      /\{"amount":"(-?\d+)","precision":(\d+),"nai":"(@@\d+)"\}/g,
+      (_, amt, prec, nai) => {
+        const symbol = NAI_SYMBOLS[nai] || nai;
+        const value = (parseInt(amt, 10) / Math.pow(10, parseInt(prec, 10)))
+          .toFixed(parseInt(prec, 10));
+        return `${value} ${symbol}`;
+      }
+    );
+
+    return message;
+  }
+
+  /**
    * Convert STEEM POWER (SP) to vests
    */
   async steemToVests(steemPower) {
@@ -108,22 +155,25 @@ class WalletService {
         const delegatedOutSP = await this.vestsToSteem(delegatedVestingShares);
         const delegatedInSP = await this.vestsToSteem(receivedVestingShares);
 
-        // Calculate effective STEEM Power (with delegations)
-        const steemPower = await this.vestsToSteem(
-          vestingShares - delegatedVestingShares + receivedVestingShares
-        );
+        // Power-down queue: to_withdraw is a micro-VESTS integer
+        const toWithdrawVests = (account.to_withdraw || 0) / 1e6;
+        const powerDownSP = toWithdrawVests > 0 ? await this.vestsToSteem(toWithdrawVests) : 0;
+
+        // Total owned SP = all vesting shares the account owns (incl. delegated-out)
+        const totalOwnedSP = ownSteemPower + delegatedOutSP;
 
         this.balances = {
           steem: steemBalance,
           sbd: sbdBalance,
-          steemPower: steemPower.toFixed(3),
-          // Add detailed delegation information
+          steemPower: totalOwnedSP.toFixed(3),
           steemPowerDetails: {
-            total: steemPower.toFixed(3),
-            own: ownSteemPower.toFixed(3),
+            total: totalOwnedSP.toFixed(3),
+            own: ownSteemPower.toFixed(3),       // available (not delegated out)
             delegatedOut: delegatedOutSP.toFixed(3),
             delegatedIn: delegatedInSP.toFixed(3),
-            effective: (ownSteemPower + delegatedInSP).toFixed(3)
+            effective: (ownSteemPower + delegatedInSP).toFixed(3), // actual voting power
+            powerDown: powerDownSP.toFixed(3),   // SP locked in active power-down
+            delegatable: Math.max(0, ownSteemPower - powerDownSP).toFixed(3) // SP available to delegate
           }
         };
 
@@ -140,15 +190,24 @@ class WalletService {
   }
 
   /**
+   * Fetch fresh balances from the blockchain immediately and return them.
+   * Use this before any operation that needs an up-to-date balance.
+   */
+  async fetchBalances() {
+    await this.updateBalances(0);
+    return this.balances;
+  }
+
+  /**
    * Get user delegations
    */
-  async getDelegations() {
+  async getDelegations(username) {
     try {
-      const username = authService.getCurrentUser()?.username;
-      if (!username) return [];
+      const user = username || authService.getCurrentUser()?.username;
+      if (!user) return [];
 
       const delegations = await new Promise((resolve, reject) => {
-        window.steem.api.getVestingDelegations(username, null, 100, (err, result) => {
+        window.steem.api.getVestingDelegations(user, null, 100, (err, result) => {
           if (err) reject(err);
           else resolve(result);
         });
@@ -164,6 +223,131 @@ class WalletService {
       }));
     } catch (error) {
       console.error('Error fetching delegations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get delegations received by current user (incoming).
+   * Paginates backwards through account history collecting delegate_vesting_shares ops
+   * where delegatee === username. Processes newest-first so the first time we see a
+   * delegator is their current (most recent) state. Stops early when the running total
+   * of found active vests matches the account's received_vesting_shares, or after
+   * MAX_PAGES pages to avoid infinite loops on very active accounts.
+   */
+  async getIncomingDelegations(username) {
+    try {
+      const user = username || authService.getCurrentUser()?.username;
+      if (!user) return [];
+
+      const steem = await steemService.ensureLibraryLoaded();
+
+      // Get the authoritative total received vests from account data so we can
+      // stop early as soon as our found delegations account for the full total.
+      let targetVests = null;
+      try {
+        const [account] = await new Promise((resolve, reject) =>
+          steem.api.getAccounts([user], (err, r) => err ? reject(err) : resolve(r || []))
+        );
+        if (account?.received_vesting_shares) {
+          targetVests = parseFloat(account.received_vesting_shares);
+        }
+      } catch { /* non-blocking — just won't have early-stop */ }
+
+      const LIMIT = 1000;
+      const MAX_PAGES = 20; // up to 20 000 ops maximum
+
+      // byDelegator: keyed by delegator username, value = most recent op data.
+      // Because we scan newest→oldest, the FIRST time we see a delegator is their
+      // current state; subsequent (older) entries for the same delegator are ignored.
+      const byDelegator = {};
+      let start = -1;
+
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const history = await new Promise((resolve, reject) => {
+          steem.api.getAccountHistory(user, start, LIMIT, (err, result) => {
+            if (err) reject(err);
+            else resolve(result || []);
+          });
+        });
+
+        if (!history.length) break;
+
+        // history is sorted ascending by seq; iterate newest→oldest
+        for (let i = history.length - 1; i >= 0; i--) {
+          const [, entry] = history[i];
+          const [opType, opData] = entry.op;
+          if (opType === 'delegate_vesting_shares' && opData.delegatee === user) {
+            if (!byDelegator[opData.delegator]) {
+              byDelegator[opData.delegator] = { ...opData, timestamp: entry.timestamp };
+            }
+          }
+        }
+
+        // Early-stop: sum of active vests found so far matches account total
+        if (targetVests !== null && targetVests > 0) {
+          const foundVests = Object.values(byDelegator)
+            .reduce((sum, d) => sum + parseFloat(d.vesting_shares), 0);
+          if (Math.abs(foundVests - targetVests) < 0.001) break;
+        }
+
+        // Reached beginning of history
+        if (history.length < LIMIT) break;
+
+        // Move cursor to just before the oldest entry in this page
+        const minSeq = history[0][0];
+        if (minSeq <= 0) break;
+        start = minSeq - 1;
+      }
+
+      // Filter out delegations that have been zeroed out (removed)
+      const active = Object.values(byDelegator).filter(d => parseFloat(d.vesting_shares) > 0);
+
+      return Promise.all(active.map(async (d) => {
+        const sp_amount = await this.vestsToSteem(parseFloat(d.vesting_shares));
+        return { ...d, sp_amount: parseFloat(sp_amount).toFixed(3) };
+      }));
+    } catch (error) {
+      console.error('Error fetching incoming delegations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get delegations in the 5-day return window (set to 0 but not yet returned)
+   */
+  async getExpiringDelegations(username) {
+    try {
+      const user = username || authService.getCurrentUser()?.username;
+      if (!user) return [];
+
+      const steem = await steemService.ensureLibraryLoaded();
+
+      const delegations = await new Promise((resolve, reject) => {
+        // Try condenser_api call first; fall back to empty if not available
+        if (typeof steem.api.getExpiringVestingDelegations === 'function') {
+          steem.api.getExpiringVestingDelegations(user, '1970-01-01T00:00:00', 100, (err, result) => {
+            if (err) reject(err);
+            else resolve(result || []);
+          });
+        } else {
+          // Fallback: use callAsync via the generic call mechanism
+          steem.api.call('condenser_api.get_expiring_vesting_delegations', [user, '1970-01-01T00:00:00', 100], (err, result) => {
+            if (err) reject(err);
+            else resolve(result || []);
+          });
+        }
+      });
+
+      return Promise.all(delegations.map(async (d) => {
+        const sp_amount = await this.vestsToSteem(parseFloat(d.vesting_shares));
+        return {
+          ...d,
+          sp_amount: parseFloat(sp_amount).toFixed(3)
+        };
+      }));
+    } catch (error) {
+      console.error('Error fetching expiring delegations:', error);
       return [];
     }
   }
@@ -420,11 +604,12 @@ class WalletService {
   /**
    * Get power down schedule and current power down status
    */
-  async getPowerDownInfo() {
-    if (!this.currentUser) return null;
+  async getPowerDownInfo(username) {
+    const user = username || this.currentUser;
+    if (!user) return null;
 
     try {
-      const account = await steemService.getUser(this.currentUser);
+      const account = await steemService.getUser(user);
 
       if (!account) return null;
 
@@ -1258,17 +1443,20 @@ class WalletService {
       const delegatedOutSP = await this.vestsToSteem(delegatedVestingShares);
       const delegatedInSP = await this.vestsToSteem(receivedVestingShares);
 
-      const steemPower = await this.vestsToSteem(
-        vestingShares - delegatedVestingShares + receivedVestingShares
-      );
+      // Power-down queue: to_withdraw is a micro-VESTS integer
+      const toWithdrawVests = (account.to_withdraw || 0) / 1e6;
+      const powerDownSP = toWithdrawVests > 0 ? await this.vestsToSteem(toWithdrawVests) : 0;
+
+      // Total owned SP = all vesting shares the account owns (incl. delegated-out)
+      const totalOwnedSP = ownSteemPower + delegatedOutSP;
 
       // Fetch current prices
       const prices = await this.getCryptoPrices();
 
-      // Calculate USD values
+      // Calculate USD values (account value based on owned SP, not effective)
       const steemUsdValue = (parseFloat(steemBalance) * prices.steem).toFixed(2);
       const sbdUsdValue = (parseFloat(sbdBalance) * prices.sbd).toFixed(2);
-      const spUsdValue = (parseFloat(steemPower) * prices.steem).toFixed(2);
+      const spUsdValue = (totalOwnedSP * prices.steem).toFixed(2);
 
       // Calculate total USD value
       const totalUsdValue = (
@@ -1280,13 +1468,15 @@ class WalletService {
       return {
         steem: steemBalance,
         sbd: sbdBalance,
-        steemPower: steemPower.toFixed(3),
+        steemPower: totalOwnedSP.toFixed(3),
         steemPowerDetails: {
-          total: steemPower.toFixed(3),
-          own: ownSteemPower.toFixed(3),
+          total: totalOwnedSP.toFixed(3),
+          own: ownSteemPower.toFixed(3),       // available (not delegated out)
           delegatedOut: delegatedOutSP.toFixed(3),
           delegatedIn: delegatedInSP.toFixed(3),
-          effective: (ownSteemPower + delegatedInSP).toFixed(3)
+          effective: (ownSteemPower + delegatedInSP).toFixed(3), // actual voting power
+          powerDown: powerDownSP.toFixed(3),   // SP locked in active power-down
+          delegatable: Math.max(0, ownSteemPower - powerDownSP).toFixed(3) // SP available to delegate
         },
         prices: {
           steem: prices.steem,
@@ -1420,6 +1610,29 @@ class WalletService {
       // Continua con il comportamento normale per gli utenti con login a chiave privata
       let privateKey = null;
       if (requiredKey === 'active') {
+        // If active key not in memory, prompt for PIN to unlock it
+        if (!authService.getActiveKey() && authService.hasActiveKeyPinProtected()) {
+          const { default: pinInput } = await import('../components/auth/PinInputComponent.js');
+          const pin = await pinInput.promptPin(
+            'Enter Active Key PIN',
+            'This operation requires your active key. Enter your PIN to continue.',
+            async (p) => { await authService.unlockActiveKeyWithPin(p); }
+          );
+          if (!pin) throw new Error('Operation cancelled');
+        }
+        // If still no active key (posting-only session), prompt for it directly
+        if (!authService.getActiveKey()) {
+          const { default: activeKeyInput } = await import('../components/auth/ActiveKeyInputComponent.js');
+          const key = await activeKeyInput.promptForActiveKey('Enter Active Key');
+          if (!key) throw new Error('Operation cancelled');
+
+          const { default: pinInput } = await import('../components/auth/PinInputComponent.js');
+          const pin = await pinInput.promptSetPin('Set a PIN for your Active Key');
+          if (!pin) throw new Error('Operation cancelled');
+
+          const user = authService.getCurrentUser();
+          await authService.storeActiveKeyWithPin(user.username, key, pin);
+        }
         privateKey = authService.getActiveKey();
       } else if (requiredKey === 'posting') {
         privateKey = authService.getPostingKey();
@@ -1456,7 +1669,7 @@ class WalletService {
             (err, result) => {
               if (err) {
                 console.error('Broadcast error:', err);
-                reject(new Error(err.message || 'Operation failed'));
+                reject(new Error(this._parseRpcError(err)));
               } else {
                 resolve({
                   success: true,
@@ -1485,7 +1698,7 @@ class WalletService {
               (err, result) => {
                 if (err) {
                   console.error('Broadcast error with stored posting key:', err);
-                  reject(new Error(err.message || 'Claim rewards operation failed'));
+                  reject(new Error(this._parseRpcError(err)));
                 } else {
                   resolve({
                     success: true,
@@ -1506,7 +1719,7 @@ class WalletService {
     }
     catch (error) {
       console.error('Broadcast operation error:', error);
-      throw new Error('Broadcast operation failed: ' + (error.message || 'Unknown error'));
+      throw error; // preserve the already-parsed message
     }
   }
 

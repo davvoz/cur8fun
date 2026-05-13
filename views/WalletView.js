@@ -5,7 +5,6 @@ import WalletBalancesComponent from '../components/wallet/WalletBalancesComponen
 import WalletResourcesComponent from '../components/wallet/WalletResourcesComponent.js';
 import WalletTabsComponent from '../components/wallet/WalletTabsComponent.js';
 import WalletRewardsComponent from '../components/wallet/actions/WalletRewardsComponent.js';
-import ActiveKeyWarningComponent from '../components/wallet/ActiveKeyWarningComponent.js';
 
 /**
  * Wallet view with component-based architecture
@@ -52,12 +51,7 @@ class WalletView extends View {
     pageHeader.appendChild(subheading);
     
     walletContainer.appendChild(pageHeader);
-    
-    // Create active key warning container
-    const activeKeyWarningContainer = document.createElement('div');
-    activeKeyWarningContainer.id = 'wallet-active-key-warning';
-    walletContainer.appendChild(activeKeyWarningContainer);
-    
+
     // Create rewards component container
     const rewardsContainer = document.createElement('div');
     rewardsContainer.id = 'wallet-rewards-container';
@@ -118,14 +112,6 @@ class WalletView extends View {
    * Initialize and render all wallet components
    */
   initializeComponents() {
-    // Initialize active key warning component
-    const activeKeyWarningContainer = this.element.querySelector('#wallet-active-key-warning');
-    if (activeKeyWarningContainer) {
-      const activeKeyWarningComponent = new ActiveKeyWarningComponent(activeKeyWarningContainer);
-      activeKeyWarningComponent.init(); // Chiamiamo init() invece di render()
-      this.components.push(activeKeyWarningComponent);
-    }
-    
     // Initialize rewards component
     const rewardsContainer = this.element.querySelector('#wallet-rewards-container');
     if (rewardsContainer) {

@@ -278,6 +278,44 @@
   background: var(--info-light);
 }
 
+/* Compact variant — for simple confirm dialogs */
+.standard-dialog.compact {
+  max-width: 320px;
+}
+
+.standard-dialog.compact .modal-header {
+  padding: var(--space-md) var(--space-lg);
+}
+
+.standard-dialog.compact .modal-header h3 {
+  font-size: 15px;
+  gap: var(--space-sm);
+}
+
+.standard-dialog.compact .modal-header .material-icons {
+  font-size: 18px;
+  padding: 4px;
+}
+
+.standard-dialog.compact .modal-body {
+  padding: var(--space-md) var(--space-lg);
+}
+
+.standard-dialog.compact .dialog-message p {
+  font-size: 14px;
+}
+
+.standard-dialog.compact .modal-footer {
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  gap: var(--space-sm);
+}
+
+.standard-dialog.compact .btn {
+  padding: var(--space-sm) var(--space-md);
+  min-width: 70px;
+  font-size: 13px;
+}
+
 /* Focus trap improvements */
 .standard-dialog-overlay[aria-hidden="true"] {
   display: none;
