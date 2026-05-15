@@ -22,7 +22,7 @@ export default class SteemCore {
     async loadLibrary() {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/steem/dist/steem.min.js';
+            script.src = '/assets/js/steem.min.js';
             script.async = true;
 
             script.onload = () => {

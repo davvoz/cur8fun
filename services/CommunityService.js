@@ -92,9 +92,12 @@ class CommunityService {
    * Get list of all communities (usa API imridd)
    * Ottimizzato per caricare i dati una sola volta
    */
-  async listCommunities() {
- 
-    
+  async listCommunities({ forceRefresh = false } = {}) {
+    // Cache-first: se abbiamo già i dati in memoria e non è richiesto un refresh, restituiamo subito
+    if (!forceRefresh && this.cachedCommunities) {
+      return this.cachedCommunities;
+    }
+
     // Blocca altre richieste parallele
     this.isLoadingAllCommunities = true;
     
@@ -625,29 +628,17 @@ class CommunityService {
         }
       }
       
-      // Se non è in cache, carica la lista completa
-      // Questo evita la richiesta searchCommunities che causa CORS
+      // Se non è in cache, carica la lista completa in background
+      // ma restituisce subito un oggetto base per non bloccare il rendering
       if (!this.cachedCommunities) {
-        try {
-          await this.listCommunities();
-        } catch (listError) {
-          console.error(`Error loading community list:`, listError);
-          // Se non è possibile caricare la lista, creiamo un oggetto community base
-          return this.createBasicCommunityObject(cleanName, searchName);
+        // Avvia il caricamento in background (non-blocking)
+        if (!this.isLoadingAllCommunities) {
+          this.listCommunities().catch(err => {
+            console.warn('Background community load failed:', err);
+          });
         }
-        
-        // Ora che abbiamo la lista completa, proviamo a trovare la community
-        if (this.cachedCommunities) {
-          const foundCommunity = this.cachedCommunities.find(
-            community => 
-              community.name === cleanName || 
-              community.name === searchName
-          );
-          
-          if (foundCommunity) {
-            return foundCommunity;
-          }
-        }
+        // Restituisce subito senza aspettare
+        return this.createBasicCommunityObject(cleanName, searchName);
       }
       
       // Se siamo qui, non siamo riusciti a trovare la community

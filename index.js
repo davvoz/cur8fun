@@ -496,13 +496,6 @@ function handleLogout(e) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Precarichiamo le community in background per velocizzare l'esperienza utente
-  communityService.listCommunities().then(communities => {
-    // Communities loaded successfully
-  }).catch(error => {
-    console.warn('Failed to preload communities:', error);
-  });
-
   // Initialize theme manager
   themeManager.init();
 

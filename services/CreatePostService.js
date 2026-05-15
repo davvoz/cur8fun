@@ -30,8 +30,6 @@ class CreatePostService {
     this.MAX_DRAFTS_PER_USER = 10; // Massimo 10 draft per utente
     this.DRAFT_EXPIRY_DAYS = 30; // I draft scadono dopo 30 giorni
     this.AUTO_SAVE_INTERVAL = 15000; // Auto-save ogni 15 secondi
-
-    this.apiClient = new ApiClient();
   }
 
   /**

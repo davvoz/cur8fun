@@ -651,7 +651,18 @@ class AuthService {
     /**
      * Inizia il processo di login con SteemLogin
      */
-    loginWithSteemLogin() {
+    async loginWithSteemLogin() {
+        // Carica la libreria steemlogin in modo lazy se non ancora disponibile
+        if (!window.steemlogin && !window.steemconnect) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/assets/js/steemlogin.min.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Failed to load SteemLogin library'));
+                document.head.appendChild(script);
+            });
+        }
+
         // Verifica che uno degli oggetti globali sia disponibile
         if (!window.steemlogin && !window.steemconnect) {
             console.error('SteemLogin library not available globally');

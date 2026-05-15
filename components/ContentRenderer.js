@@ -289,7 +289,7 @@ class ContentRenderer {
       }
       
       const script = document.createElement('script');
-      script.src = 'https://unpkg.com/steem-content-renderer';
+      script.src = '/assets/js/steem-content-renderer.min.js';
       script.async = true;
       
       script.onload = () => {

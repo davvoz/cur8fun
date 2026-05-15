@@ -29,13 +29,150 @@
             }
         })();
     </script>
+    <!-- Preconnect per ridurre latenza font CDN -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Material Icons - necessari subito per la nav -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Font Awesome - caricato non-bloccante (usato solo per icone Discord/Telegram nella sidebar) -->
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/components/markdown-formatter.css">
-    <script src="https://cdn.jsdelivr.net/npm/steemlogin@latest/dist/steemlogin.min.js"></script>
-    <script src="https://unpkg.com/steem-content-renderer@latest"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- steemlogin: caricato lazy in AuthService solo al login -->
+    <!-- steem-content-renderer: caricato lazy da ContentRenderer.loadSteemContentRenderer() -->
+    <!-- Telegram SDK: solo per Telegram WebApp, defer per non bloccare il parsing -->
+    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+
+    <!-- modulepreload: scarica tutti i moduli JS in parallelo eliminando il waterfall degli import -->
+    <link rel="modulepreload" href="/index.js">
+    <!-- utils -->
+    <link rel="modulepreload" href="/utils/Router.js">
+    <link rel="modulepreload" href="/utils/EventEmitter.js">
+    <link rel="modulepreload" href="/utils/NavigationManager.js">
+    <link rel="modulepreload" href="/utils/ThemeManager.js">
+    <link rel="modulepreload" href="/utils/UIComponents.js">
+    <link rel="modulepreload" href="/utils/DateUtils.js">
+    <link rel="modulepreload" href="/utils/ImageUtils.js">
+    <link rel="modulepreload" href="/utils/GridControllerHelper.js">
+    <link rel="modulepreload" href="/utils/InfiniteScroll.js">
+    <!-- config -->
+    <link rel="modulepreload" href="/config/navigation.js">
+    <link rel="modulepreload" href="/config/app-version.js">
+    <!-- models -->
+    <link rel="modulepreload" href="/models/Post.js">
+    <link rel="modulepreload" href="/models/Comment.js">
+    <link rel="modulepreload" href="/models/Content.js">
+    <link rel="modulepreload" href="/models/Notification.js">
+    <link rel="modulepreload" href="/models/Profile.js">
+    <link rel="modulepreload" href="/models/User.js">
+    <!-- controllers -->
+    <link rel="modulepreload" href="/controllers/VoteController.js">
+    <link rel="modulepreload" href="/controllers/CommentController.js">
+    <!-- services/steem-service-classes -->
+    <link rel="modulepreload" href="/services/steem-service-classes/SteemCore.js">
+    <link rel="modulepreload" href="/services/steem-service-classes/PostService.js">
+    <link rel="modulepreload" href="/services/steem-service-classes/CommentService.js">
+    <link rel="modulepreload" href="/services/steem-service-classes/UserServiceCore.js">
+    <!-- services -->
+    <link rel="modulepreload" href="/services/SteemService.js">
+    <link rel="modulepreload" href="/services/AuthService.js">
+    <link rel="modulepreload" href="/services/CommunityService.js">
+    <link rel="modulepreload" href="/services/UpdateService.js">
+    <link rel="modulepreload" href="/services/CookieConsentManager.js">
+    <link rel="modulepreload" href="/services/NotificationsService.js">
+    <link rel="modulepreload" href="/services/UserPreferencesService.js">
+    <link rel="modulepreload" href="/services/VoteService.js">
+    <link rel="modulepreload" href="/services/UserService.js">
+    <link rel="modulepreload" href="/services/ProfileService.js">
+    <link rel="modulepreload" href="/services/ProfileContentService.js">
+    <link rel="modulepreload" href="/services/SearchService.js">
+    <link rel="modulepreload" href="/services/SteemApi.js">
+    <link rel="modulepreload" href="/services/ReblogService.js">
+    <link rel="modulepreload" href="/services/FilterService.js">
+    <link rel="modulepreload" href="/services/ImageUploadService.js">
+    <link rel="modulepreload" href="/services/MarkdownFormatService.js">
+    <link rel="modulepreload" href="/services/MetaTagService.js">
+    <link rel="modulepreload" href="/services/TransactionHistoryService.js">
+    <link rel="modulepreload" href="/services/WalletService.js">
+    <link rel="modulepreload" href="/services/TelegramService.js">
+    <link rel="modulepreload" href="/services/RegisterService.js">
+    <link rel="modulepreload" href="/services/CreatePostService.js">
+    <link rel="modulepreload" href="/services/EditPostService.js">
+    <link rel="modulepreload" href="/services/ImRiddApiService.js">
+    <link rel="modulepreload" href="/services/api-ridd.js">
+    <link rel="modulepreload" href="/services/CryptoService.js">
+    <!-- components -->
+    <link rel="modulepreload" href="/components/Component.js">
+    <link rel="modulepreload" href="/components/ContentRenderer.js">
+    <link rel="modulepreload" href="/components/GridController.js">
+    <link rel="modulepreload" href="/components/dialog.js">
+    <link rel="modulepreload" href="/components/DialogUtility.js">
+    <link rel="modulepreload" href="/components/LoadingIndicator.js">
+    <link rel="modulepreload" href="/components/SearchBar.js">
+    <link rel="modulepreload" href="/components/Breadcrumbs.js">
+    <link rel="modulepreload" href="/components/MarkdownEditor.js">
+    <link rel="modulepreload" href="/components/MarkdownFormatterUI.js">
+    <link rel="modulepreload" href="/components/CookieConsentBanner.js">
+    <link rel="modulepreload" href="/components/FollowersModal.js">
+    <link rel="modulepreload" href="/components/FollowingModal.js">
+    <link rel="modulepreload" href="/components/auth/ActiveKeyInputComponent.js">
+    <link rel="modulepreload" href="/components/auth/AccountSwitcherModal.js">
+    <link rel="modulepreload" href="/components/auth/PinInputComponent.js">
+    <link rel="modulepreload" href="/components/post/PostHeader.js">
+    <link rel="modulepreload" href="/components/post/PostContent.js">
+    <link rel="modulepreload" href="/components/post/PostActions.js">
+    <link rel="modulepreload" href="/components/post/PayoutInfoPopup.js">
+    <link rel="modulepreload" href="/components/post/CommentsSection.js">
+    <link rel="modulepreload" href="/components/post/VotesPopup.js">
+    <link rel="modulepreload" href="/components/post/RebloggersPopup.js">
+    <link rel="modulepreload" href="/components/post/PostTags.js">
+    <link rel="modulepreload" href="/components/post/PostReblogHandler.js">
+    <link rel="modulepreload" href="/components/posts/PostLoader.js">
+    <link rel="modulepreload" href="/components/posts/PostRenderer.js">
+    <link rel="modulepreload" href="/components/posts/PostUIManager.js">
+    <link rel="modulepreload" href="/components/comments/CommentLoader.js">
+    <link rel="modulepreload" href="/components/comments/CommentRenderer.js">
+    <link rel="modulepreload" href="/components/comments/CommentUIManager.js">
+    <link rel="modulepreload" href="/components/profile/ProfileHeader.js">
+    <link rel="modulepreload" href="/components/profile/ProfileTabs.js">
+    <link rel="modulepreload" href="/components/profile/ProfileView.js">
+    <link rel="modulepreload" href="/components/profile/PostsList.js">
+    <link rel="modulepreload" href="/components/profile/CommentsList.js">
+    <link rel="modulepreload" href="/components/profile/ProfileWalletHistory.js">
+    <link rel="modulepreload" href="/components/wallet/WalletBalancesComponent.js">
+    <link rel="modulepreload" href="/components/wallet/WalletResourcesComponent.js">
+    <link rel="modulepreload" href="/components/wallet/WalletTabsComponent.js">
+    <link rel="modulepreload" href="/components/wallet/TransactionHistoryBase.js">
+    <link rel="modulepreload" href="/components/wallet/ActiveKeyWarningComponent.js">
+    <link rel="modulepreload" href="/components/wallet/BalancesComponent.js">
+    <link rel="modulepreload" href="/components/wallet/ResourceMetersComponent.js">
+    <link rel="modulepreload" href="/components/pwa/UpdateNotificationComponent.js">
+    <!-- views -->
+    <link rel="modulepreload" href="/views/View.js">
+    <link rel="modulepreload" href="/views/BasePostView.js">
+    <link rel="modulepreload" href="/views/HomeView.js">
+    <link rel="modulepreload" href="/views/PostView.js">
+    <link rel="modulepreload" href="/views/TagView.js">
+    <link rel="modulepreload" href="/views/CommentView.js">
+    <link rel="modulepreload" href="/views/CommunityView.js">
+    <link rel="modulepreload" href="/views/CommunitiesListView.js">
+    <link rel="modulepreload" href="/views/ProfileView.js">
+    <link rel="modulepreload" href="/views/LoginView.js">
+    <link rel="modulepreload" href="/views/RegisterView.js">
+    <link rel="modulepreload" href="/views/SearchView.js">
+    <link rel="modulepreload" href="/views/CreatePostView.js">
+    <link rel="modulepreload" href="/views/EditPostView.js">
+    <link rel="modulepreload" href="/views/DraftsView.js">
+    <link rel="modulepreload" href="/views/NotificationsView.js">
+    <link rel="modulepreload" href="/views/WalletView.js">
+    <link rel="modulepreload" href="/views/EditProfileView.js">
+    <link rel="modulepreload" href="/views/SettingsView.js">
+    <link rel="modulepreload" href="/views/MenuView.js">
+    <link rel="modulepreload" href="/views/FAQView.js">
+    <link rel="modulepreload" href="/views/NewReleasesView.js">
+    <link rel="modulepreload" href="/views/Cur8StatsView.js">
+    <link rel="modulepreload" href="/views/Cur8BotStatsView.js">
+    <link rel="modulepreload" href="/views/NotFoundView.js">
     
     <!-- Google Analytics - Will be loaded dynamically by CookieConsentManager -->
     <script id="gtag-config">

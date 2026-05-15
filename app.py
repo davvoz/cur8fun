@@ -338,7 +338,7 @@ def retry_failed_posts():
 if __name__ == '__main__':
     publisher.start()
     try:
-        app.run(debug=True)
+        app.run(debug=True, threaded=True)
     finally:
         publisher.stop()
 

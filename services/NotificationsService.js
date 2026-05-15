@@ -18,8 +18,7 @@ class NotificationsService {
         // Initialize read status tracking from localStorage
         this.readNotificationsMap = this.loadReadStatusFromStorage();
         
-        // Preload notifications on application start
-        this.preloadNotifications();
+        // Preload done lazily on first access, not at construction
     }
     
     /**
@@ -272,7 +271,7 @@ class NotificationsService {
         let allNotifications = [];
         let seenTransactions = new Set();
         let seenNotifications = new Set();
-        let historySizesUsed = [1000, 2000, 500, 200, 100]; // Dimensioni batch da provare
+        let historySizesUsed = [100, 500, 200]; // Steem max ~100 con from=-1
         let cycleCount = 0;
         let continueSearch = true;
         let totalTransactions = 0;
