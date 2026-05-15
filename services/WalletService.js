@@ -1591,14 +1591,15 @@ class WalletService {
         // If still no active key (posting-only session), prompt for it directly
         if (!authService.getActiveKey()) {
           const { default: activeKeyInput } = await import('../components/auth/ActiveKeyInputComponent.js');
-          const key = await activeKeyInput.promptForActiveKey('Enter Active Key');
+          const key = await activeKeyInput.promptForActiveKey('Enter Active Key', {
+            validate: (k) => authService.verifyKey(user.username, k, 'active'),
+          });
           if (!key) throw new Error('Operation cancelled');
 
           const { default: pinInput } = await import('../components/auth/PinInputComponent.js');
           const pin = await pinInput.promptSetPin('Set a PIN for your Active Key');
           if (!pin) throw new Error('Operation cancelled');
 
-          const user = authService.getCurrentUser();
           await authService.storeActiveKeyWithPin(user.username, key, pin);
         }
         privateKey = authService.getActiveKey();

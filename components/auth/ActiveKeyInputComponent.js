@@ -8,7 +8,8 @@ class ActiveKeyInputComponent extends Component {
         this.formId = 'activeKeyForm-' + Math.random().toString(36).substring(2, 9);
     }
 
-    async promptForActiveKey(title = 'Enter Active Key') {
+    // validate: optional async (key) => void — throw with message to show error in modal
+    async promptForActiveKey(title = 'Enter Active Key', { validate } = {}) {
         return new Promise((resolve) => {
             // Create modal HTML directly
             const modalHTML = `
@@ -79,7 +80,7 @@ class ActiveKeyInputComponent extends Component {
             
             // Add event listeners
             if (form) {
-                form.addEventListener('submit', (e) => {
+                form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     
                     const rawKey = keyInput.value;
@@ -89,6 +90,22 @@ class ActiveKeyInputComponent extends Component {
                         keyError.textContent = validation.error;
                         keyError.style.display = 'block';
                         return;
+                    }
+
+                    // Run external validation (e.g. verifyKey against account)
+                    if (validate) {
+                        const submitBtn = document.getElementById(`submitKeyBtn-${this.modalId}`);
+                        const origText = submitBtn?.textContent;
+                        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verifying…'; }
+                        try {
+                            await validate(validation.key);
+                        } catch (err) {
+                            keyError.textContent = err.message || 'Invalid key for this account';
+                            keyError.style.display = 'block';
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
+                            return;
+                        }
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
                     }
                     
                     cleanup();

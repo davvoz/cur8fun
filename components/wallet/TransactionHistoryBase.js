@@ -1,6 +1,7 @@
 import Component from '../Component.js';
 import authService from '../../services/AuthService.js';
 import transactionHistoryService from '../../services/TransactionHistoryService.js';
+import router from '../../utils/Router.js';
 import filterService from '../../services/FilterService.js';
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
 import LoadingIndicator from '../LoadingIndicator.js';
@@ -512,20 +513,29 @@ export default class TransactionHistoryBase extends Component {
     
     // Non mostrare il link al block explorer per le transazioni di tipo curation_reward
     if (tx.type !== 'curation_reward') {
+      const link = transactionHistoryService.createExplorerLink(tx, tx.data);
       const linkElement = document.createElement('a');
       linkElement.className = 'transaction-link';
-      linkElement.href = transactionHistoryService.createExplorerLink(tx, tx.data);
-      linkElement.target = (tx.data.author && tx.data.permlink) ? '_self' : '_blank';
-      linkElement.rel = 'noopener noreferrer';
-      
+
       const linkIcon = document.createElement('span');
       linkIcon.className = 'material-icons';
       linkIcon.textContent = 'open_in_new';
       linkElement.appendChild(linkIcon);
-      
-      const linkText = document.createTextNode('View on Explorer');
-      linkElement.appendChild(linkText);
-      
+      linkElement.appendChild(document.createTextNode('View'));
+
+      if (link.internal) {
+        linkElement.href = 'javascript:void(0)';
+        linkElement.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          router.navigate(link.url);
+        });
+      } else {
+        linkElement.href = link.url;
+        linkElement.target = '_blank';
+        linkElement.rel = 'noopener noreferrer';
+      }
+
       detailsElement.appendChild(linkElement);
     }
     

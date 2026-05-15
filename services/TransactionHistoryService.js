@@ -46,6 +46,8 @@ class TransactionHistoryService {
     const data = txData.op[1];
     const timestamp = txData.timestamp;
     const trx_id = txData.trx_id;
+    const block = txData.block;
+    const trx_in_block = txData.trx_in_block;
 
     const { icon, iconClass } = this.getIconForType(type, data);
     const title = this.formatTitle(type);
@@ -61,6 +63,8 @@ class TransactionHistoryService {
       data,
       timestamp,
       trx_id,
+      block,
+      trx_in_block,
       icon,
       iconClass,
       title,
@@ -91,7 +95,6 @@ class TransactionHistoryService {
         return data.from_account === username;
       case 'delegate_vesting_shares':
         return data.delegator === username;
-      case 'claim_reward_balance':
       case 'account_update':
       case 'account_update2':
         return data.account === username;
@@ -357,18 +360,18 @@ class TransactionHistoryService {
         const weightPercent = (data.weight / 100).toFixed(0);
         if (currentUsername) {
           if (data.voter === currentUsername) {
-            return `Voted ${weightPercent}% on @${data.author}/${data.permlink.substring(0, 15)}...`;
+            return `Voted ${weightPercent}% on @${data.author}/${data.permlink}`;
           } else if (data.author === currentUsername) {
             return `@${data.voter} voted ${weightPercent}% on your post`;
           }
         }
-        return `${data.voter} voted ${weightPercent}% on @${data.author}/${data.permlink.substring(0, 15)}...`;
+        return `${data.voter} voted ${weightPercent}% on @${data.author}/${data.permlink}`;
         
       case 'comment':
         if (data.parent_author) {
-          return `Reply to @${data.parent_author}/${data.parent_permlink.substring(0, 15)}...`;
+          return `Reply to @${data.parent_author}/${data.parent_permlink}`;
         }
-        return `Post: "${data.title || data.permlink.substring(0, 30)}"`;
+        return `Post: "${data.title || data.permlink}"`;
       
       case 'account_update':
         const updates = [];
@@ -404,7 +407,7 @@ class TransactionHistoryService {
       case 'curation_reward':
         // Converti reward in SP
         const curationSP = await this.convertVestsToSP(data.reward);
-        return `Received ${curationSP} for curating @${data.comment_author}/${data.comment_permlink.substring(0, 15)}...`;
+        return `Received ${curationSP} for curating @${data.comment_author}/${data.comment_permlink}`;
         
       case 'author_reward':
       case 'comment_reward':
@@ -500,7 +503,7 @@ class TransactionHistoryService {
         return `Created new account @${data.new_account_name}`;
 
       case 'comment_options':
-        return `Options set for post @${data.author}/${data.permlink?.substring(0, 20)}...`;
+        return `Options set for post @${data.author}/${data.permlink}`;
       
       default:
         return `Operation: ${type}`;
@@ -511,11 +514,17 @@ class TransactionHistoryService {
    * Crea un link all'explorer per una transazione specifica
    */
   createExplorerLink(transaction, data) {
+    // Operations with author+permlink → internal SPA route
     if (data.author && data.permlink) {
-      // Use internal application routing instead of full URL
-      return `/@${data.author}/${data.permlink}`;
+      return { internal: true, url: `/@${data.author}/${data.permlink}` };
     }
-    return `https://steemblockexplorer.com/tx/${transaction.trx_id || transaction.id}`;
+    // Use SteemWorld block explorer
+    if (transaction.block) {
+      const trxIndex = transaction.trx_in_block ?? 0;
+      return { internal: false, url: `https://steemworld.org/block/${transaction.block}/${transaction.block}-${trxIndex}` };
+    }
+    // Fallback: search by trx_id
+    return { internal: false, url: `https://steemworld.org/tx/${transaction.trx_id}` };
   }
 
   /**

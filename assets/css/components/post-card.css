@@ -1,4 +1,15 @@
 /* Pinned post badge */
+.post-card {
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.post-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  border-color: var(--primary-color);
+}
+
 .post-card.is-pinned {
   position: relative;
 }

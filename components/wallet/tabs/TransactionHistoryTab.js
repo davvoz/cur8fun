@@ -40,27 +40,6 @@ export default class TransactionHistoryTab extends TransactionHistoryBase {
     return this.element;
   }
   
-  // Override createTransactionItem to customize the link text
-  createTransactionItem(tx) {
-    const item = super.createTransactionItem(tx);
-    
-    // Customize the link text
-    const link = item.querySelector('.transaction-link');
-    if (link) {
-      link.innerHTML = '';
-      
-      const linkIcon = document.createElement('span');
-      linkIcon.className = 'material-icons';
-      linkIcon.textContent = 'open_in_new';
-      link.appendChild(linkIcon);
-      
-      const linkText = document.createTextNode('View on Explorer');
-      link.appendChild(linkText);
-    }
-    
-    return item;
-  }
-  
   destroy() {
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);

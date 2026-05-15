@@ -132,6 +132,9 @@ class TagView extends BasePostView {
         }
         // --- end back navigation restore ---
 
+        // Inject feed switcher into banner
+        this._renderFeedSwitcher(container, postsContainer);
+
         // Load posts
         this.loadPosts(1).then(hasMore => {
             // Initialize infinite scroll

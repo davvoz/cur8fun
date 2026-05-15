@@ -1,6 +1,7 @@
 // Router
 import router from '../utils/Router.js';
 import { proxifyImage, getImageUrl } from '../utils/ImageUtils.js';
+import userPreferencesService from '../services/UserPreferencesService.js';
 
 // Components
 import ContentRenderer from '../components/ContentRenderer.js';
@@ -1484,6 +1485,88 @@ class BasePostView {
    */
   formatTagName(tag) {
     return tag.charAt(0).toUpperCase() + tag.slice(1);
+  }
+
+  // --- Feed Switcher (shared by HomeView and TagView) ---
+
+  _renderFeedSwitcher(container, postsContainer) {
+    const headerArea = container.querySelector('.header-area-home');
+    if (!headerArea) return;
+
+    headerArea.classList.add('feed-switchable');
+
+    const panel = document.createElement('div');
+    panel.className = 'feed-switcher-panel';
+    panel.inert = true;
+    this._feedSwitcherPanel = panel;
+
+    const activeTag = this._tempTag || this.tag || '';
+    const preferredTags = userPreferencesService.getPreferredTags();
+    const hasCustom = preferredTags.length > 0;
+
+    const options = [
+      { value: 'trending', label: 'Trending', icon: 'local_fire_department' },
+      { value: 'hot',      label: 'Hot',      icon: 'whatshot' },
+      { value: 'new',      label: 'New',      icon: 'fiber_new' },
+    ];
+    if (hasCustom) {
+      options.push({ value: 'custom', label: 'My Tags', icon: 'label' });
+    }
+
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'feed-switcher-option' + (activeTag === opt.value ? ' active' : '');
+      btn.innerHTML = `<span class="material-icons">${opt.icon}</span>${opt.label}`;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._switchFeedTemp(opt.value, postsContainer, container);
+      });
+      panel.appendChild(btn);
+    });
+
+    headerArea.insertAdjacentElement('afterend', panel);
+
+    const togglePanel = (e) => {
+      if (e.target.closest('.grid-controller-container')) return;
+      const isOpen = panel.classList.contains('open');
+      if (isOpen) {
+        this._closeFeedSwitcher();
+      } else {
+        panel.classList.add('open');
+        panel.inert = false;
+        setTimeout(() => {
+          this._outsideClickHandler = (ev) => {
+            if (!panel.contains(ev.target) && !headerArea.contains(ev.target)) {
+              this._closeFeedSwitcher();
+            }
+          };
+          document.addEventListener('click', this._outsideClickHandler, { once: true });
+        }, 0);
+      }
+    };
+
+    headerArea.addEventListener('click', togglePanel);
+    this._headerToggleHandler = togglePanel;
+    this._headerAreaEl = headerArea;
+  }
+
+  _closeFeedSwitcher() {
+    if (this._feedSwitcherPanel) {
+      this._feedSwitcherPanel.classList.remove('open');
+      this._feedSwitcherPanel.inert = true;
+    }
+    if (this._outsideClickHandler) {
+      document.removeEventListener('click', this._outsideClickHandler);
+      this._outsideClickHandler = null;
+    }
+  }
+
+  // Default: save to sessionStorage and navigate home.
+  // HomeView overrides this to reload posts in-place.
+  _switchFeedTemp(newTag) {
+    this._closeFeedSwitcher();
+    sessionStorage.setItem('homeTempFeed', newTag);
+    router.navigate('/home');
   }
 
   /**

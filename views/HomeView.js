@@ -9,6 +9,16 @@ import router from '../utils/Router.js';
 class HomeView extends BasePostView {  constructor(params) {
     super(params);
     
+    // Temporary feed override (session only, doesn't change preferences)
+    this._tempTag = null;
+
+    // Check if TagView navigated here with a temp feed selection
+    const pendingFeed = sessionStorage.getItem('homeTempFeed');
+    if (pendingFeed) {
+      sessionStorage.removeItem('homeTempFeed');
+      this._tempTag = pendingFeed;
+    }
+
     // Se forceTag è true, usa sempre il tag specificato nei parametri
     if (params.forceTag && params.tag) {
       this.tag = params.tag;
@@ -110,8 +120,10 @@ class HomeView extends BasePostView {  constructor(params) {
   }
 
   async fetchPostsByTag(page = 1) {
+    const activeTag = this._tempTag || this.tag;
+
     // If custom tag is selected, fetch by preferred tags
-    if (this.tag === 'custom') {
+    if (activeTag === 'custom') {
       const preferredTags = userPreferencesService.getPreferredTags();
       
       if (preferredTags.length === 0) {
@@ -124,8 +136,8 @@ class HomeView extends BasePostView {  constructor(params) {
     }
     
     // Use getPostsByTag for any custom tag not in the special list
-    if (!['trending', 'hot', 'new', 'created', 'promoted'].includes(this.tag)) {
-      return steemService.getPostsByTag(this.tag, page);
+    if (!['trending', 'hot', 'new', 'created', 'promoted'].includes(activeTag)) {
+      return steemService.getPostsByTag(activeTag, page);
     }
     
     const postFetchers = {
@@ -136,7 +148,7 @@ class HomeView extends BasePostView {  constructor(params) {
       'promoted': () => steemService.getPromotedPosts(page)
     };
     
-    const fetchMethod = postFetchers[this.tag] || (() => steemService.getTrendingPosts(page));
+    const fetchMethod = postFetchers[activeTag] || (() => steemService.getTrendingPosts(page));
     return await fetchMethod();
   }
   
@@ -149,13 +161,13 @@ class HomeView extends BasePostView {  constructor(params) {
     metaTagService.resetToDefault();
     
     // Get view title based on tag
-    let viewTitle = `${this.formatTagName(this.tag)} Posts`;
+    const activeTag = this._tempTag || this.tag;
+    let viewTitle = `${this.formatTagName(activeTag)} Posts`;
     
     // Special handling for custom tag mode
-    if (this.tag === 'custom') {
+    if (activeTag === 'custom') {
       const preferredTags = userPreferencesService.getPreferredTags();
       if (preferredTags.length > 0) {
-        // Format tags for display with proper capitalization and commas
         const formattedTags = preferredTags
           .map(tag => this.formatTagName(tag))
           .join(', ');
@@ -165,9 +177,13 @@ class HomeView extends BasePostView {  constructor(params) {
       }
     }
     
-    const headerSubtitle = this.tag === 'custom'
-      ? 'Posts curated from your preferred tags.'
-      : 'Discover what the community is reading right now.';
+    const feedSubtitles = {
+      trending: 'Discover what the community is reading right now.',
+      hot:      'The most engaging posts of the moment.',
+      new:      'Fresh content, just published.',
+      custom:   'Posts curated from your preferred tags.'
+    };
+    const headerSubtitle = feedSubtitles[activeTag] || feedSubtitles.trending;
 
     const { postsContainer } = this.renderBaseView(
       container,
@@ -178,6 +194,9 @@ class HomeView extends BasePostView {  constructor(params) {
         headerSubtitle
       }
     );
+
+    // Inject feed switcher into the home header banner
+    this._renderFeedSwitcher(container, postsContainer);
     
     // Destroy existing infinite scroll if it exists
     if (this.infiniteScroll) {
@@ -246,6 +265,73 @@ class HomeView extends BasePostView {  constructor(params) {
     
     // Remove event listeners
     eventEmitter.off('user:preferences:updated');
+
+    // Close feed switcher panel if open
+    this._closeFeedSwitcher();
+  }
+
+  // Override: reload posts in-place instead of navigating
+  _switchFeedTemp(newTag, postsContainer, container) {
+    this._closeFeedSwitcher();
+    if ((this._tempTag || this.tag) === newTag) return;
+
+    this._tempTag = newTag;
+
+    // Update active state on buttons
+    if (this._feedSwitcherPanel) {
+      this._feedSwitcherPanel.querySelectorAll('.feed-switcher-option').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.trim().toLowerCase().startsWith(newTag === 'custom' ? 'my' : newTag));
+      });
+    }
+
+    // Update banner title and subtitle
+    const headerArea = container.querySelector('.header-area-home');
+    if (headerArea) {
+      const titleEl = headerArea.querySelector('.header-title');
+      const subtitleEl = headerArea.querySelector('.header-subtitle');
+      if (titleEl) {
+        if (newTag === 'custom') {
+          const tags = userPreferencesService.getPreferredTags();
+          titleEl.textContent = tags.length > 0
+            ? `Your Tags: ${tags.map(t => this.formatTagName(t)).join(', ')}`
+            : 'Trending Posts';
+        } else {
+          titleEl.textContent = `${this.formatTagName(newTag)} Posts`;
+        }
+      }
+      if (subtitleEl) {
+        const subtitles = {
+          trending: 'Discover what the community is reading right now.',
+          hot:      'The most engaging posts of the moment.',
+          new:      'Fresh content, just published.',
+          custom:   'Posts curated from your preferred tags.'
+        };
+        subtitleEl.textContent = subtitles[newTag] || subtitles.trending;
+      }
+    }
+
+    // Reload posts
+    this.posts = [];
+    this.renderedPostIds.clear();
+    if (this.infiniteScroll) {
+      this.infiniteScroll.destroy();
+      this.infiniteScroll = null;
+    }
+    this.loadPosts(1).then(() => {
+      if (postsContainer) {
+        const endMessage = newTag === 'custom'
+          ? `No more posts with your tags`
+          : `No more ${this.formatTagName(newTag)} posts to load`;
+        this.infiniteScroll = new InfiniteScroll({
+          container: postsContainer,
+          loadMore: (page) => this.loadPosts(page),
+          threshold: '200px',
+          loadingMessage: 'Loading more posts...',
+          endMessage,
+          errorMessage: 'Failed to load posts. Please check your connection.'
+        });
+      }
+    });
   }
 
   /**

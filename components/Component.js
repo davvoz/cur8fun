@@ -98,8 +98,14 @@ export default class Component {
       btn.type = 'button'; // prevent form submit
 
       const handler = async () => {
+        const { default: authService } = await import('../services/AuthService.js');
+        const user = authService.getCurrentUser();
+        if (!user) return;
+
         const { default: activeKeyInput } = await import('./auth/ActiveKeyInputComponent.js');
-        const key = await activeKeyInput.promptForActiveKey('Enter Active Key');
+        const key = await activeKeyInput.promptForActiveKey('Enter Active Key', {
+          validate: (k) => authService.verifyKey(user.username, k, 'active'),
+        });
         if (!key) return;
 
         // Ask the user to set a PIN to protect the active key
@@ -107,9 +113,6 @@ export default class Component {
         const pin = await pinInput.promptSetPin('Set a PIN for your Active Key');
         if (!pin) return; // user cancelled PIN setup
 
-        const { default: authService } = await import('../services/AuthService.js');
-        const user = authService.getCurrentUser();
-        if (!user) return;
         await authService.storeActiveKeyWithPin(user.username, key, pin);
 
         // Restore ALL locked wallet buttons across every tab in the page
