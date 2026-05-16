@@ -19,7 +19,6 @@ import VotesPopup from '../components/post/VotesPopup.js';
 import PayoutInfoPopup from '../components/post/PayoutInfoPopup.js';
 import RebloggersPopup from '../components/post/RebloggersPopup.js';
 import reblogService from '../services/ReblogService.js';
-import steemService from '../services/SteemService.js';
 import DialogUtility from '../components/DialogUtility.js';
 
 // Utilities
@@ -55,7 +54,7 @@ class BasePostView {
     }
 
     try {
-      const rebloggers = await steemService.getRebloggers(item.post.author, item.post.permlink);
+      const rebloggers = await reblogService.getRebloggers(item.post.author, item.post.permlink);
       if (Array.isArray(rebloggers) && rebloggers.length > 0) {
         item.countEl.textContent = String(rebloggers.length);
       }
@@ -1045,6 +1044,19 @@ class BasePostView {
       if (alreadyReblogged) {
         btn.classList.add('reblogged');
       }
+
+      // Async confirmation for sources that don't include reblog markers in post payload.
+      reblogService.getReblogInfo(currentUser.username, post.author, post.permlink)
+        .then(({ hasReblogged, reblogCount }) => {
+          if (!reblogCountEl.isConnected || !btn.isConnected) return;
+          if (Number.isFinite(reblogCount)) {
+            reblogCountEl.textContent = String(reblogCount);
+          }
+          if (hasReblogged) {
+            btn.classList.add('reblogged');
+          }
+        })
+        .catch(() => {});
     }
 
     btn.addEventListener('click', async (e) => {

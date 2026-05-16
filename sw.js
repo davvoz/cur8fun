@@ -1,12 +1,12 @@
 // Service Worker for cur8.fun Social Network PWA
-const CACHE_NAME = 'cur8-pwa-v1.154';
-const APP_VERSION = '1.0.151';
-const BUILD_TIMESTAMP = '2026-05-15T12:36:30Z';
+const CACHE_NAME = 'cur8-pwa-v1.156';
+const APP_VERSION = '1.0.153';
+const BUILD_TIMESTAMP = '2026-05-15T14:10:00Z';
 
 // Solo assets statici versionati — MAI index.html o navigation HTML
 const ASSETS_TO_CACHE = [
-  '/index.js',
   '/manifest.json',
+  '/index.js',
   '/assets/css/main.css',
   '/assets/css/styles.css',
   '/assets/img/logo_tra.png',
@@ -51,9 +51,9 @@ self.addEventListener('fetch', event => {
 
   if (event.request.method !== 'GET') return;
 
-  // Cache-first per assets statici con hash/versione (steem lib, css, img)
-  const isHeavyStatic = url.pathname.startsWith('/assets/') ||
-                        url.pathname === '/index.js';
+  // Assets statici pesanti (immagini/librerie vendor): cache-first
+  const isHeavyStatic = (url.pathname.startsWith('/assets/img/') ||
+                        url.pathname.startsWith('/assets/js/'));
 
   if (isHeavyStatic) {
     event.respondWith(
@@ -68,24 +68,39 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Stale-while-revalidate per tutti i moduli JS dell'app (views/, services/, etc.)
-  // Primo load: dalla rete + salva in cache. Reload successivi: cache istantanea + aggiorna in background.
-  const isAppModule = url.origin === self.location.origin &&
-                      url.pathname.endsWith('.js') &&
-                      !url.pathname.startsWith('/assets/');
+  // Script/style dell'app:
+  // - normale uso: cache-first + aggiornamento in background (massime performance)
+  // - su F5/reload: network-first per evitare mismatch tra moduli vecchi/nuovi
+  const isAppCode = url.origin === self.location.origin &&
+                    (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'));
 
-  if (isAppModule) {
+  if (isAppCode) {
+    const isReloadRequest = event.request.cache === 'reload' || event.request.cache === 'no-cache';
+
     event.respondWith(
-      caches.open(CACHE_NAME).then(cache =>
-        cache.match(event.request).then(cached => {
-          const networkFetch = fetch(event.request).then(response => {
+      caches.open(CACHE_NAME).then(async cache => {
+        if (isReloadRequest) {
+          try {
+            const fresh = await fetch(event.request);
+            cache.put(event.request, fresh.clone());
+            return fresh;
+          } catch {
+            const cached = await cache.match(event.request);
+            if (cached) return cached;
+            throw new Error('Network unavailable and no cached asset for reload request');
+          }
+        }
+
+        const cached = await cache.match(event.request);
+        const networkFetch = fetch(event.request)
+          .then(response => {
             cache.put(event.request, response.clone());
             return response;
-          });
-          // Serve subito dalla cache se disponibile, aggiorna in background
-          return cached || networkFetch;
-        })
-      )
+          })
+          .catch(() => null);
+
+        return cached || networkFetch;
+      })
     );
     return;
   }

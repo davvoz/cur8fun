@@ -134,8 +134,13 @@ export default class CommentService {
                 console.log(`[Batch ${attempts+1}] Caricate ${allComments.length} commenti finora`);
 
                 try {
+                    const remaining = targetLimit - allComments.length;
+                    const requestLimit = loadAll
+                        ? BATCH_SIZE
+                        : Math.min(BATCH_SIZE, Math.max(1, remaining + (startPermlink ? 1 : 0)));
+
                     // Carica il prossimo batch di commenti
-                    const comments = await this.getAuthorComments(author, startPermlink, BATCH_SIZE);
+                    const comments = await this.getAuthorComments(author, startPermlink, requestLimit);
 
                     // Se non ci sono risultati, interrompi
                     if (!comments || comments.length === 0) {
@@ -167,6 +172,9 @@ export default class CommentService {
 
                     // Aggiungi i nuovi commenti alla collezione
                     allComments.push(...newComments);
+                    if (!loadAll && allComments.length > targetLimit) {
+                        allComments.length = targetLimit;
+                    }
                     console.log(`Aggiunti ${newComments.length} nuovi commenti (totale: ${allComments.length})`);
 
                     // Aggiorna il permlink di partenza per il prossimo batch

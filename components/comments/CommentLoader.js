@@ -17,19 +17,29 @@ export default class CommentLoader {
     this.loading = true;
 
     try {
-      // Carica i commenti dal servizio - sempre forza il refresh
+      // Carica i commenti dal servizio usando cache + paginazione
       const comments = await profileService.getUserComments(this.username, limit, page, {
-        forceRefresh: true, // Forza sempre il refresh
+        forceRefresh: false,
         timeout: 15000
       });
 
+      let newlyAddedComments = [];
+
       if (comments && Array.isArray(comments)) {
+        newlyAddedComments = comments;
+
         if (page === 1) {
           // Se è la prima pagina, resetta la collezione
           this.allComments = comments;
         } else {
-          // Altrimenti aggiungi alla collezione esistente
-          this.allComments = [...this.allComments, ...comments];
+          // Altrimenti aggiungi solo i commenti non ancora presenti
+          const existingIds = new Set(
+            this.allComments.map(comment => `${comment.author}_${comment.permlink}`)
+          );
+          newlyAddedComments = comments.filter(
+            comment => !existingIds.has(`${comment.author}_${comment.permlink}`)
+          );
+          this.allComments = [...this.allComments, ...newlyAddedComments];
         }
         
         this.commentsData = true;
@@ -48,7 +58,7 @@ export default class CommentLoader {
         this.hasMoreComments = false;
       }
       
-      return this.allComments;
+      return page === 1 ? this.allComments : newlyAddedComments;
     } catch (error) {
       console.error('[CommentLoader] Error loading comments:', error);
       return [];
@@ -62,8 +72,7 @@ export default class CommentLoader {
       return [];
     }
     
-    const newComments = await this.loadComments(this.pageSize, page);
-    return newComments;
+    return this.loadComments(this.pageSize, page);
   }
   
   hasMore() {

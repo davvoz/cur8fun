@@ -202,10 +202,58 @@ class ProfileService {
             return [];
         }
     }
-    
+
+    /**
+     * Get all posts by an author (blog + communities), excluding reblogs
+     * Uses getDiscussionsByAuthorBeforeDate — cursor-based pagination
+     */
+    async getUserAuthorPosts(username, limit = 30, page = 1, params = {}) {
+        try {
+            if (params?.forceRefresh) {
+                // Invalidate author-posts cache entries for this user
+                const keysToDelete = [];
+                this.postCache.forEach((value, key) => {
+                    if (key.startsWith(`${username}_author_posts_`)) keysToDelete.push(key);
+                });
+                keysToDelete.forEach(k => this.postCache.delete(k));
+            }
+
+            const cacheKey = `${username}_author_posts_page_${page}`;
+
+            if (!params?.forceRefresh) {
+                const cached = this.getCachedPosts(cacheKey);
+                if (cached) return cached;
+            }
+
+            let paginationParams = {};
+
+            if (page > 1) {
+                const prevKey = `${username}_author_posts_page_${page - 1}`;
+                const prevPosts = this.getCachedPosts(prevKey);
+                if (prevPosts && prevPosts.length > 0) {
+                    const lastPost = prevPosts[prevPosts.length - 1];
+                    paginationParams = {
+                        startPermlink: lastPost.permlink,
+                        beforeDate: lastPost.created
+                    };
+                }
+            }
+
+            const result = await steemService.getUserAuthorPosts(username, limit, paginationParams);
+
+            if (result.posts && result.posts.length > 0) {
+                this.cachePosts(cacheKey, result.posts);
+                return result.posts;
+            }
+            return [];
+        } catch (error) {
+            console.error(`Error fetching author posts for ${username}:`, error);
+            return [];
+        }
+    }
+
     /**
      * Pulisce la cache dei post per uno specifico utente
-     * @param {string} username - Username
      */
     clearUserPostsCache(username) {
         // Cancella tutte le chiavi della cache che contengono questo username
@@ -399,23 +447,27 @@ class ProfileService {
     }
 
 
-    async getUserComments(username, limit = 30, page = 1, forceRefresh = false) {
+    async getUserComments(username, limit = 30, page = 1, options = {}) {
         const COMMENTS_CACHE_KEY = `${username}_comments`;
         const COMMENTS_CACHE_DURATION_MS = 120 * 60 * 1000; // 2 hours in milliseconds
+        const forceRefresh = typeof options === 'boolean' ? options : !!options.forceRefresh;
+        const safeLimit = Math.max(1, Number(limit) || 30);
+        const safePage = Math.max(1, Number(page) || 1);
+        const requestedCount = safeLimit * safePage;
         
         try {
             // Check cache if not forcing refresh
             if (!forceRefresh) {
                 const paginatedCachedComments = this.getPaginatedCachedComments(
-                    COMMENTS_CACHE_KEY, page, limit, username
+                    COMMENTS_CACHE_KEY, safePage, safeLimit, username
                 );
                 if (paginatedCachedComments) {
                     return paginatedCachedComments;
                 }
             }
             
-            // Load comments from blockchain
-            const comments = await steemService.getCommentsByAuthor(username, -1);
+            // Load only what is needed for the requested page
+            const comments = await steemService.getCommentsByAuthor(username, requestedCount);
             
             if (!this.isValidCommentsResponse(comments)) {
                 return [];
@@ -425,14 +477,14 @@ class ProfileService {
             if (comments.length > 0) {
                 this.cacheUserComments(COMMENTS_CACHE_KEY, comments, COMMENTS_CACHE_DURATION_MS);
                 this.storeCommentsInSessionStorage(COMMENTS_CACHE_KEY, comments);
-                this.emitCommentsLoadedEvent(username, comments.length, 'network', page);
+                this.emitCommentsLoadedEvent(username, comments.length, 'network', safePage);
             }
             
             // Return paginated results
-            return this.paginateResults(comments, page, limit);
+            return this.paginateResults(comments, safePage, safeLimit);
         } catch (error) {
             console.error(`Error fetching comments for ${username}:`, error);
-            return this.getFallbackComments(COMMENTS_CACHE_KEY, page, limit);
+            return this.getFallbackComments(COMMENTS_CACHE_KEY, safePage, safeLimit);
         }
     }
     
@@ -455,6 +507,13 @@ class ProfileService {
     getPaginatedCachedComments(cacheKey, page, limit, username) {
         const cachedComments = this.getCachedPosts(cacheKey);
         if (!cachedComments) {
+            return null;
+        }
+
+        const requiredCount = page * limit;
+        // Cache may contain only the first chunk from a previous request.
+        // For page > 1, use cache only if it has enough items to cover that page.
+        if (page > 1 && cachedComments.length < requiredCount) {
             return null;
         }
         

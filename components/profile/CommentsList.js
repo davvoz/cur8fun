@@ -82,19 +82,7 @@ export default class CommentsList extends BasePostView {
       const commentsContainer = this.container?.querySelector(`#${this.uniqueContainerId}`);
       if (!commentsContainer) return;
       
-      // Show skeleton rows while loading
-      commentsContainer.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
-          ${[1,2,3,4].map(() => `
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
-              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-                <div class="sk-block" style="height:11px;width:30%;border-radius:5px"></div>
-                <div class="sk-block" style="height:11px;width:90%;border-radius:5px"></div>
-                <div class="sk-block" style="height:11px;width:75%;border-radius:5px"></div>
-              </div>
-            </div>`).join('')}
-        </div>`;
+      this.renderLoadingSkeleton(commentsContainer);
       
       // Carica i commenti
       const comments = await this._loader.loadComments(this.commentsPerPage, 1);
@@ -158,6 +146,38 @@ export default class CommentsList extends BasePostView {
       console.error('[CommentsList] Error rendering comments:', error);
       this._uiManager?.showError(error);
     }
+  }
+
+  renderLoadingSkeleton(container) {
+    const skeletonItems = [1, 2, 3].map(() => `
+      <div class="comment-list-item comment-skeleton-item" aria-hidden="true">
+        <div class="comment-avatar">
+          <span class="sk-block sk-comment-avatar"></span>
+        </div>
+        <div class="comment-content">
+          <div class="comment-header">
+            <span class="sk-block sk-comment-author"></span>
+            <span class="sk-block sk-comment-date"></span>
+          </div>
+          <div class="comment-parent">
+            <span class="sk-block sk-comment-parent"></span>
+          </div>
+          <div class="comment-body">
+            <span class="sk-block sk-comment-line"></span>
+            <span class="sk-block sk-comment-line sk-comment-line-short"></span>
+          </div>
+          <div class="comment-footer">
+            <div class="comment-actions">
+              <span class="sk-block sk-comment-stat"></span>
+              <span class="sk-block sk-comment-stat"></span>
+              <span class="sk-block sk-comment-stat"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    container.innerHTML = `<div class="comments-list-wrapper comments-skeleton-wrapper">${skeletonItems}</div>`;
   }
 
   _setupInfiniteScroll(commentsWrapper) {
@@ -239,12 +259,16 @@ export default class CommentsList extends BasePostView {
 
   refreshGridLayout() {
     if (!this.container) return;
-    
-    // Reset pagination
-    this.currentPage = 1;
-    
-    // Reload comments
-    this._loadComments();
+
+    this.forceLayoutRefresh();
+  }
+
+  forceLayoutRefresh() {
+    if (!this.container) return;
+
+    if (this.allComments && this.allComments.length > 0) {
+      this.renderLoadedComments();
+    }
   }
 
   unmount() {

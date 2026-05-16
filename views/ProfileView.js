@@ -12,8 +12,9 @@ import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js'
 
 // Static cache for components
 const componentCache = {
-  posts: {},  // Manteniamo la cache per i post
-  comments: {} // Ora usiamo la cache anche per i commenti
+  blog: {},  // blog posts + reblogs (getDiscussionsByBlog)
+  posts: {}, // all author posts, no reblogs (getDiscussionsByAuthorBeforeDate)
+  comments: {}
 };
 
 class ProfileView extends View {
@@ -35,16 +36,18 @@ class ProfileView extends View {
     // Check if we're coming from a non-profile page
     const isDirectNavigation = this.isDirectNavigation();
     
-    // Get cached tab if available, but default to 'posts' when coming from non-profile pages
+    // Get cached tab if available, but default to 'blog' when coming from non-profile pages
     this.currentTab = (isDirectNavigation || !ProfileTabs.activeTabCache[this.username]) ? 
-                      'posts' : ProfileTabs.activeTabCache[this.username];
+                      'blog' : ProfileTabs.activeTabCache[this.username];
     
-    // Caching state
-    this.postsLoaded = !!componentCache.posts[this.username];
-    this.commentsLoaded = !!componentCache.comments[this.username];
+    this.blogContainer = null;
     this.postsContainer = null;
     this.commentsContainer = null;
+    this.walletContainer = null;
     this.walletHistoryComponent = null;
+    this.postsArea = null;
+    this.isSwitchingTab = false;
+    this.pendingTabSwitch = null;
   }
 
   // Helper to determine if we're navigating directly to profile
@@ -70,13 +73,22 @@ class ProfileView extends View {
     this.profileHeader = null; // Will be initialized after profile data is loaded
     
     // Create tabs manager - always create fresh to ensure proper initialization
-    this.tabsManager = new ProfileTabs((tabName) => this.switchTab(tabName));
+    this.tabsManager = new ProfileTabs((tabName) => this.switchTab(tabName), {
+      manageContentContainers: false
+    });
     
-    // Get or create posts component
-    if (!componentCache.posts[this.username]) {
-      componentCache.posts[this.username] = new PostsList(this.username, true);
+    // Get or create blog component (blog posts + reblogs)
+    if (!componentCache.blog[this.username]) {
+      componentCache.blog[this.username] = new PostsList(this.username, true, 'blog');
     } else {
-      // Reset the component if it exists to ensure it's ready for reuse
+      componentCache.blog[this.username].reset();
+    }
+    this.blogComponent = componentCache.blog[this.username];
+
+    // Get or create posts component (all author posts, no reblogs)
+    if (!componentCache.posts[this.username]) {
+      componentCache.posts[this.username] = new PostsList(this.username, true, 'posts');
+    } else {
       componentCache.posts[this.username].reset();
     }
     this.postsComponent = componentCache.posts[this.username];
@@ -85,7 +97,6 @@ class ProfileView extends View {
     if (!componentCache.comments[this.username]) {
       componentCache.comments[this.username] = new CommentsList(this.username, true);
     } else {
-      // Resetta minimamente lo stato, ma mantieni i dati se possibile
       componentCache.comments[this.username].prepareForReuse();
     }
     this.commentsComponent = componentCache.comments[this.username];
@@ -205,278 +216,269 @@ class ProfileView extends View {
     
     // Render tabs
     this.tabsManager.render(contentContainer);
-    
-    // Create grid controller containers
-    const postsGridContainer = document.createElement('div');
-    postsGridContainer.className = 'posts-grid-controller-container';
-    
-    const commentsGridContainer = document.createElement('div');
-    commentsGridContainer.className = 'comments-grid-controller-container';
-    commentsGridContainer.style.display = 'none';
-    
-    const walletGridContainer = document.createElement('div');
-    walletGridContainer.className = 'wallet-grid-controller-container';
-    walletGridContainer.style.display = 'none';
-    
-    contentContainer.appendChild(postsGridContainer);
-    contentContainer.appendChild(commentsGridContainer);
-    contentContainer.appendChild(walletGridContainer);
+
+    // ProfileTabs creates legacy placeholder containers that are not used by this view.
+    // Removing them avoids duplicate DOM and visual flicker during tab switches.
+    contentContainer.querySelectorAll('.profile-tab-content').forEach((el) => el.remove());
     
     // Create a container for the posts/comments/wallet
     const postsArea = document.createElement('div');
     postsArea.className = 'profile-posts-area';
-    contentContainer.appendChild(postsArea);
-    
-    // Configure the container for grid layouts
     postsArea.style.width = '100%';
     postsArea.style.maxWidth = '100%';
     postsArea.style.overflow = 'hidden';
+    contentContainer.appendChild(postsArea);
+    this.postsArea = postsArea;
   }
   
   loadContentForCurrentTab() {
-    const postsArea = this.container.querySelector('.profile-posts-area');
+    const postsArea = this.getPostsArea();
     if (!postsArea) return;
     
     this.initializeContainersIfNeeded(postsArea);
     
-    // CORREZIONE: Rimuovi le chiamate a setContainer
-    // Verifica se il metodo esiste prima di chiamarlo
-    if (this.postsComponent && typeof this.postsComponent.setContainer === 'function') {
-      this.postsComponent.setContainer(this.postsContainer);
+    if (this.currentTab === 'blog') {
+      this.updateContainerVisibility(
+        this.blogContainer,
+        [this.postsContainer, this.commentsContainer, this.walletContainer],
+        null, []
+      );
+      this.loadComponentContent(this.blogComponent, this.blogContainer, 'blog');
+    } else if (this.currentTab === 'posts') {
+      this.updateContainerVisibility(
+        this.postsContainer,
+        [this.blogContainer, this.commentsContainer, this.walletContainer],
+        null, []
+      );
+      this.loadComponentContent(this.postsComponent, this.postsContainer, 'posts');
+    } else if (this.currentTab === 'comments') {
+      this.updateContainerVisibility(
+        this.commentsContainer,
+        [this.blogContainer, this.postsContainer, this.walletContainer],
+        null, []
+      );
+      this.loadComponentContent(this.commentsComponent, this.commentsContainer, 'comments');
+    } else if (this.currentTab === 'wallet') {
+      this.updateContainerVisibility(
+        this.walletContainer,
+        [this.blogContainer, this.postsContainer, this.commentsContainer],
+        null, []
+      );
+      if (!this.walletHistoryComponent) {
+        this.walletHistoryComponent = new ProfileWalletHistory(this.username);
+        this.walletHistoryComponent.render(this.walletContainer);
+      } else {
+        this.walletHistoryComponent.setVisibility(true);
+        this.walletHistoryComponent.updateUsername(this.username);
+      }
     }
-    
-    // Non chiamare più setContainer per commentsComponent che non lo supporta
-    
-    const gridContainers = this.getGridContainers();
-    const isPostsTab = this.currentTab === 'posts';
-    const activeComponent = isPostsTab ? this.postsComponent : this.commentsComponent;
-    const activeContainer = isPostsTab ? this.postsContainer : this.commentsContainer;
-    const inactiveContainer = isPostsTab ? this.commentsContainer : this.postsContainer;
-    const activeGridContainer = isPostsTab ? gridContainers.posts : gridContainers.comments;
-    const inactiveGridContainer = isPostsTab ? gridContainers.comments : gridContainers.posts;
-    
-    // Update visibility
-    this.updateContainerVisibility(activeContainer, [inactiveContainer, gridContainers.wallet], activeGridContainer, [inactiveGridContainer, gridContainers.wallet]);
-    
-    // Render grid controller if needed
-    this.renderGridControllerIfNeeded(activeGridContainer, activeComponent);
-    
-    // Handle component loading and rendering
-    this.loadComponentContent(activeComponent, activeContainer, isPostsTab);
   }
   
   initializeContainersIfNeeded(postsArea) {
-    if (this.postsContainer && this.commentsContainer && this.walletContainer) return;
+    const hasConnectedContainers = this.blogContainer
+      && this.postsContainer
+      && this.commentsContainer
+      && this.walletContainer
+      && this.blogContainer.parentElement === postsArea
+      && this.postsContainer.parentElement === postsArea
+      && this.commentsContainer.parentElement === postsArea
+      && this.walletContainer.parentElement === postsArea
+      && this.blogContainer.isConnected
+      && this.postsContainer.isConnected
+      && this.commentsContainer.isConnected
+      && this.walletContainer.isConnected;
+
+    if (hasConnectedContainers) return;
+
+    this.blogContainer = null;
+    this.postsContainer = null;
+    this.commentsContainer = null;
+    this.walletContainer = null;
+    if (!postsArea) return;
     
-    // Create containers
+    // Blog container (blog posts + reblogs)
+    this.blogContainer = document.createElement('div');
+    this.blogContainer.className = 'posts-list-container profile-blog-container profile-tab-panel';
+    this.blogContainer.style.width = '100%';
+    
+    // Posts container (all author posts, no reblogs)
     this.postsContainer = document.createElement('div');
-    this.postsContainer.className = 'posts-list-container profile-posts-container'; // <-- Doppia classe per compatibilità
+    this.postsContainer.className = 'posts-list-container profile-posts-container profile-tab-panel';
     this.postsContainer.style.width = '100%';
     
     this.commentsContainer = document.createElement('div');
-    this.commentsContainer.className = 'comments-list-container profile-comments-container'; // <-- Doppia classe
+    this.commentsContainer.className = 'comments-list-container profile-comments-container profile-tab-panel';
     this.commentsContainer.style.width = '100%';
     
-    // Salva come proprietà dell'oggetto e usa classi coerenti
     this.walletContainer = document.createElement('div');
-    this.walletContainer.className = 'wallet-list-container profile-wallet-container'; // <-- Doppia classe
+    this.walletContainer.className = 'wallet-list-container profile-wallet-container profile-tab-panel';
     this.walletContainer.style.width = '100%';
-    this.walletContainer.style.display = 'none';
+
+    const containers = [this.blogContainer, this.postsContainer, this.commentsContainer, this.walletContainer];
+    containers.forEach((container) => {
+      container.classList.add('is-hidden');
+      container.classList.remove('is-visible');
+    });
     
-    // Add all containers to DOM
+    postsArea.appendChild(this.blogContainer);
     postsArea.appendChild(this.postsContainer);
     postsArea.appendChild(this.commentsContainer);
     postsArea.appendChild(this.walletContainer);
-    
-    // Initialize posts first (it's the default tab)
-    this.postsComponent.render(this.postsContainer);
-    this.postsLoaded = true;
-    
-    // Initially hide comments and wallet containers
-    this.commentsContainer.style.display = 'none';
-    this.walletContainer.style.display = 'none';
   }
   
-  getGridContainers() {
-    let postsContainer = this.container.querySelector('.profile-posts-container');
-    let commentsContainer = this.container.querySelector('.profile-comments-container');
-    let walletContainer = this.container.querySelector('.profile-wallet-container');
-    
-    const contentContainer = this.container.querySelector('.profile-content-container');
-    
-    if (!postsContainer && contentContainer) {
-      postsContainer = document.createElement('div');
-      postsContainer.className = 'profile-posts-container';
-      contentContainer.appendChild(postsContainer);
-    }
-    
-    if (!commentsContainer && contentContainer) {
-      commentsContainer = document.createElement('div');
-      commentsContainer.className = 'profile-comments-container';
-      commentsContainer.style.display = 'none';
-      contentContainer.appendChild(commentsContainer);
-    }
-    
-    if (!walletContainer && contentContainer) {
-      walletContainer = document.createElement('div');
-      walletContainer.className = 'profile-wallet-container';
-      walletContainer.style.display = 'none';
-      contentContainer.appendChild(walletContainer);
-    }
-    
-    return { postsContainer, commentsContainer, walletContainer };
-  }
+
   
   updateContainerVisibility(activeContainer, inactiveContainers, activeGridContainer, inactiveGridContainers) {
-    // Mostra il container attivo
     if (activeContainer) {
-      activeContainer.style.display = '';
+      this.showContainer(activeContainer);
     }
-    
-    // Nascondi tutti i container inattivi
+
     inactiveContainers.forEach(container => {
       if (container) {
-        container.style.display = 'none';
+        this.hideContainer(container);
       }
     });
-    
-    // Applica lo stesso ai grid container se presenti
+
     if (activeGridContainer) {
       activeGridContainer.style.display = '';
     }
-    
+
     inactiveGridContainers.forEach(container => {
       if (container) {
         container.style.display = 'none';
       }
     });
   }
-  
-  renderGridControllerIfNeeded(gridContainer, component) {
-    if (gridContainer && !gridContainer.hasChildNodes()) {
-      component.gridController.render(gridContainer);
+
+  showContainer(container) {
+    container.classList.remove('is-hidden');
+    container.style.display = '';
+    requestAnimationFrame(() => {
+      container.classList.add('is-visible');
+    });
+  }
+
+  hideContainer(container) {
+    container.classList.add('is-hidden');
+    container.classList.remove('is-visible');
+    container.style.display = 'none';
+  }
+
+  getPostsArea() {
+    if (this.postsArea && this.postsArea.isConnected) {
+      return this.postsArea;
     }
+
+    const postsArea = this.container?.querySelector('.profile-posts-area') || null;
+    this.postsArea = postsArea;
+    return postsArea;
   }
   
-  loadComponentContent(component, container, isPostsTab) {
-    const isLoaded = isPostsTab ? this.postsLoaded : this.commentsLoaded;
-    
-    if (!isLoaded) {
-      component.render(container);
-      if (isPostsTab) {
-        this.postsLoaded = true;
+  loadComponentContent(component, container, tabName) {
+    if (tabName === 'blog' || tabName === 'posts') {
+      const hasPosts = Array.isArray(component.posts) && component.posts.length > 0;
+      const hasDom = !!container.querySelector('.posts-container');
+      if (hasPosts && hasDom) {
+        setTimeout(() => { component.refreshGridLayout(); }, 50);
       } else {
-        this.commentsLoaded = true;
+        component.render(container);
       }
-    } else if (isPostsTab) {
-      // Solo per i post usiamo il refresh del layout
-      setTimeout(() => {
-        component.refreshGridLayout();
-      }, 50);
     } else {
-      // Per i commenti, ricarica sempre
+      // Comments: always delegate to render(); the component handles cache internally
       component.render(container);
     }
   }
   
   async switchTab(tabName) {
-    // Se la tab corrente è già attiva, non fare nulla
     if (this.currentTab === tabName) return;
+
+    if (this.isSwitchingTab) {
+      this.pendingTabSwitch = tabName;
+      return;
+    }
+
+    this.isSwitchingTab = true;
+
+    try {
+
+      if (!this.blogContainer || !this.postsContainer || !this.commentsContainer || !this.walletContainer) {
+        this.initializeContainersIfNeeded(this.getPostsArea());
+      }
     
-    // Ottieni i riferimenti ai container
-    const { postsContainer, commentsContainer, walletContainer } = this.getGridContainers();
+      const blog = this.blogContainer;
+      const posts = this.postsContainer;
+      const comments = this.commentsContainer;
+      const wallet = this.walletContainer;
     
-    // Trova i contenitori dei controlli griglia
-    const postsGridContainer = this.container.querySelector('.posts-grid-controller-container');
-    const commentsGridContainer = this.container.querySelector('.comments-grid-controller-container');
-    const walletGridContainer = this.container.querySelector('.wallet-grid-controller-container');
+      switch(tabName) {
+        case 'blog':
+          if (this.blogComponent) {
+            const hasBlogPosts = Array.isArray(this.blogComponent.posts) && this.blogComponent.posts.length > 0;
+            const hasBlogDom = !!blog.querySelector('.posts-container');
+            if (hasBlogPosts && hasBlogDom) {
+              setTimeout(() => { this.blogComponent.refreshGridLayout(); }, 50);
+            } else {
+              await this.blogComponent.render(blog);
+            }
+          }
+          this.updateContainerVisibility(blog, [posts, comments, wallet], null, []);
+          break;
+
+        case 'posts':
+          if (this.postsComponent) {
+            const hasPostsPosts = Array.isArray(this.postsComponent.posts) && this.postsComponent.posts.length > 0;
+            const hasPostsDom = !!posts.querySelector('.posts-container');
+            if (hasPostsPosts && hasPostsDom) {
+              setTimeout(() => { this.postsComponent.refreshGridLayout(); }, 50);
+            } else {
+              await this.postsComponent.render(posts);
+            }
+          }
+          this.updateContainerVisibility(posts, [blog, comments, wallet], null, []);
+          break;
+        
+        case 'comments':
+          this.updateContainerVisibility(comments, [blog, posts, wallet], null, []);
+          if (this.commentsComponent && comments) {
+            const hasCommentsData = Array.isArray(this.commentsComponent.allComments) && this.commentsComponent.allComments.length > 0;
+            const hasCommentsDom = !!comments.querySelector('.comments-list-wrapper');
+            if (hasCommentsData && hasCommentsDom) {
+              setTimeout(() => { this.commentsComponent.forceLayoutRefresh(); }, 50);
+            } else {
+              this.commentsComponent.render(comments);
+            }
+          }
+          break;
+        
+        case 'wallet':
+          this.updateContainerVisibility(wallet, [blog, posts, comments], null, []);
+          if (!this.walletHistoryComponent) {
+            try {
+              this.walletHistoryComponent = new ProfileWalletHistory(this.username);
+              this.walletHistoryComponent.render(wallet);
+            } catch(error) {
+              wallet.innerHTML = `<div class="error-message">Failed to load wallet history</div>`;
+            }
+          } else {
+            this.walletHistoryComponent.setVisibility(true);
+            this.walletHistoryComponent.updateUsername(this.username);
+          }
+          break;
+      }
     
-    // IMPORTANTE: Prima di cambiare tab, resetta i controller per evitare conflitti
-    if (this.currentTab === 'comments' && tabName !== 'comments') {
-      // Quando si esce dalla tab commenti, rimuovi il contenuto del container
-      // per evitare duplicazioni quando si rientra
-      if (commentsContainer) {
-        commentsContainer.innerHTML = '';
+      this.currentTab = tabName;
+      ProfileTabs.activeTabCache[this.username] = tabName;
+    } finally {
+      this.isSwitchingTab = false;
+
+      if (this.pendingTabSwitch && this.pendingTabSwitch !== this.currentTab) {
+        const nextTab = this.pendingTabSwitch;
+        this.pendingTabSwitch = null;
+        this.switchTab(nextTab);
+      } else {
+        this.pendingTabSwitch = null;
       }
     }
-    
-    // Aggiorna visibilità containers in base alla tab selezionata
-    switch(tabName) {
-      case 'posts':
-        this.updateContainerVisibility(
-          postsContainer, 
-          [commentsContainer, walletContainer],
-          postsGridContainer, 
-          [commentsGridContainer, walletGridContainer]
-        );
-        
-        // Se necessario, forza aggiornamento dei post
-        if (this.postsComponent) {
-          setTimeout(() => {
-            this.postsComponent.refreshGridLayout();
-          }, 50);
-        }
-        break;
-        
-      case 'comments':
-        this.updateContainerVisibility(
-          commentsContainer, 
-          [postsContainer, walletContainer],
-          null,
-          [postsGridContainer, walletGridContainer]
-        );
-        
-        // Nascondi esplicitamente il controller condiviso
-        if (commentsGridContainer) commentsGridContainer.style.display = 'none';
-        
-        // Verifica se i commenti sono già stati caricati prima
-        if (!this.commentsLoaded || commentsContainer.innerHTML === '') {
-          if (this.commentsComponent && commentsContainer) {
-            this.commentsComponent.render(commentsContainer);
-            this.commentsLoaded = true;
-          }
-        } else {
-          // Solo aggiorna il layout per adattarlo alla larghezza corrente
-          if (this.commentsComponent) {
-            setTimeout(() => {
-              this.commentsComponent.forceLayoutRefresh();
-            }, 50);
-          }
-        }
-        break;
-        
-      case 'wallet':
-        // Implementazione wallet invariata
-        this.updateContainerVisibility(
-          walletContainer, 
-          [postsContainer, commentsContainer],
-          null, // walletGridContainer potrebbe non esistere
-          [postsGridContainer, commentsGridContainer]
-        );
-        
-        // Inizializza il componente wallet se non esiste
-        if (!this.walletHistoryComponent) {
-          // Crea il componente direttamente
-          try {
-            this.walletHistoryComponent = new ProfileWalletHistory(this.username);
-            
-            // Renderizza nel container
-            this.walletHistoryComponent.render(walletContainer);
-          } catch(error) {
-            walletContainer.innerHTML = `<div class="error-message">Failed to load wallet history</div>`;
-          }
-        } else {
-          // Aggiorna visibilità e username
-          this.walletHistoryComponent.setVisibility(true);
-          this.walletHistoryComponent.updateUsername(this.username);
-        }
-        break;
-    }
-    
-    this.currentTab = tabName;
-    
-    // Salva la tab attiva nella cache per questo profilo
-    ProfileTabs.activeTabCache[this.username] = tabName;
   }
   
   async checkFollowStatus() {
@@ -574,6 +576,17 @@ class ProfileView extends View {
   }
   
   unmount() {
+    this.postsArea = null;
+    this.isSwitchingTab = false;
+    this.pendingTabSwitch = null;
+
+    // Clean up blog component
+    if (this.blogComponent) {
+      this.blogComponent.unmount();
+      this.blogLoaded = false;
+      this.blogContainer = null;
+    }
+    
     // Clean up posts component
     if (this.postsComponent) {
       this.postsComponent.unmount();
@@ -588,9 +601,9 @@ class ProfileView extends View {
       this.commentsContainer = null;
     }
     
-    // Clean up wallet component - usa destroy() invece di unmount()
+    // Clean up wallet component
     if (this.walletHistoryComponent) {
-      this.walletHistoryComponent.destroy(); // Metodo corretto dalla classe base
+      this.walletHistoryComponent.destroy();
       this.walletHistoryComponent = null;
     }
   }

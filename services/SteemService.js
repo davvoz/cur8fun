@@ -82,6 +82,10 @@ class SteemService {
         return this.postService.getUserPosts(username, limit, pagination);
     }
 
+    async getUserAuthorPosts(username, limit = 50, pagination = {}) {
+        return this.postService.getUserAuthorPosts(username, limit, pagination);
+    }
+
     async getDiscussionsByBlog(query) {
         return this.postService.getDiscussionsByBlog(query);
     }

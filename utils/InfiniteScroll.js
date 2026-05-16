@@ -81,8 +81,14 @@ export default class InfiniteScroll {
       loadingIndicator.style.padding = '10px';
       this.container.appendChild(loadingIndicator);
       
-      // Load more content
-      const hasMoreItems = await this.loadMore(this.currentPage + 1);
+      // Load more content (supports boolean or { hasMore, currentPage })
+      const loadResult = await this.loadMore(this.currentPage + 1);
+      const hasMoreItems = typeof loadResult === 'object' && loadResult !== null
+        ? !!loadResult.hasMore
+        : !!loadResult;
+      const resolvedPage = typeof loadResult === 'object' && loadResult !== null && Number.isInteger(loadResult.currentPage)
+        ? loadResult.currentPage
+        : this.currentPage + 1;
       
       // Remove loading indicator
       if (loadingIndicator.parentNode) {
@@ -92,7 +98,7 @@ export default class InfiniteScroll {
       // Update state
       this.hasMore = Boolean(hasMoreItems);
       if (this.hasMore) {
-        this.currentPage++;
+        this.currentPage = resolvedPage;
         
         // Reposition the observer target at the end of the container
         if (this.observerTarget && this.observerTarget.parentNode) {

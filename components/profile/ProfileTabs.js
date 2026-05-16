@@ -2,7 +2,7 @@ export default class ProfileTabs {
   // Static cache to remember last tab across navigation
   static activeTabCache = {};
   
-  constructor(onTabChange) {
+  constructor(onTabChange, options = {}) {
     // Extract username from URL
     const username = this.extractUsername();
     
@@ -10,15 +10,17 @@ export default class ProfileTabs {
     // This helps determine if we should use cache or reset to 'posts'
     const isDirectNavigation = this.isDirectNavigation();
     
-    // Reset to 'posts' when coming from home or other non-profile page
+    // Reset to 'blog' when coming from home or other non-profile page
     this.currentTab = (username && ProfileTabs.activeTabCache[username] && !isDirectNavigation) 
                      ? ProfileTabs.activeTabCache[username] 
-                     : 'posts';
+                     : 'blog';
                      
     this.onTabChange = onTabChange;
+    this.manageContentContainers = options.manageContentContainers !== false;
     this.container = null;
     this.username = username;
     this.contentContainers = {
+      blog: null,
       posts: null,
       comments: null,
       wallet: null
@@ -55,11 +57,13 @@ export default class ProfileTabs {
     const tabsContainer = this.createProfileTabs();
     container.appendChild(tabsContainer);
     
-    // Create content containers for each tab
-    this.createContentContainers(container);
-    
-    // Initialize visibility based on current tab
-    this.updateContentVisibility();
+    if (this.manageContentContainers) {
+      // Create content containers for each tab
+      this.createContentContainers(container);
+      
+      // Initialize visibility based on current tab
+      this.updateContentVisibility();
+    }
     
     return tabsContainer;
   }
@@ -68,7 +72,13 @@ export default class ProfileTabs {
     const tabsContainer = document.createElement('div');
     tabsContainer.className = 'profile-tabs';
 
-    // Posts tab
+    // Blog tab (blog posts + reblogs)
+    const blogTab = document.createElement('button');
+    blogTab.className = `tab-btn ${this.currentTab === 'blog' ? 'active' : ''}`;
+    blogTab.textContent = 'Blog';
+    blogTab.addEventListener('click', () => this.switchTab('blog'));
+
+    // Posts tab (all author posts, no reblogs)
     const postsTab = document.createElement('button');
     postsTab.className = `tab-btn ${this.currentTab === 'posts' ? 'active' : ''}`;
     postsTab.textContent = 'Posts';
@@ -80,13 +90,13 @@ export default class ProfileTabs {
     commentsTab.textContent = 'Comments';
     commentsTab.addEventListener('click', () => this.switchTab('comments'));
 
-    // Wallet tab (nuovo)
+    // Wallet tab
     const walletTab = document.createElement('button');
     walletTab.className = `tab-btn ${this.currentTab === 'wallet' ? 'active' : ''}`;
     walletTab.textContent = 'Wallet';
     walletTab.addEventListener('click', () => this.switchTab('wallet'));
 
-    tabsContainer.append(postsTab, commentsTab, walletTab);
+    tabsContainer.append(blogTab, postsTab, commentsTab, walletTab);
     return tabsContainer;
   }
   
@@ -108,6 +118,8 @@ export default class ProfileTabs {
   }
   
   updateContentVisibility() {
+    if (!this.manageContentContainers) return;
+
     // Hide all content containers first
     Object.entries(this.contentContainers).forEach(([tabName, container]) => {
       if (container) {
@@ -123,13 +135,12 @@ export default class ProfileTabs {
   switchTab(tabName) {
     if (this.currentTab === tabName) return;
 
-    console.log(`Switching tab from ${this.currentTab} to ${tabName}`);
-
     // Update tab styling first
+    const tabLabelMap = { blog: 'Blog', posts: 'Posts', comments: 'Comments', wallet: 'Wallet' };
     const tabs = this.container.querySelectorAll('.tab-btn');
     tabs.forEach(tab => {
       tab.classList.remove('active');
-      if (tab.textContent.toLowerCase() === tabName) {
+      if (tab.textContent === tabLabelMap[tabName]) {
         tab.classList.add('active');
       }
     });
@@ -157,12 +168,14 @@ export default class ProfileTabs {
   
   // New method to get content container for a specific tab
   getContentContainer(tabName) {
+    if (!this.manageContentContainers) return null;
     return this.contentContainers[tabName] || null;
   }
   
   // New method to set active tab programmatically
   setActiveTab(tabName) {
-    if (Object.keys(this.contentContainers).includes(tabName)) {
+    const validTabs = ['blog', 'posts', 'comments', 'wallet'];
+    if (validTabs.includes(tabName)) {
       this.switchTab(tabName);
     }
   }

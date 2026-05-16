@@ -3190,6 +3190,9 @@ input:focus, textarea:focus {
   <!-- Live stats from cur8 API -->
   <script>
     (async function () {
+      const CACHE_KEY = 'cur8_landing_stats';
+      const CACHE_TTL = 10 * 60 * 1000; // 10 minuti
+
       function countUp(el, target, decimals) {
         const duration = 1500;
         const startTime = performance.now();
@@ -3204,6 +3207,35 @@ input:focus, textarea:focus {
         requestAnimationFrame(update);
       }
 
+      function applyStats(cached) {
+        const { delegCount, spK, voteValue, rewardsUsd, weeklyCount } = cached;
+        ['live-delegators-hero', 'live-delegators-stats'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && delegCount != null) countUp(el, delegCount);
+        });
+        const spEl = document.getElementById('live-sp-hero');
+        if (spEl && spK != null) countUp(spEl, spK);
+        const voteEl = document.getElementById('live-vote-value');
+        if (voteEl && voteValue != null) countUp(voteEl, voteValue, 2);
+        const rewardsEl = document.getElementById('live-rewards');
+        if (rewardsEl && rewardsUsd != null) countUp(rewardsEl, rewardsUsd);
+        const postsEl = document.getElementById('live-posts-week');
+        if (postsEl && weeklyCount != null) countUp(postsEl, weeklyCount);
+      }
+
+      // Mostra subito i dati dalla cache se disponibili
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const { ts, data } = JSON.parse(raw);
+          if (Date.now() - ts < CACHE_TTL) {
+            applyStats(data);
+            return; // Dati freschi: non serve chiamare le API
+          }
+        }
+      } catch (_) {}
+
+      // Nessuna cache valida: fetch dalle API
       try {
         const [statsRes, priceRes, postsRes] = await Promise.all([
           fetch('https://imridd.eu.pythonanywhere.com/api/steem'),
@@ -3226,34 +3258,28 @@ input:focus, textarea:focus {
           steemUsd = priceData?.steem?.usd || 0;
         }
 
-        // Weekly posts count
+        let weeklyCount = null;
         if (postsRes.ok) {
           const postsData = await postsRes.json();
           const posts = postsData?.result || [];
           const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-          const weeklyCount = posts.filter(p => new Date(p.created).getTime() >= cutoff).length;
-          const postsEl = document.getElementById('live-posts-week');
-          if (postsEl && weeklyCount > 0) countUp(postsEl, weeklyCount);
+          weeklyCount = posts.filter(p => new Date(p.created).getTime() >= cutoff).length || null;
         }
 
-        const delegCount = stats.deleg_count;
-        const spK = Math.round(stats.current_sp / 1000);
-        const voteValue = stats.vote_value;
-        const rewardsUsd = steemUsd > 0 ? Math.round(stats.total_rewards * steemUsd) : null;
+        const result = {
+          delegCount: stats.deleg_count,
+          spK: Math.round(stats.current_sp / 1000),
+          voteValue: stats.vote_value,
+          rewardsUsd: steemUsd > 0 ? Math.round(stats.total_rewards * steemUsd) : null,
+          weeklyCount
+        };
 
-        ['live-delegators-hero', 'live-delegators-stats'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) countUp(el, delegCount);
-        });
+        applyStats(result);
 
-        const spEl = document.getElementById('live-sp-hero');
-        if (spEl) countUp(spEl, spK);
-
-        const voteEl = document.getElementById('live-vote-value');
-        if (voteEl) countUp(voteEl, voteValue, 2);
-
-        const rewardsEl = document.getElementById('live-rewards');
-        if (rewardsEl && rewardsUsd !== null) countUp(rewardsEl, rewardsUsd);
+        // Salva in cache per le prossime visite
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: result }));
+        } catch (_) {}
 
       } catch (e) {
         // API unavailable – leave the – placeholder

@@ -314,6 +314,36 @@
   background-color: var(--border-color);
 }
 
+.profile-posts-area {
+  position: relative;
+  width: 100%;
+}
+
+.profile-tab-panel {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  will-change: opacity, transform;
+}
+
+.profile-tab-panel.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.profile-tab-panel.is-hidden {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-tab-panel {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* Posts Grid */
 .profile-posts {
   display: grid;

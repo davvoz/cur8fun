@@ -360,6 +360,69 @@ export default class PostService {
         return allPosts;
     }
 
+    async getDiscussionsByAuthorBeforeDate(author, startPermlink, beforeDate, limit) {
+        await this.core.ensureLibraryLoaded();
+
+        try {
+            return await new Promise((resolve, reject) => {
+                this.core.steem.api.getDiscussionsByAuthorBeforeDate(
+                    author, startPermlink, beforeDate, limit,
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    }
+                );
+            });
+        } catch (error) {
+            console.error('Error in getDiscussionsByAuthorBeforeDate:', error);
+            this.core.switchEndpoint();
+            return await new Promise((resolve, reject) => {
+                this.core.steem.api.getDiscussionsByAuthorBeforeDate(
+                    author, startPermlink, beforeDate, limit,
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    }
+                );
+            });
+        }
+    }
+
+    async getUserAuthorPosts(username, limit = 50, pagination = {}) {
+        if (!username) {
+            return { posts: [], hasMore: false, lastPost: null };
+        }
+
+        await this.core.ensureLibraryLoaded();
+
+        const beforeDate = pagination.beforeDate || '9999-01-01T00:00:00';
+        const startPermlink = pagination.startPermlink || '';
+
+        try {
+            const posts = await this.getDiscussionsByAuthorBeforeDate(
+                username, startPermlink, beforeDate, Math.min(limit + 1, 100)
+            );
+
+            // When paginating, the first result is the cursor post — skip it
+            let resultPosts = posts;
+            if (startPermlink && posts.length > 0 && posts[0].permlink === startPermlink) {
+                resultPosts = posts.slice(1);
+            }
+
+            const trimmed = resultPosts.slice(0, limit);
+            const lastPost = trimmed.length > 0 ? trimmed[trimmed.length - 1] : null;
+
+            return {
+                posts: trimmed,
+                hasMore: resultPosts.length > limit,
+                lastPost
+            };
+        } catch (error) {
+            console.error(`Error in getUserAuthorPosts for ${username}:`, error);
+            return { posts: [], hasMore: false, lastPost: null };
+        }
+    }
+
     _setLastPostForUser(username, post) {
         if (!this._lastPostByUser) {
             this._lastPostByUser = {};

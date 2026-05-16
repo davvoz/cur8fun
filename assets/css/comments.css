@@ -461,6 +461,60 @@
   opacity: 0.7;
 }
 
+/* Profile comments skeletons aligned to real comment layout */
+.comment-list-item.comment-skeleton-item {
+  cursor: default;
+  pointer-events: none;
+}
+
+.comment-list-item.comment-skeleton-item:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border-color-light);
+}
+
+.comment-skeleton-item .sk-comment-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.comment-skeleton-item .sk-comment-author {
+  width: 120px;
+  height: 14px;
+}
+
+.comment-skeleton-item .sk-comment-date {
+  width: 88px;
+  height: 12px;
+}
+
+.comment-skeleton-item .sk-comment-parent {
+  width: 60%;
+  height: 12px;
+}
+
+.comment-skeleton-item .comment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-skeleton-item .sk-comment-line {
+  width: 100%;
+  height: 12px;
+}
+
+.comment-skeleton-item .sk-comment-line-short {
+  width: 78%;
+}
+
+.comment-skeleton-item .sk-comment-stat {
+  width: 54px;
+  height: 12px;
+  border-radius: 999px;
+}
+
 /* Empty state */
 .empty-comments-message {
   text-align: center;

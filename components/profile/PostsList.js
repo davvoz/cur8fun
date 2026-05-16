@@ -6,14 +6,15 @@ import LoadingIndicator from '../LoadingIndicator.js';
 import GridController from '../GridController.js'; // Add explicit import for GridController
 
 export default class PostsList extends BasePostView {
-  constructor(username, useCache = false) {
+  constructor(username, useCache = false, mode = 'blog') {
     super(); // This initializes gridController from BasePostView
     this.username = username;
     this.useCache = useCache;
+    this.mode = mode; // 'blog' or 'posts'
     
     // Internal implementation components
     this._renderer = new PostRenderer();
-    this._loader = new PostLoader(username);
+    this._loader = new PostLoader(username, mode);
     
     // State management using BasePostView's approach
     this.posts = [];
@@ -36,10 +37,16 @@ export default class PostsList extends BasePostView {
   async render(container) {
     if (!container) return;
     
-    console.log(`Rendering PostsList for @${this.username}, useCache: ${this.useCache}`);
-    
-    // Store container reference
     this.container = container;
+
+    // If we already have cached posts and the DOM structure exists, avoid a full rebuild.
+    const existingPostsContainer = container.querySelector('.posts-container');
+    if (this.useCache && this.posts.length > 0 && existingPostsContainer) {
+      this.renderPosts();
+      return;
+    }
+
+    this.container.innerHTML = '';
     
     // Create grid controller container
     const gridControllerContainer = document.createElement('div');
@@ -61,7 +68,7 @@ export default class PostsList extends BasePostView {
       this.renderPosts();
     } else {
       // Otherwise load posts fresh
-      this.loadPosts(1);
+      await this.loadPosts(1);
     }
   }
   
@@ -69,7 +76,6 @@ export default class PostsList extends BasePostView {
   renderGridController(container) {
     if (!container || !this.gridController) return;
     
-    console.log('Rendering grid controller for posts list');
     this.gridController.render(container);
     
     // Set target explicitly to ensure it works correctly
@@ -138,14 +144,21 @@ export default class PostsList extends BasePostView {
       // Make sure to return whether there are more posts to load
       const hasMore = this._loader.hasMore();
       console.log(`Has more posts: ${hasMore}, current page: ${page}`);
-      return hasMore;
+
+      return {
+        hasMore,
+        currentPage: this._loader.lastFetchedPage || page
+      };
       
     } catch (error) {
       console.error('Error loading posts:', error);
       if (page === 1) {
         this.handleLoadError();
       }
-      return false;
+      return {
+        hasMore: false,
+        currentPage: this._loader?.lastFetchedPage || page
+      };
     } finally {
       this.loading = false;
       this.loadingIndicator.hide();
@@ -162,7 +175,11 @@ export default class PostsList extends BasePostView {
       return;
     }
     
-    console.log(`Setting up infinite scroll with current page ${this.currentPage}`);
+    // Start InfiniteScroll from the last raw page already consumed by PostLoader
+    // so it doesn't re-request pages that were already fetched internally during the skip loop.
+    const startPage = this._loader.lastFetchedPage || this.currentPage;
+
+    console.log(`Setting up infinite scroll starting at page ${startPage}`);
     
     // Create a dedicated loading indicator for infinite scroll
     if (!this.infiniteScrollLoader) {
@@ -173,7 +190,6 @@ export default class PostsList extends BasePostView {
     if (this.infiniteScroll) {
       this.infiniteScroll.destroy();
     }
-    
     // Set up the infinite scroll handler similar to CommentsList
     this.infiniteScroll = new InfiniteScroll({
       container: postsContainer,
@@ -185,16 +201,15 @@ export default class PostsList extends BasePostView {
           this.infiniteScrollLoader.show(postsContainer);
           
           // Load the next page of posts
-          const hasMore = await this.loadPosts(page);
+          const loadResult = await this.loadPosts(page);
           
           // Hide loading progress
           this.infiniteScrollLoader.hide();
           
-          // Update current page if we have more posts
+          const hasMore = typeof loadResult === 'object' ? !!loadResult.hasMore : !!loadResult;
+          
+          // Reapply grid layout when new posts arrive
           if (hasMore) {
-            this.currentPage = page;
-            
-            // If grid controller exists, reapply layout
             setTimeout(() => {
               if (this.gridController) {
                 this.gridController.applySettings();
@@ -202,7 +217,9 @@ export default class PostsList extends BasePostView {
             }, 100);
           }
           
-          return hasMore;
+          // Return the full object so InfiniteScroll can sync its page cursor
+          // to lastFetchedPage (which may have jumped ahead to skip empty pages).
+          return loadResult;
         } catch (error) {
           console.error('Error loading more posts:', error);
           this.infiniteScrollLoader.hide();
@@ -213,7 +230,7 @@ export default class PostsList extends BasePostView {
       loadingMessage: `Loading more posts from @${this.username}...`,
       endMessage: `No more posts from @${this.username}`,
       errorMessage: 'Failed to load posts. Please check your connection.',
-      startPage: this.currentPage
+      initialPage: startPage
     });
   }
   
@@ -283,14 +300,10 @@ export default class PostsList extends BasePostView {
       console.warn("No posts container available for refresh");
       return;
     }
-    
-    // Reset current page before reloading
-    this.currentPage = 1;
-    // Reload posts when called
-    this.loadPosts(1);
-    
-    // Make sure grid controller settings are applied
-    if (this.gridController) {
+
+    const postsContainer = this.container.querySelector('.posts-container');
+    if (postsContainer && this.gridController) {
+      this.gridController.target = postsContainer;
       this.gridController.applySettings();
     }
   }

@@ -23,42 +23,171 @@ class ReblogService {
   constructor() {
     this.reblogCache = new Map(); // in-memory layer (session)
     this._rebloggersCache = new Map(); // author_permlink → { list, ts }
+    this._resteemApiEndpoints = [
+      'https://sds.steemworld.org',
+      'https://sds0.steemworld.org'
+    ];
   }
 
-  async getRebloggers(author, permlink) {
+  _extractUsernames(payload) {
+    if (!payload) return [];
+
+    if (Array.isArray(payload)) {
+      return payload
+        .map((entry) => {
+          if (typeof entry === 'string') return entry;
+          if (entry && typeof entry === 'object') {
+            return entry.username || entry.account || entry.name || entry.resteemer || entry.user || null;
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    if (typeof payload === 'object') {
+      const directArrays = [
+        payload.accounts,
+        payload.rebloggers,
+        payload.resteems,
+        payload.rows,
+        payload.items,
+        payload.data,
+        payload.result
+      ];
+
+      for (const arr of directArrays) {
+        if (Array.isArray(arr)) {
+          return this._extractUsernames(arr);
+        }
+      }
+
+      // Handle SDS-like tabular payloads: { result: { cols: {...}, rows: [...] } }
+      const cols = payload.cols || payload.result?.cols;
+      const rows = payload.rows || payload.result?.rows;
+      if (cols && Array.isArray(rows)) {
+        const candidateKeys = ['account', 'username', 'name', 'resteemer', 'from'];
+        const colIndex = candidateKeys
+          .map((k) => cols[k])
+          .find((v) => Number.isInteger(v));
+
+        if (Number.isInteger(colIndex)) {
+          return rows
+            .map((r) => (Array.isArray(r) ? r[colIndex] : null))
+            .filter(Boolean);
+        }
+      }
+    }
+
+    return [];
+  }
+
+  _normalizeRebloggers(payload) {
+    const usernames = this._extractUsernames(payload)
+      .map(name => String(name || '').trim())
+      .filter(Boolean);
+
+    const seen = new Set();
+    const normalized = [];
+    for (const username of usernames) {
+      const key = username.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normalized.push(username);
+    }
+
+    return normalized;
+  }
+
+  _hydrateReblogCache(author, permlink, rebloggers) {
+    if (!author || !permlink || !Array.isArray(rebloggers)) return;
+    for (const account of rebloggers) {
+      const username = String(account || '').trim();
+      if (!username) continue;
+      const cacheKey = `${username}_${author}_${permlink}`;
+      this.reblogCache.set(cacheKey, true);
+      lsSet(cacheKey);
+    }
+  }
+
+  async getRebloggers(author, permlink, options = {}) {
+    const { suppressErrors = true } = options;
     const key = `${author}_${permlink}`;
     const cached = this._rebloggersCache.get(key);
     // Reuse within 5 minutes
     if (cached && (Date.now() - cached.ts) < 5 * 60 * 1000) {
       return cached.list;
     }
+
     try {
-      const rebloggers = await steemService.getRebloggers(author, permlink);
-      const list = Array.isArray(rebloggers) ? rebloggers : [];
+      const encodedAuthor = encodeURIComponent(author);
+      const encodedPermlink = encodeURIComponent(permlink);
+      let list = [];
+      let steemWorldAnyResponse = false;
+
+      // Primary source: SteemWorld resteems API
+      for (const endpoint of this._resteemApiEndpoints) {
+        try {
+          const response = await fetch(
+            `${endpoint}/post_resteems_api/getResteems/${encodedAuthor}/${encodedPermlink}`,
+            { signal: AbortSignal.timeout(10000) }
+          );
+          steemWorldAnyResponse = true;
+          if (!response.ok) continue;
+          const json = await response.json();
+          list = this._normalizeRebloggers(json);
+          // If endpoint is valid and returns data shape, keep result (even empty)
+          break;
+        } catch (_) {
+          // Try next endpoint
+        }
+      }
+
+      // Fallback to condenser/follow API if SteemWorld failed or returned no parseable payload
+      if (!Array.isArray(list) || list.length === 0) {
+        const fallback = await steemService.getRebloggers(author, permlink);
+        list = this._normalizeRebloggers(fallback);
+      }
+
+      // If no source answered at all, expose a recoverable error to callers that need fail-open behavior.
+      if (!steemWorldAnyResponse && (!Array.isArray(list) || list.length === 0) && suppressErrors === false) {
+        throw new Error('Reblog sources unavailable');
+      }
+
       this._rebloggersCache.set(key, { list, ts: Date.now() });
+      this._hydrateReblogCache(author, permlink, list);
       return list;
     } catch (error) {
       console.error('Error getting rebloggers list:', error);
+      if (!suppressErrors) {
+        throw error;
+      }
       return [];
     }
   }
 
-  async getReblogInfo(username, author, permlink) {
+  async getReblogInfo(username, author, permlink, options = {}) {
     try {
-      const info = await steemService.getReblogInfo(username, author, permlink);
+      const rebloggers = await this.getRebloggers(author, permlink, options);
+      const normalizedUsername = String(username || '').toLowerCase();
+      const hasReblogged = normalizedUsername
+        ? rebloggers.some(account => String(account || '').toLowerCase() === normalizedUsername)
+        : false;
 
-      if (username && info?.hasReblogged === true) {
+      if (username && hasReblogged === true) {
         const cacheKey = `${username}_${author}_${permlink}`;
         this.reblogCache.set(cacheKey, true);
         lsSet(cacheKey);
       }
 
       return {
-        hasReblogged: info?.hasReblogged === true,
-        reblogCount: Number.isFinite(info?.reblogCount) ? info.reblogCount : 0
+        hasReblogged,
+        reblogCount: rebloggers.length
       };
     } catch (error) {
       console.error('Error getting reblog info:', error);
+      if (options?.suppressErrors === false) {
+        throw error;
+      }
       return { hasReblogged: false, reblogCount: 0 };
     }
   }
@@ -90,7 +219,8 @@ class ReblogService {
     }
   }
 
-  async hasReblogged(username, author, permlink) {
+  async hasReblogged(username, author, permlink, options = {}) {
+    const { failOpen = false } = options;
     try {
       const cacheKey = `${username}_${author}_${permlink}`;
 
@@ -109,7 +239,9 @@ class ReblogService {
       }
 
       // 3. Blockchain (slowest, only if not found locally)
-      const info = await this.getReblogInfo(username, author, permlink);
+      const info = await this.getReblogInfo(username, author, permlink, {
+        suppressErrors: !failOpen
+      });
       const result = info.hasReblogged;
       if (result === true) {
         this.reblogCache.set(cacheKey, true);
@@ -119,6 +251,8 @@ class ReblogService {
       return result;
     } catch (error) {
       console.error('Error checking reblog status:', error);
+      // In profile blog filtering we prefer fail-open to avoid skipping posts on temporary API outages.
+      if (failOpen) return true;
       return false;
     }
   }
