@@ -1,7 +1,6 @@
 import View from './View.js';
 import profileService from '../services/ProfileService.js';
 import authService from '../services/AuthService.js';
-import activeKeyInput from '../components/auth/ActiveKeyInputComponent.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import { proxifyImage } from '../utils/ImageUtils.js';
@@ -47,6 +46,8 @@ class EditProfileView extends View {
             this.profileImage = this.profile.profileImage || this.profile.profile_image;
             this.coverImage = this.profile.coverImage || this.profile.cover_image;
         }
+
+        this.displayName = this.profile.displayName || this.profile.rawData?.profile?.name || '';
     }
 
     renderEditProfileForm(container) {
@@ -67,9 +68,20 @@ class EditProfileView extends View {
         const container = document.createElement('div');
         container.className = 'edit-profile-container';
 
+        const header = document.createElement('div');
+        header.className = 'edit-profile-header';
+
         const heading = document.createElement('h2');
+        heading.className = 'edit-profile-title';
         heading.textContent = 'Edit Profile';
-        container.appendChild(heading);
+
+        const subtitle = document.createElement('p');
+        subtitle.className = 'edit-profile-subtitle';
+        subtitle.textContent = 'Update your avatar, cover, and profile details. Changes are applied on-chain.';
+
+        header.appendChild(heading);
+        header.appendChild(subtitle);
+        container.appendChild(header);
 
         return container;
     }
@@ -79,27 +91,78 @@ class EditProfileView extends View {
         form.id = 'edit-profile-form';
         form.className = 'edit-profile-form';
 
-        // Use the extracted image values instead of accessing from profile directly
-        form.appendChild(this.createImageField('profile-image', 'Profile Image', this.profileImage));
-        form.appendChild(this.createImageField('cover-image', 'Cover Image', this.coverImage));
-        form.appendChild(this.createTextareaField('about', 'About', this.profile.about, 'Tell us about yourself'));
-        form.appendChild(this.createTextField('location', 'Location', this.profile.location, 'Your Location'));
-        form.appendChild(this.createTextField('website', 'Website', this.profile.website, 'Your Website URL'));
-        form.appendChild(this.createSubmitButton());
+        const mediaSection = document.createElement('section');
+        mediaSection.className = 'ep-section ep-section-media';
+        mediaSection.appendChild(this.createSectionHeader('Images', 'Avatar and cover shown on your profile and posts.'));
+
+        const mediaGrid = document.createElement('div');
+        mediaGrid.className = 'ep-media-grid';
+        mediaGrid.appendChild(this.createImageField('profile-image', 'Profile Image', this.profileImage));
+        mediaGrid.appendChild(this.createImageField('cover-image', 'Cover Image', this.coverImage));
+        mediaSection.appendChild(mediaGrid);
+
+        const profileSection = document.createElement('section');
+        profileSection.className = 'ep-section ep-section-details';
+        profileSection.appendChild(this.createSectionHeader('Profile Details', 'Tell people who you are and where to find you.'));
+
+        const detailsGrid = document.createElement('div');
+        detailsGrid.className = 'ep-details-grid';
+        detailsGrid.appendChild(this.createTextField('display-name', 'Display Name', this.displayName, 'Name shown on your profile'));
+        detailsGrid.appendChild(this.createTextareaField('about', 'About', this.profile.about, 'Tell us about yourself'));
+        detailsGrid.appendChild(this.createTextField('location', 'Location', this.profile.location, 'Your location'));
+        detailsGrid.appendChild(this.createTextField('website', 'Website', this.profile.website, 'https://your-site.com'));
+        profileSection.appendChild(detailsGrid);
+
+        const actions = document.createElement('div');
+        actions.className = 'ep-actions';
+        actions.appendChild(this.createSubmitButton());
+
+        form.appendChild(mediaSection);
+        form.appendChild(profileSection);
+        form.appendChild(actions);
 
         return form;
     }
 
+    createSectionHeader(title, description) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ep-section-header';
+
+        const heading = document.createElement('h3');
+        heading.className = 'ep-section-title';
+        heading.textContent = title;
+
+        const text = document.createElement('p');
+        text.className = 'ep-section-description';
+        text.textContent = description;
+
+        wrapper.appendChild(heading);
+        wrapper.appendChild(text);
+
+        return wrapper;
+    }
+
     createImageField(id, labelText, value) {
         const formGroup = document.createElement('div');
-        formGroup.className = 'form-group';
+        formGroup.className = 'form-group ep-media-card';
+
+        const fieldHeader = document.createElement('div');
+        fieldHeader.className = 'ep-field-header';
 
         const label = document.createElement('label');
         label.htmlFor = id;
+        label.className = 'ep-label';
         label.textContent = labelText;
 
+        const helper = document.createElement('span');
+        helper.className = 'ep-helper';
+        helper.textContent = 'Paste URL or upload a file';
+
+        fieldHeader.appendChild(label);
+        fieldHeader.appendChild(helper);
+
         const inputGroup = document.createElement('div');
-        inputGroup.className = 'image-input-group';
+        inputGroup.className = 'image-input-group ep-input-inline';
 
         // Use snake_case field names to match Steem expectations
         const fieldName = id === 'profile-image' ? 'profile_image' : 
@@ -109,19 +172,15 @@ class EditProfileView extends View {
         input.type = 'text';
         input.id = id;
         input.name = fieldName; // Use snake_case field names
+        input.className = 'ep-input';
         input.value = value || '';
         input.placeholder = `${labelText} URL`;
-
-        const previewBtn = document.createElement('button');
-        previewBtn.type = 'button';
-        previewBtn.className = 'preview-btn';
-        previewBtn.dataset.target = id;
-        previewBtn.textContent = 'Preview';
         
+        let uploadContainer = null;
         // Add file upload button for profile image and cover image
         if (id === 'profile-image' || id === 'cover-image') {
-            const uploadContainer = document.createElement('div');
-            uploadContainer.className = 'upload-container';
+            uploadContainer = document.createElement('div');
+            uploadContainer.className = 'upload-container ep-upload-container';
             
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
@@ -137,18 +196,23 @@ class EditProfileView extends View {
             
             uploadContainer.appendChild(fileInput);
             uploadContainer.appendChild(uploadBtn);
-            
-            formGroup.appendChild(uploadContainer);
         }
 
         const preview = document.createElement('div');
-        preview.className = id === 'cover-image' ? 'image-preview cover-preview' : 'image-preview';
+        preview.className = id === 'cover-image' ? 'image-preview cover-preview' : 'image-preview profile-preview';
         preview.id = `${id}-preview`;
 
+        const emptyState = document.createElement('p');
+        emptyState.className = 'ep-preview-placeholder';
+        emptyState.textContent = id === 'cover-image' ? 'Cover preview' : 'Avatar preview';
+        preview.appendChild(emptyState);
+
         inputGroup.appendChild(input);
-        inputGroup.appendChild(previewBtn);
-        formGroup.appendChild(label);
+        formGroup.appendChild(fieldHeader);
         formGroup.appendChild(inputGroup);
+        if (uploadContainer) {
+            formGroup.appendChild(uploadContainer);
+        }
         formGroup.appendChild(preview);
 
         return formGroup;
@@ -156,16 +220,18 @@ class EditProfileView extends View {
 
     createTextField(id, labelText, value, placeholder) {
         const formGroup = document.createElement('div');
-        formGroup.className = 'form-group';
+        formGroup.className = 'form-group ep-field';
 
         const label = document.createElement('label');
         label.htmlFor = id;
+        label.className = 'ep-label';
         label.textContent = labelText;
 
         const input = document.createElement('input');
         input.type = 'text';
         input.id = id;
         input.name = id;
+        input.className = 'ep-input';
         input.value = value || '';
         input.placeholder = placeholder;
 
@@ -177,15 +243,17 @@ class EditProfileView extends View {
 
     createTextareaField(id, labelText, value, placeholder) {
         const formGroup = document.createElement('div');
-        formGroup.className = 'form-group';
+        formGroup.className = 'form-group ep-field ep-field-about';
 
         const label = document.createElement('label');
         label.htmlFor = id;
+        label.className = 'ep-label';
         label.textContent = labelText;
 
         const textarea = document.createElement('textarea');
         textarea.id = id;
         textarea.name = id;
+        textarea.className = 'ep-input ep-textarea';
         textarea.placeholder = placeholder;
         textarea.textContent = value || '';
 
@@ -199,7 +267,7 @@ class EditProfileView extends View {
         const saveBtn = document.createElement('button');
         saveBtn.type = 'submit';
         saveBtn.className = 'save-btn';
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = 'Save Changes';
 
         return saveBtn;
     }
@@ -215,10 +283,16 @@ class EditProfileView extends View {
     }
 
     addImagePreviewListeners() {
-        const previewButtons = this.container.querySelectorAll('.preview-btn');
-        previewButtons.forEach(btn => {
-            btn.addEventListener('click', () => this.showImagePreview(btn.dataset.target));
-        });
+        const profileImageInput = this.container.querySelector('#profile-image');
+        const coverImageInput = this.container.querySelector('#cover-image');
+
+        if (profileImageInput) {
+            profileImageInput.addEventListener('input', () => this.showImagePreview('profile-image'));
+        }
+
+        if (coverImageInput) {
+            coverImageInput.addEventListener('input', () => this.showImagePreview('cover-image'));
+        }
         
         // Add event listeners for file uploads
         const profileFileInput = this.container.querySelector('#profile-image-file');
@@ -332,12 +406,23 @@ class EditProfileView extends View {
         }
     }
 
+    setSavingState(isSaving) {
+        const saveBtn = this.container?.querySelector('.save-btn');
+        if (!saveBtn) return;
+
+        saveBtn.disabled = isSaving;
+        saveBtn.classList.toggle('is-saving', isSaving);
+        saveBtn.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+        saveBtn.textContent = isSaving ? 'Saving...' : 'Save Changes';
+    }
+
     async handleFormSubmit() {
         const form = this.container.querySelector('#edit-profile-form');
         const formData = new FormData(form);
 
         // Create proper Steem profile format with snake_case keys
         const updatedProfile = {
+            name: (formData.get('display-name') || '').trim(),
             profile_image: formData.get('profile_image'),
             cover_image: formData.get('cover_image'),
             about: formData.get('about'),
@@ -345,35 +430,26 @@ class EditProfileView extends View {
             website: formData.get('website')
         };
 
+        this.setSavingState(true);
         try {
-            // Show a modal that offers the user two options:
-            // 1. Use an active key directly
-            // 2. Use Steem Keychain (if available)
-            const authChoice = await this.showAuthChoiceModal();
-            
-            if (authChoice === 'active_key') {
-                // User chose to use an active key
-                const activeKey = await this.promptForActiveKey();
-                if (!activeKey) {
-                    eventEmitter.emit('notification', {
-                        type: 'warning',
-                        message: 'Profile update cancelled. Active key is required.'
-                    });
-                    return;
-                }
-                
-                // Update profile using the provided key
-                await profileService.updateProfile(this.username, updatedProfile, activeKey);
-            } 
-            else if (authChoice === 'keychain') {
-                // User chose to use Steem Keychain
+            const loginMethod = this.currentUser?.loginMethod;
+
+            // Automatic auth routing (no choice modal):
+            // - keychain login  -> keychain signing
+            // - privateKey login -> wallet-style active-key + PIN flow
+            if (loginMethod === 'keychain') {
+                await profileService.updateProfile(this.username, updatedProfile);
+            } else {
                 await profileService.updateProfile(this.username, updatedProfile);
             }
-            else {
-                // User cancelled
-                return;
+
+            // After a successful save, update the in-memory/localStorage avatar so the
+            // navbar and other places that rely on user.avatar reflect the change immediately
+            // without waiting for the steemitimages CDN to invalidate.
+            if (updatedProfile.profile_image) {
+                authService.updateAvatar(updatedProfile.profile_image);
             }
-            
+
             eventEmitter.emit('notification', {
                 type: 'success',
                 message: 'Profile updated successfully'
@@ -384,156 +460,9 @@ class EditProfileView extends View {
                 type: 'error',
                 message: 'Failed to update profile: ' + (error.message || 'Unknown error')
             });
+        } finally {
+            this.setSavingState(false);
         }
-    }
-    
-    async showAuthChoiceModal() {
-        return new Promise((resolve) => {
-            const isKeychainAvailable = typeof window !== 'undefined' && window.steem_keychain;
-            
-            // Create modal HTML directly
-            const modalHTML = `
-                <div class="auth-modal-overlay" id="authModalOverlay">
-                    <div class="auth-modal-content">
-                        <h3 class="auth-modal-header">Choose Authentication Method</h3>
-                        <p>
-                            <strong>Updating your profile requires Active authority.</strong>
-                            <br><br>
-                            Please select how you want to authenticate this operation:
-                        </p>
-                        <div class="auth-options">
-                            <div class="auth-option">
-                                <h4>Use Active Key</h4>
-                                <p>Enter your active private key to sign this transaction directly.</p>
-                                <p>⚠️ Your key will only be used to sign this transaction and will not be stored.</p>
-                                <button class="auth-btn auth-btn-primary" id="activeKeyBtn">Use Active Key</button>
-                            </div>
-                            ${isKeychainAvailable ? `
-                                <div class="auth-option">
-                                    <h4>Use Steem Keychain</h4>
-                                    <p>Sign the transaction securely using the Steem Keychain browser extension.</p>
-                                    <button class="auth-btn auth-btn-blue" id="keychainBtn">Use Keychain</button>
-                                </div>
-                            ` : `
-                                <div class="auth-option">
-                                    <h4>Steem Keychain Not Available</h4>
-                                    <p>Steem Keychain extension is not detected in your browser.</p>
-                                    <a href="https://github.com/steem-monsters/steem-keychain" target="_blank">Get Steem Keychain</a>
-                                </div>
-                            `}
-                        </div>
-                        <div class="auth-modal-footer">
-                            <button class="auth-btn auth-btn-secondary" id="cancelAuthBtn">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Insert modal into DOM
-            const modalContainer = document.createElement('div');
-            modalContainer.innerHTML = modalHTML;
-            document.body.appendChild(modalContainer.firstElementChild);
-            
-            // Get references to buttons after they're in the DOM
-            const modal = document.getElementById('authModalOverlay');
-            const activeKeyBtn = document.getElementById('activeKeyBtn');
-            const keychainBtn = document.getElementById('keychainBtn');
-            const cancelBtn = document.getElementById('cancelAuthBtn');
-            
-            // Add event listeners
-            const cleanup = () => {
-                if (modal && document.body.contains(modal)) {
-                    document.body.removeChild(modal);
-                }
-            };
-            
-            if (activeKeyBtn) {
-                activeKeyBtn.addEventListener('click', () => {
-                    cleanup();
-                    resolve('active_key');
-                });
-            }
-            
-            if (keychainBtn && isKeychainAvailable) {
-                keychainBtn.addEventListener('click', () => {
-                    cleanup();
-                    resolve('keychain');
-                });
-            }
-            
-            if (cancelBtn) {
-                cancelBtn.addEventListener('click', () => {
-                    cleanup();
-                    resolve(null);
-                });
-            }
-        });
-    }
-    
-    async showActiveKeyWarning() {
-        return new Promise((resolve) => {
-            // Create modal for the warning
-            const modalContainer = document.createElement('div');
-            modalContainer.className = 'modal-container';
-            
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
-            
-            const header = document.createElement('h3');
-            header.className = 'modal-header';
-            header.textContent = 'Active Key Required';
-            
-            const message = document.createElement('p');
-            message.className = 'modal-body';
-            message.innerHTML = `
-                <div class="banner banner-warning">
-                    <span class="banner-icon">⚠️</span>
-                    <div class="banner-content">
-                        <strong>Security Notice:</strong> Editing your profile requires your Active key. 
-                        This is a higher permission level than Posting key.
-                    </div>
-                </div>
-                <p>Since Steem Keychain is not detected, you'll need to enter your Active key manually.</p>
-                <p class="security-tip">Only enter your Active key on trusted websites and be cautious about potential phishing attempts.</p>
-            `;
-            
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'modal-footer';
-            
-            const cancelButton = document.createElement('button');
-            cancelButton.className = 'modal-btn modal-btn-secondary';
-            cancelButton.textContent = 'Cancel';
-            
-            const continueButton = document.createElement('button');
-            continueButton.className = 'modal-btn modal-btn-primary';
-            continueButton.textContent = 'Continue';
-            
-            buttonContainer.appendChild(cancelButton);
-            buttonContainer.appendChild(continueButton);
-            
-            modalContent.appendChild(header);
-            modalContent.appendChild(message);
-            modalContent.appendChild(buttonContainer);
-            
-            modalContainer.appendChild(modalContent);
-            document.body.appendChild(modalContainer);
-            
-            // Event listeners
-            cancelButton.onclick = () => {
-                document.body.removeChild(modalContainer);
-                resolve(false);
-            };
-            
-            continueButton.onclick = () => {
-                document.body.removeChild(modalContainer);
-                resolve(true);
-            };
-        });
-    }
-    
-    async promptForActiveKey() {
-        // Utilizzo il componente centralizzato
-        return activeKeyInput.promptForActiveKey('Enter Active Key');
     }
 }
 

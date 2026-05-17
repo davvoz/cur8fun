@@ -8,6 +8,11 @@ import steemService from './SteemService.js';
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
 
+const SW_COMMUNITY_ENDPOINTS = [
+  'https://sds.steemworld.org',
+  'https://sds0.steemworld.org'
+];
+
 class CommunityService {
   constructor() {
     this.apiEndpoint = 'https://imridd.eu.pythonanywhere.com/api/steem';
@@ -15,6 +20,10 @@ class CommunityService {
     this.cachedCommunities = null;
     this.cachedUserSubscriptions = new Map();
     this.cachedSearchResults = new Map();
+    this.communityAccountImagesCache = new Map();
+    this.communityAccountImagesPending = new Map();
+    this.swCommunityCache = new Map();
+    this.swCommunityPending = new Map();
     this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
     this.pendingRequests = new Map();
     this.isLoadingAllCommunities = false;
@@ -212,6 +221,160 @@ class CommunityService {
       console.error('Error searching communities:', error);
       throw error;
     }
+  }
+
+  normalizeSteemWorldCommunity(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    let settings = {};
+    try {
+      settings = typeof raw.settings === 'string' ? JSON.parse(raw.settings) : (raw.settings || {});
+    } catch (_) {
+      settings = {};
+    }
+
+    const account = raw.account || '';
+    const cleanName = account.replace(/^hive-/, '');
+
+    return {
+      id: raw.id,
+      name: account || cleanName,
+      account,
+      type: raw.type,
+      created: raw.created,
+      rank: raw.rank,
+      lang: raw.lang || '',
+      title: raw.title || this.formatCommunityTitle(cleanName),
+      about: raw.about || '',
+      description: raw.description || '',
+      flag_text: raw.flag_text || '',
+      subscribers: Number(raw.count_subs || 0),
+      count_subs: Number(raw.count_subs || 0),
+      num_pending: Number(raw.count_pending || 0),
+      count_pending: Number(raw.count_pending || 0),
+      sum_pending: Number(raw.sum_pending || 0),
+      count_authors: Number(raw.count_authors || 0),
+      is_nsfw: !!raw.is_nsfw,
+      avatar_url: settings.avatar_url || null,
+      banner_url: settings.cover_url || null,
+      cover_url: settings.cover_url || null,
+      settings,
+      roles: raw.roles || null,
+      account_reputation: raw.account_reputation,
+      _swSource: true
+    };
+  }
+
+  async getCommunityFromSteemWorld(communityName, observer = null) {
+    const normalized = (communityName || '').startsWith('hive-')
+      ? communityName
+      : `hive-${communityName || ''}`;
+
+    if (!normalized || normalized === 'hive-') return null;
+
+    const cacheKey = `${normalized}:${observer || ''}`;
+    const cached = this.swCommunityCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheExpiry) {
+      return cached.data;
+    }
+
+    if (this.swCommunityPending.has(cacheKey)) {
+      return this.swCommunityPending.get(cacheKey);
+    }
+
+    const suffix = observer
+      ? `/communities_api/getCommunity/${normalized}/${observer}`
+      : `/communities_api/getCommunity/${normalized}`;
+
+    const pending = (async () => {
+      try {
+        for (const base of SW_COMMUNITY_ENDPOINTS) {
+          try {
+            const res = await fetch(`${base}${suffix}`);
+            if (!res.ok) continue;
+            const payload = await res.json();
+            if (!payload || payload.code !== 0 || !payload.result) continue;
+
+            const normalizedCommunity = this.normalizeSteemWorldCommunity(payload.result);
+            if (normalizedCommunity) {
+              this.swCommunityCache.set(cacheKey, {
+                data: normalizedCommunity,
+                timestamp: Date.now()
+              });
+              return normalizedCommunity;
+            }
+          } catch (_) {
+            // try next endpoint
+          }
+        }
+        return null;
+      } finally {
+        this.swCommunityPending.delete(cacheKey);
+      }
+    })();
+
+    this.swCommunityPending.set(cacheKey, pending);
+    return pending;
+  }
+
+  /**
+   * Resolve community account images directly from blockchain metadata.
+   * This mirrors how Steemit reads community account profile images/covers.
+   * @param {string} communityName - community id/name with or without hive- prefix
+   * @returns {Promise<{profile_image: string|null, cover_image: string|null}>}
+   */
+  async getCommunityAccountImages(communityName) {
+    const normalized = (communityName || '').startsWith('hive-')
+      ? (communityName || '')
+      : `hive-${communityName || ''}`;
+
+    if (!normalized || normalized === 'hive-') {
+      return { profile_image: null, cover_image: null };
+    }
+
+    const cached = this.communityAccountImagesCache.get(normalized);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheExpiry) {
+      return cached.data;
+    }
+
+    if (this.communityAccountImagesPending.has(normalized)) {
+      return this.communityAccountImagesPending.get(normalized);
+    }
+
+    const pending = (async () => {
+      try {
+        await steemService.ensureLibraryLoaded();
+        const userData = await steemService.getUserData(normalized, { includeProfile: false });
+
+        let profile = {};
+        const raw = userData?.posting_json_metadata || userData?.json_metadata || '{}';
+        try {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          profile = parsed?.profile || {};
+        } catch (_) {
+          profile = {};
+        }
+
+        const data = {
+          profile_image: profile.profile_image || null,
+          cover_image: profile.cover_image || null
+        };
+
+        this.communityAccountImagesCache.set(normalized, {
+          data,
+          timestamp: Date.now()
+        });
+
+        return data;
+      } catch (_) {
+        return { profile_image: null, cover_image: null };
+      } finally {
+        this.communityAccountImagesPending.delete(normalized);
+      }
+    })();
+
+    this.communityAccountImagesPending.set(normalized, pending);
+    return pending;
   }
 
   /**
@@ -615,6 +778,20 @@ class CommunityService {
     const searchName = `hive-${cleanName}`;
     
     try {
+      // First try SteemWorld community endpoint for rich up-to-date metadata
+      const observer = authService.getCurrentUser()?.username || null;
+      const swCommunity = await this.getCommunityFromSteemWorld(searchName, observer);
+      if (swCommunity) {
+        // Merge with cached list entry (if available) to preserve any extra local fields
+        if (this.cachedCommunities) {
+          const cached = this.cachedCommunities.find(
+            c => c.name === cleanName || c.name === searchName
+          );
+          return cached ? { ...cached, ...swCommunity } : swCommunity;
+        }
+        return swCommunity;
+      }
+
       // Prima controlla se abbiamo già tutte le community in cache
       if (this.cachedCommunities) {
         const foundCommunity = this.cachedCommunities.find(

@@ -259,7 +259,7 @@ class LoginView {
 
     // Avatar
     const avatar = document.createElement('img');
-    avatar.src = account.avatar || './assets/img/default-avatar.png';
+  avatar.src = account.avatar || `https://steemitimages.com/u/${account.username}/avatar`;
     avatar.alt = account.username;
     avatar.className = 'saved-account-avatar';
     avatar.style.width = '40px';
@@ -269,7 +269,7 @@ class LoginView {
     avatar.style.objectFit = 'cover';
     avatar.style.border = '2px solid var(--primary-color, #ff7518)';
     avatar.onerror = function () {
-      this.src = './assets/img/default-avatar.png';
+      this.src = `https://steemitimages.com/u/${account.username}/avatar`;
     };
 
     // Username and info

@@ -11,6 +11,7 @@ import metaTagService from '../services/MetaTagService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import router from '../utils/Router.js';
+import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
 
 class CommunityView extends BasePostView {
   constructor(params) {
@@ -21,6 +22,54 @@ class CommunityView extends BasePostView {
     this.currentUser = authService.getCurrentUser();
     this.sortOrder = 'trending'; // Default sort order
     this._communityCache = {}; // Initialize cache
+    this.isSwitchingSort = false;
+    this.sortSwitchTimer = null;
+  }
+
+  escapeHtml(text) {
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  formatMultiline(text) {
+    return this.escapeHtml(text).replace(/\n/g, '<br>');
+  }
+
+  buildRoleLinksHtml(roleRows) {
+    if (!Array.isArray(roleRows) || roleRows.length === 0) {
+      return '<p class="community-empty-note">No roles published.</p>';
+    }
+
+    return `
+      <div class="community-roles-grid">
+        ${roleRows.map((row) => {
+          const account = row?.[1] || '';
+          const title = row?.[2] || '';
+          const role = row?.[3] || '';
+          const accountSafe = this.escapeHtml(account);
+          const titleSafe = this.escapeHtml(title);
+          const roleSafe = this.escapeHtml(role);
+          return `
+            <a class="community-role-card" href="/@${accountSafe}" data-link>
+              <span class="community-role-account">@${accountSafe}</span>
+              <span class="community-role-type">${roleSafe || 'member'}</span>
+              ${titleSafe ? `<span class="community-role-title">${titleSafe}</span>` : ''}
+            </a>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  buildRulesHtml(flagText) {
+    if (!flagText) {
+      return '<p class="community-empty-note">No explicit rules published.</p>';
+    }
+    return `<p>${this.formatMultiline(flagText)}</p>`;
   }
 
   /**
@@ -278,43 +327,99 @@ class CommunityView extends BasePostView {
     // Get numeric ID from community
     const communityId = communityName.replace('hive-', '');
     
-    // steemitimages.com/u/ reads from the account's posting_json_metadata live (same source as steemit.com)
-    // Use avatar_url from API only as onerror fallback (it may be cached/outdated)
-    const avatarSrc = `https://steemitimages.com/u/hive-${communityId}/avatar`;
-    const avatarFallback = this.community.avatar_url || './assets/img/default-avatar.png';
+    const steemitAvatar = `https://steemitimages.com/u/hive-${communityId}/avatar`;
+    const rawAvatar = this.community.avatar_url || null;
+    const avatarPrimary = rawAvatar ? getImageUrl(rawAvatar, 256) : steemitAvatar;
+    const avatarFallback = rawAvatar ? proxifyImage(rawAvatar, 256) : steemitAvatar;
 
     // Prepare banner URL (or use default)
     const bannerUrl = this.community.banner_url || null;
+    const bannerPrimary = bannerUrl ? getImageUrl(bannerUrl, 1400) : null;
+    const bannerFallback = bannerUrl ? proxifyImage(bannerUrl, 1400) : null;
+    const lang = (this.community.lang || '').toUpperCase();
+    const pendingAmount = Number(this.community.sum_pending || 0);
+    const roleRows = Array.isArray(this.community.roles?.rows) ? this.community.roles.rows : [];
     
     // Render community header
     headerContainer.innerHTML = `
-      <div class="community-banner" style="${bannerUrl ? `background-image: url('${bannerUrl}');` : ''}">
+      <div class="community-banner">
         <div class="community-overlay"></div>
         <div class="community-info">
-          <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${this.community.title}" class="community-avatar" />
+          <img src="${avatarPrimary}" alt="${this.community.title}" class="community-avatar" />
           <div class="community-title-area">
             <h1 class="community-title">${this.community.title || communityName}</h1>
             <div class="community-stats">
-              <span class="community-stat">
+              <span class="community-stat community-stat-subscribers">
                 <span class="material-icons">group</span>
-                ${this.community.subscribers || 0} subscribers
+                <span class="community-stat-value">${this.community.subscribers || 0}</span>
+                <span class="community-stat-label community-stat-label-full">subscribers</span>
+                <span class="community-stat-label community-stat-label-short">subs</span>
               </span>
               <span class="community-stat">
                 <span class="material-icons">article</span>
-                ${this.community.num_pending || 0} pending posts
+                <span class="community-stat-value">${this.community.num_pending || this.community.count_pending || 0}</span>
+                <span class="community-stat-label community-stat-label-full">pending posts</span>
+                <span class="community-stat-label community-stat-label-short">pending</span>
               </span>
+              <span class="community-stat">
+                <span class="material-icons">attach_money</span>
+                <span class="community-stat-value">${pendingAmount.toFixed(2)}</span>
+                <span class="community-stat-label community-stat-label-full">pending payout</span>
+                <span class="community-stat-label community-stat-label-short">payout</span>
+              </span>
+              <span class="community-stat">
+                <span class="material-icons">edit</span>
+                <span class="community-stat-value">${this.community.count_authors || 0}</span>
+                <span class="community-stat-label community-stat-label-full">authors</span>
+                <span class="community-stat-label community-stat-label-short">authors</span>
+              </span>
+              ${lang ? `
+              <span class="community-stat community-stat-language">
+                <span class="material-icons">translate</span>
+                <span class="community-stat-value">${lang}</span>
+                <span class="community-stat-label community-stat-label-full">language</span>
+                <span class="community-stat-label community-stat-label-short">lang</span>
+              </span>
+              ` : ''}
             </div>
+            <p class="community-about-inline">
+              ${this.community.about
+                ? this.escapeHtml(this.community.about)
+                : 'No short about provided.'}
+            </p>
           </div>
           ${this.currentUser ? `
-            <button id="subscribe-button" class="${this.isSubscribed ? 'outline-btn' : 'primary-btn'}">
-              ${this.isSubscribed ? 'Unsubscribe' : 'Subscribe'}
-            </button>
+            <div class="community-actions">
+              <button id="subscribe-button" class="${this.isSubscribed ? 'outline-btn' : 'primary-btn'}">
+                ${this.isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+              </button>
+              <button id="community-create-post-button" class="outline-btn">
+                Post
+              </button>
+            </div>
           ` : ''}
         </div>
       </div>
       
-      <div class="community-about">
-        ${this.community.about ? `<p>${this.community.about}</p>` : ''}
+      <div class="community-details-grid">
+        <details class="community-collapsible community-description-collapsible">
+          <summary>Full description</summary>
+          <div class="community-collapsible-content community-full-content">
+            ${this.community.description
+              ? `<p>${this.formatMultiline(this.community.description)}</p>`
+              : '<p class="community-empty-note">No extended description provided.</p>'}
+            <div class="community-extras-block">
+              <h4>Rules</h4>
+              ${this.buildRulesHtml(this.community.flag_text)}
+            </div>
+            <div class="community-extras-block">
+              <h4>Roles</h4>
+              <div class="community-roles-scroll">
+                ${this.buildRoleLinksHtml(roleRows)}
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
     `;
     
@@ -323,6 +428,114 @@ class CommunityView extends BasePostView {
     if (subscribeButton) {
       subscribeButton.addEventListener('click', () => this.handleSubscription());
     }
+
+    const createPostButton = headerContainer.querySelector('#community-create-post-button');
+    if (createPostButton) {
+      createPostButton.addEventListener('click', () => {
+        router.navigate('/create', {
+          community: this.community.name,
+          communityTitle: this.community.title || communityName
+        });
+      });
+    }
+
+    // Robust avatar fallback chain: original/API URL -> proxied URL -> steemit -> default
+    const avatarEl = headerContainer.querySelector('.community-avatar');
+    if (avatarEl) {
+      avatarEl.onerror = () => {
+        if (avatarFallback && avatarFallback !== avatarPrimary) {
+          avatarEl.onerror = () => {
+            avatarEl.onerror = () => {
+              avatarEl.onerror = null;
+              avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+            };
+            avatarEl.src = steemitAvatar;
+          };
+          avatarEl.src = avatarFallback;
+          return;
+        }
+        avatarEl.onerror = () => {
+          avatarEl.onerror = null;
+          avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+        };
+        avatarEl.src = steemitAvatar;
+      };
+    }
+
+    // Robust cover fallback chain: original/API URL -> proxied URL -> gradient
+    const bannerEl = headerContainer.querySelector('.community-banner');
+    if (bannerEl && bannerPrimary) {
+      const tryBanner = (url, next) => {
+        const img = new Image();
+        img.onload = () => {
+          bannerEl.style.backgroundImage = `url('${url}')`;
+        };
+        img.onerror = () => {
+          if (typeof next === 'function') next();
+        };
+        img.src = url;
+      };
+
+      if (bannerFallback && bannerFallback !== bannerPrimary) {
+        tryBanner(bannerPrimary, () => tryBanner(bannerFallback));
+      } else {
+        tryBanner(bannerPrimary);
+      }
+    }
+
+    // Steemit-like fallback: read hive-NNN account metadata directly for profile_image/cover_image.
+    communityService.getCommunityAccountImages(communityName).then((images) => {
+      if (!images) return;
+
+      if (avatarEl && images.profile_image) {
+        const onChainPrimary = getImageUrl(images.profile_image, 256);
+        const onChainFallback = proxifyImage(images.profile_image, 256);
+
+        avatarEl.onerror = () => {
+          if (onChainFallback && onChainFallback !== onChainPrimary) {
+            avatarEl.onerror = () => {
+              avatarEl.onerror = () => {
+                avatarEl.onerror = null;
+                avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+              };
+              avatarEl.src = steemitAvatar;
+            };
+            avatarEl.src = onChainFallback;
+            return;
+          }
+
+          avatarEl.onerror = () => {
+            avatarEl.onerror = null;
+            avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+          };
+          avatarEl.src = steemitAvatar;
+        };
+
+        avatarEl.src = onChainPrimary;
+      }
+
+      if (bannerEl && images.cover_image) {
+        const onChainBannerPrimary = getImageUrl(images.cover_image, 1400);
+        const onChainBannerFallback = proxifyImage(images.cover_image, 1400);
+
+        const tryBanner = (url, next) => {
+          const img = new Image();
+          img.onload = () => {
+            bannerEl.style.backgroundImage = `url('${url}')`;
+          };
+          img.onerror = () => {
+            if (typeof next === 'function') next();
+          };
+          img.src = url;
+        };
+
+        if (onChainBannerFallback && onChainBannerFallback !== onChainBannerPrimary) {
+          tryBanner(onChainBannerPrimary, () => tryBanner(onChainBannerFallback));
+        } else {
+          tryBanner(onChainBannerPrimary);
+        }
+      }
+    }).catch(() => {});
   }
 
   /**
@@ -363,6 +576,7 @@ class CommunityView extends BasePostView {
     }
 
     this.sortOrder = order;
+    this.isSwitchingSort = true;
 
     // Update active button
     const sortButtons = this.container.querySelectorAll('.sort-button');
@@ -380,25 +594,40 @@ class CommunityView extends BasePostView {
       this.infiniteScroll = null;
     }
 
-    // 2. Clear posts container cleanly
+    // 2. Mark the container as switching so old cards can fade while skeletons load
     const postsContainer = this.container.querySelector('.posts-container');
     if (postsContainer) {
-      postsContainer.innerHTML = '';
+      postsContainer.classList.add('is-switching');
     }
 
-    // 3. Load first page, then attach fresh InfiniteScroll
-    this.loadPosts(1).then(() => {
-      if (postsContainer) {
-        this.infiniteScroll = new InfiniteScroll({
-          container: postsContainer,
-          loadMore: (page) => this.loadPosts(page),
-          threshold: '200px',
-          loadingMessage: 'Loading more posts...',
-          endMessage: 'No more posts in this community',
-          errorMessage: 'Failed to load posts. Please check your connection.'
-        });
-      }
-    });
+    if (this.sortSwitchTimer) {
+      clearTimeout(this.sortSwitchTimer);
+      this.sortSwitchTimer = null;
+    }
+
+    // 3. Let the fade start before replacing the list with skeletons + new content
+    this.sortSwitchTimer = setTimeout(() => {
+      this.showPostSkeletons(8);
+
+      this.loadPosts(1).then(() => {
+        if (postsContainer) {
+          this.infiniteScroll = new InfiniteScroll({
+            container: postsContainer,
+            loadMore: (page) => this.loadPosts(page),
+            threshold: '200px',
+            loadingMessage: 'Loading more posts...',
+            endMessage: 'No more posts in this community',
+            errorMessage: 'Failed to load posts. Please check your connection.'
+          });
+
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              postsContainer.classList.remove('is-switching');
+            }, 160);
+          });
+        }
+      });
+    }, 180);
   }
 
   /**
@@ -513,7 +742,7 @@ class CommunityView extends BasePostView {
     if (subscribeButton) {
       subscribeButton.replaceWith(subscribeButton.cloneNode(true));
     }
-    
+
     // Clear container references
     this.container = null;
   }

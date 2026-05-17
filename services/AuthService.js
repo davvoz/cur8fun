@@ -388,6 +388,37 @@ class AuthService {
     }
 
     /**
+     * Fetch the user's current profile_image from the blockchain and sync it
+     * to user.avatar so that post cards and other UI reflect the latest value
+     * without requiring a profile re-save. Non-blocking — safe to fire-and-forget.
+     */
+    async syncAvatarFromBlockchain() {
+        try {
+            const user = this.getCurrentUser();
+            if (!user) return;
+
+            // Lazy import to avoid circular deps
+            const { default: steemService } = await import('./SteemService.js');
+            const userData = await steemService.getUserData(user.username, { includeProfile: false });
+            if (!userData) return;
+
+            // Parse posting_json_metadata first (canonical), fall back to json_metadata
+            const raw = userData.posting_json_metadata || userData.json_metadata || '{}';
+            let profileImage = null;
+            try {
+                const meta = JSON.parse(raw);
+                profileImage = meta?.profile?.profile_image || null;
+            } catch (_) {}
+
+            if (profileImage && profileImage !== user.avatar) {
+                this.updateAvatar(profileImage);
+            }
+        } catch (e) {
+            // Non-critical — silently ignore
+        }
+    }
+
+    /**
      * Get the specified key for the current user.
      * Returns from in-memory cache (populated by initKeysAsync on startup,
      * or by securelyStoreKey at login time). Falls back to raw localStorage
@@ -486,6 +517,29 @@ class AuthService {
      * Removes the current account's keys/tokens, then automatically switches to
      * another stored account if one exists — otherwise fully clears auth state.
      */
+    /**
+     * Update the current user's avatar URL in memory and localStorage,
+     * then emit auth:changed so the navbar re-renders with the new image.
+     * @param {string} newAvatarUrl - The direct profile_image URL from the blockchain
+     */
+    updateAvatar(newAvatarUrl) {
+        if (!newAvatarUrl || !this.currentUser) return;
+        const username = this.currentUser.username;
+        this.currentUser = { ...this.currentUser, avatar: newAvatarUrl };
+        try {
+            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        } catch (e) {
+            console.warn('Could not persist updated avatar:', e);
+        }
+        // Immediately update every avatar img already in the DOM for this user
+        // (post cards, comments, etc.) so they reflect the change without a reload.
+        try {
+            document.querySelectorAll(`img.avatar[alt="${username}"], img[data-author="${username}"]`)
+                .forEach(img => { img.src = newAvatarUrl; });
+        } catch (_) {}
+        eventEmitter.emit('auth:changed', { user: this.currentUser });
+    }
+
     logout() {
         try {
             const user = this.getCurrentUser();

@@ -329,7 +329,8 @@ class SteemService {
      * @returns {Promise<Object>} - Result of the operation
      */
     async followUser(follower, following) {
-        return this.userService.followUser(follower, following);
+        const postingKey = authService.getPostingKey();
+        return this.userService.followUser(follower, following, { postingKey });
     }
     
     /**
@@ -339,7 +340,8 @@ class SteemService {
      * @returns {Promise<Object>} - Result of the operation
      */
     async unfollowUser(follower, following) {
-        return this.userService.unfollowUser(follower, following);
+        const postingKey = authService.getPostingKey();
+        return this.userService.unfollowUser(follower, following, { postingKey });
     }
     
     /**

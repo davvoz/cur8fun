@@ -12,6 +12,7 @@ import LoadingIndicator from '../components/LoadingIndicator.js';
 import communityService from '../services/CommunityService.js';
 import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js';
+import profileService from '../services/ProfileService.js';
 
 // Controllers
 import VoteController from '../controllers/VoteController.js';
@@ -54,7 +55,10 @@ class BasePostView {
     }
 
     try {
-      const rebloggers = await reblogService.getRebloggers(item.post.author, item.post.permlink);
+      const rebloggers = await reblogService.getRebloggers(item.post.author, item.post.permlink, {
+        suppressErrors: true,
+        allowFallback: false
+      });
       if (Array.isArray(rebloggers) && rebloggers.length > 0) {
         item.countEl.textContent = String(rebloggers.length);
       }
@@ -75,6 +79,8 @@ class BasePostView {
     this.gridController = new GridController({
       targetSelector: '.posts-container'
     });
+    this.avatarUrlCache = new Map();
+    this.avatarPending = new Map();
     
     // Track post IDs to prevent duplicates
     this.renderedPostIds = new Set();
@@ -93,6 +99,44 @@ class BasePostView {
     
     // Initialize SteemContentRenderer for image extraction
     this.initSteemRenderer();
+  }
+
+  async resolveAuthorAvatarUrl(author) {
+    if (!author) return null;
+    if (this.avatarUrlCache.has(author)) return this.avatarUrlCache.get(author);
+    if (this.avatarPending.has(author)) return this.avatarPending.get(author);
+
+    const pending = (async () => {
+      try {
+        const currentUser = authService.getCurrentUser?.();
+        if (
+          currentUser &&
+          currentUser.username === author &&
+          currentUser.avatar &&
+          !currentUser.avatar.includes('steemitimages.com/u/')
+        ) {
+          return proxifyImage(currentUser.avatar, 256);
+        }
+
+        const forceRefresh = !!(currentUser && currentUser.username === author);
+        const profile = await profileService.getProfile(author, forceRefresh);
+        const rawAvatar = profile?.profileImage || profile?.profile?.profile_image || null;
+        if (!rawAvatar) return null;
+
+        return rawAvatar.includes('steemitimages.com/u/')
+          ? rawAvatar
+          : proxifyImage(rawAvatar, 256);
+      } catch (_) {
+        return null;
+      } finally {
+        this.avatarPending.delete(author);
+      }
+    })();
+
+    this.avatarPending.set(author, pending);
+    const resolved = await pending;
+    if (resolved) this.avatarUrlCache.set(author, resolved);
+    return resolved;
   }
   
   /**
@@ -426,26 +470,19 @@ class BasePostView {
    *   3. Regex scan of raw body — last resort
    */
   getBestImage(post, metadata) {
-    // 1. metadata.image[] — most reliable
+    // 1. metadata.image[] — set by author, always a clean raw URL
     if (metadata && metadata.image && metadata.image.length > 0) {
       const img = metadata.image[0];
       if (img && typeof img === 'string' && img.startsWith('http')) return img;
     }
 
-    // 2. SteemContentRenderer rendered HTML string.
-    //    imageProxyFn has already correctly resolved the URL.
-    //    Read src from the *string* (not DOM) to avoid browser URL normalisation.
-    if (this.contentRenderer && this.contentRenderer.steemRenderer) {
-      try {
-        const html = this.contentRenderer.steemRenderer.render(
-          (post.body || '').substring(0, 3000)
-        );
-        const srcMatch = html.match(/src=["'](https?:\/\/[^"'\s]+)["']/i);
-        if (srcMatch) return srcMatch[1];
-      } catch (e) { /* ignore */ }
+    // 2. SteemWorld pre-parsed images (populated by ProfileService normalizer)
+    if (Array.isArray(post._images) && post._images.length > 0) {
+      const img = post._images[0];
+      if (img && typeof img === 'string' && img.startsWith('http')) return img;
     }
 
-    // 3. Regex scan of raw body (fallback when renderer isn't ready yet).
+    // 3. Regex scan of raw body — avoids triggering steem-content-renderer warnings
     if (post.body) {
       const mdMatch = post.body.match(/!\[.*?\]\((https?:\/\/[^)\s]+)\)/);
       if (mdMatch) return mdMatch[1];
@@ -620,7 +657,7 @@ class BasePostView {
       const tryNextSource = () => {
         if (currentSourceIndex >= avatarSources.length) {
           // We've tried all sources, use default
-          avatar.src = './assets/img/default-avatar.png';
+          avatar.src = 'https://steemitimages.com/u/default/avatar';
           return;
         }
         
@@ -645,6 +682,16 @@ class BasePostView {
     };
     
     loadAvatar();
+
+    // Upgrade to the real profile_image URL when available to avoid stale CDN avatars.
+    this.resolveAuthorAvatarUrl(post.author).then((resolvedAvatar) => {
+      if (!resolvedAvatar || !avatar.isConnected) return;
+      avatar.onerror = () => {
+        avatar.onerror = null;
+        avatar.src = `https://steemitimages.com/u/${post.author}/avatar`;
+      };
+      avatar.src = resolvedAvatar;
+    });
     
     avatarContainer.style.cursor = 'pointer';
     avatarContainer.addEventListener('click', (e) => {
@@ -1034,29 +1081,23 @@ class BasePostView {
     const currentUser = authService.getCurrentUser();
     if (currentUser?.username) {
       const normalizedCurrentUser = String(currentUser.username).toLowerCase();
-      const alreadyReblogged =
+      const alreadyRebloggedByPayload =
         post.reblogged === true ||
         (Array.isArray(post.reblogged_by) &&
           post.reblogged_by.some(a => String(a || '').toLowerCase() === normalizedCurrentUser)) ||
-        String(post.first_reblogged_by || '').toLowerCase() === normalizedCurrentUser ||
-        reblogService.isRebloggedInCache(currentUser.username, post.author, post.permlink);
+        String(post.first_reblogged_by || '').toLowerCase() === normalizedCurrentUser;
+
+      const alreadyRebloggedInCache = reblogService.isRebloggedInCache(
+        currentUser.username,
+        post.author,
+        post.permlink
+      );
+
+      const alreadyReblogged = alreadyRebloggedByPayload || alreadyRebloggedInCache;
 
       if (alreadyReblogged) {
         btn.classList.add('reblogged');
       }
-
-      // Async confirmation for sources that don't include reblog markers in post payload.
-      reblogService.getReblogInfo(currentUser.username, post.author, post.permlink)
-        .then(({ hasReblogged, reblogCount }) => {
-          if (!reblogCountEl.isConnected || !btn.isConnected) return;
-          if (Number.isFinite(reblogCount)) {
-            reblogCountEl.textContent = String(reblogCount);
-          }
-          if (hasReblogged) {
-            btn.classList.add('reblogged');
-          }
-        })
-        .catch(() => {});
     }
 
     btn.addEventListener('click', async (e) => {

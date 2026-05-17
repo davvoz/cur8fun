@@ -35,6 +35,7 @@ class Profile {
         this.metadata = this.parseMetadata(userData.json_metadata, userData.posting_json_metadata);
         this.profileImage = this.getProfileImage();
         this.coverImage = this.getCoverImage();
+        this.displayName = this.getDisplayName();
         this.about = this.getAbout();
         this.location = this.getLocation();
         this.website = this.getWebsite();
@@ -108,6 +109,15 @@ class Profile {
     getCoverImage() {
         const profile = this.metadata.profile;
         return profile.cover_image || null;
+    }
+
+    /**
+     * Get profile display name (metadata.profile.name)
+     * @returns {string}
+     */
+    getDisplayName() {
+        const profile = this.metadata.profile;
+        return profile.name || '';
     }
     
     /**

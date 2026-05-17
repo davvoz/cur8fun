@@ -6,6 +6,7 @@ import steemService from '../services/SteemService.js';
 import communityService from '../services/CommunityService.js';
 import authService from '../services/AuthService.js';
 import metaTagService from '../services/MetaTagService.js';
+import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
 
 // Import components
 import PostHeader from '../components/post/PostHeader.js';
@@ -911,10 +912,68 @@ class PostView extends View {  constructor(params = {}) {
   renderCommunityAvatar(iconElement, communityData) {
     iconElement.textContent = '';
     
+    const rawAvatar = communityData.avatar_url || null;
+    const communitySlug = communityData.name || communityData.id || communityData.title || 'default';
+    const steemitAvatar = `https://steemitimages.com/u/${communitySlug}/avatar`;
+    const avatarPrimary = rawAvatar ? getImageUrl(rawAvatar, 128) : steemitAvatar;
+    const avatarFallback = rawAvatar ? proxifyImage(rawAvatar, 128) : steemitAvatar;
+
     const avatarImg = document.createElement('img');
-    avatarImg.src = communityData.avatar_url;
+    avatarImg.src = avatarPrimary;
     avatarImg.alt = communityData.title || '';
     avatarImg.className = 'community-avatar-img';
+
+    avatarImg.onerror = () => {
+      if (avatarFallback && avatarFallback !== avatarPrimary) {
+        avatarImg.onerror = () => {
+          avatarImg.onerror = () => {
+            avatarImg.onerror = null;
+            avatarImg.src = 'https://steemitimages.com/u/default/avatar';
+          };
+          avatarImg.src = steemitAvatar;
+        };
+        avatarImg.src = avatarFallback;
+        return;
+      }
+
+      avatarImg.onerror = () => {
+        avatarImg.onerror = null;
+        avatarImg.src = 'https://steemitimages.com/u/default/avatar';
+      };
+      avatarImg.src = steemitAvatar;
+    };
+
+    const communityName = communityData.name || communityData.id || null;
+    if (communityName) {
+      communityService.getCommunityAccountImages(communityName).then((images) => {
+        if (!images?.profile_image || !avatarImg.isConnected) return;
+
+        const onChainPrimary = getImageUrl(images.profile_image, 128);
+        const onChainFallback = proxifyImage(images.profile_image, 128);
+
+        avatarImg.onerror = () => {
+          if (onChainFallback && onChainFallback !== onChainPrimary) {
+            avatarImg.onerror = () => {
+              avatarImg.onerror = () => {
+                avatarImg.onerror = null;
+                avatarImg.src = 'https://steemitimages.com/u/default/avatar';
+              };
+              avatarImg.src = steemitAvatar;
+            };
+            avatarImg.src = onChainFallback;
+            return;
+          }
+
+          avatarImg.onerror = () => {
+            avatarImg.onerror = null;
+            avatarImg.src = 'https://steemitimages.com/u/default/avatar';
+          };
+          avatarImg.src = steemitAvatar;
+        };
+
+        avatarImg.src = onChainPrimary;
+      }).catch(() => {});
+    }
     
     iconElement.appendChild(avatarImg);
   }

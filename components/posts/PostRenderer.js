@@ -1,9 +1,51 @@
 import router from '../../utils/Router.js';
 import { proxifyImage, getImageUrl } from '../../utils/ImageUtils.js';
+import authService from '../../services/AuthService.js';
+import profileService from '../../services/ProfileService.js';
 
 export default class PostRenderer {
   constructor() {
     this.contentRenderer = null; // Optional SteemContentRenderer for extracting images
+    this.avatarUrlCache = new Map();
+    this.avatarPending = new Map();
+  }
+
+  async resolveAuthorAvatarUrl(author) {
+    if (!author) return null;
+    if (this.avatarUrlCache.has(author)) return this.avatarUrlCache.get(author);
+    if (this.avatarPending.has(author)) return this.avatarPending.get(author);
+
+    const pending = (async () => {
+      try {
+        const currentUser = authService.getCurrentUser?.();
+        if (
+          currentUser &&
+          currentUser.username === author &&
+          currentUser.avatar &&
+          !currentUser.avatar.includes('steemitimages.com/u/')
+        ) {
+          return proxifyImage(currentUser.avatar, 256);
+        }
+
+        const forceRefresh = !!(currentUser && currentUser.username === author);
+        const profile = await profileService.getProfile(author, forceRefresh);
+        const rawAvatar = profile?.profileImage || profile?.profile?.profile_image || null;
+        if (!rawAvatar) return null;
+
+        return rawAvatar.includes('steemitimages.com/u/')
+          ? rawAvatar
+          : proxifyImage(rawAvatar, 256);
+      } catch (_) {
+        return null;
+      } finally {
+        this.avatarPending.delete(author);
+      }
+    })();
+
+    this.avatarPending.set(author, pending);
+    const resolved = await pending;
+    if (resolved) this.avatarUrlCache.set(author, resolved);
+    return resolved;
   }
 
   renderPost(post) {
@@ -92,11 +134,10 @@ export default class PostRenderer {
     avatar.className = 'avatar';
     avatar.loading = 'lazy';
 
-    let retryCount = 0;
-
     const loadAvatar = () => {
+      const steemitAvatar = `https://steemitimages.com/u/${post.author}/avatar`;
       const avatarSources = [
-        `https://steemitimages.com/u/${post.author}/avatar`,
+        steemitAvatar,
         `https://images.hive.blog/u/${post.author}/avatar`
       ];
 
@@ -104,7 +145,7 @@ export default class PostRenderer {
 
       const tryNextSource = () => {
         if (currentSourceIndex >= avatarSources.length) {
-          avatar.src = './assets/img/default-avatar.png';
+          avatar.src = steemitAvatar;
           return;
         }
 
@@ -115,17 +156,23 @@ export default class PostRenderer {
           setTimeout(tryNextSource, 300);
         };
 
-        if (retryCount > 0 && !currentSource.includes('default-avatar')) {
-          avatar.src = `${currentSource}?retry=${Date.now()}`;
-        } else {
-          avatar.src = currentSource;
-        }
+        avatar.src = currentSource;
       };
 
       tryNextSource();
     };
 
     loadAvatar();
+
+    // Upgrade to the real profile_image URL when available.
+    this.resolveAuthorAvatarUrl(post.author).then((resolvedAvatar) => {
+      if (!resolvedAvatar || !avatar.isConnected) return;
+      avatar.onerror = () => {
+        avatar.onerror = null;
+        avatar.src = `https://steemitimages.com/u/${post.author}/avatar`;
+      };
+      avatar.src = resolvedAvatar;
+    });
 
     avatarContainer.appendChild(avatar);
 

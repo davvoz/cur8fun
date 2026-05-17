@@ -2,6 +2,104 @@ import steemService from './SteemService.js';
 import Profile from '../models/Profile.js';
 import eventEmitter from '../utils/EventEmitter.js';
 
+// ─── SteemWorld feeds helper ────────────────────────────────────────────────
+const SW_ENDPOINTS = [
+    'https://sds.steemworld.org',
+    'https://sds0.steemworld.org'
+];
+
+/**
+ * Convert a SteemWorld tabular row into a condenser-compatible post object.
+ * Both getAccountBlog and getPostsByAuthor share the same cols schema.
+ */
+function _swRowToPost(cols, row) {
+    let jsonMeta = {};
+    try { jsonMeta = JSON.parse(row[cols.json_metadata] || '{}'); } catch (_) {}
+
+    let images = [];
+    try { images = JSON.parse(row[cols.json_images] || '[]'); } catch (_) {}
+
+    const createdTs = row[cols.created];
+    const cashoutTs = row[cols.cashout_time];
+    const created = createdTs
+        ? new Date(createdTs * 1000).toISOString().replace('.000Z', '')
+        : '';
+    const cashout_time = cashoutTs
+        ? new Date(cashoutTs * 1000).toISOString().replace('.000Z', '')
+        : '1969-12-31T23:59:59';
+
+    const payout = Number(row[cols.payout] ?? 0);
+    const pending_payout_value = cashoutTs > 0 ? `${payout.toFixed(3)} SBD` : '0.000 SBD';
+    const total_payout_value   = cashoutTs > 0 ? '0.000 SBD' : `${payout.toFixed(3)} SBD`;
+    const curator_payout_value = '0.000 SBD';
+
+    // resteemed_by is only present in getAccountBlog responses
+    const resteemedBy = Array.isArray(row[cols.resteemed_by]) ? row[cols.resteemed_by] : [];
+
+    return {
+        id:                   row[cols.link_id] ?? 0,
+        author:               row[cols.author] ?? '',
+        permlink:             row[cols.permlink] ?? '',
+        title:                row[cols.title] ?? '',
+        body:                 row[cols.body] ?? '',
+        category:             row[cols.category] ?? '',
+        parent_permlink:      row[cols.category] ?? '',
+        community:            row[cols.community] ?? '',
+        created,
+        cashout_time,
+        net_rshares:          row[cols.net_rshares] ?? 0,
+        children:             row[cols.children] ?? 0,
+        pending_payout_value,
+        total_payout_value,
+        curator_payout_value,
+        max_accepted_payout:  `${(row[cols.max_accepted_payout] ?? 0).toFixed(3)} SBD`,
+        percent_steem_dollars: row[cols.percent_steem_dollars] ?? 10000,
+        active_votes:         [],
+        json_metadata:        row[cols.json_metadata] ?? '{}',
+        reblog_count:         row[cols.resteem_count] ?? 0,
+        // resteemed_by mirrors condenser's reblogged_by field name
+        reblogged_by:         resteemedBy,
+        stats: {
+            num_reblogs: row[cols.resteem_count] ?? 0,
+        },
+        // flatten useful metadata for card rendering
+        _images: images,
+        _jsonMeta: jsonMeta,
+        _swSource: true,
+    };
+}
+
+/**
+ * Fetch posts from SteemWorld feeds API with offset pagination.
+ * @param {'getAccountBlog'|'getPostsByAuthor'} endpoint
+ * @param {string} account
+ * @param {number} limit
+ * @param {number} offset
+ * @param {number} bodyLength
+ * @returns {Promise<{posts: Array, total: number}>}
+ */
+async function _swFetchFeed(feedEndpoint, account, limit, offset, bodyLength = 250) {
+    const encodedAccount = encodeURIComponent(account);
+    const path = `/feeds_api/${feedEndpoint}/${encodedAccount}/null/${bodyLength}/${limit}/${offset}`;
+
+    for (const base of SW_ENDPOINTS) {
+        try {
+            const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(12000) });
+            if (!res.ok) continue;
+            const json = await res.json();
+            if (json.code !== 0 || !json.result?.cols || !Array.isArray(json.result.rows)) continue;
+
+            const { cols, rows } = json.result;
+            const posts = rows.map(row => _swRowToPost(cols, row));
+            return { posts, total: rows.length };
+        } catch (_) {
+            // try next endpoint
+        }
+    }
+    throw new Error(`SteemWorld ${feedEndpoint} unavailable for ${account}`);
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 /**
  * Service for managing Steem user profiles
  */
@@ -63,9 +161,10 @@ class ProfileService {
             let existingProfile = {};
             if (userData.profile) {
                 existingProfile = userData.profile;
-            } else if (userData.json_metadata) {
+            } else if (userData.posting_json_metadata || userData.json_metadata) {
                 try {
-                    const metadata = JSON.parse(userData.json_metadata);
+                    const rawMeta = userData.posting_json_metadata || userData.json_metadata;
+                    const metadata = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta;
                     if (metadata && metadata.profile) {
                         existingProfile = metadata.profile;
                     }
@@ -101,153 +200,110 @@ class ProfileService {
     }
 
     /**
-     * Get posts by a user with pagination - versione migliorata per caricare più post
-     * @param {string} username - The username to fetch posts for
-     * @param {number} limit - Number of posts per page
-     * @param {number} page - Page number to fetch (starts at 1)
-     * @param {Object} params - Additional parameters
-     * @returns {Promise<Array>} - Array of posts
+     * Get blog posts (own + reblogs, no community-only posts) with offset-based pagination.
+     * Primary: SteemWorld getAccountBlog. Fallback: condenser getDiscussionsByBlog.
+     * @param {string} username
+     * @param {number} limit - posts per page
+     * @param {number} page  - 1-based page number
+     * @param {Object} params - { forceRefresh }
+     * @returns {Promise<Array>}
      */
     async getUserPosts(username, limit = 30, page = 1, params = {}) {
+        if (params?.forceRefresh) {
+            this.clearUserPostsCache(username);
+        }
+
+        const cacheKey = `${username}_posts_page_${page}`;
+
+        if (!params?.forceRefresh) {
+            const cached = this.getCachedPosts(cacheKey);
+            if (cached) return cached;
+        }
+
+        // ── Primary: SteemWorld offset-based ──────────────────────────────
         try {
-            // Force refresh handling
-            if (params?.forceRefresh) {
-                this.clearUserPostsCache(username);
-                // Reset anche i dati di paginazione nel SteemService
-                if (steemService._lastPostByUser) {
-                    delete steemService._lastPostByUser[username];
-                }
-            }
-            
-            // Cache key per questa pagina
-            const cacheKey = `${username}_posts_page_${page}`;
-            
-            // Check cache first (unless forcing refresh)
-            if (!params?.forceRefresh) {
-                const cachedPosts = this.getCachedPosts(cacheKey);
-                if (cachedPosts) {
-                    return cachedPosts;
-                }
-            }
-            
-            // Recupero parametri di paginazione
+            const offset = (page - 1) * limit;
+            const { posts } = await _swFetchFeed('getAccountBlog', username, limit, offset);
+            this.cachePosts(cacheKey, posts);
+            return posts;
+        } catch (swErr) {
+            console.warn(`[ProfileService] SteemWorld getAccountBlog failed (page ${page}), falling back:`, swErr.message);
+        }
+
+        // ── Fallback: condenser cursor-based ──────────────────────────────
+        try {
             let paginationParams = {};
-            
-            // Per la prima pagina non serve paginazione
             if (page > 1) {
-                // Ottieni l'ultimo post della pagina precedente
-                const prevPageKey = `${username}_posts_page_${page-1}`;
-                const prevPagePosts = this.getCachedPosts(prevPageKey);
-                
-                if (prevPagePosts && prevPagePosts.length > 0) {
-                    // Usa l'ultimo post della pagina precedente come riferimento
-                    const lastPost = prevPagePosts[prevPagePosts.length - 1];
-                    paginationParams = {
-                        start_author: lastPost.author,
-                        start_permlink: lastPost.permlink
-                    };
-                } else {
-                    // Se non abbiamo la pagina precedente in cache, chiedi al service
-                    const lastPostRef = steemService.getLastPostForUser(username);
-                    if (lastPostRef) {
-                        paginationParams = {
-                            start_author: lastPostRef.author,
-                            start_permlink: lastPostRef.permlink
-                        };
-                    } else {
-                        console.warn(`No pagination reference for page ${page}, results may be incorrect`);
-                        
-                        // Se siamo a pagina > 1 ma non abbiamo un punto di riferimento,
-                        // potremmo dover caricare tutte le pagine precedenti
-                        if (page > 2) { // Solo se siamo oltre pagina 2, per evitare loop
-                            const prevPagePosts = await this.getUserPosts(username, limit, page-1);
-                            
-                            if (prevPagePosts && prevPagePosts.length > 0) {
-                                const lastPost = prevPagePosts[prevPagePosts.length - 1];
-                                paginationParams = {
-                                    start_author: lastPost.author,
-                                    start_permlink: lastPost.permlink
-                                };
-                            }
-                        }
-                    }
+                const prevKey = `${username}_posts_page_${page - 1}`;
+                const prevPosts = this.getCachedPosts(prevKey);
+                if (prevPosts?.length > 0) {
+                    const last = prevPosts[prevPosts.length - 1];
+                    paginationParams = { start_author: last.author, start_permlink: last.permlink };
                 }
             }
-            
-            // Aumenta la probabilità di ottenere risultati completi richiedendo più post di quelli necessari
-            const fetchLimit = Math.min(limit + 5, 100); // Massimo 100 per non stressare l'API
-            
-            // Richiesta al service - versione aggiornata che ritorna info di paginazione
+            const fetchLimit = Math.min(limit + 5, 100);
             const result = await steemService.getUserPosts(username, fetchLimit, paginationParams);
-            
-            // Salva i post in cache se ne abbiamo
-            if (result.posts && result.posts.length > 0) {
-                // Limita il numero di post alla quantità richiesta per la cache
-                const postsToCache = result.posts.slice(0, limit);
-                this.cachePosts(cacheKey, postsToCache);
-                
-                // Memorizza l'ultimo post per future richieste
-                if (result.lastPost) {
-                    this.lastPosts = this.lastPosts || {};
-                    this.lastPosts[username] = result.lastPost;
-                }
-                
-                // Ritorna solo il numero di post richiesti
-                return result.posts.slice(0, limit);
-            } else {
-                return [];
-            }
+            const posts = result.posts ? result.posts.slice(0, limit) : [];
+            if (posts.length > 0) this.cachePosts(cacheKey, posts);
+            return posts;
         } catch (error) {
-            console.error(`Error fetching posts for ${username}:`, error);
+            console.error(`[ProfileService] getUserPosts fallback failed for ${username}:`, error);
             return [];
         }
     }
 
     /**
-     * Get all posts by an author (blog + communities), excluding reblogs
-     * Uses getDiscussionsByAuthorBeforeDate — cursor-based pagination
+     * Get all posts authored by a user (blog + communities, no reblogs).
+     * Primary: SteemWorld getPostsByAuthor. Fallback: condenser getDiscussionsByAuthorBeforeDate.
+     * @param {string} username
+     * @param {number} limit
+     * @param {number} page
+     * @param {Object} params - { forceRefresh }
+     * @returns {Promise<Array>}
      */
     async getUserAuthorPosts(username, limit = 30, page = 1, params = {}) {
+        if (params?.forceRefresh) {
+            const keysToDelete = [];
+            this.postCache.forEach((_, key) => {
+                if (key.startsWith(`${username}_author_posts_`)) keysToDelete.push(key);
+            });
+            keysToDelete.forEach(k => this.postCache.delete(k));
+        }
+
+        const cacheKey = `${username}_author_posts_page_${page}`;
+
+        if (!params?.forceRefresh) {
+            const cached = this.getCachedPosts(cacheKey);
+            if (cached) return cached;
+        }
+
+        // ── Primary: SteemWorld offset-based ──────────────────────────────
         try {
-            if (params?.forceRefresh) {
-                // Invalidate author-posts cache entries for this user
-                const keysToDelete = [];
-                this.postCache.forEach((value, key) => {
-                    if (key.startsWith(`${username}_author_posts_`)) keysToDelete.push(key);
-                });
-                keysToDelete.forEach(k => this.postCache.delete(k));
-            }
+            const offset = (page - 1) * limit;
+            const { posts } = await _swFetchFeed('getPostsByAuthor', username, limit, offset);
+            this.cachePosts(cacheKey, posts);
+            return posts;
+        } catch (swErr) {
+            console.warn(`[ProfileService] SteemWorld getPostsByAuthor failed (page ${page}), falling back:`, swErr.message);
+        }
 
-            const cacheKey = `${username}_author_posts_page_${page}`;
-
-            if (!params?.forceRefresh) {
-                const cached = this.getCachedPosts(cacheKey);
-                if (cached) return cached;
-            }
-
+        // ── Fallback: condenser cursor-based ──────────────────────────────
+        try {
             let paginationParams = {};
-
             if (page > 1) {
                 const prevKey = `${username}_author_posts_page_${page - 1}`;
                 const prevPosts = this.getCachedPosts(prevKey);
-                if (prevPosts && prevPosts.length > 0) {
-                    const lastPost = prevPosts[prevPosts.length - 1];
-                    paginationParams = {
-                        startPermlink: lastPost.permlink,
-                        beforeDate: lastPost.created
-                    };
+                if (prevPosts?.length > 0) {
+                    const last = prevPosts[prevPosts.length - 1];
+                    paginationParams = { startPermlink: last.permlink, beforeDate: last.created };
                 }
             }
-
             const result = await steemService.getUserAuthorPosts(username, limit, paginationParams);
-
-            if (result.posts && result.posts.length > 0) {
-                this.cachePosts(cacheKey, result.posts);
-                return result.posts;
-            }
-            return [];
+            const posts = result.posts ?? [];
+            if (posts.length > 0) this.cachePosts(cacheKey, posts);
+            return posts;
         } catch (error) {
-            console.error(`Error fetching author posts for ${username}:`, error);
+            console.error(`[ProfileService] getUserAuthorPosts fallback failed for ${username}:`, error);
             return [];
         }
     }

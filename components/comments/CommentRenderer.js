@@ -90,7 +90,7 @@ export default class CommentRenderer {
     
     const tryNextSource = () => {
       if (currentSourceIndex >= avatarSources.length) {
-        avatar.src = './assets/img/default-avatar.png';
+        avatar.src = 'https://steemitimages.com/u/default/avatar';
         return;
       }
       

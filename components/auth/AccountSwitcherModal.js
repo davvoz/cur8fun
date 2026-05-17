@@ -1,5 +1,7 @@
 import Component from '../Component.js';
 import authService from '../../services/AuthService.js';
+import profileService from '../../services/ProfileService.js';
+import { proxifyImage } from '../../utils/ImageUtils.js';
 import eventEmitter from '../../utils/EventEmitter.js';
 
 /**
@@ -12,6 +14,34 @@ export default class AccountSwitcherModal extends Component {
     this.modalContent = null;
     this.currentUser = authService.getCurrentUser();
     this.accounts = authService.getStoredAccounts();
+    this.avatarUrlCache = new Map();
+    this.avatarPending = new Map();
+  }
+
+  async resolveAccountAvatarUrl(username) {
+    if (!username) return null;
+    if (this.avatarUrlCache.has(username)) return this.avatarUrlCache.get(username);
+    if (this.avatarPending.has(username)) return this.avatarPending.get(username);
+
+    const pending = (async () => {
+      try {
+        const profile = await profileService.getProfile(username, false);
+        const rawAvatar = profile?.profileImage || profile?.profile?.profile_image || null;
+        if (!rawAvatar) return null;
+        return rawAvatar.includes('steemitimages.com/u/')
+          ? rawAvatar
+          : proxifyImage(rawAvatar, 128);
+      } catch (_) {
+        return null;
+      } finally {
+        this.avatarPending.delete(username);
+      }
+    })();
+
+    this.avatarPending.set(username, pending);
+    const resolved = await pending;
+    if (resolved) this.avatarUrlCache.set(username, resolved);
+    return resolved;
   }
   
   /**
@@ -348,7 +378,8 @@ export default class AccountSwitcherModal extends Component {
     
     // Create avatar with improved styling
     const avatar = document.createElement('img');
-    avatar.src = `https://steemitimages.com/u/${account.username}/avatar`;
+    const steemitAvatar = `https://steemitimages.com/u/${account.username}/avatar`;
+    avatar.src = steemitAvatar;
     avatar.alt = account.username;
     avatar.className = 'account-avatar';
     avatar.style.width = '40px';
@@ -361,8 +392,18 @@ export default class AccountSwitcherModal extends Component {
     avatar.style.transition = 'transform 0.3s ease, border-color 0.3s ease';
     
     avatar.onerror = function() {
-      this.src = './assets/img/default-avatar.png';
+      this.src = steemitAvatar;
     };
+
+    // Upgrade to real profile_image URL when available
+    this.resolveAccountAvatarUrl(account.username).then((resolvedAvatar) => {
+      if (!resolvedAvatar || !avatar.isConnected) return;
+      avatar.onerror = () => {
+        avatar.onerror = null;
+        avatar.src = steemitAvatar;
+      };
+      avatar.src = resolvedAvatar;
+    });
     
     // User info container
     const userInfo = document.createElement('div');

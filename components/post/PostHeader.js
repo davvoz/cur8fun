@@ -1,4 +1,48 @@
 import router from '../../utils/Router.js';
+import { proxifyImage } from '../../utils/ImageUtils.js';
+import authService from '../../services/AuthService.js';
+import profileService from '../../services/ProfileService.js';
+
+const avatarUrlCache = new Map();
+const avatarPending = new Map();
+
+async function resolveAuthorAvatarUrl(author) {
+  if (!author) return null;
+  if (avatarUrlCache.has(author)) return avatarUrlCache.get(author);
+  if (avatarPending.has(author)) return avatarPending.get(author);
+
+  const pending = (async () => {
+    try {
+      const currentUser = authService.getCurrentUser?.();
+      if (
+        currentUser &&
+        currentUser.username === author &&
+        currentUser.avatar &&
+        !currentUser.avatar.includes('steemitimages.com/u/')
+      ) {
+        return proxifyImage(currentUser.avatar, 256);
+      }
+
+      const forceRefresh = !!(currentUser && currentUser.username === author);
+      const profile = await profileService.getProfile(author, forceRefresh);
+      const rawAvatar = profile?.profileImage || profile?.profile?.profile_image || null;
+      if (!rawAvatar) return null;
+
+      return rawAvatar.includes('steemitimages.com/u/')
+        ? rawAvatar
+        : proxifyImage(rawAvatar, 256);
+    } catch (_) {
+      return null;
+    } finally {
+      avatarPending.delete(author);
+    }
+  })();
+
+  avatarPending.set(author, pending);
+  const resolved = await pending;
+  if (resolved) avatarUrlCache.set(author, resolved);
+  return resolved;
+}
 
 class PostHeader {
   constructor(post, renderCommunityCallback, options = {}) {
@@ -67,6 +111,15 @@ class PostHeader {
     authorAvatar.addEventListener('click', (e) => {
       e.stopPropagation();
       router.navigate(`/@${this.post.author}`);
+    });
+
+    resolveAuthorAvatarUrl(this.post.author).then((resolvedAvatar) => {
+      if (!resolvedAvatar || !authorAvatar.isConnected) return;
+      authorAvatar.onerror = () => {
+        authorAvatar.onerror = null;
+        authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
+      };
+      authorAvatar.src = resolvedAvatar;
     });
 
     const authorName = document.createElement('a');

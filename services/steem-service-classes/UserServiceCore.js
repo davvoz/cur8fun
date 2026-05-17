@@ -113,96 +113,146 @@ export default class UserServiceCore {
     async updateUserProfile(username, profile, activeKey = null) {
         await this.core.ensureLibraryLoaded();
 
-        console.log('🔍 DEBUG - Profile update requested:', { username, profile });
+        // Read existing metadata (posting_json_metadata takes priority, same as the model)
+        const metadata = await this.prepareProfileMetadata(username);
 
-        // Get existing user data and prepare metadata
-        const { metadata, memoKey } = await this.prepareProfileUpdate(username);
-        
-        console.log('🔍 DEBUG - Existing metadata:', JSON.stringify(metadata));
-        
-        // Set or update the profile property and stringify
-        metadata.profile = profile;
-        
-        console.log('🔍 DEBUG - Updated metadata:', JSON.stringify(metadata));
-        
-        // Important: Ensure profile_image and other fields are correctly set at root level of profile object
-        if (profile.profile_image) {
-            console.log('🔍 DEBUG - Setting profile_image:', profile.profile_image);
-            
-            // Make sure profile is an object
-            if (typeof metadata.profile !== 'object') {
-                metadata.profile = {};
+        // Merge new fields into the existing profile object
+        metadata.profile = { ...(metadata.profile || {}), ...profile };
+
+        const postingJsonMetadata = JSON.stringify(metadata);
+
+        const authService = await this.getAuthService();
+        const user = authService?.getCurrentUser?.();
+
+        // If a specific WIF key was passed in, use it directly.
+        if (this.isValidWifKey(activeKey)) {
+            return this.broadcastProfileUpdate(username, postingJsonMetadata, activeKey);
+        }
+
+        // Respect the actual login method:
+        // - Keychain login => Keychain signing
+        // - privateKey login => posting key from AuthService
+        if (user?.loginMethod === 'keychain') {
+            return this.broadcastProfileUpdateWithKeychain(username, postingJsonMetadata);
+        }
+
+        if (user?.loginMethod === 'privateKey') {
+            const postingKey = authService?.getPostingKey?.();
+            if (this.isValidWifKey(postingKey)) {
+                return this.broadcastProfileUpdate(username, postingJsonMetadata, postingKey);
             }
-            
-            // Ensure profile_image is properly set
-            metadata.profile.profile_image = profile.profile_image;
         }
-        
-        const jsonMetadata = JSON.stringify(metadata);
-        console.log('🔍 DEBUG - Final JSON metadata to broadcast:', jsonMetadata);
-        
-        // If an active key was provided directly, use it
-        if (activeKey) {
-            console.log('Using provided active key for profile update');
-            return this.broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey);
+
+        // Keep a small fallback for older auth states that still have a posting key cached.
+        const postingKey = authService?.getPostingKey?.();
+        if (this.isValidWifKey(postingKey)) {
+            return this.broadcastProfileUpdate(username, postingJsonMetadata, postingKey);
         }
-        
-        // Otherwise, try stored key or Keychain
-        const storedActiveKey = this.getStoredActiveKey(username);
-        
-        if (storedActiveKey) {
-            console.log('Using stored active key for profile update');
-            return this.broadcastProfileUpdate(username, memoKey, jsonMetadata, storedActiveKey);
-        } else if (window.steem_keychain) {
-            console.log('Using Keychain for profile update');
-            return this.broadcastProfileUpdateWithKeychain(username, memoKey, jsonMetadata);
-        } else {
-            // No active key or Keychain, show explanation to user
-            await this.showActiveKeyRequiredModal(username);
-            throw new Error('Active authority required to update profile. Please use Keychain or provide your active key.');
+
+        if (user?.loginMethod === 'keychain' && window.steem_keychain) {
+            return this.broadcastProfileUpdateWithKeychain(username, postingJsonMetadata);
+        }
+
+        throw new Error('Posting key not available. Please log in again.');
+    }
+
+    /**
+     * Fetches and parses the existing profile metadata for a user.
+     * Prefers posting_json_metadata (canonical since HF21) over json_metadata,
+     * matching the same priority used by Profile.parseMetadata().
+     * @private
+     * @param {string} username
+     * @returns {Promise<Object>} Parsed metadata object (always has at least {})
+     */
+    async prepareProfileMetadata(username) {
+        try {
+            const userData = await this.getUserData(username);
+            if (!userData) throw new Error('User data not found');
+
+            // Prefer posting_json_metadata — that is what Profile.js reads first
+            const raw = userData.posting_json_metadata || userData.json_metadata || '{}';
+            try {
+                const parsed = JSON.parse(raw);
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (_) {
+                return {};
+            }
+        } catch (e) {
+            console.warn('prepareProfileMetadata: could not fetch user data, starting fresh:', e.message);
+            return {};
         }
     }
 
     /**
-     * Prepares metadata and retrieves memo key for profile update
+     * Resolve an active key using the same flow used by wallet operations:
+     * - in-memory key (already unlocked)
+     * - PIN unlock of stored active key
+     * - active-key input + PIN setup (storeActiveKeyWithPin)
+     *
+     * Returns null when key-based auth is not applicable (e.g. keychain/steemlogin).
+     * Throws when user cancels during an interactive unlock/add flow.
      * @private
-     * @param {string} username - The username whose profile to update
-     * @returns {Promise<Object>} - Object containing metadata and memoKey
      */
-    async prepareProfileUpdate(username) {
-        let metadata = {};
-        let memoKey = '';
+    async resolveActiveKeyForProfileUpdate(username) {
+        const authService = await this.getAuthService();
+        const user = authService?.getCurrentUser?.();
+        if (!user) return null;
 
-        try {
-            // Get existing metadata and memo_key if any
-            const userData = await this.getUserData(username);
-            if (!userData) {
-                throw new Error('User data not found');
-            }
-
-            memoKey = userData.memo_key;
-            
-            if (userData.json_metadata) {
-                try {
-                    metadata = JSON.parse(userData.json_metadata);
-                } catch (e) {
-                    // Start fresh if existing metadata can't be parsed
-                    metadata = {};
-                }
-            }
-        } catch (e) {
-            // If we couldn't get user data, try to get just the memo key
+        // Keychain/SteemLogin flows should use their own auth method.
+        if (user.loginMethod === 'keychain' || user.loginMethod === 'steemlogin') {
+            return null;
         }
 
-        // If we couldn't get memo_key from user data, try alternative sources
-        if (!memoKey) {
-            memoKey = await this.getMemoKeyFromAlternativeSources(username);
-            if (!memoKey) {
-                throw new Error('Cannot update profile without a memo key. Please try again later.');
+        // 1) Already unlocked in memory
+        const activeInMemory = authService.getActiveKey?.();
+        if (this.isValidWifKey(activeInMemory)) return activeInMemory;
+
+        // 2) PIN unlock if a PIN-protected active key exists
+        if (authService.hasActiveKeyPinProtected?.()) {
+            const { default: pinInput } = await import('../../components/auth/PinInputComponent.js');
+            const pin = await pinInput.promptPin(
+                'Enter Active Key PIN',
+                'This action requires your active key. Enter your PIN to continue.',
+                async (p) => { await authService.unlockActiveKeyWithPin(p); }
+            );
+
+            if (!pin) {
+                throw new Error('Operation cancelled');
             }
+
+            const unlockedKey = authService.getActiveKey?.();
+            if (this.isValidWifKey(unlockedKey)) return unlockedKey;
         }
 
-        return { metadata, memoKey };
+        // 3) Ask for active key, verify it, then protect it with a PIN
+        const { default: activeKeyInput } = await import('../../components/auth/ActiveKeyInputComponent.js');
+        const key = await activeKeyInput.promptForActiveKey('Enter Active Key', {
+            validate: (k) => authService.verifyKey(username, k, 'active')
+        });
+
+        if (!key) {
+            throw new Error('Operation cancelled');
+        }
+
+        const { default: pinInput } = await import('../../components/auth/PinInputComponent.js');
+        const pin = await pinInput.promptSetPin('Set a PIN for your Active Key');
+        if (!pin) {
+            throw new Error('Operation cancelled');
+        }
+
+        await authService.storeActiveKeyWithPin(username, key, pin);
+
+        const storedKey = authService.getActiveKey?.();
+        return this.isValidWifKey(storedKey) ? storedKey : key;
+    }
+
+    /**
+     * Dynamic import to avoid static circular dependencies with AuthService.
+     * @private
+     */
+    async getAuthService() {
+        const { default: authService } = await import('../AuthService.js');
+        return authService;
     }
 
     /**
@@ -212,105 +262,80 @@ export default class UserServiceCore {
      * @returns {string|null} - The active key if found, null otherwise
      */
     getStoredActiveKey(username) {
-        return localStorage.getItem('activeKey') ||
-               localStorage.getItem(`${username}_active_key`) ||
-               localStorage.getItem(`${username.toLowerCase()}_active_key`) ||
-               null;
+        const candidates = [
+            localStorage.getItem('activeKey'),
+            localStorage.getItem(`${username}_active_key`),
+            localStorage.getItem(`${username.toLowerCase()}_active_key`)
+        ];
+
+        for (const candidate of candidates) {
+            if (this.isValidWifKey(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     /**
-     * Broadcasts a profile update using direct key authentication
+     * Broadcasts a profile metadata update using account_update2 (HF21+).
+     * account_update2 writes to posting_json_metadata which is the canonical
+     * field read by Profile.parseMetadata(). Signing with the posting key is
+     * sufficient when no authority fields are being changed.
      * @private
-     * @param {string} username - Username to update
-     * @param {string} memoKey - Memo key for the account
-     * @param {string} jsonMetadata - Stringified metadata JSON
-     * @param {string} activeKey - Active private key for authentication
-     * @returns {Promise<Object>} - Result of the broadcast operation
+     * @param {string} username
+     * @param {string} postingJsonMetadata - Stringified metadata JSON
+     * @param {string} postingKey - Posting private key
+     * @returns {Promise<Object>}
      */
-    broadcastProfileUpdate(username, memoKey, jsonMetadata, activeKey) {
+    broadcastProfileUpdate(username, postingJsonMetadata, postingKey) {
         return new Promise((resolve, reject) => {
-            try {
-                console.log('🔍 DEBUG - Broadcasting profile update with direct key auth');
-                
-                // Verifica e correggi il jsonMetadata se necessario
-                let metadata;
-                try {
-                    metadata = JSON.parse(jsonMetadata);
-                    
-                    // Assicuriamoci che esista metadata.profile
-                    if (!metadata.profile || typeof metadata.profile !== 'object') {
-                        console.warn('⚠️ Correzione: metadata.profile non è un oggetto valido');
-                        metadata.profile = {};
+            const operations = [
+                ['account_update2', {
+                    account: username,
+                    json_metadata: '',
+                    posting_json_metadata: postingJsonMetadata,
+                    extensions: []
+                }]
+            ];
+
+            this.core.steem.broadcast.send(
+                { operations, extensions: [] },
+                { posting: postingKey },
+                (err, result) => {
+                    if (err) {
+                        console.error('broadcastProfileUpdate error:', err);
+                        reject(err);
+                    } else {
+                        resolve(result);
                     }
-                    
-                    // Se il campo profile_image esiste direttamente in metadata, spostalo dentro profile
-                    if (metadata.profile_image && !metadata.profile.profile_image) {
-                        console.log('🔍 DEBUG - Spostando profile_image dal livello root a profile');
-                        metadata.profile.profile_image = metadata.profile_image;
-                        delete metadata.profile_image;
-                    }
-                    
-                    // Aggiorna il jsonMetadata con la versione corretta
-                    jsonMetadata = JSON.stringify(metadata);
-                    console.log('🔍 DEBUG - jsonMetadata corretto:', jsonMetadata);
-                    
-                } catch (e) {
-                    console.error('⚠️ Errore nel parsing del jsonMetadata:', e);
-                    // Continua con il jsonMetadata originale se c'è un errore
                 }
-                
-                const operations = [
-                    ['account_update', {
-                        account: username,
-                        memo_key: memoKey,
-                        json_metadata: jsonMetadata
-                    }]
-                ];
-
-                console.log('🔍 DEBUG - Operazioni da inviare:', JSON.stringify(operations));
-
-                this.core.steem.broadcast.send(
-                    { operations, extensions: [] },
-                    { active: activeKey },
-                    (err, result) => {
-                        if (err) {
-                            console.error('⚠️ Errore nel broadcast:', err);
-                            reject(err);
-                        } else {
-                            console.log('✅ Broadcast completato con successo:', result);
-                            resolve(result);
-                        }
-                    }
-                );
-            } catch (error) {
-                console.error('⚠️ Errore in broadcastProfileUpdate:', error);
-                reject(error);
-            }
+            );
         });
     }
 
     /**
-     * Broadcasts a profile update using Keychain
+     * Broadcasts a profile metadata update via Steem Keychain using account_update2.
      * @private
-     * @param {string} username - Username to update
-     * @param {string} memoKey - Memo key for the account
-     * @param {string} jsonMetadata - Stringified metadata JSON
-     * @returns {Promise<Object>} - Result of the broadcast operation
+     * @param {string} username
+     * @param {string} postingJsonMetadata - Stringified metadata JSON
+     * @returns {Promise<Object>}
      */
-    broadcastProfileUpdateWithKeychain(username, memoKey, jsonMetadata) {
+    broadcastProfileUpdateWithKeychain(username, postingJsonMetadata) {
         return new Promise((resolve, reject) => {
             const operations = [
-                ['account_update', {
+                ['account_update2', {
                     account: username,
-                    memo_key: memoKey,
-                    json_metadata: jsonMetadata
+                    json_metadata: '',
+                    posting_json_metadata: postingJsonMetadata,
+                    extensions: []
                 }]
             ];
 
             window.steem_keychain.requestBroadcast(
                 username,
                 operations,
-                'active',
+                'posting',
                 (response) => {
                     if (response.success) {
                         resolve(response);
@@ -475,7 +500,7 @@ export default class UserServiceCore {
      * @param {string} following - Username of the user to follow
      * @returns {Promise<Object>} - Result of the follow operation
      */
-    async followUser(follower, following) {
+    async followUser(follower, following, options = {}) {
         await this.core.ensureLibraryLoaded();
         
         try {
@@ -486,8 +511,11 @@ export default class UserServiceCore {
                 what: ['blog'] // 'blog' means follow, empty array means unfollow
             }]);
             
-            // Invertiamo l'ordine: prima controlliamo se c'è la chiave nel localStorage
-            const postingKey = this.getStoredPostingKey(follower);
+            // Prefer decrypted key provided by the caller (AuthService cache)
+            const providedPostingKey = options?.postingKey;
+            const postingKey = this.isValidWifKey(providedPostingKey)
+                ? providedPostingKey
+                : this.getStoredPostingKey(follower);
             
             // Se l'utente ha la chiave memorizzata, usiamo quella (priorità al localStorage)
             if (postingKey) {
@@ -524,7 +552,7 @@ export default class UserServiceCore {
      * @param {string} following - Username of the user to unfollow
      * @returns {Promise<Object>} - Result of the unfollow operation
      */
-    async unfollowUser(follower, following) {
+    async unfollowUser(follower, following, options = {}) {
         await this.core.ensureLibraryLoaded();
         
         try {
@@ -535,8 +563,11 @@ export default class UserServiceCore {
                 what: [] // Empty array means unfollow
             }]);
             
-            // Invertiamo l'ordine: prima controlliamo se c'è la chiave nel localStorage
-            const postingKey = this.getStoredPostingKey(follower);
+            // Prefer decrypted key provided by the caller (AuthService cache)
+            const providedPostingKey = options?.postingKey;
+            const postingKey = this.isValidWifKey(providedPostingKey)
+                ? providedPostingKey
+                : this.getStoredPostingKey(follower);
             
             // Se l'utente ha la chiave memorizzata, usiamo quella (priorità al localStorage)
             if (postingKey) {
@@ -620,10 +651,41 @@ export default class UserServiceCore {
      * @private
      */
     getStoredPostingKey(username) {
-        return localStorage.getItem('postingKey') ||
-               localStorage.getItem(`${username}_posting_key`) ||
-               localStorage.getItem(`${username.toLowerCase()}_posting_key`) ||
-               null;
+        const candidates = [
+            localStorage.getItem('postingKey'),
+            localStorage.getItem(`${username}_posting_key`),
+            localStorage.getItem(`${username.toLowerCase()}_posting_key`)
+        ];
+
+        for (const candidate of candidates) {
+            if (this.isValidWifKey(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks whether a key looks like a valid WIF private key.
+     * Encrypted blobs (enc:/pin:) are rejected.
+     * @private
+     */
+    isValidWifKey(key) {
+        if (!key || typeof key !== 'string') return false;
+        const trimmed = key.trim();
+        if (!trimmed) return false;
+
+        try {
+            if (this.core?.steem?.auth?.isWif) {
+                return this.core.steem.auth.isWif(trimmed);
+            }
+        } catch (_) {
+            // fall through to a conservative heuristic
+        }
+
+        // Conservative fallback for legacy contexts where steem auth is not ready.
+        return /^5[1-9A-HJ-NP-Za-km-z]{50,51}$/.test(trimmed);
     }
     
     /**

@@ -1,5 +1,7 @@
 import router from '../utils/Router.js';
 import steemService from './SteemService.js';
+import profileService from './ProfileService.js';
+import { proxifyImage } from '../utils/ImageUtils.js';
 
 export class SearchService {
     constructor() {
@@ -12,6 +14,54 @@ export class SearchService {
         this.currentSearchTerm = '';
         this.debounceTimeout = null;
         this.isShowingSuggestions = false;
+        this.avatarUrlCache = new Map();
+        this.avatarPending = new Map();
+    }
+
+    async resolveUserAvatarUrl(username, profileHint = null) {
+        if (!username) return null;
+        if (this.avatarUrlCache.has(username)) return this.avatarUrlCache.get(username);
+        if (this.avatarPending.has(username)) return this.avatarPending.get(username);
+
+        const pending = (async () => {
+            try {
+                const currentUser = authService.getCurrentUser?.();
+                if (
+                    currentUser &&
+                    currentUser.username === username &&
+                    currentUser.avatar &&
+                    !currentUser.avatar.includes('steemitimages.com/u/')
+                ) {
+                    return proxifyImage(currentUser.avatar, 96);
+                }
+
+                // Force refresh only for the logged user to avoid stale avatar after profile edit.
+                const forceRefresh = !!(currentUser && currentUser.username === username);
+                const profile = await profileService.getProfile(username, forceRefresh);
+                const rawAvatar = profile?.profileImage || profile?.profile?.profile_image || null;
+                if (rawAvatar) {
+                    return rawAvatar.includes('steemitimages.com/u/')
+                        ? rawAvatar
+                        : proxifyImage(rawAvatar, 96);
+                }
+
+                // Last fallback: use hint if present (can be stale on some endpoints).
+                const hinted = profileHint?.profile_image || profileHint?.profileImage || null;
+                if (!hinted) return null;
+                return hinted.includes('steemitimages.com/u/')
+                    ? hinted
+                    : proxifyImage(hinted, 96);
+            } catch (_) {
+                return null;
+            } finally {
+                this.avatarPending.delete(username);
+            }
+        })();
+
+        this.avatarPending.set(username, pending);
+        const resolved = await pending;
+        if (resolved) this.avatarUrlCache.set(username, resolved);
+        return resolved;
     }
 
     /**
@@ -374,20 +424,26 @@ export class SearchService {
                     
                     const avatar = document.createElement('img');
                     avatar.className = 'suggestion-avatar';
+                    const steemitAvatar = `https://steemitimages.com/u/${suggestion.name}/avatar/small`;
                     
-                    // Use preferred URL format as in ProfileService
-                    avatar.src = `https://images.hive.blog/u/${suggestion.name}/avatar/small`;
+                    // Fast baseline source
+                    avatar.src = steemitAvatar;
                     
                     // Better error handling for avatar loading
                     avatar.onerror = () => {
-                        // Try steemitimages as backup
-                        avatar.src = `https://steemitimages.com/u/${suggestion.name}/avatar/small`;
-                        
-                        // If that fails too, use default avatar
-                        avatar.onerror = () => {
-                            avatar.src = 'assets/img/default-avatar.png';
-                        };
+                        avatar.onerror = null;
+                        avatar.src = steemitAvatar;
                     };
+
+                    // Upgrade to real profile_image URL when available
+                    this.resolveUserAvatarUrl(suggestion.name, suggestion.profile).then((resolvedAvatar) => {
+                        if (!resolvedAvatar || !avatar.isConnected) return;
+                        avatar.onerror = () => {
+                            avatar.onerror = null;
+                            avatar.src = steemitAvatar;
+                        };
+                        avatar.src = resolvedAvatar;
+                    });
                     
                     avatarContainer.appendChild(avatar);
                     

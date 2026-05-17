@@ -250,15 +250,22 @@
 .communities-list-view .community-card-footer {
   padding: var(--space-md);
   border-top: 1px solid var(--border-color-light);
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-areas: 'stats actions';
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  gap: var(--space-sm);
   background-color: var(--background-subtle);
+  direction: ltr;
 }
 
 .communities-list-view .community-stats {
+  grid-area: stats;
   display: flex;
   align-items: center;
+  min-width: 0;
+  justify-content: flex-start;
+  justify-self: start;
 }
 
 .communities-list-view .community-stat {
@@ -267,6 +274,7 @@
   color: var(--text-color-secondary);
   font-size: 0.9rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .communities-list-view .community-stat .material-icons {
@@ -276,8 +284,13 @@
 }
 
 .communities-list-view .community-actions {
+  grid-area: actions;
   display: flex;
   gap: var(--space-sm);
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  justify-self: end;
 }
 
 /* Enhanced button styles with animations */
@@ -479,6 +492,25 @@
   .communities-list-view .community-title {
     margin: 0;
   }
+
+  .communities-list-view .community-card-footer {
+    gap: var(--space-xs);
+  }
+
+  .communities-list-view .community-stats {
+    min-width: 0;
+  }
+
+  .communities-list-view .community-actions {
+    gap: 6px;
+  }
+
+  .communities-list-view .view-btn,
+  .communities-list-view .subscribe-btn {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 480px) {
@@ -514,6 +546,40 @@
   .communities-list-view .community-title {
     margin-left: var(--space-md);
     font-size: 1.1rem;
+  }
+
+  .communities-list-view .community-card-footer {
+    padding: 10px 12px;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .communities-list-view .community-stats {
+    width: fit-content;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  .communities-list-view .community-stat {
+    font-size: 0.8rem;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    line-height: 1;
+  }
+
+  .communities-list-view .community-stat .material-icons {
+    font-size: 0.95rem;
+  }
+
+  .communities-list-view .community-actions {
+    gap: 5px;
+  }
+
+  .communities-list-view .view-btn,
+  .communities-list-view .subscribe-btn {
+    padding: 5px 8px;
+    font-size: 0.82rem;
   }
 }
 
@@ -713,8 +779,8 @@
   }
 }
 
-/* Animazione per le immagini che non si caricano correttamente */
-.communities-list-view .community-avatar[src="./assets/img/default-avatar.png"] {
+/* Styling for the Steemit default avatar fallback */
+.communities-list-view .community-avatar[src="https://steemitimages.com/u/default/avatar"] {
   object-fit: contain;
   padding: 5px;
   background-color: var(--background-light);

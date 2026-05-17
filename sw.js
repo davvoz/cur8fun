@@ -10,7 +10,6 @@ const ASSETS_TO_CACHE = [
   '/assets/css/main.css',
   '/assets/css/styles.css',
   '/assets/img/logo_tra.png',
-  '/assets/img/default-avatar.png',
   '/assets/js/steem.min.js',
   '/assets/js/steemlogin.min.js',
   '/assets/js/steem-content-renderer.min.js'

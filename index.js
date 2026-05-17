@@ -86,6 +86,8 @@ function initApp() {
 
   // Decrypt and cache any stored private keys (non-blocking)
   authService.initKeysAsync().catch(err => console.warn('Key init failed:', err));
+  // Sync avatar URL from blockchain so post cards always show the current profile image
+  authService.syncAvatarFromBlockchain().catch(() => {});
 
   // Crea istanza del NavigationManager
   const navManager = new NavigationManager();//è assurdo , se non lo mettiamo non si vede il menù mobile
@@ -364,12 +366,16 @@ function createUserMenu(user) {
 
   // Avatar
   const avatar = document.createElement('img');
-  avatar.src = `https://steemitimages.com/u/${user.username}/avatar`;
+  // Use stored avatar URL if available (updated after profile edits), else CDN proxy
+  avatar.src = user.avatar && !user.avatar.includes('steemitimages.com/u/')
+    ? user.avatar
+    : `https://steemitimages.com/u/${user.username}/avatar`;
   avatar.alt = user.username;
   avatar.className = 'avatar';
   // Aggiungere un gestore di errore per caricare l'avatar predefinito se l'immagine non è disponibile
   avatar.onerror = function () {
-    this.src = './assets/img/default-avatar.png';
+    this.onerror = null;
+    this.src = `https://steemitimages.com/u/${user.username}/avatar`;
   };
   userMenu.appendChild(avatar);
 

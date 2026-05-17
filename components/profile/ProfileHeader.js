@@ -1,7 +1,7 @@
 import router from '../../utils/Router.js';
 import followersModal from '../FollowersModal.js';
 import followingModal from '../FollowingModal.js';
-import { proxifyImage } from '../../utils/ImageUtils.js';
+import { getImageUrl, proxifyImage } from '../../utils/ImageUtils.js';
 
 export default class ProfileHeader {
   constructor(profile, currentUser, onFollowAction) {
@@ -44,15 +44,26 @@ export default class ProfileHeader {
     }
 
     if (coverImageUrl && !coverImageUrl.startsWith('data:')) {
-      coverImageUrl = proxifyImage(coverImageUrl, 1500);
+      const coverPrimary = getImageUrl(coverImageUrl, 1500);
+      const coverFallback = proxifyImage(coverImageUrl, 1500);
 
-      coverDiv.style.backgroundImage = `url(${coverImageUrl})`;
-
-      const testImg = new Image();
-      testImg.onerror = () => {
-        coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
+      const applyCover = (url, next) => {
+        const testImg = new Image();
+        testImg.onload = () => {
+          coverDiv.style.backgroundImage = `url(${url})`;
+        };
+        testImg.onerror = () => {
+          if (typeof next === 'function') next();
+          else coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
+        };
+        testImg.src = url;
       };
-      testImg.src = coverImageUrl;
+
+      if (coverFallback !== coverPrimary) {
+        applyCover(coverPrimary, () => applyCover(coverFallback));
+      } else {
+        applyCover(coverPrimary);
+      }
     }
 
     // Avatar with enhanced styling
@@ -63,11 +74,25 @@ export default class ProfileHeader {
     avatar.className = 'profile-avatar';
 
     const avatarImg = document.createElement('img');
-    avatarImg.src = `https://steemitimages.com/u/${this.profile.username}/avatar`;
+    const defaultAvatar = `https://steemitimages.com/u/${this.profile.username}/avatar`;
+    const customProfileImage = this.profile.profileImage || null;
+    const avatarPrimary = customProfileImage ? getImageUrl(customProfileImage, 256) : defaultAvatar;
+    const avatarFallback = customProfileImage ? proxifyImage(customProfileImage, 256) : defaultAvatar;
+
+    avatarImg.src = avatarPrimary;
     avatarImg.alt = this.profile.username;
     avatarImg.loading = 'eager'; // Prioritize avatar loading
     avatarImg.onerror = () => {
-      avatarImg.src = '/assets/img/default-avatar.png';
+      if (avatarFallback && avatarFallback !== avatarPrimary) {
+        avatarImg.onerror = () => {
+          avatarImg.onerror = null;
+          avatarImg.src = defaultAvatar;
+        };
+        avatarImg.src = avatarFallback;
+        return;
+      }
+      avatarImg.onerror = null;
+      avatarImg.src = defaultAvatar;
     };
 
     avatar.appendChild(avatarImg);
@@ -82,7 +107,7 @@ export default class ProfileHeader {
 
     const name = document.createElement('h1');
     name.className = 'profile-name';
-    name.textContent = this.profile.username;
+    name.textContent = this.profile.displayName || this.profile.username;
 
     const handle = document.createElement('div');
     handle.className = 'profile-handle';

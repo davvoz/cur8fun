@@ -66,14 +66,6 @@ export default class PostLoader {
             return false;
           };
 
-          // Debug counters
-          let debugMarkerCount = 0;
-          let debugAuthorMismatchCount = 0;
-          let debugNonCommunityCount = 0;
-          let debugCommunityCheckCount = 0;
-          let debugCommunityRebloggedCount = 0;
-          let debugCommunityRejectedCount = 0;
-
           // Track which posts to include, preserving original order
           const inclusionMap = new Map(); // index -> boolean (true=include)
           const pendingChecks = []; // { index, post }
@@ -84,14 +76,12 @@ export default class PostLoader {
             // Explicit reblog by this user (includes self-reblogs): always show
             if (hasUserReblogMarker(post)) {
               inclusionMap.set(i, true);
-              debugMarkerCount++;
               continue;
             }
 
             // Reblog detected by author mismatch (fallback when reblogged_by is absent): always show
             if (String(post.author || '').toLowerCase() !== normalizedUsername) {
               inclusionMap.set(i, true);
-              debugAuthorMismatchCount++;
               continue;
             }
 
@@ -100,13 +90,11 @@ export default class PostLoader {
             const isCommunityPost = parentPermlink.startsWith('hive-');
             if (!isCommunityPost) {
               inclusionMap.set(i, true);
-              debugNonCommunityCount++;
               continue;
             }
 
             // Own community post without reblog marker: need to check if it's actually a self-reblog.
             // This handles cases where the node omits reblogged_by for community posts.
-            debugCommunityCheckCount++;
             pendingChecks.push({
               index: i,
               post
@@ -124,12 +112,6 @@ export default class PostLoader {
                 { failOpen: true }
               );
 
-              if (hasReblogged) {
-                debugCommunityRebloggedCount++;
-              } else {
-                debugCommunityRejectedCount++;
-              }
-
               inclusionMap.set(check.index, hasReblogged);
             }
           }
@@ -141,7 +123,6 @@ export default class PostLoader {
             }
           }
 
-          console.log(`[Blog Filter] Page ${fetchPage}: raw=${posts.length}, marker=${debugMarkerCount}, mismatch=${debugAuthorMismatchCount}, nonComm=${debugNonCommunityCount}, commCheck=${debugCommunityCheckCount}, commReblogged=${debugCommunityRebloggedCount}, commRejected=${debugCommunityRejectedCount}, visible=${visiblePosts.length}`);
         }
 
         this.hasMorePosts = rawCount >= limit;

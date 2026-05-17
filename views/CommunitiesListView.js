@@ -6,6 +6,7 @@ import communityService from '../services/CommunityService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import router from '../utils/Router.js';
+import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
 
 class CommunitiesListView {
   constructor() {
@@ -410,10 +411,10 @@ class CommunitiesListView {
     // Check if subscription is pending
     const isPending = this.pendingSubscriptions.has(communityId);
     
-    // steemitimages.com/u/ reads from the account's posting_json_metadata live (same source as steemit.com)
-    // Use avatar_url from API only as onerror fallback (it may be cached/outdated)
-    const avatarSrc = `https://steemitimages.com/u/${communityId}/avatar`;
-    const avatarFallback = community.avatar_url || './assets/img/default-avatar.png';
+    const steemitAvatar = `https://steemitimages.com/u/${communityId}/avatar`;
+    const rawAvatar = community.avatar_url || null;
+    const avatarPrimary = rawAvatar ? getImageUrl(rawAvatar, 256) : steemitAvatar;
+    const avatarFallback = rawAvatar ? proxifyImage(rawAvatar, 256) : steemitAvatar;
     
     // Format description - for featured cards, make it shorter
     const description = community.about || 'No description available.';
@@ -427,7 +428,7 @@ class CommunitiesListView {
       card.innerHTML = `
         <div class="community-card-header compact">
           <div class="avatar-container">
-            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${community.title}" class="community-avatar" >
+            <img src="${avatarPrimary}" alt="${community.title}" class="community-avatar" >
             <div class="avatar-glow"></div>
           </div>
           <div>
@@ -451,7 +452,7 @@ class CommunitiesListView {
       card.innerHTML = `
         <div class="community-card-header">
           <div class="avatar-container">
-            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='${avatarFallback}'" alt="${community.title}" class="community-avatar">
+            <img src="${avatarPrimary}" alt="${community.title}" class="community-avatar">
             <div class="avatar-glow"></div>
           </div>
           <h3 class="community-title">${community.title || community.name}</h3>
@@ -500,6 +501,104 @@ class CommunitiesListView {
         e.stopPropagation(); // Prevent card click
         this.handleSubscribeToggle(subscribeBtn, communityId, isSubscribed);
       });
+    }
+
+    const avatarEl = card.querySelector('.community-avatar');
+    if (avatarEl) {
+      avatarEl.onerror = () => {
+        if (avatarFallback && avatarFallback !== avatarPrimary) {
+          avatarEl.onerror = () => {
+            avatarEl.onerror = () => {
+              avatarEl.onerror = null;
+              avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+            };
+            avatarEl.src = steemitAvatar;
+          };
+          avatarEl.src = avatarFallback;
+          return;
+        }
+
+        avatarEl.onerror = () => {
+          avatarEl.onerror = null;
+          avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+        };
+        avatarEl.src = steemitAvatar;
+      };
+
+      // Steemit-like fallback: read hive-NNN account metadata directly.
+      communityService.getCommunityAccountImages(communityId).then((images) => {
+        if (!images?.profile_image || !avatarEl.isConnected) return;
+
+        const onChainPrimary = getImageUrl(images.profile_image, 256);
+        const onChainFallback = proxifyImage(images.profile_image, 256);
+
+        avatarEl.onerror = () => {
+          if (onChainFallback && onChainFallback !== onChainPrimary) {
+            avatarEl.onerror = () => {
+              avatarEl.onerror = () => {
+                avatarEl.onerror = null;
+                avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+              };
+              avatarEl.src = steemitAvatar;
+            };
+            avatarEl.src = onChainFallback;
+            return;
+          }
+
+          avatarEl.onerror = () => {
+            avatarEl.onerror = null;
+            avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+          };
+          avatarEl.src = steemitAvatar;
+        };
+
+        avatarEl.src = onChainPrimary;
+      }).catch(() => {});
+
+      // Prefer SteemWorld community payload (settings.avatar_url) when available.
+      const observer = this.currentUser?.username || null;
+      communityService.getCommunityFromSteemWorld(communityId, observer).then((swCommunity) => {
+        if (!swCommunity || !avatarEl.isConnected) return;
+
+        const swAvatar = swCommunity.avatar_url;
+        if (!swAvatar) return;
+
+        const swPrimary = getImageUrl(swAvatar, 256);
+        const swFallback = proxifyImage(swAvatar, 256);
+
+        avatarEl.onerror = () => {
+          if (swFallback && swFallback !== swPrimary) {
+            avatarEl.onerror = () => {
+              avatarEl.onerror = () => {
+                avatarEl.onerror = null;
+                avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+              };
+              avatarEl.src = steemitAvatar;
+            };
+            avatarEl.src = swFallback;
+            return;
+          }
+
+          avatarEl.onerror = () => {
+            avatarEl.onerror = null;
+            avatarEl.src = 'https://steemitimages.com/u/default/avatar';
+          };
+          avatarEl.src = steemitAvatar;
+        };
+
+        avatarEl.src = swPrimary;
+
+        const titleEl = card.querySelector('.community-title');
+        if (titleEl && swCommunity.title) titleEl.textContent = swCommunity.title;
+
+        const descriptionEl = card.querySelector('.community-description');
+        if (descriptionEl && swCommunity.about) {
+          const trimmed = swCommunity.about.length > 120
+            ? `${swCommunity.about.substring(0, 120)}...`
+            : swCommunity.about;
+          descriptionEl.textContent = trimmed;
+        }
+      }).catch(() => {});
     }
     
     // Add click handler to navigate to community page

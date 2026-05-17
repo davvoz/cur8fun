@@ -20,6 +20,8 @@ class CreatePostView extends View {  constructor(params = {}) {
     
     // Handle draft editing via URL parameters
     this.draftId = params.draftId;
+    this.prefilledCommunity = params.community || null;
+    this.prefilledCommunityTitle = params.communityTitle || null;
     
     // Opzioni beneficiari - versione aggiornata con supporto multiplo
     this.includeBeneficiary = true;
@@ -572,6 +574,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     } else {
       // Verifica se esiste una bozza e mostra il prompt
       this.checkForDraft();
+      this.applyPrefilledCommunity();
     }
     
     // Avvia il salvataggio automatico
@@ -582,6 +585,30 @@ class CreatePostView extends View {  constructor(params = {}) {
     
     // Imposta i gestori per chiudere i dropdown
     this.setupKeyboardHandler();
+  }
+
+  applyPrefilledCommunity() {
+    if (!this.prefilledCommunity || this.selectedCommunity) return;
+
+    const normalizedName = String(this.prefilledCommunity).trim().replace(/^@/, '');
+    if (!normalizedName) return;
+
+    const displayTitle = this.prefilledCommunityTitle || normalizedName;
+    this.selectedCommunity = {
+      name: normalizedName,
+      title: displayTitle
+    };
+
+    const searchInput = document.getElementById('community-search');
+    if (searchInput) {
+      searchInput.value = displayTitle;
+      searchInput.setAttribute('data-selected', 'true');
+    }
+
+    const clearBtn = document.getElementById('clear-community-btn');
+    if (clearBtn) {
+      clearBtn.classList.remove('hidden');
+    }
   }
 
   /**

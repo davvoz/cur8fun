@@ -27,6 +27,20 @@ class ReblogService {
       'https://sds.steemworld.org',
       'https://sds0.steemworld.org'
     ];
+    this._swResteemsDisabledUntil = 0;
+    this._swDisableLogged = false;
+  }
+
+  _isSteemWorldEnabled() {
+    return Date.now() >= this._swResteemsDisabledUntil;
+  }
+
+  _disableSteemWorldTemporarily(reason = 'temporary service issue') {
+    this._swResteemsDisabledUntil = Date.now() + (10 * 60 * 1000); // 10 minutes
+    if (!this._swDisableLogged) {
+      console.warn(`[ReblogService] SteemWorld resteems disabled for 10m: ${reason}`);
+      this._swDisableLogged = true;
+    }
   }
 
   _extractUsernames(payload) {
@@ -110,7 +124,7 @@ class ReblogService {
   }
 
   async getRebloggers(author, permlink, options = {}) {
-    const { suppressErrors = true } = options;
+    const { suppressErrors = true, allowFallback = true } = options;
     const key = `${author}_${permlink}`;
     const cached = this._rebloggersCache.get(key);
     // Reuse within 5 minutes
@@ -125,25 +139,43 @@ class ReblogService {
       let steemWorldAnyResponse = false;
 
       // Primary source: SteemWorld resteems API
-      for (const endpoint of this._resteemApiEndpoints) {
-        try {
-          const response = await fetch(
-            `${endpoint}/post_resteems_api/getResteems/${encodedAuthor}/${encodedPermlink}`,
-            { signal: AbortSignal.timeout(10000) }
-          );
-          steemWorldAnyResponse = true;
-          if (!response.ok) continue;
-          const json = await response.json();
-          list = this._normalizeRebloggers(json);
-          // If endpoint is valid and returns data shape, keep result (even empty)
-          break;
-        } catch (_) {
-          // Try next endpoint
+      if (this._isSteemWorldEnabled()) {
+        // reset one-time log flag after cooldown elapsed
+        this._swDisableLogged = false;
+
+        for (const endpoint of this._resteemApiEndpoints) {
+          try {
+            const response = await fetch(
+              `${endpoint}/post_resteems_api/getResteems/${encodedAuthor}/${encodedPermlink}`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+            steemWorldAnyResponse = true;
+
+            if (!response.ok) {
+              // 5xx often arrives without CORS headers on public endpoint; avoid retry storms.
+              if (response.status >= 500) {
+                this._disableSteemWorldTemporarily(`HTTP ${response.status}`);
+                break;
+              }
+              continue;
+            }
+
+            const json = await response.json();
+            list = this._normalizeRebloggers(json);
+            // If endpoint is valid and returns data shape, keep result (even empty)
+            break;
+          } catch (err) {
+            // CORS/network errors bubble as TypeError in browser fetch.
+            // Disable temporarily to prevent console spam on every rendered card.
+            this._disableSteemWorldTemporarily(err?.message || 'fetch failed');
+            break;
+          }
         }
       }
 
-      // Fallback to condenser/follow API if SteemWorld failed or returned no parseable payload
-      if (!Array.isArray(list) || list.length === 0) {
+      // Fallback to condenser/follow API only when explicitly allowed.
+      // For non-critical UI count hydration we keep this off to avoid noisy logs on node outages.
+      if (allowFallback && (!Array.isArray(list) || list.length === 0)) {
         const fallback = await steemService.getRebloggers(author, permlink);
         list = this._normalizeRebloggers(fallback);
       }
@@ -157,7 +189,6 @@ class ReblogService {
       this._hydrateReblogCache(author, permlink, list);
       return list;
     } catch (error) {
-      console.error('Error getting rebloggers list:', error);
       if (!suppressErrors) {
         throw error;
       }

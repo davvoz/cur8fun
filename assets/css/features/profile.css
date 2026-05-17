@@ -646,6 +646,10 @@
     align-items: center;
     text-align: center;
   }
+
+  .profile-handle {
+    justify-content: center;
+  }
   
   .profile-avatar {
     margin-right: 0;
