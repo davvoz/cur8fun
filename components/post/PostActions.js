@@ -167,7 +167,10 @@ class PostActions {
     
     const countSpan = document.createElement('span');
     countSpan.className = 'count';
-    countSpan.textContent = this.post.active_votes.length || 0;
+    const voteCount = (this.post.active_votes?.length > 0)
+      ? this.post.active_votes.length
+      : (typeof this.post.net_votes === 'number' ? this.post.net_votes : 0);
+    countSpan.textContent = voteCount;
     countBtn.appendChild(countSpan);
     
     // Aggiungi event listener per aprire il popup dei votanti

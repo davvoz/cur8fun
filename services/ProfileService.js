@@ -54,6 +54,7 @@ function _swRowToPost(cols, row) {
         curator_payout_value,
         max_accepted_payout:  `${(row[cols.max_accepted_payout] ?? 0).toFixed(3)} SBD`,
         percent_steem_dollars: row[cols.percent_steem_dollars] ?? 10000,
+        net_votes:            (row[cols.upvote_count] ?? 0) + (row[cols.downvote_count] ?? 0),
         active_votes:         [],
         json_metadata:        row[cols.json_metadata] ?? '{}',
         reblog_count:         row[cols.resteem_count] ?? 0,
