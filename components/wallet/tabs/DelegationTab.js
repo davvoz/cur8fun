@@ -548,7 +548,7 @@ export default class DelegationTab extends Component {
       editBtn.textContent = 'Edit';
       editBtn.setAttribute('data-user', delegation.delegatee);
       this.registerEventHandler(editBtn, 'click', () => {
-        this.prepareEditDelegation(delegation.delegatee);
+        this.editDelegation(delegation.delegatee);
       });
       actionsCell.appendChild(editBtn);
       
@@ -577,16 +577,161 @@ export default class DelegationTab extends Component {
     return table;
   }
   
-  prepareEditDelegation(delegatee) {
-    // Find delegation data
+  async editDelegation(delegatee) {
     const delegation = this.delegations.find(d => d.delegatee === delegatee);
     if (!delegation) return;
-      // Fill form with delegation data
-    this.element.querySelector('#delegate-to').value = delegatee.toLowerCase();
-    this.element.querySelector('#delegate-amount').value = delegation.sp_amount;
-    
-    // Scroll to form
-    this.element.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
+
+    const delegateeLower = delegatee.toLowerCase();
+    const currentAmount = parseFloat(delegation.sp_amount);
+
+    // Fetch fresh balances to compute the real available SP for this edit:
+    //   available = free delegatable SP  +  SP already delegated to this account
+    // (those delegated SP are "freeable" when we change the delegation)
+    let delegatable = 0;
+    let powerDown = 0;
+    try {
+      const balances = await walletService.fetchBalances();
+      const details = balances.steemPowerDetails;
+      delegatable = parseFloat(details?.delegatable ?? details?.own ?? balances.steemPower ?? 0);
+      powerDown   = parseFloat(details?.powerDown ?? 0);
+    } catch { /* non-blocking */ }
+
+    const maxAvailable = delegatable + currentAmount;
+
+    const esc = (s) => String(s || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+    const hintText = (max) => powerDown > 0
+      ? `Available: ${max.toFixed(3)} SP (${powerDown.toFixed(3)} SP in power-down)`
+      : `Available: ${max.toFixed(3)} SP`;
+
+    const newAmount = await new Promise((resolve) => {
+      const existing = document.querySelector('.standard-dialog-overlay');
+      if (existing) existing.remove();
+
+      const dialog = document.createElement('div');
+      dialog.className = 'standard-dialog-overlay modal-overlay';
+      dialog.innerHTML = `
+        <div class="modal-dialog standard-dialog compact">
+          <div class="modal-header">
+            <h3>
+              <span class="material-icons">edit</span>
+              Edit delegation to @${esc(delegateeLower)}
+            </h3>
+            <button class="close-button" type="button" aria-label="Close">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="dialog-message">
+              <p>Current delegation: <strong>${currentAmount.toFixed(3)} SP</strong></p>
+            </div>
+            <div class="form-group" style="margin-top:var(--space-sm,8px)">
+              <div class="label-row">
+                <label for="edit-deleg-amount">New amount (SP)</label>
+                <button type="button" class="max-btn" id="edit-deleg-max">Max SP</button>
+              </div>
+              <div class="input-group">
+                <input id="edit-deleg-amount" type="number"
+                  min="0.001" step="0.001"
+                  value="${currentAmount.toFixed(3)}"
+                  max="${maxAvailable.toFixed(3)}"
+                  class="form-control" />
+                <div class="input-suffix">SP</div>
+              </div>
+              <small id="edit-deleg-hint" class="amount-hint">${esc(hintText(maxAvailable))}</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn secondary-btn" id="edit-deleg-cancel">
+              <span class="material-icons">close</span>
+              Cancel
+            </button>
+            <button type="button" class="btn primary-btn" id="edit-deleg-confirm">
+              <span class="material-icons">check</span>
+              Update delegation
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(dialog);
+
+      const amountInput = dialog.querySelector('#edit-deleg-amount');
+      const hint        = dialog.querySelector('#edit-deleg-hint');
+      const confirmBtn  = dialog.querySelector('#edit-deleg-confirm');
+      const cancelBtn   = dialog.querySelector('#edit-deleg-cancel');
+      const closeBtn    = dialog.querySelector('.close-button');
+      const maxBtn      = dialog.querySelector('#edit-deleg-max');
+
+      const cleanup = () => { if (dialog.parentNode) dialog.parentNode.removeChild(dialog); };
+
+      maxBtn.addEventListener('click', () => {
+        amountInput.value = maxAvailable.toFixed(3);
+        hint.textContent = hintText(maxAvailable);
+        hint.className = 'amount-hint';
+        confirmBtn.disabled = false;
+      });
+
+      amountInput.addEventListener('input', () => {
+        const num = amountInput.valueAsNumber;
+        if (!isNaN(num)) {
+          const t = Math.round(num * 1000) / 1000;
+          if (num !== t) amountInput.valueAsNumber = t;
+        }
+        const val = amountInput.valueAsNumber;
+        if (isNaN(val) || val <= 0) {
+          hint.textContent = 'Enter an amount greater than 0';
+          hint.className = 'amount-hint invalid';
+          confirmBtn.disabled = true;
+        } else if (val > maxAvailable) {
+          hint.textContent = `Max: ${maxAvailable.toFixed(3)} SP`;
+          hint.className = 'amount-hint invalid';
+          confirmBtn.disabled = true;
+        } else {
+          hint.textContent = hintText(maxAvailable);
+          hint.className = 'amount-hint';
+          confirmBtn.disabled = false;
+        }
+      });
+
+      const handleConfirm = () => {
+        const val = amountInput.valueAsNumber;
+        if (isNaN(val) || val <= 0 || val > maxAvailable) return;
+        cleanup();
+        resolve(parseFloat(val.toFixed(3)));
+      };
+      const handleCancel = () => { cleanup(); resolve(null); };
+
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      closeBtn.addEventListener('click', handleCancel);
+      dialog.addEventListener('click', (e) => { if (e.target === dialog) handleCancel(); });
+      amountInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleConfirm();
+        if (e.key === 'Escape') handleCancel();
+      });
+
+      setTimeout(() => { amountInput.focus(); amountInput.select(); }, 80);
+    });
+
+    if (newAmount === null) return; // cancelled
+
+    try {
+      const response = await walletService.delegateSteemPower(delegateeLower, newAmount.toFixed(3));
+      if (response.success) {
+        this.showMessage(`Delegation to @${delegateeLower} updated to ${newAmount.toFixed(3)} SP`, true);
+        this._initAmountLimits();
+        this.loadDelegations();
+        this.loadExpiringDelegations();
+        eventEmitter.emit('wallet:delegation-updated');
+      } else {
+        this.showMessage(`Failed to update delegation: ${response.message || 'Unknown error'}`, false);
+      }
+    } catch (error) {
+      console.error('Edit delegation error:', error);
+      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+    }
   }
     async removeDelegation(delegatee) {
     const delegateeLower = delegatee.toLowerCase();
