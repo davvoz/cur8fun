@@ -172,19 +172,6 @@ export default class CommentUIManager {
         <div class="comment-body markdown-content">
           <!-- Il contenuto markdown sarà inserito qui -->
         </div>
-        <div class="comment-footer">
-          <div class="comment-actions">
-            <span class="comment-votes">
-              <i class="fa fa-arrow-up"></i> ${comment.active_votes.length || 0}
-            </span>
-            <span class="comment-replies">
-              <i class="fa fa-comment"></i> ${comment.children || 0}
-            </span>
-            <span class="comment-value">
-              <i class="fa fa-dollar-sign"></i> ${comment.pending_payout_value || '$0.00'}
-            </span>
-          </div>
-        </div>
       </div>
     `;
 

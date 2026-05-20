@@ -272,6 +272,13 @@
   background-color: var(--background-color);
   z-index: 10;
   padding: var(--space-xs) 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-btn {
@@ -284,6 +291,8 @@
   cursor: pointer;
   position: relative;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-btn::after {

@@ -129,24 +129,15 @@
   background: var(--background-color);
 }
 
-.posts-container {
-  transition: opacity 220ms ease, transform 220ms ease, filter 220ms ease;
+.community-view .posts-container {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
-.posts-container.is-switching {
-  opacity: 0.55;
-  transform: translateY(4px);
-  filter: saturate(0.92);
-}
-
-.posts-container.is-switching .post-card {
-  transition: opacity 220ms ease, transform 220ms ease;
-  opacity: 0.55;
-  transform: scale(0.992);
-}
-
-.posts-container .skeleton-post-card {
-  animation: fadeIn 220ms ease both;
+.community-view .posts-container.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .community-info-card {

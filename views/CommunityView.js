@@ -290,6 +290,9 @@ class CommunityView extends BasePostView {
               endMessage: 'No more posts in this community',
               errorMessage: 'Failed to load posts. Please check your connection.'
             });
+            // Make posts visible (same pattern as _reloadWithInfiniteScroll)
+            void postsContainer.offsetHeight;
+            requestAnimationFrame(() => { postsContainer.classList.add('is-visible'); });
 
             // Restore scroll after header + sort controls + grid have all settled.
             // Hide content during restore to avoid the visible position jump.
@@ -594,20 +597,23 @@ class CommunityView extends BasePostView {
       this.infiniteScroll = null;
     }
 
-    // 2. Mark the container as switching so old cards can fade while skeletons load
     const postsContainer = this.container.querySelector('.posts-container');
-    if (postsContainer) {
-      postsContainer.classList.add('is-switching');
-    }
 
     if (this.sortSwitchTimer) {
       clearTimeout(this.sortSwitchTimer);
       this.sortSwitchTimer = null;
     }
 
-    // 3. Let the fade start before replacing the list with skeletons + new content
-    this.sortSwitchTimer = setTimeout(() => {
+    const doReload = () => {
       this.showPostSkeletons(8);
+
+      // Fade in skeletons, then real posts will replace them after load
+      if (postsContainer) {
+        void postsContainer.offsetHeight; // force reflow so transition fires
+        requestAnimationFrame(() => {
+          postsContainer.classList.add('is-visible');
+        });
+      }
 
       this.loadPosts(1).then(() => {
         if (postsContainer) {
@@ -619,15 +625,17 @@ class CommunityView extends BasePostView {
             endMessage: 'No more posts in this community',
             errorMessage: 'Failed to load posts. Please check your connection.'
           });
-
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              postsContainer.classList.remove('is-switching');
-            }, 160);
-          });
         }
       });
-    }, 180);
+    };
+
+    if (postsContainer && postsContainer.classList.contains('is-visible')) {
+      // Fade out, then swap content once transition finishes
+      postsContainer.classList.remove('is-visible');
+      this.sortSwitchTimer = setTimeout(doReload, 200);
+    } else {
+      doReload();
+    }
   }
 
   /**
@@ -712,6 +720,22 @@ class CommunityView extends BasePostView {
       postsContainer.innerHTML = '';
       // No error message will be shown
     }
+  }
+
+  /**
+   * Called by Router on navigation away
+   */
+  unmount() {
+    // Cancel any pending sort-switch reload so it doesn't fire after navigation
+    if (this.sortSwitchTimer) {
+      clearTimeout(this.sortSwitchTimer);
+      this.sortSwitchTimer = null;
+    }
+    // Reset the shared #main-content className so the next view isn't affected
+    if (this.container) {
+      this.container.className = '';
+    }
+    this.onBeforeUnmount();
   }
 
   /**

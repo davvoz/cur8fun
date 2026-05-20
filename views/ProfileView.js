@@ -7,6 +7,7 @@ import metaTagService from '../services/MetaTagService.js';
 import ProfileHeader from '../components/profile/ProfileHeader.js';
 import PostsList from '../components/profile/PostsList.js';
 import CommentsList from '../components/profile/CommentsList.js';
+import RepliesList from '../components/profile/RepliesList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
 import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js';
 
@@ -14,7 +15,8 @@ import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js'
 const componentCache = {
   blog: {},  // blog posts + reblogs (getDiscussionsByBlog)
   posts: {}, // all author posts, no reblogs (getDiscussionsByAuthorBeforeDate)
-  comments: {}
+  comments: {},
+  replies: {}
 };
 
 class ProfileView extends View {
@@ -43,6 +45,7 @@ class ProfileView extends View {
     this.blogContainer = null;
     this.postsContainer = null;
     this.commentsContainer = null;
+    this.repliesContainer = null;
     this.walletContainer = null;
     this.walletHistoryComponent = null;
     this.postsArea = null;
@@ -100,6 +103,14 @@ class ProfileView extends View {
       componentCache.comments[this.username].prepareForReuse();
     }
     this.commentsComponent = componentCache.comments[this.username];
+
+    // Replies component
+    if (!componentCache.replies[this.username]) {
+      componentCache.replies[this.username] = new RepliesList(this.username);
+    } else {
+      componentCache.replies[this.username].prepareForReuse();
+    }
+    this.repliesComponent = componentCache.replies[this.username];
   }
 
   async render(container) {
@@ -129,11 +140,6 @@ class ProfileView extends View {
             <div class="sk-block sk-prof-action"></div>
           </div>
         </div>
-      </div>
-      <div class="sk-prof-tabs">
-        <div class="sk-block sk-prof-tab"></div>
-        <div class="sk-block sk-prof-tab"></div>
-        <div class="sk-block sk-prof-tab"></div>
       </div>
     `;
     profileContainer.appendChild(skeletonEl);
@@ -240,28 +246,35 @@ class ProfileView extends View {
     if (this.currentTab === 'blog') {
       this.updateContainerVisibility(
         this.blogContainer,
-        [this.postsContainer, this.commentsContainer, this.walletContainer],
+        [this.postsContainer, this.commentsContainer, this.repliesContainer, this.walletContainer],
         null, []
       );
       this.loadComponentContent(this.blogComponent, this.blogContainer, 'blog');
     } else if (this.currentTab === 'posts') {
       this.updateContainerVisibility(
         this.postsContainer,
-        [this.blogContainer, this.commentsContainer, this.walletContainer],
+        [this.blogContainer, this.commentsContainer, this.repliesContainer, this.walletContainer],
         null, []
       );
       this.loadComponentContent(this.postsComponent, this.postsContainer, 'posts');
     } else if (this.currentTab === 'comments') {
       this.updateContainerVisibility(
         this.commentsContainer,
-        [this.blogContainer, this.postsContainer, this.walletContainer],
+        [this.blogContainer, this.postsContainer, this.repliesContainer, this.walletContainer],
         null, []
       );
       this.loadComponentContent(this.commentsComponent, this.commentsContainer, 'comments');
+    } else if (this.currentTab === 'replies') {
+      this.updateContainerVisibility(
+        this.repliesContainer,
+        [this.blogContainer, this.postsContainer, this.commentsContainer, this.walletContainer],
+        null, []
+      );
+      this.loadComponentContent(this.repliesComponent, this.repliesContainer, 'comments');
     } else if (this.currentTab === 'wallet') {
       this.updateContainerVisibility(
         this.walletContainer,
-        [this.blogContainer, this.postsContainer, this.commentsContainer],
+        [this.blogContainer, this.postsContainer, this.commentsContainer, this.repliesContainer],
         null, []
       );
       if (!this.walletHistoryComponent) {
@@ -278,14 +291,17 @@ class ProfileView extends View {
     const hasConnectedContainers = this.blogContainer
       && this.postsContainer
       && this.commentsContainer
+      && this.repliesContainer
       && this.walletContainer
       && this.blogContainer.parentElement === postsArea
       && this.postsContainer.parentElement === postsArea
       && this.commentsContainer.parentElement === postsArea
+      && this.repliesContainer.parentElement === postsArea
       && this.walletContainer.parentElement === postsArea
       && this.blogContainer.isConnected
       && this.postsContainer.isConnected
       && this.commentsContainer.isConnected
+      && this.repliesContainer.isConnected
       && this.walletContainer.isConnected;
 
     if (hasConnectedContainers) return;
@@ -293,6 +309,7 @@ class ProfileView extends View {
     this.blogContainer = null;
     this.postsContainer = null;
     this.commentsContainer = null;
+    this.repliesContainer = null;
     this.walletContainer = null;
     if (!postsArea) return;
     
@@ -310,11 +327,15 @@ class ProfileView extends View {
     this.commentsContainer.className = 'comments-list-container profile-comments-container profile-tab-panel';
     this.commentsContainer.style.width = '100%';
     
+    this.repliesContainer = document.createElement('div');
+    this.repliesContainer.className = 'comments-list-container profile-replies-container profile-tab-panel';
+    this.repliesContainer.style.width = '100%';
+    
     this.walletContainer = document.createElement('div');
     this.walletContainer.className = 'wallet-list-container profile-wallet-container profile-tab-panel';
     this.walletContainer.style.width = '100%';
 
-    const containers = [this.blogContainer, this.postsContainer, this.commentsContainer, this.walletContainer];
+    const containers = [this.blogContainer, this.postsContainer, this.commentsContainer, this.repliesContainer, this.walletContainer];
     containers.forEach((container) => {
       container.classList.add('is-hidden');
       container.classList.remove('is-visible');
@@ -323,6 +344,7 @@ class ProfileView extends View {
     postsArea.appendChild(this.blogContainer);
     postsArea.appendChild(this.postsContainer);
     postsArea.appendChild(this.commentsContainer);
+    postsArea.appendChild(this.repliesContainer);
     postsArea.appendChild(this.walletContainer);
   }
   
@@ -353,6 +375,7 @@ class ProfileView extends View {
   showContainer(container) {
     container.classList.remove('is-hidden');
     container.style.display = '';
+    void container.offsetHeight; // force reflow so the browser registers opacity:0 before transitioning
     requestAnimationFrame(() => {
       container.classList.add('is-visible');
     });
@@ -401,13 +424,14 @@ class ProfileView extends View {
 
     try {
 
-      if (!this.blogContainer || !this.postsContainer || !this.commentsContainer || !this.walletContainer) {
+      if (!this.blogContainer || !this.postsContainer || !this.commentsContainer || !this.repliesContainer || !this.walletContainer) {
         this.initializeContainersIfNeeded(this.getPostsArea());
       }
     
       const blog = this.blogContainer;
       const posts = this.postsContainer;
       const comments = this.commentsContainer;
+      const replies = this.repliesContainer;
       const wallet = this.walletContainer;
     
       switch(tabName) {
@@ -421,7 +445,7 @@ class ProfileView extends View {
               await this.blogComponent.render(blog);
             }
           }
-          this.updateContainerVisibility(blog, [posts, comments, wallet], null, []);
+          this.updateContainerVisibility(blog, [posts, comments, replies, wallet], null, []);
           break;
 
         case 'posts':
@@ -434,11 +458,11 @@ class ProfileView extends View {
               await this.postsComponent.render(posts);
             }
           }
-          this.updateContainerVisibility(posts, [blog, comments, wallet], null, []);
+          this.updateContainerVisibility(posts, [blog, comments, replies, wallet], null, []);
           break;
         
         case 'comments':
-          this.updateContainerVisibility(comments, [blog, posts, wallet], null, []);
+          this.updateContainerVisibility(comments, [blog, posts, replies, wallet], null, []);
           if (this.commentsComponent && comments) {
             const hasCommentsData = Array.isArray(this.commentsComponent.allComments) && this.commentsComponent.allComments.length > 0;
             const hasCommentsDom = !!comments.querySelector('.comments-list-wrapper');
@@ -449,9 +473,22 @@ class ProfileView extends View {
             }
           }
           break;
+
+        case 'replies':
+          this.updateContainerVisibility(replies, [blog, posts, comments, wallet], null, []);
+          if (this.repliesComponent && replies) {
+            const hasRepliesData = Array.isArray(this.repliesComponent.allReplies) && this.repliesComponent.allReplies.length > 0;
+            const hasRepliesDom = !!replies.querySelector('.comments-list-wrapper');
+            if (hasRepliesData && hasRepliesDom) {
+              // already rendered, nothing to do
+            } else {
+              this.repliesComponent.render(replies);
+            }
+          }
+          break;
         
         case 'wallet':
-          this.updateContainerVisibility(wallet, [blog, posts, comments], null, []);
+          this.updateContainerVisibility(wallet, [blog, posts, comments, replies], null, []);
           if (!this.walletHistoryComponent) {
             try {
               this.walletHistoryComponent = new ProfileWalletHistory(this.username);

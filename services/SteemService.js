@@ -128,6 +128,10 @@ class SteemService {
         return this.commentService.getCommentsByAuthor(author, limit);
     }
 
+    async getRepliesByParentAuthor(author, limit = -1) {
+        return this.commentService.getRepliesByParentAuthor(author, limit);
+    }
+
     async getAuthorComments(username, startPermlink, limit) {
         return this.commentService.getAuthorComments(username, startPermlink, limit);
     }

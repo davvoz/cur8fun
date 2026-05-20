@@ -23,6 +23,7 @@ export default class ProfileTabs {
       blog: null,
       posts: null,
       comments: null,
+      replies: null,
       wallet: null
     };
   }
@@ -90,13 +91,19 @@ export default class ProfileTabs {
     commentsTab.textContent = 'Comments';
     commentsTab.addEventListener('click', () => this.switchTab('comments'));
 
+    // Replies tab
+    const repliesTab = document.createElement('button');
+    repliesTab.className = `tab-btn ${this.currentTab === 'replies' ? 'active' : ''}`;
+    repliesTab.textContent = 'Replies';
+    repliesTab.addEventListener('click', () => this.switchTab('replies'));
+
     // Wallet tab
     const walletTab = document.createElement('button');
     walletTab.className = `tab-btn ${this.currentTab === 'wallet' ? 'active' : ''}`;
     walletTab.textContent = 'Wallet';
     walletTab.addEventListener('click', () => this.switchTab('wallet'));
 
-    tabsContainer.append(blogTab, postsTab, commentsTab, walletTab);
+    tabsContainer.append(blogTab, postsTab, commentsTab, repliesTab, walletTab);
     return tabsContainer;
   }
   
@@ -136,7 +143,7 @@ export default class ProfileTabs {
     if (this.currentTab === tabName) return;
 
     // Update tab styling first
-    const tabLabelMap = { blog: 'Blog', posts: 'Posts', comments: 'Comments', wallet: 'Wallet' };
+    const tabLabelMap = { blog: 'Blog', posts: 'Posts', comments: 'Comments', replies: 'Replies', wallet: 'Wallet' };
     const tabs = this.container.querySelectorAll('.tab-btn');
     tabs.forEach(tab => {
       tab.classList.remove('active');
@@ -174,7 +181,7 @@ export default class ProfileTabs {
   
   // New method to set active tab programmatically
   setActiveTab(tabName) {
-    const validTabs = ['blog', 'posts', 'comments', 'wallet'];
+    const validTabs = ['blog', 'posts', 'comments', 'replies', 'wallet'];
     if (validTabs.includes(tabName)) {
       this.switchTab(tabName);
     }

@@ -99,6 +99,82 @@ async function _swFetchFeed(feedEndpoint, account, limit, offset, bodyLength = 2
     }
     throw new Error(`SteemWorld ${feedEndpoint} unavailable for ${account}`);
 }
+
+/**
+ * Convert a SteemWorld tabular comment row into a condenser-compatible comment object.
+ * Used for both getCommentsByAuthor and getCommentsByParentAuthor.
+ */
+function _swRowToComment(cols, row) {
+    let jsonMeta = {};
+    try { jsonMeta = JSON.parse(row[cols.json_metadata] || '{}'); } catch (_) {}
+
+    const createdTs = row[cols.created];
+    const cashoutTs = row[cols.cashout_time];
+    const created = createdTs
+        ? new Date(createdTs * 1000).toISOString().replace('.000Z', '')
+        : '';
+    const cashout_time = cashoutTs
+        ? new Date(cashoutTs * 1000).toISOString().replace('.000Z', '')
+        : '1969-12-31T23:59:59';
+
+    const payout = Number(row[cols.payout] ?? 0);
+    const pending_payout_value = cashoutTs > 0 ? `${payout.toFixed(3)} SBD` : '0.000 SBD';
+    const total_payout_value   = cashoutTs > 0 ? '0.000 SBD' : `${payout.toFixed(3)} SBD`;
+
+    return {
+        id:                    row[cols.link_id] ?? 0,
+        author:                row[cols.author] ?? '',
+        permlink:              row[cols.permlink] ?? '',
+        parent_author:         row[cols.parent_author] ?? '',
+        parent_permlink:       row[cols.parent_permlink] ?? '',
+        root_author:           row[cols.root_author] ?? '',
+        root_permlink:         row[cols.root_permlink] ?? '',
+        root_title:            row[cols.root_title] ?? '',
+        title:                 row[cols.title] ?? '',
+        body:                  row[cols.body] ?? '',
+        category:              row[cols.category] ?? '',
+        community:             row[cols.community] ?? '',
+        created,
+        cashout_time,
+        net_rshares:           row[cols.net_rshares] ?? 0,
+        children:              row[cols.children] ?? 0,
+        pending_payout_value,
+        total_payout_value,
+        curator_payout_value:  '0.000 SBD',
+        max_accepted_payout:   `${(row[cols.max_accepted_payout] ?? 0).toFixed(3)} SBD`,
+        percent_steem_dollars: row[cols.percent_steem_dollars] ?? 10000,
+        net_votes:             (row[cols.upvote_count] ?? 0) + (row[cols.downvote_count] ?? 0),
+        active_votes:          [],
+        json_metadata:         row[cols.json_metadata] ?? '{}',
+        _jsonMeta:             jsonMeta,
+        _swSource:             true,
+    };
+}
+
+/**
+ * Fetch comments/replies from SteemWorld feeds API with offset pagination.
+ * @param {'getCommentsByAuthor'|'getCommentsByParentAuthor'} feedEndpoint
+ */
+async function _swFetchComments(feedEndpoint, account, limit, offset, bodyLength = 250) {
+    const encodedAccount = encodeURIComponent(account);
+    const path = `/feeds_api/${feedEndpoint}/${encodedAccount}/null/${bodyLength}/${limit}/${offset}`;
+
+    for (const base of SW_ENDPOINTS) {
+        try {
+            const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(12000) });
+            if (!res.ok) continue;
+            const json = await res.json();
+            if (json.code !== 0 || !json.result?.cols || !Array.isArray(json.result.rows)) continue;
+
+            const { cols, rows } = json.result;
+            const comments = rows.map(row => _swRowToComment(cols, row));
+            return { comments, total: rows.length };
+        } catch (_) {
+            // try next endpoint
+        }
+    }
+    throw new Error(`SteemWorld ${feedEndpoint} unavailable for ${account}`);
+}
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -504,44 +580,63 @@ class ProfileService {
     }
 
 
-    async getUserComments(username, limit = 30, page = 1, options = {}) {
-        const COMMENTS_CACHE_KEY = `${username}_comments`;
-        const COMMENTS_CACHE_DURATION_MS = 120 * 60 * 1000; // 2 hours in milliseconds
+    /**
+     * Fetch replies to an account's posts/comments using the native Steem API.
+     * Uses cursor-based pagination: pass the last item's {author, permlink} to get the next page.
+     * @param {string} username
+     * @param {number} limit
+     * @param {string|null} startPermlink - permlink of the last item from the previous page (null for first page)
+     * @returns {Promise<Array>}
+     */
+    /**
+     * Fetch replies to an account using getRepliesByLastUpdate.
+     * Switches endpoint on each retry to avoid flaky nodes.
+     * @param {string} username
+     * @param {number} limit
+     * @param {string|null} startPermlink - cursor from previous page (null = first page)
+     * @returns {Promise<{items: Array, hasMore: boolean}>}
+     */
+    async getUserReplies(username, limit = 20, page = 1, options = {}) {
         const forceRefresh = typeof options === 'boolean' ? options : !!options.forceRefresh;
-        const safeLimit = Math.max(1, Number(limit) || 30);
+        const safeLimit = Math.max(1, Number(limit) || 20);
         const safePage = Math.max(1, Number(page) || 1);
-        const requestedCount = safeLimit * safePage;
-        
+        const cacheKey = `${username}_replies_page_${safePage}`;
+
+        if (!forceRefresh) {
+            const cached = this.getCachedPosts(cacheKey);
+            if (cached) return cached;
+        }
+
         try {
-            // Check cache if not forcing refresh
-            if (!forceRefresh) {
-                const paginatedCachedComments = this.getPaginatedCachedComments(
-                    COMMENTS_CACHE_KEY, safePage, safeLimit, username
-                );
-                if (paginatedCachedComments) {
-                    return paginatedCachedComments;
-                }
-            }
-            
-            // Load only what is needed for the requested page
-            const comments = await steemService.getCommentsByAuthor(username, requestedCount);
-            
-            if (!this.isValidCommentsResponse(comments)) {
-                return [];
-            }
-            
-            // Cache the comments
-            if (comments.length > 0) {
-                this.cacheUserComments(COMMENTS_CACHE_KEY, comments, COMMENTS_CACHE_DURATION_MS);
-                this.storeCommentsInSessionStorage(COMMENTS_CACHE_KEY, comments);
-                this.emitCommentsLoadedEvent(username, comments.length, 'network', safePage);
-            }
-            
-            // Return paginated results
-            return this.paginateResults(comments, safePage, safeLimit);
-        } catch (error) {
-            console.error(`Error fetching comments for ${username}:`, error);
-            return this.getFallbackComments(COMMENTS_CACHE_KEY, safePage, safeLimit);
+            const offset = (safePage - 1) * safeLimit;
+            const { comments } = await _swFetchComments('getCommentsByParentAuthor', username, safeLimit, offset);
+            if (comments.length > 0) this.cachePosts(cacheKey, comments);
+            return comments;
+        } catch (err) {
+            console.error(`[ProfileService] getUserReplies failed for ${username}:`, err);
+            return this.getCachedPosts(cacheKey) ?? [];
+        }
+    }
+
+    async getUserComments(username, limit = 20, page = 1, options = {}) {
+        const forceRefresh = typeof options === 'boolean' ? options : !!options.forceRefresh;
+        const safeLimit = Math.max(1, Number(limit) || 20);
+        const safePage = Math.max(1, Number(page) || 1);
+        const cacheKey = `${username}_comments_page_${safePage}`;
+
+        if (!forceRefresh) {
+            const cached = this.getCachedPosts(cacheKey);
+            if (cached) return cached;
+        }
+
+        try {
+            const offset = (safePage - 1) * safeLimit;
+            const { comments } = await _swFetchComments('getCommentsByAuthor', username, safeLimit, offset);
+            if (comments.length > 0) this.cachePosts(cacheKey, comments);
+            return comments;
+        } catch (err) {
+            console.error(`[ProfileService] getUserComments failed for ${username}:`, err);
+            return this.getCachedPosts(cacheKey) ?? [];
         }
     }
     

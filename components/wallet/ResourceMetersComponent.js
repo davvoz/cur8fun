@@ -43,24 +43,39 @@ export default class ResourceMetersComponent extends Component {
    */
   createLoadingElement() {
     const container = document.createElement('div');
-    container.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:4px 0';
+    container.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-md,16px)';
     
-    // Two skeleton rows for Voting Power and RC bars
+    // Two skeleton cards that mirror .resource-meter (padding + card background)
     [1, 2].forEach(() => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+      const card = document.createElement('div');
+      card.className = 'resource-meter';
       
-      const label = document.createElement('div');
-      label.className = 'sk-block';
-      label.style.cssText = 'height:11px;width:35%;border-radius:5px';
+      // Header row: icon + label + value (mirrors .meter-header flex row, margin-bottom:8px)
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
       
-      const bar = document.createElement('div');
-      bar.className = 'sk-block';
-      bar.style.cssText = 'height:10px;width:100%;border-radius:999px';
+      const iconSkel = document.createElement('div');
+      iconSkel.className = 'sk-block';
+      iconSkel.style.cssText = 'width:18px;height:18px;border-radius:50%;flex-shrink:0';
       
-      row.appendChild(label);
-      row.appendChild(bar);
-      container.appendChild(row);
+      const labelSkel = document.createElement('div');
+      labelSkel.className = 'sk-block';
+      labelSkel.style.cssText = 'height:14px;width:40%;border-radius:5px';
+      
+      const valueSkel = document.createElement('div');
+      valueSkel.className = 'sk-block';
+      valueSkel.style.cssText = 'height:14px;width:28px;border-radius:5px;margin-left:auto';
+      
+      header.append(iconSkel, labelSkel, valueSkel);
+      card.appendChild(header);
+      
+      // Bar (mirrors .meter-bar height:10px)
+      const barSkel = document.createElement('div');
+      barSkel.className = 'sk-block';
+      barSkel.style.cssText = 'height:10px;width:100%;border-radius:5px';
+      card.appendChild(barSkel);
+      
+      container.appendChild(card);
     });
     
     return container;

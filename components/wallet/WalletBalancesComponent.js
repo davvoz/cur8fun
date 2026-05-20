@@ -150,21 +150,21 @@ export default class WalletBalancesComponent extends Component {
       <div class="balance-cards-row">
         ${[1,2,3].map((_, i) => `
           <div class="balance-card${i === 2 ? ' sp-card' : ''}">
-            <div class="balance-card-icon"><div class="sk-block" style="width:24px;height:24px;border-radius:50%"></div></div>
+            <div class="balance-card-icon"><div class="sk-block" style="width:45px;height:45px;border-radius:50%"></div></div>
             <div class="balance-card-content">
-              <div class="sk-block" style="width:60%;height:11px;border-radius:5px;margin-bottom:8px"></div>
-              <div class="sk-block" style="width:85%;height:20px;border-radius:6px;margin-bottom:6px"></div>
-              <div class="sk-block" style="width:45%;height:10px;border-radius:5px"></div>
+              <div class="sk-block" style="width:60%;height:16px;border-radius:5px;margin-bottom:4px"></div>
+              <div class="sk-block" style="width:85%;height:26px;border-radius:6px;margin-bottom:2px"></div>
+              <div class="sk-block" style="width:45%;height:13px;border-radius:5px"></div>
             </div>
-            ${i === 2 ? `<div class="delegation-details" style="gap:8px">
-              <div class="sk-block" style="width:72px;height:22px;border-radius:4px"></div>
-              <div class="sk-block" style="width:72px;height:22px;border-radius:4px"></div>
+            ${i === 2 ? `<div class="delegation-details" style="gap:6px">
+              <div class="sk-block" style="width:80px;height:22px;border-radius:4px"></div>
+              <div class="sk-block" style="width:80px;height:22px;border-radius:4px"></div>
             </div>` : ''}
           </div>`).join('')}
       </div>
       <div class="price-info">
-        <div class="sk-block" style="width:160px;height:13px;border-radius:5px"></div>
-        <div class="sk-block" style="width:120px;height:13px;border-radius:5px"></div>
+        <div class="sk-block" style="width:160px;height:16px;border-radius:5px"></div>
+        <div class="sk-block" style="width:120px;height:16px;border-radius:5px"></div>
       </div>`;
   }
   

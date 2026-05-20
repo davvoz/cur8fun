@@ -271,4 +271,107 @@ export default class CommentService {
             }
         }
     }
+
+    // ─── Replies (replies TO this author) ──────────────────────────────────────
+
+    async getRepliesByParentAuthor(author, limit = -1) {
+        try {
+            console.log(`Getting replies for ${author} (limit: ${limit === -1 ? 'ALL' : limit})`);
+            await this.core.ensureLibraryLoaded();
+
+            const allReplies = [];
+            let startPermlink = '';
+            let hasMoreReplies = true;
+            let attempts = 0;
+
+            const BATCH_SIZE = 100;
+            const loadAll = limit === -1;
+            const targetLimit = loadAll ? Number.MAX_SAFE_INTEGER : limit;
+
+            while (hasMoreReplies && allReplies.length < targetLimit && attempts < 50) {
+                console.log(`[Replies Batch ${attempts + 1}] Loaded ${allReplies.length} so far`);
+                try {
+                    const remaining = targetLimit - allReplies.length;
+                    const requestLimit = loadAll
+                        ? BATCH_SIZE
+                        : Math.min(BATCH_SIZE, Math.max(1, remaining + (startPermlink ? 1 : 0)));
+
+                    const replies = await this._fetchRepliesBatch(author, startPermlink, requestLimit);
+
+                    if (!replies || replies.length === 0) {
+                        hasMoreReplies = false;
+                        break;
+                    }
+
+                    const newReplies = (startPermlink && replies.length > 0)
+                        ? replies.slice(1)
+                        : replies;
+
+                    if (newReplies.length === 0) {
+                        if (replies.length >= 2) {
+                            startPermlink = replies[1].permlink;
+                            attempts++;
+                            continue;
+                        } else {
+                            hasMoreReplies = false;
+                            break;
+                        }
+                    }
+
+                    allReplies.push(...newReplies);
+                    if (!loadAll && allReplies.length > targetLimit) {
+                        allReplies.length = targetLimit;
+                    }
+
+                    startPermlink = replies[replies.length - 1].permlink;
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    console.error(`Error in replies batch ${attempts + 1}:`, error);
+                    this.core.switchEndpoint();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                attempts++;
+            }
+
+            console.log(`Replies loaded: ${allReplies.length} total for ${author}`);
+
+            const seen = new Set();
+            return allReplies.filter(r => {
+                const id = `${r.author}_${r.permlink}`;
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            });
+        } catch (error) {
+            console.error('Error in getRepliesByParentAuthor:', error);
+            return [];
+        }
+    }
+
+    async _fetchRepliesBatch(parentAuthor, startPermlink, limit) {
+        await this.core.ensureLibraryLoaded();
+        try {
+            return await new Promise((resolve, reject) => {
+                this.core.steem.api.getRepliesByLastUpdate(
+                    parentAuthor, startPermlink || '', limit || 20,
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    }
+                );
+            });
+        } catch (error) {
+            this.core.switchEndpoint();
+            return await new Promise((resolve, reject) => {
+                this.core.steem.api.getRepliesByLastUpdate(
+                    parentAuthor, startPermlink || '', limit || 20,
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result || []);
+                    }
+                );
+            });
+        }
+    }
 }
