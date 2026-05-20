@@ -1,5 +1,6 @@
 import View from './View.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
+import authService from '../services/AuthService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import { SearchService } from '../services/SearchService.js';
 import { getAppVersion, getBuildTimestamp } from '../config/app-version.js';
@@ -76,10 +77,12 @@ class SettingsView extends View {
 
     const description = document.createElement('p');
     description.textContent = 'Choose what content you want to see on your home feed.';
-    section.appendChild(description);    const options = [
+    section.appendChild(description);    const isLoggedIn = !!(authService.getCurrentUser?.()?.username);
+    const options = [
         { id: 'trending', label: 'Trending', description: 'Posts that are trending on the platform' },
         { id: 'hot', label: 'Hot', description: 'Posts that are currently hot on the platform' },
         { id: 'new', label: 'New', description: 'Recently created posts' },
+        { id: 'social', label: 'Following', description: 'Posts and comments from people you follow' },
         { id: 'custom', label: 'Custom Feed', description: 'Posts based on your preferred tags' }
     ];
 
@@ -97,6 +100,11 @@ class SettingsView extends View {
       
       // Disable custom option if no tags are available
       if (option.id === 'custom' && !this.isCustomModeValid()) {
+        radioContainer.classList.add('disabled-option');
+        input.disabled = true;
+      }
+      // Disable following option if not logged in
+      if (option.id === 'social' && !isLoggedIn) {
         radioContainer.classList.add('disabled-option');
         input.disabled = true;
       }

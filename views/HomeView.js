@@ -1,4 +1,6 @@
 import steemService from '../services/SteemService.js';
+import socialFeedService from '../services/SocialFeedService.js';
+import authService from '../services/AuthService.js';
 import BasePostView from './BasePostView.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
@@ -36,6 +38,8 @@ class HomeView extends BasePostView {  constructor(params) {
         userPreferencesService.setHomeViewMode('trending');
       } else if (homeViewMode === 'custom') {
         this.tag = 'custom';
+      } else if (homeViewMode === 'social') {
+        this.tag = 'social';
       } else {
         // Otherwise use the specified tag parameter or home view mode
         this.tag = this.params.tag || homeViewMode;
@@ -122,6 +126,16 @@ class HomeView extends BasePostView {  constructor(params) {
   async fetchPostsByTag(page = 1) {
     const activeTag = this._tempTag || this.tag;
 
+    // Social / following feed
+    if (activeTag === 'social') {
+      const currentUser = authService.getCurrentUser?.();
+      if (!currentUser?.username) {
+        // Not logged in — fallback to trending
+        return steemService.getTrendingPosts(page);
+      }
+      return socialFeedService.getMixedSocialFeed(currentUser.username, 20, page);
+    }
+
     // If custom tag is selected, fetch by preferred tags
     if (activeTag === 'custom') {
       const preferredTags = userPreferencesService.getPreferredTags();
@@ -164,6 +178,11 @@ class HomeView extends BasePostView {  constructor(params) {
     const activeTag = this._tempTag || this.tag;
     let viewTitle = `${this.formatTagName(activeTag)} Posts`;
     
+    // Special handling for social feed
+    if (activeTag === 'social') {
+      viewTitle = 'Following';
+    }
+
     // Special handling for custom tag mode
     if (activeTag === 'custom') {
       const preferredTags = userPreferencesService.getPreferredTags();
@@ -181,7 +200,8 @@ class HomeView extends BasePostView {  constructor(params) {
       trending: 'Discover what the community is reading right now.',
       hot:      'The most engaging posts of the moment.',
       new:      'Fresh content, just published.',
-      custom:   'Posts curated from your preferred tags.'
+      custom:   'Posts curated from your preferred tags.',
+      social:   'Posts and comments from people you follow.'
     };
     const headerSubtitle = feedSubtitles[activeTag] || feedSubtitles.trending;
 
@@ -280,7 +300,7 @@ class HomeView extends BasePostView {  constructor(params) {
     // Update active state on buttons
     if (this._feedSwitcherPanel) {
       this._feedSwitcherPanel.querySelectorAll('.feed-switcher-option').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.trim().toLowerCase().startsWith(newTag === 'custom' ? 'my' : newTag));
+        btn.classList.toggle('active', btn.dataset.feed === newTag);
       });
     }
 
@@ -290,7 +310,9 @@ class HomeView extends BasePostView {  constructor(params) {
       const titleEl = headerArea.querySelector('.header-title');
       const subtitleEl = headerArea.querySelector('.header-subtitle');
       if (titleEl) {
-        if (newTag === 'custom') {
+        if (newTag === 'social') {
+          titleEl.textContent = 'Following';
+        } else if (newTag === 'custom') {
           const tags = userPreferencesService.getPreferredTags();
           titleEl.textContent = tags.length > 0
             ? `Your Tags: ${tags.map(t => this.formatTagName(t)).join(', ')}`
@@ -304,7 +326,8 @@ class HomeView extends BasePostView {  constructor(params) {
           trending: 'Discover what the community is reading right now.',
           hot:      'The most engaging posts of the moment.',
           new:      'Fresh content, just published.',
-          custom:   'Posts curated from your preferred tags.'
+          custom:   'Posts curated from your preferred tags.',
+          social:   'Posts and comments from people you follow.'
         };
         subtitleEl.textContent = subtitles[newTag] || subtitles.trending;
       }

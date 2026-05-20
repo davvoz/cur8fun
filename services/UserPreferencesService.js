@@ -34,7 +34,7 @@ class UserPreferencesService {
                 preferences.preferredTags = [];
             }
             
-            if (!['trending', 'hot', 'new', 'custom'].includes(preferences.homeViewMode)) {
+            if (!['trending', 'hot', 'new', 'custom', 'social'].includes(preferences.homeViewMode)) {
                 preferences.homeViewMode = 'trending';
             }
             
@@ -111,7 +111,7 @@ class UserPreferencesService {
         }
         
         // Validate homeViewMode is valid
-        if (!['trending', 'hot', 'new', 'custom'].includes(this.preferences.homeViewMode)) {
+        if (!['trending', 'hot', 'new', 'custom', 'social'].includes(this.preferences.homeViewMode)) {
             this.preferences.homeViewMode = 'trending';
         }
         
@@ -239,7 +239,7 @@ class UserPreferencesService {
             mode = 'trending';
         }
         
-        if (!['trending', 'hot', 'new', 'custom'].includes(mode)) {
+        if (!['trending', 'hot', 'new', 'custom', 'social'].includes(mode)) {
             console.error('Invalid home view mode:', mode);
             // Use a default value if invalid
             mode = 'trending';

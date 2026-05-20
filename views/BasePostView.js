@@ -395,6 +395,11 @@ class BasePostView {
     // Get the best available image
     const imageUrl = this.getBestImage(post, metadata);
 
+    // Comment badge (social feed)
+    if (post._isComment) {
+      postCard.classList.add('post-card--comment');
+    }
+
     // Pinned badge (community pinned posts)
     if (post.stats?.is_pinned) {
       postCard.classList.add('is-pinned');
@@ -426,7 +431,22 @@ class BasePostView {
     // Middle section with title, excerpt, tags
     const contentMiddle = document.createElement('div');
     contentMiddle.className = 'post-content-middle';
-    
+
+    // Reply context banner (for comments in the social feed)
+    if (post._isComment && post._replyContext?.rootTitle) {
+      const ctx = post._replyContext;
+      const replyBanner = document.createElement('div');
+      replyBanner.className = 'post-reply-context';
+      replyBanner.innerHTML =
+        `<span class="material-icons">reply</span>` +
+        `<span>In reply to <em>${ctx.rootTitle.replace(/</g, '&lt;')}</em></span>`;
+      replyBanner.addEventListener('click', (e) => {
+        e.stopPropagation();
+        router.navigate(`/@${ctx.rootAuthor}/${ctx.rootPermlink}`);
+      });
+      contentMiddle.appendChild(replyBanner);
+    }
+
     // Title
     contentMiddle.appendChild(this.createPostTitle(post.title));
     
@@ -434,9 +454,15 @@ class BasePostView {
     if (post.body) {
       const excerpt = document.createElement('div');
       excerpt.className = 'post-excerpt';
-      const textExcerpt = this.createExcerpt(post.body, 200);
-      // Make sure all links are completely removed from the excerpt
-      excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+      if (post._isComment) {
+        // For comments keep URLs visible in the preview
+        const textExcerpt = this.createExcerpt(post.body, 200, true);
+        excerpt.textContent = textExcerpt.replace(/\s+/g, ' ').trim();
+      } else {
+        const textExcerpt = this.createExcerpt(post.body, 200);
+        // Strip bare URLs from post excerpts
+        excerpt.textContent = textExcerpt.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+      }
       contentMiddle.appendChild(excerpt);
     }
     
@@ -451,11 +477,13 @@ class BasePostView {
     // Add main content to card
     postCard.appendChild(mainContent);
     
-    // Click event - Navigate to post (ignore clicks on action buttons)
+    // Click event - Navigate to post/comment (ignore clicks on action buttons)
     postCard.addEventListener('click', (e) => {
       if (e.target.closest('.post-actions')) return;
       e.preventDefault();
-      const postUrl = `/@${post.author}/${post.permlink}`;
+      const postUrl = post._isComment
+        ? `/comment/@${post.author}/${post.permlink}`
+        : `/@${post.author}/${post.permlink}`;
       router.navigate(postUrl);
     });
     
@@ -1030,16 +1058,19 @@ class BasePostView {
     const commentAction = this.createActionItem('chat', post.children || 0);
     commentAction.classList.add('comment-action');
 
-    // Reblog button
-    const reblogBtn = this.createCardReblogButton(post);
-
     // Payout: right-aligned, green, clickable popup
     const payoutAction = document.createElement('div');
     payoutAction.className = 'action-item card-payout-info';
     payoutAction.textContent = `$${parseFloat(this.getPendingPayout(post)).toFixed(2)}`;
     payoutAction.addEventListener('click', () => new PayoutInfoPopup(post).show());
 
-    actions.append(voteWrapper, commentAction, reblogBtn, payoutAction);
+    if (post._isComment) {
+      actions.append(voteWrapper, commentAction, payoutAction);
+    } else {
+      // Reblog button (posts only)
+      const reblogBtn = this.createCardReblogButton(post);
+      actions.append(voteWrapper, commentAction, reblogBtn, payoutAction);
+    }
 
     return actions;
   }
@@ -1414,7 +1445,7 @@ class BasePostView {
   /**
    * Create excerpt from post body
    */
-  createExcerpt(body, maxLength = 150) {
+  createExcerpt(body, maxLength = 150, keepUrls = false) {
     if (!body) return '';
     
     // Remove markdown and html more effectively
@@ -1422,7 +1453,7 @@ class BasePostView {
         .replace(/!\[.*?\]\(.*?\)/g, '') // remove markdown images
         .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // remove markdown links keeping the text
         .replace(/<a.*?href=["'](.+?)["'].*?>(.+?)<\/a>/gi, '$2') // remove HTML links keeping text
-        .replace(/https?:\/\/\S+/g, '') // remove all URLs
+        .replace(keepUrls ? /(?!x)x/ : /https?:\/\/\S+/g, '') // remove URLs unless keepUrls
         .replace(/<\/?[^>]+(>|$)/g, '') // remove html tags
         .replace(/#{1,6}\s/g, '') // remove headings (1-6 hashes)
         .replace(/(\*\*|__)(.*?)(\*\*|__)/g, '$2') // convert bold to normal text
@@ -1556,12 +1587,17 @@ class BasePostView {
     const activeTag = this._tempTag || this.tag || '';
     const preferredTags = userPreferencesService.getPreferredTags();
     const hasCustom = preferredTags.length > 0;
+    const currentUser = authService.getCurrentUser?.();
+    const isLoggedIn = !!(currentUser?.username);
 
     const options = [
       { value: 'trending', label: 'Trending', icon: 'local_fire_department' },
       { value: 'hot',      label: 'Hot',      icon: 'whatshot' },
       { value: 'new',      label: 'New',      icon: 'fiber_new' },
     ];
+    if (isLoggedIn) {
+      options.push({ value: 'social', label: 'Following', icon: 'group' });
+    }
     if (hasCustom) {
       options.push({ value: 'custom', label: 'My Tags', icon: 'label' });
     }
@@ -1569,6 +1605,7 @@ class BasePostView {
     options.forEach(opt => {
       const btn = document.createElement('button');
       btn.className = 'feed-switcher-option' + (activeTag === opt.value ? ' active' : '');
+      btn.dataset.feed = opt.value;
       btn.innerHTML = `<span class="material-icons">${opt.icon}</span>${opt.label}`;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();

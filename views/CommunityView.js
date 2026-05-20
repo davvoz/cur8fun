@@ -6,6 +6,7 @@ import authService from '../services/AuthService.js';
 import steemService from '../services/SteemService.js';
 import communityService from '../services/CommunityService.js';
 import metaTagService from '../services/MetaTagService.js';
+import socialFeedService from '../services/SocialFeedService.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
@@ -24,6 +25,7 @@ class CommunityView extends BasePostView {
     this._communityCache = {}; // Initialize cache
     this.isSwitchingSort = false;
     this.sortSwitchTimer = null;
+    this.commentsOffset = 0; // Offset for comments tab pagination
   }
 
   escapeHtml(text) {
@@ -105,6 +107,29 @@ class CommunityView extends BasePostView {
         console.error('Failed to load community details');
         this.handleLoadError();
         return false;
+      }
+
+      // ── Comments tab: separate offset-based pagination ─────────────────
+      if (this.sortOrder === 'comments') {
+        if (page === 1) this.commentsOffset = 0;
+        const currentUser = authService.getCurrentUser();
+        const observer = currentUser?.username || '';
+        const limit = 30;
+        const { comments, hasMore } = await socialFeedService.getCommunityComments(
+          this.communityId, observer, limit, this.commentsOffset
+        );
+
+        const existingIds = new Set(this.posts.map(p => `${p.author}_${p.permlink}`));
+        const unique = comments.filter(c => !existingIds.has(`${c.author}_${c.permlink}`));
+
+        if (unique.length > 0) {
+          this.commentsOffset += unique.length;
+          this.posts = [...this.posts, ...unique];
+          this.renderPosts(page > 1);
+        } else if (page > 1) {
+          return false;
+        }
+        return hasMore;
       }
 
       // Fetch posts
@@ -556,6 +581,9 @@ class CommunityView extends BasePostView {
         <button class="sort-button ${this.sortOrder === 'created' ? 'active' : ''}" data-sort="created">
           <span class="material-icons">schedule</span> New
         </button>
+        <button class="sort-button ${this.sortOrder === 'comments' ? 'active' : ''}" data-sort="comments">
+          <span class="material-icons">comment</span> Comments
+        </button>
       </div>
     `;
     
@@ -574,11 +602,13 @@ class CommunityView extends BasePostView {
   changeSortOrder(order) {
     if (this.sortOrder === order) {
       // Force reload even if same order
+      this.commentsOffset = 0;
       this._reloadWithInfiniteScroll();
       return;
     }
 
     this.sortOrder = order;
+    this.commentsOffset = 0;
     this.isSwitchingSort = true;
 
     // Update active button

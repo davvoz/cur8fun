@@ -633,6 +633,15 @@
   }
   
   .sort-buttons {
+    justify-content: stretch;
+  }
+
+  .sort-buttons .sort-button {
+    flex: 1 1 auto;
     justify-content: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

@@ -10,6 +10,47 @@
   border-color: var(--primary-color);
 }
 
+/* ── Comment card (social feed) ─────────────────────────────────────────── */
+.post-card--comment {
+  border-left: 3px solid var(--primary-color, #e53935);
+}
+
+/* "↩ In reply to …" banner shown above the comment body */
+.post-reply-context {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary, rgba(0,0,0,.04));
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.post-reply-context:hover {
+  color: var(--primary-color);
+}
+
+.post-reply-context .material-icons {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  transform: scaleX(-1); /* mirror the reply icon */
+}
+
+.post-reply-context em {
+  font-style: normal;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
 .post-card.is-pinned {
   position: relative;
 }

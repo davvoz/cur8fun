@@ -98,6 +98,7 @@
 @media (max-width: 768px) {
   .feed-switcher-panel.open {
     padding: var(--space-sm) var(--space-sm);
+    gap: 4px;
   }
 }
 
@@ -116,7 +117,10 @@
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
   white-space: nowrap;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .feed-switcher-option .material-icons {
