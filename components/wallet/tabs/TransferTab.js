@@ -421,7 +421,7 @@ export default class TransferTab extends Component {
       }
       
       if (response.success) {
-        this.showMessage(`Successfully transferred ${amount} ${currency} to @${to}`, true);
+        eventEmitter.emit('notification', { type: 'success', message: `Successfully transferred ${amount} ${currency} to @${to}` });
         this.element.querySelector('#transfer-form').reset();
 
         // Refresh balances and amount limits immediately
@@ -435,11 +435,11 @@ export default class TransferTab extends Component {
           currency
         });
       } else {
-        this.showMessage(`Transfer failed: ${response.message || 'Unknown error'}`, false);
+        eventEmitter.emit('notification', { type: 'error', message: `Transfer failed: ${response.message || 'Unknown error'}` });
       }
     } catch (error) {
       console.error('Transfer error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+      eventEmitter.emit('notification', { type: 'error', message: `Transfer error: ${error.message || 'Unknown error'}` });
     } finally {
       // Reset button state
       const submitButton = this.element.querySelector('button[type="submit"]');

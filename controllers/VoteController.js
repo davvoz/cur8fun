@@ -42,11 +42,7 @@ export default class VoteController {
         // Update UI — pass external countElement so it's updated in place, not added inside button
         this.setVoteSuccessState(upvoteBtn, currentCount, weight, countElement);
         
-        // Show success notification
-        this.view.emit('notification', {
-          type: 'success',
-          message: `Your ${weight / 100}% vote was recorded successfully!`
-        });
+
       } catch (error) {
         this.handleVoteError(error, upvoteBtn, countElement);
       }
@@ -143,12 +139,6 @@ export default class VoteController {
         upvoteBtn.appendChild(percentIndicator);
 
         this.addSuccessAnimation(upvoteBtn);
-        
-        // Show success notification
-        this.view.emit('notification', {
-          type: 'success',
-          message: `Your ${displayPercent}% vote on this comment was recorded successfully!`
-        });
         
         // Update the comment model if available
         if (commentParam && typeof commentParam === 'object') {

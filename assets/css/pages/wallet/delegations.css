@@ -19,7 +19,40 @@
 .delegations-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   margin-top: var(--space-md);
+}
+
+/* Default column widths (4 columns: user, amount, age, actions) */
+.delegations-table th:nth-child(1),
+.delegations-table td:nth-child(1) { width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.delegations-table th:nth-child(2),
+.delegations-table td:nth-child(2) { width: 26%; white-space: nowrap; }
+.delegations-table th:nth-child(3),
+.delegations-table td:nth-child(3) { width: 14%; white-space: nowrap; }
+.delegations-table th:nth-child(4),
+.delegations-table td:nth-child(4) { width: 30%; white-space: nowrap; }
+
+/* On mobile, hide Age column and redistribute space */
+@media (max-width: 540px) {
+  .delegations-table th:nth-child(3),
+  .delegations-table td:nth-child(3) { display: none; }
+
+  .delegations-table th:nth-child(1),
+  .delegations-table td:nth-child(1) { width: 38%; }
+  .delegations-table th:nth-child(2),
+  .delegations-table td:nth-child(2) { width: 28%; }
+  .delegations-table th:nth-child(4),
+  .delegations-table td:nth-child(4) { width: 34%; }
+}
+
+/* Returning delegations table (2 columns: amount, returns on) */
+.delegations-table.expiring-table {
+  table-layout: auto;
+}
+.delegations-table.expiring-table td,
+.delegations-table.expiring-table th {
+  word-break: break-word;
 }
 
 .delegations-table th,
@@ -27,6 +60,20 @@
   padding: var(--space-sm);
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+}
+
+/* Actions column: stack Edit/Remove vertically */
+.delegations-table td:last-child {
+  white-space: nowrap;
+}
+
+.delegations-table td:last-child .edit-btn,
+.delegations-table td:last-child .remove-btn {
+  display: block;
+  margin-right: 0;
+  margin-bottom: 2px;
+  width: 100%;
+  text-align: left;
 }
 
 .delegations-table th {
@@ -42,6 +89,15 @@
   margin-right: var(--space-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .edit-btn,
+  .remove-btn {
+    padding: 3px 6px;
+    margin-right: 2px;
+    font-size: 0.8rem;
+  }
 }
 
 .edit-btn {

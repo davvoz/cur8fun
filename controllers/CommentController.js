@@ -239,12 +239,6 @@ export default class CommentController {
       }
     });
 
-    // Success notification
-    this.view.emit('notification', {
-      type: 'success',
-      message: 'Your comment was posted successfully'
-    });
-
     // Success UI state
     this.setSuccessState(submitButton);
 
@@ -1389,12 +1383,6 @@ export default class CommentController {
       
       // Update the UI with the edited comment
       this.updateCommentInUI(comment, newBody, commentElement, commentBody);
-      
-      // Show success notification
-      this.view.emit('notification', {
-        type: 'success',
-        message: 'Comment updated successfully'
-      });
       
       // Remove edit form
       editForm.remove();

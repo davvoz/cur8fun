@@ -1371,12 +1371,6 @@ class BasePostView {
         // Add success animation
         this.voteController.addSuccessAnimation(voteActionElement);
         
-        // Show success notification
-        eventEmitter.emit('notification', {
-          type: 'success',
-          message: `Your ${weight / 100}% vote was recorded successfully!`
-        });
-        
       } catch (error) {
         // Reset UI
         voteActionElement.classList.remove('voting', 'disabled');

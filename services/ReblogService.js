@@ -241,7 +241,6 @@ class ReblogService {
       lsSet(cacheKey);
 
       eventEmitter.emit('post:reblogged', { username, author, permlink });
-      eventEmitter.emit('notification', { type: 'success', message: 'Post successfully reblogged', duration: 3000 });
 
       return result;
     } catch (error) {

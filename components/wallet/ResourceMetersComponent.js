@@ -43,38 +43,30 @@ export default class ResourceMetersComponent extends Component {
    */
   createLoadingElement() {
     const container = document.createElement('div');
-    container.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-md,16px)';
+    container.style.cssText = 'display:flex;flex-direction:column;gap:6px';
     
-    // Two skeleton cards that mirror .resource-meter (padding + card background)
+    // Two skeleton rows that mirror the new single-row .resource-meter layout
     [1, 2].forEach(() => {
       const card = document.createElement('div');
       card.className = 'resource-meter';
       
-      // Header row: icon + label + value (mirrors .meter-header flex row, margin-bottom:8px)
-      const header = document.createElement('div');
-      header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
-      
       const iconSkel = document.createElement('div');
       iconSkel.className = 'sk-block';
-      iconSkel.style.cssText = 'width:18px;height:18px;border-radius:50%;flex-shrink:0';
+      iconSkel.style.cssText = 'width:16px;height:16px;border-radius:50%;flex-shrink:0';
       
       const labelSkel = document.createElement('div');
       labelSkel.className = 'sk-block';
-      labelSkel.style.cssText = 'height:14px;width:40%;border-radius:5px';
+      labelSkel.style.cssText = 'height:13px;width:90px;border-radius:4px;flex-shrink:0';
+      
+      const barSkel = document.createElement('div');
+      barSkel.className = 'sk-block';
+      barSkel.style.cssText = 'flex:1;height:7px;border-radius:4px';
       
       const valueSkel = document.createElement('div');
       valueSkel.className = 'sk-block';
-      valueSkel.style.cssText = 'height:14px;width:28px;border-radius:5px;margin-left:auto';
+      valueSkel.style.cssText = 'width:36px;height:13px;border-radius:4px;flex-shrink:0';
       
-      header.append(iconSkel, labelSkel, valueSkel);
-      card.appendChild(header);
-      
-      // Bar (mirrors .meter-bar height:10px)
-      const barSkel = document.createElement('div');
-      barSkel.className = 'sk-block';
-      barSkel.style.cssText = 'height:10px;width:100%;border-radius:5px';
-      card.appendChild(barSkel);
-      
+      card.append(iconSkel, labelSkel, barSkel, valueSkel);
       container.appendChild(card);
     });
     
@@ -114,50 +106,39 @@ export default class ResourceMetersComponent extends Component {
   createResourceMeter(label, fillId, valueId, icon) {
     const container = document.createElement('div');
     container.className = 'resource-meter';
-    
-    // Create header with icon and label
-    const header = document.createElement('div');
-    header.className = 'meter-header';
-    
-    // Add icon if provided
+
+    // Icon
     if (icon) {
       const iconElement = document.createElement('i');
       iconElement.className = 'material-icons meter-icon';
       iconElement.textContent = icon;
-      header.appendChild(iconElement);
+      container.appendChild(iconElement);
     }
-    
+
+    // Label
     const labelElement = document.createElement('div');
     labelElement.className = 'meter-label';
     labelElement.textContent = label;
-    header.appendChild(labelElement);
-    
-    // Create value element next to label
-    const valueElement = document.createElement('div');
-    valueElement.className = 'meter-value';
-    valueElement.id = valueId;
-    valueElement.textContent = '0%';
-    header.appendChild(valueElement);
-    
-    container.appendChild(header);
-    
-    // Create meter bar with gradient background
+    container.appendChild(labelElement);
+
+    // Bar
     const meterBar = document.createElement('div');
     meterBar.className = 'meter-bar';
-    container.appendChild(meterBar);
-    
-    // Create fill element with animated transition
     const fill = document.createElement('div');
     fill.className = 'meter-fill';
     fill.id = fillId;
     fill.style.width = '0%';
     meterBar.appendChild(fill);
-    
-    return {
-      container,
-      fill,
-      value: valueElement
-    };
+    container.appendChild(meterBar);
+
+    // Value
+    const valueElement = document.createElement('div');
+    valueElement.className = 'meter-value';
+    valueElement.id = valueId;
+    valueElement.textContent = '0%';
+    container.appendChild(valueElement);
+
+    return { container, fill, value: valueElement };
   }
   
   /**
@@ -236,12 +217,12 @@ export default class ResourceMetersComponent extends Component {
     // Update voting power with animation
     this.animateMeterFill(this.meterElements.voting.fill, resources.voting);
     this.meterElements.voting.value.textContent = `${resources.voting}%`;
-    this.updateMeterColor(this.meterElements.voting.fill, resources.voting);
+    this.updateMeterColor(this.meterElements.voting.fill, resources.voting, 'voting');
     
     // Update resource credits with animation
     this.animateMeterFill(this.meterElements.rc.fill, resources.rc);
     this.meterElements.rc.value.textContent = `${resources.rc}%`;
-    this.updateMeterColor(this.meterElements.rc.fill, resources.rc);
+    this.updateMeterColor(this.meterElements.rc.fill, resources.rc, 'rc');
   }
   
   /**
@@ -261,18 +242,17 @@ export default class ResourceMetersComponent extends Component {
   /**
    * Helper method to update meter color based on value
    */
-  updateMeterColor(element, value) {
-    // Remove existing classes
-    element.classList.remove('low', 'medium', 'high');
-    
-    // Calculate a smooth gradient from red to green based on percentage
-    // Red at 0%, yellow at 50%, green at 100%
-    const hue = Math.floor((value / 100) * 120); // 0 is red, 120 is green in HSL
-    const saturation = 90;
-    const lightness = 45;
-    
-    // Set dynamic background color based on percentage
-    element.style.backgroundColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  updateMeterColor(element, value, type = 'voting') {
+    if (type === 'rc') {
+      // RC: gray at 0% → steel blue at 50% → vivid blue at 100%
+      const lightness = 55 - (value / 100) * 15; // 55% → 40%
+      const saturation = 20 + (value / 100) * 70;  // 20% → 90%
+      element.style.backgroundColor = `hsl(210, ${saturation}%, ${lightness}%)`;
+    } else {
+      // Voting Power: red at 0% → orange/yellow at ~50% → green at 100%
+      const hue = Math.floor((value / 100) * 120); // 0=red, 60=yellow, 120=green
+      element.style.backgroundColor = `hsl(${hue}, 88%, 44%)`;
+    }
   }
   
   /**

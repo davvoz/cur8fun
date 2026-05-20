@@ -592,8 +592,13 @@ class WalletService {
       // Calculate remaining weeks (if powering down)
       let remainingWeeks = 0;
       if (isWithdrawing) {
-        const totalVestingShares = parseFloat(account.vesting_shares);
-        remainingWeeks = Math.ceil(totalVestingShares / withdrawRateVests);
+        // to_withdraw and withdrawn are micro-VESTS integers (divide by 1e6 to get VESTS)
+        const toWithdrawVests = (account.to_withdraw || 0) / 1e6;
+        const withdrawnVests  = (account.withdrawn  || 0) / 1e6;
+        const remainingVests  = Math.max(0, toWithdrawVests - withdrawnVests);
+        remainingWeeks = withdrawRateVests > 0
+          ? Math.ceil(remainingVests / withdrawRateVests)
+          : 0;
       }
 
       return {

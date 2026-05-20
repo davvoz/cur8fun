@@ -335,7 +335,7 @@ export default class DelegationTab extends Component {
         return;
       }
       const table = document.createElement('table');
-      table.className = 'delegations-table';
+      table.className = 'delegations-table expiring-table';
       table.innerHTML = `<thead><tr><th>Amount</th><th>Returns on</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       delegations.forEach(d => {
@@ -420,7 +420,7 @@ export default class DelegationTab extends Component {
       const response = await walletService.delegateSteemPower(delegatee, amount);
       
       if (response.success) {
-        this.showMessage('Delegation completed successfully!', true);
+        this._notify(`Delegation to @${delegatee} of ${amount} SP completed successfully!`, 'success');
         this.element.querySelector('#delegate-form').reset();
 
         // Refresh balances, amount limits and delegations immediately
@@ -431,7 +431,7 @@ export default class DelegationTab extends Component {
         // Emit event so other components can update
         eventEmitter.emit('wallet:delegation-updated');
       } else {
-        this.showMessage(`Delegation failed: ${response.message || 'Unknown error'}`, false);
+        this._notify(this._friendlyDelegationError({ message: response.message }), 'error');
       }
       
       // Re-enable button
@@ -440,7 +440,7 @@ export default class DelegationTab extends Component {
       
     } catch (error) {
       console.error('Delegation error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+      this._notify(this._friendlyDelegationError(error), 'error');
       
       // Re-enable button
       const submitBtn = this.element.querySelector('button[type="submit"]');
@@ -450,12 +450,18 @@ export default class DelegationTab extends Component {
   }
   
   showMessage(message, isSuccess) {
-    const messageEl = this.element.querySelector('#delegate-message');
+    const messageEl = this.element?.querySelector('#delegate-message');
+    if (!messageEl) return;
     messageEl.textContent = message;
     messageEl.classList.remove('hidden', 'success', 'error', 'info');
     if (isSuccess === true) messageEl.classList.add('success');
     else if (isSuccess === false) messageEl.classList.add('error');
     else messageEl.classList.add('info');
+  }
+
+  /** Show a global toast notification */
+  _notify(message, type = 'info') {
+    eventEmitter.emit('notification', { type, message });
   }
   
   async loadDelegations() {
@@ -506,7 +512,7 @@ export default class DelegationTab extends Component {
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     
-    const headers = ['Delegatee', 'Amount (SP)', 'Date', 'Actions'];
+    const headers = ['User', 'Amount', 'Age', 'Actions'];
     headers.forEach(headerText => {
       const th = document.createElement('th');
       th.textContent = headerText;
@@ -530,13 +536,22 @@ export default class DelegationTab extends Component {
       
       // Amount cell
       const amountCell = document.createElement('td');
-      amountCell.textContent = `${delegation.sp_amount} SP`;
+      const spNum = parseFloat(delegation.sp_amount);
+      amountCell.textContent = `${isNaN(spNum) ? delegation.sp_amount : spNum.toFixed(3)} SP`;
       row.appendChild(amountCell);
       
-      // Date cell
+      // Age cell (relative time abbreviation)
       const dateCell = document.createElement('td');
-      const date = new Date(delegation.min_delegation_time + 'Z').toLocaleDateString();
-      dateCell.textContent = date;
+      const _relTime = (iso) => {
+        const diff = Date.now() - new Date(iso + 'Z').getTime();
+        const s = Math.floor(diff / 1000);
+        if (s < 60)            return `${s}s`;
+        if (s < 3600)          return `${Math.floor(s / 60)}m`;
+        if (s < 86400)         return `${Math.floor(s / 3600)}h`;
+        if (s < 86400 * 365)   return `${Math.floor(s / 86400)}d`;
+        return `${Math.floor(s / (86400 * 365))}y`;
+      };
+      dateCell.textContent = _relTime(delegation.min_delegation_time);
       row.appendChild(dateCell);
       
       // Actions cell
@@ -584,19 +599,18 @@ export default class DelegationTab extends Component {
     const delegateeLower = delegatee.toLowerCase();
     const currentAmount = parseFloat(delegation.sp_amount);
 
-    // Fetch fresh balances to compute the real available SP for this edit:
-    //   available = free delegatable SP  +  SP already delegated to this account
-    // (those delegated SP are "freeable" when we change the delegation)
-    let delegatable = 0;
-    let powerDown = 0;
-    try {
-      const balances = await walletService.fetchBalances();
-      const details = balances.steemPowerDetails;
-      delegatable = parseFloat(details?.delegatable ?? details?.own ?? balances.steemPower ?? 0);
-      powerDown   = parseFloat(details?.powerDown ?? 0);
-    } catch { /* non-blocking */ }
+    // Use cached balances immediately (no wait) so the modal opens instantly.
+    // available = free delegatable SP + SP already delegated to this account
+    const _extractBalances = (b) => {
+      const details = b?.steemPowerDetails;
+      return {
+        delegatable: parseFloat(details?.delegatable ?? details?.own ?? b?.steemPower ?? 0) || 0,
+        powerDown:   parseFloat(details?.powerDown ?? 0) || 0,
+      };
+    };
 
-    const maxAvailable = delegatable + currentAmount;
+    let { delegatable, powerDown } = _extractBalances(walletService.balances);
+    let maxAvailable = delegatable + currentAmount;
 
     const esc = (s) => String(s || '')
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -666,6 +680,22 @@ export default class DelegationTab extends Component {
 
       const cleanup = () => { if (dialog.parentNode) dialog.parentNode.removeChild(dialog); };
 
+      // Refresh balances in background and silently update the modal
+      walletService.fetchBalances().then(b => {
+        const fresh = _extractBalances(b);
+        delegatable  = fresh.delegatable;
+        powerDown    = fresh.powerDown;
+        maxAvailable = delegatable + currentAmount;
+        amountInput.max = maxAvailable.toFixed(3);
+        // Only re-validate if the current input is already in a valid state
+        const val = amountInput.valueAsNumber;
+        if (!isNaN(val) && val <= maxAvailable) {
+          hint.textContent = hintText(maxAvailable);
+          hint.className = 'amount-hint';
+          confirmBtn.disabled = false;
+        }
+      }).catch(() => {});
+
       maxBtn.addEventListener('click', () => {
         amountInput.value = maxAvailable.toFixed(3);
         hint.textContent = hintText(maxAvailable);
@@ -720,18 +750,35 @@ export default class DelegationTab extends Component {
     try {
       const response = await walletService.delegateSteemPower(delegateeLower, newAmount.toFixed(3));
       if (response.success) {
-        this.showMessage(`Delegation to @${delegateeLower} updated to ${newAmount.toFixed(3)} SP`, true);
+        this._notify(`Delegation to @${delegateeLower} updated to ${newAmount.toFixed(3)} SP`, 'success');
         this._initAmountLimits();
         this.loadDelegations();
         this.loadExpiringDelegations();
         eventEmitter.emit('wallet:delegation-updated');
       } else {
-        this.showMessage(`Failed to update delegation: ${response.message || 'Unknown error'}`, false);
+        this._notify(this._friendlyDelegationError({ message: response.message }), 'error');
       }
     } catch (error) {
       console.error('Edit delegation error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+      this._notify(this._friendlyDelegationError(error), 'error');
     }
+  }
+
+  /**
+   * Convert raw Steem RPC delegation errors into readable messages.
+   */
+  _friendlyDelegationError(error) {
+    const msg = error?.message || error?.cause?.message || '';
+    if (/min_update|decrease is not enough/i.test(msg)) {
+      return 'The change is too small. Please increase or decrease the delegation by a larger amount.';
+    }
+    if (/min_delegation|minimum delegation amount/i.test(msg)) {
+      return 'The amount is below the minimum delegation. Increase it or remove the delegation completely.';
+    }
+    if (/insufficient.*vesting|not enough.*vesting/i.test(msg)) {
+      return 'Insufficient STEEM POWER available for this delegation.';
+    }
+    return `Error: ${msg || 'Unknown error'}`;
   }
     async removeDelegation(delegatee) {
     const delegateeLower = delegatee.toLowerCase();
@@ -753,7 +800,7 @@ export default class DelegationTab extends Component {
 
       const response = await walletService.delegateSteemPower(delegateeLower, zeroAmount);
       if (response.success) {
-        this.showMessage(`Delegation to @${delegateeLower} successfully removed`, true);
+        this._notify(`Delegation to @${delegateeLower} successfully removed`, 'success');
 
         // Refresh balances, amount limits and delegations immediately
         this._initAmountLimits();
@@ -763,11 +810,11 @@ export default class DelegationTab extends Component {
         // Emit event
         eventEmitter.emit('wallet:delegation-updated');
       } else {
-        this.showMessage(`Failed to remove delegation: ${response.message || 'Unknown error'}`, false);
+        this._notify(this._friendlyDelegationError({ message: response.message }), 'error');
       }
     } catch (error) {
       console.error('Remove delegation error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false);
+      this._notify(this._friendlyDelegationError(error), 'error');
     }
   }
   

@@ -574,13 +574,13 @@ export default class PowerManagementTab extends Component {
       const response = await walletService.powerUp(amount);
       
       if (response.success) {
-        this.showMessage('Power up successful!', true, messageEl);
+        eventEmitter.emit('notification', { type: 'success', message: `Power up of ${amount} STEEM completed!` });
         amountInput.value = '';
 
         // Refresh balances and amount limits immediately
         this._initAmountLimits();
       } else {
-        this.showMessage(`Power up failed: ${response.message || 'Unknown error'}`, false, messageEl);
+        eventEmitter.emit('notification', { type: 'error', message: `Power up failed: ${response.message || 'Unknown error'}` });
       }
       
       // Restore original button content
@@ -589,7 +589,7 @@ export default class PowerManagementTab extends Component {
       
     } catch (error) {
       console.error('Power up error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false, messageEl);
+      eventEmitter.emit('notification', { type: 'error', message: `Power up error: ${error.message || 'Unknown error'}` });
       
       // Reset button
       const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -664,14 +664,14 @@ export default class PowerManagementTab extends Component {
       const response = await walletService.powerDown(amount);
       
       if (response.success) {
-        this.showMessage('Power down initiated successfully!', true, messageEl);
+        eventEmitter.emit('notification', { type: 'success', message: `Power down of ${amount} SP initiated!` });
         amountInput.value = '';
 
         // Refresh balances, amount limits and power-down status immediately
         this._initAmountLimits();
         this.loadPowerDownStatus();
       } else {
-        this.showMessage(`Power down failed: ${response.message || 'Unknown error'}`, false, messageEl);
+        eventEmitter.emit('notification', { type: 'error', message: `Power down failed: ${response.message || 'Unknown error'}` });
       }
       
       // Restore original button content
@@ -680,7 +680,7 @@ export default class PowerManagementTab extends Component {
       
     } catch (error) {
       console.error('Power down error:', error);
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false, messageEl);
+      eventEmitter.emit('notification', { type: 'error', message: `Power down error: ${error.message || 'Unknown error'}` });
       
       // Reset button
       const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -727,21 +727,16 @@ export default class PowerManagementTab extends Component {
       const response = await walletService.cancelPowerDown();
       
       if (response.success) {
-        // Show success message
-        const messageEl = this.element.querySelector('#power-down-message');
-        this.showMessage('Power down stopped successfully!', true, messageEl);
-
+        eventEmitter.emit('notification', { type: 'success', message: 'Power down stopped successfully!' });
         // Refresh balances, amount limits and power-down status immediately
         this._initAmountLimits();
         this.loadPowerDownStatus();
       } else {
-        const messageEl = this.element.querySelector('#power-down-message');
-        this.showMessage(`Failed to stop power down: ${response.message}`, false, messageEl);
+        eventEmitter.emit('notification', { type: 'error', message: `Failed to stop power down: ${response.message || 'Unknown error'}` });
       }
     } catch (error) {
       console.error('Stop power down error:', error);
-      const messageEl = this.element.querySelector('#power-down-message');
-      this.showMessage(`Error: ${error.message || 'Unknown error'}`, false, messageEl);
+      eventEmitter.emit('notification', { type: 'error', message: `Stop power down error: ${error.message || 'Unknown error'}` });
     } finally {
       // Reset button 
       const btnIcon = document.createElement('span');

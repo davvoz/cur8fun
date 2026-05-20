@@ -101,6 +101,9 @@ function initApp() {
   // Inizializza l'ascoltatore per eventi di logout richiesto (token scaduto)
   initSessionExpiryHandler();
 
+  // Inizializza il sistema di toast per l'evento 'notification'
+  initNotificationToasts();
+
   // Inizializza il service worker e il sistema di aggiornamenti
   initPwaFeatures();
 }
@@ -116,6 +119,67 @@ function initPwaFeatures() {
     .catch(error => {
       console.error('Errore durante l\'inizializzazione delle funzionalità PWA:', error);
     });
+}
+
+/**
+ * Global toast handler for eventEmitter.emit('notification', { type, message, duration? })
+ * Used throughout the app but previously had no listener.
+ */
+function initNotificationToasts() {
+  // Container fijo in fondo a destra
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = [
+      'position:fixed', 'bottom:24px', 'right:16px', 'z-index:99999',
+      'display:flex', 'flex-direction:column', 'gap:8px',
+      'max-width:calc(100vw - 32px)', 'pointer-events:none'
+    ].join(';');
+    document.body.appendChild(container);
+  }
+
+  const COLORS = {
+    success: { bg: '#2e7d32', icon: 'check_circle' },
+    error:   { bg: '#c62828', icon: 'error' },
+    warning: { bg: '#e65100', icon: 'warning' },
+    info:    { bg: '#1565c0', icon: 'info' },
+  };
+
+  eventEmitter.on('notification', ({ type = 'info', message = '', duration = 4000 }) => {
+    const { bg, icon } = COLORS[type] || COLORS.info;
+
+    const toast = document.createElement('div');
+    toast.style.cssText = [
+      `background:${bg}`, 'color:#fff',
+      'padding:10px 14px', 'border-radius:8px',
+      'display:flex', 'align-items:center', 'gap:8px',
+      'font-size:0.9rem', 'line-height:1.3',
+      'box-shadow:0 4px 12px rgba(0,0,0,0.35)',
+      'pointer-events:auto', 'opacity:0',
+      'transition:opacity 0.2s ease, transform 0.2s ease',
+      'transform:translateY(8px)',
+      'max-width:360px', 'word-break:break-word',
+    ].join(';');
+
+    toast.innerHTML = `<span class="material-icons" style="font-size:18px;flex-shrink:0">${icon}</span><span>${message}</span>`;
+    container.appendChild(toast);
+
+    // Fade in
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+
+    // Auto-remove
+    const remove = () => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(4px)';
+      setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
+    };
+    setTimeout(remove, duration);
+    toast.addEventListener('click', remove);
+  });
 }
 
 /**

@@ -511,11 +511,6 @@ export default class CommentView extends View {
       // Usa il servizio per effettuare il reblog
       await steemService.reblogPost(currentUser.username, this.comment.author, this.comment.permlink);
       
-      // Notifica l'utente del successo
-      this.emit('notification', {
-        type: 'success',
-        message: 'Commento rebloggato con successo!'
-      });
     } catch (error) {
       console.error('Error reblogging comment:', error);
       this.emit('notification', {

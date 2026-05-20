@@ -875,13 +875,7 @@ export default class TransactionHistoryBase extends Component {
         }
         this.setupInfiniteScroll();
         
-        // Notifica all'utente
-        if (window.eventEmitter) {
-          window.eventEmitter.emit('notification', {
-            type: 'success',
-            message: `Loaded ${rawTransactions.length} transactions for the selected date range`
-          });
-        }
+
       } else {
         this.showEmptyState();
       }
