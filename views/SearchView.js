@@ -56,6 +56,11 @@ class SearchView extends View {
       await this.performSearch(query);
     }
 
+    // Focus the search input so the user can start typing immediately
+    requestAnimationFrame(() => {
+      if (this.searchInput) this.searchInput.focus();
+    });
+
     return searchContainer;
   }
 
@@ -175,30 +180,29 @@ class SearchView extends View {
     // ma non inizializzare gli eventi
     searchService.suggestionsContainer = this.suggestionsContainer;
 
-    controls.appendChild(inputWrapper);
-
-    // Create filter buttons with modern icons
+    // Create filter tabs — placed BEFORE the input so they're not hidden by the mobile keyboard
     const filterButtons = document.createElement('div');
     filterButtons.className = 'search-filter-buttons';
 
-    // Migliorare i testi dei pulsanti di filtro per maggiore chiarezza
     const filters = [
-      { id: 'users', icon: 'fas fa-users', text: 'Search Users' },
-      { id: 'tags', icon: 'fas fa-hashtag', text: 'Search Tags' }
+      { id: 'users', icon: 'person',    text: 'Users' },
+      { id: 'tags',  icon: 'tag',       text: 'Tags'  }
     ];
 
     filters.forEach(filter => {
       const button = document.createElement('button');
       button.className = `filter-button ${this.currentSearchMethod === filter.id ? 'active' : ''}`;
-      button.innerHTML = `<i class="${filter.icon}"></i> ${filter.text}`;
+      button.innerHTML = `<span class="material-icons" style="font-size:1.1rem">${filter.icon}</span> ${filter.text}`;
       button.addEventListener('click', () => {
         this.changeSearchMethod(filter.id);
         this.updatePlaceholder(filter.id);
+        if (this.searchInput) this.searchInput.focus();
       });
       filterButtons.appendChild(button);
     });
 
     controls.appendChild(filterButtons);
+    controls.appendChild(inputWrapper);
 
     return controls;
   }

@@ -201,15 +201,17 @@ export class SearchService {
             // Arricchisci il risultato con i dati del profilo già estratti
             return accounts.map(account => {
                 try {
-                    // Estrai i dati del profilo dai metadati JSON
-                    const metadata = typeof account.json_metadata === 'string' 
-                        ? JSON.parse(account.json_metadata) 
-                        : account.json_metadata || {};
-                    
+                    let metadata = {};
+                    if (typeof account.json_metadata === 'string' && account.json_metadata.trim().length > 0) {
+                        metadata = JSON.parse(account.json_metadata);
+                    } else if (typeof account.json_metadata === 'object' && account.json_metadata !== null) {
+                        metadata = account.json_metadata;
+                    }
                     return {
                         ...account,
                         name: account.name,
-                        profile: metadata.profile || {}
+                        profile: metadata.profile || {},
+                        type: 'user'
                     };
                 } catch (e) {
                     // Se il parsing fallisce, ritorna l'account senza profilo
@@ -217,7 +219,8 @@ export class SearchService {
                     return { 
                         ...account, 
                         name: account.name,
-                        profile: {} 
+                        profile: {},
+                        type: 'user'
                     };
                 }
             });

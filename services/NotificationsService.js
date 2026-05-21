@@ -138,7 +138,11 @@ class NotificationsService {
     }
 
     /**
-     * Fetches the count of unread notifications (status=new) and updates the badge.
+     * Fetches the count of unread notifications and updates the badge.
+     * Accounts for:
+     *  - SW "new" notifications minus any locally-read items (per-click cache)
+     *  - Wallet notifications (from _walletState cache) that are newer than lastReadTimestamp
+     *    and not locally read
      */
     async updateUnreadCount() {
         const currentUser = authService.getCurrentUser();
@@ -147,18 +151,38 @@ class NotificationsService {
             eventEmitter.emit('notifications:unread_count_updated', 0);
             return 0;
         }
+
+        const username = currentUser.username;
+
         try {
-            const cacheKey = `${currentUser.username}_new_count`;
-            let count = this._getCached(cacheKey);
-            if (count === null) {
-                const notifications = await this._fetchFromAPI(currentUser.username, 'new', 2500, 0);
-                count = notifications.length;
-                this._setCached(cacheKey, count);
+            const locallyReadIds = this._getLocallyReadIds(username);
+
+            // 1. SW unread: fetch "new" (unread per blockchain), subtract locally-read ones
+            const swCacheKey = `${username}_new_notifications`;
+            let newNotifications = this._getCached(swCacheKey);
+            if (newNotifications === null) {
+                newNotifications = await this._fetchFromAPI(username, 'new', 2500, 0);
+                this._setCached(swCacheKey, newNotifications);
             }
-            this.unreadCount = count;
+            const swUnread = newNotifications.filter(n => !locallyReadIds.has(String(n.id))).length;
+
+            // 2. Wallet unread: use cached wallet state when available
+            let walletUnread = 0;
+            const walletState = this._walletState.get(username);
+            if (walletState && walletState.items.length > 0) {
+                const lastReadTs = this._lastReadTimestamp.get(username) ?? null;
+                walletUnread = walletState.items.filter(item => {
+                    if (lastReadTs && item.timestamp <= lastReadTs) return false;
+                    if (locallyReadIds.has(item.id)) return false;
+                    return true;
+                }).length;
+            }
+
+            this.unreadCount = swUnread + walletUnread;
         } catch (error) {
             console.error('NotificationsService: error getting unread count', error);
         }
+
         eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
         return this.unreadCount;
     }
@@ -232,6 +256,10 @@ class NotificationsService {
             isRead: lastReadTs ? item.timestamp <= lastReadTs : false
         }));
         const merged = this._buildMergedList(allNotifications, correctedWallet);
+
+        // Re-compute badge now that wallet state is warmer (no-await, fire-and-forget)
+        this.updateUnreadCount().catch(() => {});
+
         return {
             notifications: this._applyLocalRead(username, merged.slice(start, end)),
             hasMore: end < merged.length || !state.complete
@@ -519,6 +547,10 @@ class NotificationsService {
 
         // Sort most-recent-first before slicing
         const sorted = [...correctedItems].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Re-compute badge now that wallet state is warmer (no-await, fire-and-forget)
+        this.updateUnreadCount().catch(() => {});
+
         return {
             notifications: this._applyLocalRead(username, sorted.slice(start, end)),
             hasMore: end < sorted.length || !state.complete

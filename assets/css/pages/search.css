@@ -469,30 +469,32 @@ input[data-search-input="true"] {
 .search-filter-buttons {
     display: flex;
     justify-content: center;
-    gap: var(--space-md);
-    margin: 0 auto;
-    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: 0 auto var(--space-md);
+    flex-wrap: nowrap;
     max-width: 600px;
     position: relative;
-    /* Added position relative */
     z-index: 10;
-    /* Lower z-index than suggestions */
 }
 
 .filter-button {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    padding: var(--space-md) var(--space-xl);
+    padding: var(--space-sm) var(--space-lg);
     border: 2px solid var(--border-color);
     border-radius: var(--radius-pill);
     background: var(--background-light);
     color: var(--text-color);
     font-weight: 500;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
+    flex: 1;
+    max-width: 140px;
+    justify-content: center;
 }
 
 .filter-button::after {

@@ -111,6 +111,14 @@ function initApp() {
   if (authService.getCurrentUser()) {
     notificationsService.updateUnreadCount().catch(() => {});
   }
+
+  // Polling: controlla notifiche nuove ogni 2 minuti (solo se l'utente è loggato e la tab è visibile)
+  setInterval(() => {
+    if (authService.getCurrentUser() && document.visibilityState === 'visible') {
+      notificationsService.clearCache();
+      notificationsService.updateUnreadCount().catch(() => {});
+    }
+  }, 2 * 60 * 1000);
 }
 
 // Funzione per inizializzare le funzionalità PWA

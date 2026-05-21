@@ -371,6 +371,7 @@ class NotificationsView {
                 const indicator = element.querySelector('.unread-indicator');
                 if (indicator) indicator.remove();
                 notificationsService.markLocallyRead(notificationsService.generateNotificationId(notification));
+                notificationsService.updateUnreadCount().catch(() => {});
             }
             if (e.target.closest('a')) return; // let link clicks bubble normally
             if (targetHref) router.navigate(targetHref);
