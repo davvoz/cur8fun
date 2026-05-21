@@ -1,6 +1,7 @@
 ﻿import authService from './AuthService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
+import walletService from './WalletService.js';
 import { TYPES } from '../models/Notification.js';
 
 const STEEMWORLD_API = 'https://sds.steemworld.org';
@@ -22,6 +23,8 @@ class NotificationsService {
         this._cachedSteemPrice = 1; // STEEM price in SBD ≈ USD; default 1 if unavailable
         this._walletState = new Map(); // per-user progressive wallet scan: { items, from, complete }
         this._lastReadTimestamp = new Map(); // per-user cached lastRead cutoff (ISO) derived from SW data
+        this._vestsRate = null;     // VESTS → SP conversion rate (totalSteem / totalVests)
+        this._vestsRateTime = 0;    // timestamp of last _vestsRate fetch
     }
 
     // â”€â”€â”€ SteemWorld API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -374,7 +377,35 @@ class NotificationsService {
     }
 
     /**
-     * Fetches ONE batch of 1000 account-history ops going backwards in time.
+     * Returns (and caches for 5 min) the VESTS-to-SP conversion rate.
+     * One API call per 5 minutes regardless of how many delegations are in a batch.
+     */
+    async _getVestsRate() {
+        const TTL = 5 * 60 * 1000;
+        if (this._vestsRate && Date.now() - this._vestsRateTime < TTL) return this._vestsRate;
+        const steem = await steemService.ensureLibraryLoaded();
+        const props = await new Promise((resolve, reject) => {
+            steem.api.getDynamicGlobalProperties((err, r) => err ? reject(err) : resolve(r));
+        });
+        const totalVests = parseFloat(props.total_vesting_shares.split(' ')[0]);
+        const totalSteem = parseFloat(props.total_vesting_fund_steem.split(' ')[0]);
+        this._vestsRate = totalSteem / totalVests;
+        this._vestsRateTime = Date.now();
+        return this._vestsRate;
+    }
+
+    /** Converts a VESTS string (e.g. "123456.123456 VESTS") to "X.XXX SP". */
+    async _vestsToSP(vestsString) {
+        try {
+            const v = parseFloat(vestsString.split(' ')[0]);
+            const rate = await this._getVestsRate();
+            return `${(v * rate).toFixed(3)} SP`;
+        } catch {
+            return vestsString; // fallback: show raw VESTS
+        }
+    }
+
+    /** Fetches ONE batch of 1000 account-history ops going backwards in time.
      * Appends matching wallet events to state.items and advances state.from.
      * Sets state.complete = true when history is exhausted.
      */
@@ -392,34 +423,50 @@ class NotificationsService {
 
         if (!batch.length) { state.complete = true; return; }
 
-        batch
-            .filter(([, tx]) => WANTED.has(tx.op[0]))
-            .filter(([, tx]) => {
-                const [type, op] = tx.op;
-                if (type === 'transfer')                return op.to === username;
-                if (type === 'delegate_vesting_shares') return op.delegatee === username;
-                if (type === 'fill_vesting_withdraw')   return op.to_account === username;
-                return false;
-            })
-            .forEach(([index, tx]) => {
-                const [type, op] = tx.op;
-                const account = type === 'transfer'                 ? op.from
-                              : type === 'delegate_vesting_shares'  ? op.delegator
-                              : op.from_account;
-                const amount  = type === 'transfer'                 ? op.amount
-                              : type === 'delegate_vesting_shares'  ? op.vesting_shares
-                              : op.deposited;
-                state.items.push({
-                    id:        `wallet_${tx.trx_id || index}`,
-                    timestamp: new Date(tx.timestamp + 'Z').toISOString(),
-                    type:      TYPES.WALLET,
-                    subtype:   type,
-                    isRead:    false, // corrected later using lastReadTimestamp
-                    account,
-                    amount,
-                    memo: type === 'transfer' ? (op.memo || '') : null,
-                });
+        // Pre-fetch VESTS rate once for the whole batch (used for delegations)
+        let vestsRate = null;
+        const hasDelegation = batch.some(([, tx]) => tx.op[0] === 'delegate_vesting_shares' &&
+            tx.op[1].delegatee === username);
+        if (hasDelegation) {
+            try { vestsRate = await this._getVestsRate(); } catch { /* fallback to raw */ }
+        }
+
+        for (const [index, tx] of batch) {
+            const [type, op] = tx.op;
+            if (!WANTED.has(type)) continue;
+            if (type === 'transfer'                && op.to        !== username) continue;
+            if (type === 'delegate_vesting_shares' && op.delegatee !== username) continue;
+            if (type === 'fill_vesting_withdraw'   && op.to_account !== username) continue;
+
+            const account = type === 'transfer'                 ? op.from
+                          : type === 'delegate_vesting_shares'  ? op.delegator
+                          : op.from_account;
+
+            let amount;
+            if (type === 'transfer') {
+                amount = op.amount;
+            } else if (type === 'delegate_vesting_shares') {
+                if (vestsRate) {
+                    const v = parseFloat(op.vesting_shares.split(' ')[0]);
+                    amount = `${(v * vestsRate).toFixed(3)} SP`;
+                } else {
+                    amount = op.vesting_shares;
+                }
+            } else {
+                amount = op.deposited; // fill_vesting_withdraw: deposited is already in STEEM
+            }
+
+            state.items.push({
+                id:        `wallet_${tx.trx_id || index}`,
+                timestamp: new Date(tx.timestamp + 'Z').toISOString(),
+                type:      TYPES.WALLET,
+                subtype:   type,
+                isRead:    false,
+                account,
+                amount,
+                memo: type === 'transfer' ? (op.memo || '') : null,
             });
+        }
 
         // Track how far back in time this scan has reached
         const oldestInBatch = batch.reduce((min, [, tx]) => {

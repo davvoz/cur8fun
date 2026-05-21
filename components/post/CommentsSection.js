@@ -857,26 +857,42 @@ class CommentsSection {
       return;
     }
     
-    const submitReply = () => {
+    const submitReply = async () => {
       const replyText = replyTextarea.value.trim();
-      
-      if (replyText) {
-        try {
-          this.handleReplyCallback(comment, replyText);
-          replyTextarea.value = '';
-          this.closeReplyForm(replyForm, replyBtn);
-        } catch (error) {
-          console.error('Error submitting reply:', error);
-          alert('Sorry, there was an error submitting your reply. Please try again.');
+      if (!replyText) return;
+
+      const submitBtn = replyForm.querySelector('.submit-reply');
+      const originalText = submitBtn ? submitBtn.textContent : 'Post Reply';
+
+      // Set loading state
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-icons loading">refresh</span> Posting...';
+        submitBtn.classList.add('processing');
+      }
+      replyTextarea.disabled = true;
+
+      try {
+        await this.handleReplyCallback(comment, replyText);
+        replyTextarea.value = '';
+        this.closeReplyForm(replyForm, replyBtn);
+      } catch (error) {
+        console.error('Error submitting reply:', error);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          submitBtn.classList.remove('processing');
         }
+        replyTextarea.disabled = false;
       }
     };
-    
+
     const submitBtn = replyForm.querySelector('.submit-reply');
     if (submitBtn) {
       submitBtn.addEventListener('click', submitReply);
     }
-    
+
     // Allow submitting with Ctrl+Enter
     replyTextarea.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {

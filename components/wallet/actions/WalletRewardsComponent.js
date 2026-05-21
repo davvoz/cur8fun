@@ -263,12 +263,6 @@ export default class WalletRewardsComponent extends Component {
       targetButton.classList.add('loading');
       targetButton.disabled = true;
       
-      if (!this.isMobileDevice || !button.classList.contains('rewards-claim-button-mobile')) {
-        const icon = targetButton.querySelector('i');
-        if (icon) {
-          icon.textContent = 'hourglass_bottom';
-        }
-      }
       
       // Nascondi il badge durante il caricamento
       if (this.rewardsBadge) {
@@ -279,15 +273,34 @@ export default class WalletRewardsComponent extends Component {
       const result = await walletService.claimRewards();
       
       if (result.success) {
+        // Convert reward_vests to SP for display
+        let spStr = '';
+        try {
+          const vestNum = parseFloat(result.rewards.vests);
+          if (vestNum > 0) {
+            const sp = await walletService.vestsToSteem(vestNum);
+            spStr = `, ${sp.toFixed(3)} SP`;
+          }
+        } catch { /* skip SP if conversion fails */ }
+
+        const parts = [];
+        if (parseFloat(result.rewards.steem) > 0) parts.push(`${result.rewards.steem} STEEM`);
+        if (parseFloat(result.rewards.sbd)   > 0) parts.push(`${result.rewards.sbd} SBD`);
+        if (spStr) parts.push(spStr.slice(2)); // remove leading ", "
+
         // Mostra notifica di successo
         eventEmitter.emit('notification', {
           type: 'success',
-          message: `Successfully claimed rewards: ${result.rewards.steem} STEEM, ${result.rewards.sbd} SBD, ${result.rewards.vests.split(' ')[0]} VESTS`
+          message: `Successfully claimed rewards: ${parts.join(', ') || '—'}`
         });
         
-        // Nascondi il pulsante dopo aver reclamato le ricompense
+        // Nascondi con animazione smooth
         this.hasRewards = false;
-        this.element.classList.add('hidden'); // Nascondi l'intero componente
+        this.element.classList.add('hiding');
+        this.element.addEventListener('animationend', () => {
+          this.element.classList.remove('hiding');
+          this.element.classList.add('hidden');
+        }, { once: true });
         
         // Aggiorna i saldi dopo aver reclamato le ricompense
         setTimeout(() => {
@@ -324,13 +337,6 @@ export default class WalletRewardsComponent extends Component {
       
       targetButton.classList.remove('loading');
       targetButton.disabled = false;
-      
-      if (!this.isMobileDevice || !button.classList.contains('rewards-claim-button-mobile')) {
-        const icon = targetButton.querySelector('i');
-        if (icon) {
-          icon.textContent = 'card_giftcard';
-        }
-      }
       
       // Mostra nuovamente il badge se ci sono ricompense
       if (this.hasRewards && this.rewardsBadge) {

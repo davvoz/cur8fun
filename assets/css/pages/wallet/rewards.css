@@ -7,7 +7,29 @@
 }
 
 .wallet-rewards-component.hidden {
-  display: none; /* Nasconde completamente il componente */
+  display: none;
+}
+
+/* ── Smooth collapse when hiding ── */
+@keyframes rewards-collapse {
+  from {
+    max-height: 80px;
+    opacity: 1;
+    margin-top: var(--space-md, 12px);
+    margin-bottom: var(--space-md, 12px);
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+.wallet-rewards-component.hiding {
+  overflow: hidden;
+  pointer-events: none;
+  animation: rewards-collapse 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .rewards-claim-button {
@@ -47,10 +69,33 @@
   background-color: var(--background-lighter, #2d2d2d);
   cursor: wait;
   transform: none;
+  animation: button-glow-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes button-glow-pulse {
+  0%   { box-shadow: 0 0 0 2px var(--secondary-color, #2ecc71), 0 2px 5px rgba(0,0,0,0.2); }
+  50%  { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.18), 0 2px 8px rgba(0,0,0,0.25); }
+  100% { box-shadow: 0 0 0 2px var(--secondary-color, #2ecc71), 0 2px 5px rgba(0,0,0,0.2); }
 }
 
 .rewards-claim-button .material-icons {
-  font-size: 1.5rem; /* Icona più grande */
+  font-size: 1.5rem;
+}
+
+/* Gift icon bounce while claiming */
+@keyframes gift-bounce {
+  0%   { transform: scale(1)    translateY(0); }
+  20%  { transform: scale(1.25) translateY(-5px) rotate(-8deg); }
+  40%  { transform: scale(1.2)  translateY(-3px) rotate(6deg); }
+  60%  { transform: scale(1.15) translateY(-4px) rotate(-4deg); }
+  80%  { transform: scale(1.1)  translateY(-2px) rotate(3deg); }
+  100% { transform: scale(1)    translateY(0)    rotate(0deg); }
+}
+
+.rewards-claim-button.loading .material-icons {
+  animation: gift-bounce 0.9s ease-in-out infinite;
+  transform-origin: center bottom;
+  display: inline-block;
 }
 
 /* Badge per indicare rewards disponibili */

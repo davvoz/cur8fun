@@ -111,6 +111,23 @@ class HomeView extends BasePostView {  constructor(params) {
           this.renderPosts(page > 1);
         }
       }
+
+      // Empty state for following feed
+      if (page === 1 && this.posts.length === 0) {
+        const activeTag = this._tempTag || this.tag;
+        if (activeTag === 'social') {
+          const postsContainer = this.container?.querySelector('.posts-container');
+          if (postsContainer) {
+            postsContainer.innerHTML = `
+              <div class="empty-state">
+                <span class="material-icons">people</span>
+                <h3>Your following feed is empty</h3>
+                <p>Follow some users or join communities to see their posts here.</p>
+              </div>
+            `;
+          }
+        }
+      }
       
       return hasMore;
     } catch (error) {
