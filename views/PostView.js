@@ -56,7 +56,7 @@ class PostView extends View {  constructor(params = {}) {
     this.commentController = new CommentController(this);
 
     // Content renderer for post body
-    this.initializeContentRenderer();
+    this._contentRendererReady = this.initializeContentRenderer();
   }
 
   async initializeContentRenderer() {
@@ -207,6 +207,7 @@ class PostView extends View {  constructor(params = {}) {
       this.loadingIndicator.updateProgress(100);
 
       metaTagService.updatePostMetaTags(this.post);
+      await this._contentRendererReady;
       this.initComponents();
       await this.renderComponents();
       if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }

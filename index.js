@@ -106,6 +106,11 @@ function initApp() {
 
   // Inizializza il service worker e il sistema di aggiornamenti
   initPwaFeatures();
+
+  // Carica subito il conteggio notifiche non lette (senza aspettare l'apertura della campanella)
+  if (authService.getCurrentUser()) {
+    notificationsService.updateUnreadCount().catch(() => {});
+  }
 }
 
 // Funzione per inizializzare le funzionalità PWA

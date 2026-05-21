@@ -116,6 +116,16 @@
     color: var(--secondary-color);
 }
 
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.mark-read-spinner {
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
 .action-bar .refresh-btn {
     padding: var(--space-xs) var(--space-sm);
 }
@@ -169,35 +179,58 @@
 }
 
 .notification:hover {
-    background: var(--background-lighter);
-    transform: translateY(-3px);
-    box-shadow: var(--subtle-shadow);
+    background-color: var(--background-hover) !important;
 }
 
 /* Different colors for different notification types */
-.notification.replies-notification {
+.notification.reply {
     border-left-color: #3498db; /* Blue for replies */
     background-image: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent 30%);
 }
 
-.notification.mentions {
+.notification.mention {
     border-left-color: #9b59b6; /* Purple for mentions */
     background-image: linear-gradient(to right, rgba(155, 89, 182, 0.05), transparent 30%);
 }
 
-.notification.follows {
-    border-left-color: var(--secondary-color); /* Green for follows */
+.notification.follow {
+    border-left-color: #f1c40f; /* Yellow for follows */
+    background-image: linear-gradient(to right, rgba(241, 196, 15, 0.05), transparent 30%);
+}
+
+.notification.vote.upvote {
+    border-left-color: #2ecc71; /* Green for upvotes */
     background-image: linear-gradient(to right, rgba(46, 204, 113, 0.05), transparent 30%);
 }
 
-.notification.upvotes {
-    border-left-color: #e74c3c; /* Red for upvotes */
+.notification.vote.downvote {
+    border-left-color: #e74c3c; /* Red for downvotes */
     background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent 30%);
 }
 
-.notification.resteems {
-    border-left-color: #f39c12; /* Orange for resteems */
+.notification.reblog {
+    border-left-color: #f39c12; /* Orange for reblogs */
     background-image: linear-gradient(to right, rgba(243, 156, 18, 0.05), transparent 30%);
+}
+
+.notification.wallet {
+    border-left-color: #1abc9c; /* Teal for wallet events */
+    background-image: linear-gradient(to right, rgba(26, 188, 156, 0.05), transparent 30%);
+}
+
+.notification.wallet .notification-icon .material-icons {
+    color: #1abc9c;
+}
+
+.notification .wallet-amount {
+    font-weight: 600;
+    color: #1abc9c;
+}
+
+.notification .wallet-memo {
+    color: var(--text-muted);
+    font-size: 0.85em;
+    font-style: italic;
 }
 
 /* Read vs unread state */
@@ -208,27 +241,33 @@
     box-shadow: none;
 }
 
-/* Make upvotes always have their distinctive color, even when read */
-.notification.upvotes.read {
-    border-left-color: var(--secondary-color);
+/* Make vote notifications always have their distinctive color, even when read */
+.notification.vote.upvote.read {
+    border-left-color: rgba(46, 204, 113, 0.4);
+    background-image: linear-gradient(to right, rgba(46, 204, 113, 0.05), transparent 30%);
+    opacity: 0.7;
+}
+
+.notification.vote.downvote.read {
+    border-left-color: rgba(231, 76, 60, 0.4);
     background-image: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent 30%);
     opacity: 0.7;
 }
 
-.notification.mentions.read {
-    border-left-color: rgba(155, 89, 182, 0.4); /* Keep a hint of mentions color */
+.notification.mention.read {
+    border-left-color: rgba(155, 89, 182, 0.4);
 }
 
-.notification.follows.read {
-    border-left-color: rgba(46, 204, 113, 0.4); /* Keep a hint of follows color */
+.notification.follow.read {
+    border-left-color: rgba(241, 196, 15, 0.4);
 }
 
-.notification.replies-.notification.read {
-    border-left-color: rgba(52, 152, 219, 0.4); /* Keep a hint of replies color */
+.notification.reply.read {
+    border-left-color: rgba(52, 152, 219, 0.4);
 }
 
-.notification.resteems.read {
-    border-left-color: rgba(243, 156, 18, 0.4); /* Keep a hint of resteems color */
+.notification.reblog.read {
+    border-left-color: rgba(243, 156, 18, 0.4);
 }
 
 .notification.unread {
@@ -258,25 +297,28 @@
     transition: all var(--transition-normal);
 }
 
-.notification.replies-notification {
+.notification.reply {
     background-color: rgba(52, 152, 219, 0.1);
 }
 
-.notification.mentions {
+.notification.mention {
     background-color: rgba(155, 89, 182, 0.1);
 }
 
-.notification.follows {
-    background-color: rgba(46, 204, 113, 0.1);
+.notification.follow {
+    background-color: rgba(241, 196, 15, 0.08);
 }
 
+.notification.vote.upvote {
+    background-color: rgba(46, 204, 113, 0.08);
+}
 
-.notification.resteems  {
+.notification.vote.downvote {
+    background-color: rgba(231, 76, 60, 0.08);
+}
+
+.notification.reblog {
     background-color: rgba(243, 156, 18, 0.1);
-}
-
-.notification:hover  {
-    transform: scale(1.1);
 }
 
 .notification .material-icons {
@@ -284,24 +326,41 @@
     color: var(--text-secondary);
 }
 
-.notification.replies-notification .notification-icon .material-icons {
+.notification.reply .notification-icon .material-icons {
     color: #3498db;
 }
 
-.notification.mentions .notification-icon .material-icons {
+.notification.mention .notification-icon .material-icons {
     color: #9b59b6;
 }
 
-.notification.follows .notification-icon .material-icons {
-    color: var(--secondary-color);
+.notification.follow .notification-icon .material-icons {
+    color: #f1c40f;
 }
 
-.notification.upvotes .notification-icon .material-icons {
-    color: var(--secondary-color);
+.notification.vote.upvote .notification-icon .material-icons {
+    color: #2ecc71;
 }
 
-.notification.resteems .notification-icon .material-icons {
+.notification.vote.downvote .notification-icon .material-icons {
+    color: #e74c3c;
+}
+
+.notification.reblog .notification-icon .material-icons {
     color: #f39c12;
+}
+
+.notification-text .vote-value {
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.notification-text .vote-value.positive {
+    color: #2ecc71;
+}
+
+.notification-text .vote-value.negative {
+    color: #e74c3c;
 }
 
 .notification .notification-content {
@@ -519,10 +578,6 @@
     
     .notification .notification-content {
         grid-column: 2;
-    }
-    
-    .action-bar .mark-read-btn span:not(.material-icons) {
-        display: none;
     }
     
     /* Additional mobile improvements */

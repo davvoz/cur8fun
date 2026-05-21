@@ -3,6 +3,7 @@ import authService from '../services/AuthService.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import { TYPES } from '../models/Notification.js';
 import router from '../utils/Router.js';
+import eventEmitter from '../utils/EventEmitter.js';
 
 class NotificationsView {
     constructor(params) {
@@ -38,19 +39,20 @@ class NotificationsView {
         notificationFilters.className = 'notification-filters';
         
         // Create filter buttons
-        const filterTypes = [TYPES.ALL, TYPES.REPLIES, TYPES.MENTIONS, TYPES.UPVOTES, TYPES.FOLLOWS, TYPES.RESTEEMS];
-       const modificaReply = (type) => {
-            if (type === TYPES.REPLIES) {
-                return 'replys';
-            }
-            return type;
-        }
-        filterTypes.forEach(type => {
+        const filterLabels = {
+            [TYPES.ALL]:     'All',
+            [TYPES.VOTE]:    'Votes',
+            [TYPES.REPLY]:   'Replies',
+            [TYPES.MENTION]: 'Mentions',
+            [TYPES.FOLLOW]:  'Follows',
+            [TYPES.REBLOG]:  'Reblogs',
+            [TYPES.WALLET]:  'Wallet'
+        };
+        Object.entries(filterLabels).forEach(([type, label]) => {
             const button = document.createElement('button');
-            button.className = `filter-btn ${this.activeFilter ===type ? 'active' : ''}`;
+            button.className = `filter-btn ${this.activeFilter === type ? 'active' : ''}`;
             button.setAttribute('data-filter', type);
-            const custom  = modificaReply(type);
-            button.textContent = custom.charAt(0).toUpperCase() + custom.slice(1);
+            button.textContent = label;
             notificationFilters.appendChild(button);
         });
         notContainer.appendChild(notificationFilters);
@@ -120,69 +122,7 @@ class NotificationsView {
         this.notificationsContainer = notContainer.querySelector('.notifications-container');
         this.emptyState = notContainer.querySelector('.empty-state');
         
-        // Se siamo nella vista upvotes, aggiungiamo un pulsante speciale per il recupero completo
-        if (this.activeFilter === TYPES.UPVOTES) {
-            const actionBar = notContainer.querySelector('.action-bar');
-            const loadAllDiv = document.createElement('div');
-            loadAllDiv.className = 'load-all-buttons';
-            loadAllDiv.style.margin = '20px 0';
-            
-            // Create description paragraph
-            const descriptionP = document.createElement('p');
-            descriptionP.style.textAlign = 'center';
-            descriptionP.style.color = 'var(--text-secondary)';
-            descriptionP.style.marginBottom = '10px';
-            descriptionP.textContent = 'Per vedere ';
-            
-            // Add strong element inside paragraph
-            const strongText = document.createElement('strong');
-            strongText.textContent = 'TUTTI';
-            descriptionP.appendChild(strongText);
-            
-            // Add the rest of the text
-            descriptionP.appendChild(document.createTextNode(' gli upvote storici:'));
-            
-            // Create button container
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.justifyContent = 'center';
-            buttonContainer.style.gap = '20px';
-            
-            // Create load all button
-            const loadAllBtn = document.createElement('button');
-            loadAllBtn.className = 'load-all-btn primary';
-            
-            // Create icon for button
-            const iconSpan = document.createElement('span');
-            iconSpan.className = 'material-icons';
-            iconSpan.textContent = 'history';
-            loadAllBtn.appendChild(iconSpan);
-            
-            // Add button text
-            loadAllBtn.appendChild(document.createTextNode(' Carica TUTTI gli upvote (COMPLETO)'));
-            
-            // Add click event listener to the button
-            loadAllBtn.addEventListener('click', () => {
-            this.loadAllHistoricalUpvotes();
-            });
-            
-            // Assemble the components
-            buttonContainer.appendChild(loadAllBtn);
-            loadAllDiv.appendChild(descriptionP);
-            loadAllDiv.appendChild(buttonContainer);
-            
-            notContainer.insertBefore(loadAllDiv, this.notificationsContainer);
-        }
-        
-        // Aggiungi un pulsante EFFICACE per forzare recupero completo
-        const forceButton = document.createElement('button');
-        forceButton.className = 'force-load-btn';
-        forceButton.innerHTML = '<span class="material-icons">restart_alt</span>';
-        forceButton.title = 'Forza recupero completo di tutte le notifiche';
-        forceButton.addEventListener('click', () => this.forceCompleteRefresh());
-        actionBar.appendChild(forceButton);
-        
-        // Load initial notifications (reduced starting limit)
+        // Load initial notifications
         await this.loadNotifications(1, 30);
         
         // Setup infinite scroll after a short delay to ensure content is rendered
@@ -226,6 +166,10 @@ class NotificationsView {
         if (this.activeFilter === filter) return;
         
         this.activeFilter = filter;
+
+        // Hide mark-all-read on wallet tab (wallet events are always read)
+        const markReadBtn = this.container.querySelector('.mark-read-btn');
+        if (markReadBtn) markReadBtn.style.display = filter === TYPES.WALLET ? 'none' : '';
         
         // Update active class on filter buttons
         const filterButtons = this.container.querySelectorAll('.filter-btn');
@@ -234,26 +178,18 @@ class NotificationsView {
             button.classList.toggle('active', buttonFilter === filter);
         });
         
-        // Reset notifications and load with new filter
+        // Reset and reload with new filter (cache already has all notifications)
         this.notifications = [];
         this.renderedNotificationIds.clear();
         if (this.notificationsContainer) {
             this.notificationsContainer.innerHTML = '';
         }
-        
-        // Mostra messaggio temporaneo
-        if (this.notificationsContainer) {
-            this.notificationsContainer.innerHTML = `
-                <div style="text-align:center; padding:20px;">
-                    Caricamento notifiche ${filter}...
-                </div>
-            `;
+        if (this.infiniteScroll) {
+            this.infiniteScroll.destroy();
+            this.infiniteScroll = null;
         }
-        
-        // Clear e reload con il nuovo filtro
-        await this.forceCompleteRefresh();
-        
-        // Setup infinite scroll again with the new content type
+
+        await this.loadNotifications(1, 30);
         setTimeout(() => this.setupInfiniteScroll(), 100);
     }
     
@@ -269,18 +205,12 @@ class NotificationsView {
         }
         
         try {
-            // Force refresh solo per la prima pagina
-            const forceRefresh = page === 1;
-            
-            // Per gli upvote, usa un limite più alto
-            const actualLimit = this.activeFilter === TYPES.UPVOTES ? 50 : limit;
-            
-            const { notifications, hasMore } = await notificationsService.getNotifications(
-                this.activeFilter, 
-                page, 
-                actualLimit, 
-                forceRefresh
-            );
+            // Only force-refresh on first page (clears the service cache)
+            const forceRefresh = page === 1 && this.notifications.length === 0;
+
+            const { notifications, hasMore } = this.activeFilter === TYPES.WALLET
+                ? await notificationsService.getWalletNotifications(page, limit, forceRefresh)
+                : await notificationsService.getNotifications(this.activeFilter, page, limit, forceRefresh);
             
             if (page === 1) {
                 // Clear existing notifications for first page
@@ -317,77 +247,11 @@ class NotificationsView {
             
             return hasMore && uniqueNotifications.length > 0;
         } catch (error) {
+            console.error('NotificationsView: loadNotifications failed', error);
             this.showError('Failed to load notifications. Please try again later.');
             return false;
         } finally {
             this.loading = false;
-            this.hideLoading();
-        }
-    }
-    
-    async forceCompleteRefresh() {
-        // Reset completo
-        this.notifications = [];
-        this.renderedNotificationIds.clear();
-        
-        if (this.notificationsContainer) {
-            this.notificationsContainer.innerHTML = '<div style="text-align:center;padding:20px;">Recupero completo delle notifiche in corso...</div>';
-        }
-        
-        // Elimina completamente la cache
-        notificationsService.clearCache();
-        
-        // Disattiva l'infinite scroll
-        if (this.infiniteScroll) {
-            this.infiniteScroll.destroy();
-            this.infiniteScroll = null;
-        }
-        
-        this.showLoading();
-        
-        // Carica tutto da zero con limite enorme
-        try {
-            const { notifications } = await notificationsService.getNotifications(
-                this.activeFilter, 
-                1,
-                1000, // Limite massimo
-                true  // Forza refresh
-            );
-            
-            // Clear container
-            if (this.notificationsContainer) {
-                this.notificationsContainer.innerHTML = '';
-            }
-            
-            // Mostra contatore
-            const countDiv = document.createElement('div');
-            countDiv.style.padding = '10px';
-            countDiv.style.textAlign = 'center';
-            countDiv.style.backgroundColor = 'var(--background-light)';
-            countDiv.style.borderRadius = 'var(--radius-md)';
-            countDiv.style.marginBottom = '15px';
-            countDiv.innerHTML = `<strong>Recuperate ${notifications.length} notifiche!</strong>`;
-            this.notificationsContainer.appendChild(countDiv);
-            
-            // Aggiorna stato interno
-            this.notifications = [...notifications];
-            notifications.forEach(n => {
-                this.renderedNotificationIds.add(notificationsService.generateNotificationId(n));
-            });
-            
-            // Renderizza
-            this.renderNotifications(notifications);
-            
-            // Aggiorna stato vuoto
-            this.updateEmptyState();
-            
-            // Attiva infinite scroll se necessario
-            if (notifications.length >= 50) {
-                setTimeout(() => this.setupInfiniteScroll(), 300);
-            }
-        } catch (error) {
-            this.showError('Errore nel recupero completo delle notifiche. Riprova più tardi.');
-        } finally {
             this.hideLoading();
         }
     }
@@ -414,70 +278,81 @@ class NotificationsView {
     }
     
     createNotificationElement(notification) {
-        // Usa il metodo isNotificationRead del servizio per determinare lo stato di lettura
-        const isRead = notificationsService.isNotificationRead(notification);
-        
+        const isRead = notification.isRead;
+        const { account, author, permlink, type } = notification;
+
         const element = document.createElement('div');
-        element.className = `notification ${isRead ? 'read' : 'unread'} ${notification.type}`;
-        
-        // Different templates based on notification type
+        const voteDir = type === TYPES.VOTE ? (notification.rshares >= 0 ? ' upvote' : ' downvote') : '';
+        element.className = `notification ${isRead ? 'read' : 'unread'} ${type}${voteDir}`;
+
         let contentHtml = '';
-        const data = notification.data;
-        
-        switch (notification.type) {
-            case TYPES.REPLIES:
-                contentHtml = `
-                    <a href="/@${data.author}" class="user">${data.author}</a>
-                    replied to your 
-                    <a href="/comment/@${data.author}/${data.permlink}" class="content-link">post</a>: 
-                    <span class="excerpt">${data.body}</span>
-                `;
+        let targetHref  = null;
+
+        switch (type) {
+            case TYPES.VOTE: {
+                const isVoteOnComment = notification.linkDepth > 0;
+                targetHref  = isVoteOnComment
+                    ? `/comment/@${author}/${permlink}`
+                    : `/@${author}/${permlink}`;
+                const voteVal = notificationsService.rsharesToDollarString(notification.rshares);
+                const valStr  = voteVal ? ` <span class="vote-value ${notification.rshares >= 0 ? 'positive' : 'negative'}">${voteVal}</span>` : '';
+                contentHtml = `<a href="/@${account}" class="user">${account}</a> voted your <a href="${targetHref}" class="content-link">${isVoteOnComment ? 'comment' : 'post'}</a>${valStr}`;
                 break;
-                
-            case TYPES.MENTIONS:
-                contentHtml = `
-                    <a href="/@${data.author}" class="user">${data.author}</a> 
-                    mentioned you in a 
-                    <a href="/comment/@${data.author}/${data.permlink}" class="content-link">comment</a>: 
-                    <span class="excerpt">${data.body}</span>
-                `;
+            }
+
+            case TYPES.REPLY:
+                targetHref  = `/comment/@${author}/${permlink}`;
+                contentHtml = `<a href="/@${account}" class="user">${account}</a> replied to your <a href="${targetHref}" class="content-link">content</a>`;
                 break;
-                
-            case TYPES.FOLLOWS:
-                contentHtml = `
-                    <a href="/@${data.follower}" class="user">${data.follower}</a> 
-                    started following you
-                `;
+
+            case TYPES.MENTION: {
+                const isMentionInComment = notification.linkDepth > 0;
+                targetHref  = isMentionInComment
+                    ? `/comment/@${author}/${permlink}`
+                    : `/@${author}/${permlink}`;
+                contentHtml = `<a href="/@${account}" class="user">${account}</a> mentioned you in a <a href="${targetHref}" class="content-link">${isMentionInComment ? 'comment' : 'post'}</a>`;
                 break;
-                
-            case TYPES.UPVOTES:
-                contentHtml = `
-                    <a href="/@${data.voter}" class="user">${data.voter}</a> 
-                    upvoted your 
-                    <a href="/comment/@${authService.getCurrentUser().username}/${data.permlink}" class="content-link">post</a>
-                    (${data.weight}%)
-                `;
+            }
+
+            case TYPES.FOLLOW:
+                contentHtml = `<a href="/@${account}" class="user">${account}</a> started following you`;
                 break;
-                
-            case TYPES.RESTEEMS:
-                contentHtml = `
-                    <a href="/@${data.account}" class="user">${data.account}</a> 
-                    resteemed your 
-                    <a href="/@${authService.getCurrentUser().username}/${data.permlink}" class="content-link">post</a>
-                `;
+
+            case TYPES.REBLOG:
+                targetHref  = `/@${author}/${permlink}`;
+                contentHtml = `<a href="/@${account}" class="user">${account}</a> reblogged your <a href="${targetHref}" class="content-link">post</a>`;
                 break;
+
+            case TYPES.WALLET: {
+                const { subtype, amount } = notification;
+                targetHref = '/wallet';
+                if (subtype === 'transfer') {
+                    contentHtml = `<a href="/@${account}" class="user">${account}</a> sent you <span class="wallet-amount">${amount}</span>`;
+                } else if (subtype === 'delegate_vesting_shares') {
+                    contentHtml = `<a href="/@${account}" class="user">${account}</a> delegated <span class="wallet-amount">${amount}</span> to you`;
+                } else {
+                    contentHtml = `Power-down payment: <span class="wallet-amount">${amount}</span> received`;
+                }
+                break;
+            }
+
+            default: {
+                const fallbackHref = permlink ? `/@${author}/${permlink}` : null;
+                if (fallbackHref) targetHref = fallbackHref;
+                contentHtml = fallbackHref
+                    ? `<a href="/@${account}" class="user">${account}</a> interacted with your <a href="${fallbackHref}" class="content-link">content</a>`
+                    : `<a href="/@${account}" class="user">${account}</a> interacted with your content`;
+            }
         }
-        
-        // Format timestamp - ensure proper timezone handling with the Z suffix
-        // Matches how dates are handled in BasePostView.js and PostHeader.js
-        const timestamp = notification.timestamp;
-        const timeAgo = this.formatTimeAgo(timestamp);
+
+        // Format timestamp
+        const timeAgo = this.formatTimeAgo(notification.timestamp);
         
         // Create notification inner HTML
         element.innerHTML = `
             <div class="notification-icon">
                 <span class="material-icons">
-                    ${this.getIconForType(notification.type)}
+                    ${this.getIconForType(notification)}
                 </span>
             </div>
             <div class="notification-content">
@@ -487,42 +362,49 @@ class NotificationsView {
             ${!isRead ? '<div class="unread-indicator"></div>' : ''}
         `;
         
-        // Add click handler to mark as read and navigation handling
-        element.addEventListener('click', () => {
-            this.markAsRead(notification, element);
-            
-            // Extract target link
-            const contentLink = element.querySelector('.content-link');
-            if (contentLink) {
-                const href = contentLink.getAttribute('href');
-                if (href) {
-                    router.navigate(href);
-                }
+        // Click: mark as locally read + navigate
+        element.addEventListener('click', (e) => {
+            if (!notification.isRead) {
+                notification.isRead = true;
+                element.classList.remove('unread');
+                element.classList.add('read');
+                const indicator = element.querySelector('.unread-indicator');
+                if (indicator) indicator.remove();
+                notificationsService.markLocallyRead(notificationsService.generateNotificationId(notification));
             }
+            if (e.target.closest('a')) return; // let link clicks bubble normally
+            if (targetHref) router.navigate(targetHref);
         });
-        
+
         return element;
     }
     
-    getIconForType(type) {
+    getIconForType(notification) {
+        if (notification.type === TYPES.VOTE) {
+            return notification.rshares >= 0 ? 'thumb_up' : 'thumb_down';
+        }
+        if (notification.type === TYPES.WALLET) {
+            const walletIcons = {
+                transfer:                'payments',
+                delegate_vesting_shares: 'trending_up',
+                fill_vesting_withdraw:   'account_balance_wallet',
+            };
+            return walletIcons[notification.subtype] || 'account_balance_wallet';
+        }
         const icons = {
-            [TYPES.REPLIES]: 'reply',
-            [TYPES.MENTIONS]: 'alternate_email',
-            [TYPES.FOLLOWS]: 'person_add',
-            [TYPES.UPVOTES]: 'thumb_up',
-            [TYPES.RESTEEMS]: 'repeat'
+            [TYPES.REPLY]:   'reply',
+            [TYPES.MENTION]: 'alternate_email',
+            [TYPES.FOLLOW]:  'person_add',
+            [TYPES.REBLOG]:  'repeat'
         };
-        
-        return icons[type] || 'notifications';
+        return icons[notification.type] || 'notifications';
     }
     
     formatTimeAgo(date) {
-        // Add "Z" suffix to ensure proper UTC time handling (just like in BasePostView.js)
         let timestamp;
-        
         if (typeof date === 'string') {
-            // If we have a string date, add Z suffix to ensure UTC time handling
-            timestamp = new Date(date + "Z");
+            // Timestamps from _parseResponse are already ISO with Z; guard duplicates
+            timestamp = new Date(date.endsWith('Z') ? date : date + 'Z');
         } else if (date instanceof Date) {
             // If we already have a Date object, create a new one from ISO string with Z
             timestamp = new Date(date.toISOString());
@@ -558,154 +440,47 @@ class NotificationsView {
         }
     }
     
-    async markAsRead(notification, element) {
-        if (notification.isRead) return;
-        
-        await notificationsService.markAsRead(notification);
-        
-        // Update UI
-        notification.isRead = true;
-        element.classList.remove('unread');
-        element.classList.add('read');
-        
-        // Remove unread indicator
-        const indicator = element.querySelector('.unread-indicator');
-        if (indicator) {
-            indicator.remove();
-        }
-    }
-    
     async markAllAsRead() {
-        await notificationsService.markAllAsRead();
-        
-        // Update UI for all notifications
-        const unreadElements = this.container.querySelectorAll('.notification.unread');
-        unreadElements.forEach(element => {
-            element.classList.remove('unread');
-            element.classList.add('read');
-            
-            const indicator = element.querySelector('.unread-indicator');
-            if (indicator) {
-                indicator.remove();
+        const btn = this.container.querySelector('.mark-read-btn');
+        const originalHTML = btn ? btn.innerHTML : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            btn.innerHTML = '<span class="material-icons mark-read-spinner">hourglass_empty</span><span>Loading...</span>';
+        }
+
+        try {
+            await notificationsService.markAllAsRead();
+
+            // Optimistic UI: flip all unread elements to read
+            this.container.querySelectorAll('.notification.unread').forEach(el => {
+                el.classList.replace('unread', 'read');
+                const ind = el.querySelector('.unread-indicator');
+                if (ind) ind.remove();
+            });
+            this.notifications.forEach(n => { n.isRead = true; });
+
+            eventEmitter.emit('notification', { type: 'success', message: 'All notifications marked as read' });
+        } catch (err) {
+            console.error('markAllAsRead failed:', err);
+            eventEmitter.emit('notification', { type: 'error', message: 'Failed to mark as read: ' + err.message });
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                if (originalHTML) btn.innerHTML = originalHTML;
             }
-        });
-        
-        // Update notification objects
-        this.notifications.forEach(notification => {
-            notification.isRead = true;
-        });
+        }
     }
     
     async refreshNotifications() {
-        // Reset e ricarica
         this.notifications = [];
         this.renderedNotificationIds.clear();
-        
-        if (this.notificationsContainer) {
-            this.notificationsContainer.innerHTML = '';
-        }
-        
-        // Forza il refresh completo della cache
+        if (this.notificationsContainer) this.notificationsContainer.innerHTML = '';
         notificationsService.clearCache();
-        
-        // Destroy dell'infinite scroll
-        if (this.infiniteScroll) {
-            this.infiniteScroll.destroy();
-            this.infiniteScroll = null;
-        }
-        
-        // Carica notifiche con refresh forzato 
-        await this.loadNotifications(1, this.activeFilter === TYPES.UPVOTES ? 50 : 30, true);
-        
-        // Ricrea infinite scroll
+        if (this.infiniteScroll) { this.infiniteScroll.destroy(); this.infiniteScroll = null; }
+        await this.loadNotifications(1, 30);
         setTimeout(() => this.setupInfiniteScroll(), 300);
-    }
-    
-    /**
-     * Carica TUTTI gli upvote storici senza limiti
-     */
-    async loadAllHistoricalUpvotes() {
-        // Reset completo dello stato
-        this.notifications = [];
-        this.renderedNotificationIds.clear();
-        
-        if (this.notificationsContainer) {
-            this.notificationsContainer.innerHTML = '';
-        }
-        
-        // Disattiva l'infinite scroll perché vogliamo tutto in una volta
-        if (this.infiniteScroll) {
-            this.infiniteScroll.destroy();
-            this.infiniteScroll = null;
-        }
-        
-        this.showLoading();
-        
-        // Aggiungi un messaggio di attesa
-        const waitMessage = document.createElement('div');
-        waitMessage.className = 'wait-message';
-        waitMessage.textContent = 'Recuperando tutti gli upvote dal primo all\'ultimo. Questo processo potrebbe richiedere diversi minuti...';
-        waitMessage.style.textAlign = 'center';
-        waitMessage.style.padding = '20px';
-        waitMessage.style.color = 'var(--text-secondary)';
-        waitMessage.style.fontStyle = 'italic';
-        this.notificationsContainer.appendChild(waitMessage);
-        
-        try {
-            // Forza il refresh completo
-            notificationsService.clearCache();
-            
-            // Ottieni TUTTI gli upvote storici
-            // L'API è limitata, quindi potrebbe richiedere molto tempo
-            const allUpvotes = await notificationsService.fetchAllHistoricalNotifications(
-                authService.getCurrentUser().username,
-                TYPES.UPVOTES
-            );
-            
-            // Rimuovi il messaggio di attesa
-            waitMessage.remove();
-            
-            if (!allUpvotes.length) {
-                this.notificationsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <p>Nessun upvote trovato nella storia dell'account.</p>
-                    </div>
-                `;
-                this.hideLoading();
-                return;
-            }
-            
-            // Mostra il conteggio totale
-            const countMessage = document.createElement('div');
-            countMessage.className = 'count-message';
-            countMessage.innerHTML = `
-                <div style="text-align: center; padding: 10px; background: var(--background-light); border-radius: var(--radius-md); margin-bottom: 20px;">
-                    <h3>Recuperati ${allUpvotes.length} upvote totali</h3>
-                    <p>Vengono mostrati tutti gli upvote ricevuti dall'inizio dell'account</p>
-                </div>
-            `;
-            this.notificationsContainer.appendChild(countMessage);
-            
-            // Aggiorna lo stato interno
-            this.notifications = [...allUpvotes];
-            
-            // Traccia gli ID già renderizzati
-            allUpvotes.forEach(notification => {
-                const notificationId = notificationsService.generateNotificationId(notification);
-                this.renderedNotificationIds.add(notificationId);
-            });
-            
-            // Renderizza tutte le notifiche
-            this.renderNotifications(allUpvotes);
-            
-            // Aggiorna lo stato vuoto
-            this.updateEmptyState();
-            
-        } catch (error) {
-            this.showError('Si è verificato un errore durante il recupero degli upvote. Riprova più tardi.');
-        } finally {
-            this.hideLoading();
-        }
     }
     
     setupInfiniteScroll() {
@@ -741,7 +516,7 @@ class NotificationsView {
             },
             threshold: '500px',
             initialPage: 1,
-            loadingMessage: 'Caricamento notifiche...',
+            loadingMessage: 'Loading notifications...',
             endMessage: 'Nessun\'altra notifica da caricare',
             errorMessage: 'Errore nel caricamento delle notifiche. Riprova.'
         });

@@ -1,606 +1,481 @@
-import steemService from './SteemService.js';
-import authService from './AuthService.js';
+﻿import authService from './AuthService.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import steemService from './SteemService.js';
 import { TYPES } from '../models/Notification.js';
-import transactionHistoryService from './TransactionHistoryService.js';
+
+const STEEMWORLD_API = 'https://sds.steemworld.org';
 
 /**
- * Service for managing user notifications in the Steem application
+ * Service for managing user notifications via the SteemWorld API.
+ *
+ * Notification read state is managed on-chain using the `notify` custom_json
+ * operation (["setLastRead", {"date": "..."}]), so it is consistent across
+ * all Steem frontends.
  */
 class NotificationsService {
     constructor() {
-        this.notificationsCache = new Map();
-        this.cacheExpiry = 5 * 60 * 1000; // 5 minutes cache
+        this._cache = new Map();
+        this._cacheExpiry = 2 * 60 * 1000; // 2 minutes
         this.unreadCount = 0;
-        this.allNotificationsCache = null;
-        this.debugMode = true; // Attiva debugging esteso
-        
-        // Initialize read status tracking from localStorage
-        this.readNotificationsMap = this.loadReadStatusFromStorage();
-        
-        // Preload done lazily on first access, not at construction
+        this._cachedRewardFund = null;
+        this._rewardFundCacheTime = 0;
+        this._cachedSteemPrice = 1; // STEEM price in SBD ≈ USD; default 1 if unavailable
+        this._walletState = new Map(); // per-user progressive wallet scan: { items, from, complete }
+        this._lastReadTimestamp = new Map(); // per-user cached lastRead cutoff (ISO) derived from SW data
     }
-    
-    /**
-     * Loads the read status of notifications from localStorage
-     * @returns {Map} Map of notification IDs that have been read
-     */
-    loadReadStatusFromStorage() {
-        const map = new Map();
+
+    // â”€â”€â”€ SteemWorld API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    async _fetchFromAPI(username, status, limit = 250, offset = 0) {
+        const url = `${STEEMWORLD_API}/notifications_api/getNotificationsByStatus/${encodeURIComponent(username)}/${status}/${limit}/${offset}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`SteemWorld API error: ${resp.status}`);
+        const data = await resp.json();
+        if (data.code !== 0) throw new Error(`SteemWorld API returned code ${data.code}`);
+        return this._parseResponse(data.result);
+    }
+
+    _parseResponse(result) {
+        if (!result || !result.rows || !result.cols) return [];
+        const c = result.cols;
+        return result.rows.map(row => {
+            const rawType = row[c.type];
+            return {
+                id:        row[c.id],
+                timestamp: new Date(row[c.time] * 1000).toISOString(),
+                type:      rawType === 'resteem' ? 'reblog' : rawType,
+                isRead:    row[c.is_read] === 1,
+                account:   row[c.account],   // who performed the action
+                author:    row[c.author],    // author of the target content
+                permlink:  row[c.permlink],
+                linkDepth: row[c.link_depth],
+                rshares:   row[c.voted_rshares]
+            };
+        });
+    }
+
+    // â”€â”€â”€ Cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    _getCached(key) {
+        const entry = this._cache.get(key);
+        if (!entry) return null;
+        if (Date.now() - entry.ts > this._cacheExpiry) {
+            this._cache.delete(key);
+            return null;
+        }
+        return entry.data;
+    }
+
+    _setCached(key, data) {
+        this._cache.set(key, { data, ts: Date.now() });
+    }
+
+    clearCache() {
+        this._cache.clear();
+        this._walletState.clear();
+        this._lastReadTimestamp.clear();
+    }
+
+    // --- Reward Fund -------------------------------------------------------
+
+    async _ensureRewardFund() {
+        const TTL = 5 * 60 * 1000;
+        if (this._cachedRewardFund && Date.now() - this._rewardFundCacheTime < TTL) return;
         try {
-            const savedData = localStorage.getItem('steemee_read_notifications');
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
-                if (Array.isArray(parsedData)) {
-                    parsedData.forEach(id => map.set(id, true));
-                }
+            await steemService.ensureLibraryLoaded();
+            const [fund, price] = await Promise.all([
+                new Promise((resolve, reject) => {
+                    window.steem.api.getRewardFund('post', (err, r) => err ? reject(err) : resolve(r));
+                }),
+                new Promise((resolve) => {
+                    // getCurrentMedianHistoryPrice returns { base: "0.XXX SBD", quote: "1.000 STEEM" }
+                    window.steem.api.getCurrentMedianHistoryPrice((err, r) => resolve(err ? null : r));
+                })
+            ]);
+            this._cachedRewardFund = fund;
+            if (price) {
+                const base  = parseFloat(price.base);   // SBD
+                const quote = parseFloat(price.quote);  // STEEM
+                this._cachedSteemPrice = (quote > 0) ? base / quote : 1;
             }
-        } catch (error) {
-            console.error('Errore nel caricamento dello stato di lettura delle notifiche:', error);
-        }
-        return map;
-    }
-    
-    /**
-     * Saves the read status of notifications to localStorage
-     */
-    saveReadStatusToStorage() {
-        try {
-            const readIds = Array.from(this.readNotificationsMap.keys());
-            localStorage.setItem('steemee_read_notifications', JSON.stringify(readIds));
-        } catch (error) {
-            console.error('Errore nel salvataggio dello stato di lettura delle notifiche:', error);
-        }
-    }
-    
-    /**
-     * Preloads notifications in background at application start
-     */
-    async preloadNotifications() {
-        const currentUser = authService.getCurrentUser();
-        if (!currentUser) {
-            return;
-        }
-        
-        try {
-            // Carica le notifiche in background, impostando forceRefresh a false per usare la cache se disponibile
-            const result = await this.getNotifications(TYPES.ALL, 1, 30, false);
-            
-            // Aggiorna il conteggio non lette
-            this.updateUnreadCount();
-        } catch (error) {
-            console.error('Errore nel precaricamento delle notifiche:', error);
+            this._rewardFundCacheTime = Date.now();
+        } catch (e) {
+            console.warn('Could not fetch reward fund:', e);
         }
     }
 
     /**
-     * Updates the unread count based on notifications data
+     * Converts raw rshares to a formatted dollar string (e.g. "+$0.05"), or null if unavailable.
      */
-    updateUnreadCount() {
-        // Get current user
-        const currentUser = authService.getCurrentUser();
-        if (!currentUser) {
-            this.unreadCount = 0;
-            return 0;
-        }
-        
-        // Get all notifications from cache if available
-        const cacheKey = `${currentUser.username}_ALL_NOTIFICATIONS`;
-        const cachedData = this.getCachedNotifications(cacheKey);
-        
-        if (cachedData && cachedData.notifications) {
-            // Count unread notifications using the readNotificationsMap
-            this.unreadCount = cachedData.notifications.filter(notification => {
-                const notificationId = this.generateNotificationId(notification, true);
-                return !this.readNotificationsMap.has(notificationId);
-            }).length;
-        }
-        
-        // Emit event for the badge to update
-        eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
-        return this.unreadCount;
+    rsharesToDollarString(rshares) {
+        if (!this._cachedRewardFund || !rshares) return null;
+        const recentClaims  = parseFloat(this._cachedRewardFund.recent_claims);
+        const rewardBalance = parseFloat(this._cachedRewardFund.reward_balance);
+        if (!recentClaims || !rewardBalance || recentClaims <= 0) return null;
+        // value in STEEM × price feed (SBD per STEEM ≈ USD per STEEM)
+        const value = (rshares / recentClaims) * rewardBalance * this._cachedSteemPrice;
+        if (Math.abs(value) < 0.005) return null;
+        const sign = value >= 0 ? '+' : '-';
+        return `${sign}$${Math.abs(value).toFixed(2)}`;
     }
     
+    // --- Public API --------------------------------------------------------
+
     /**
-     * Gets the current unread count
+     * Called at app startup (after login) to populate the unread badge.
      */
+    async preloadNotifications() {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) return;
+        await this.updateUnreadCount();
+    }
+
     getUnreadCount() {
         return this.unreadCount;
     }
 
     /**
-     * Mark a notification as read
+     * Fetches the count of unread notifications (status=new) and updates the badge.
      */
-    async markAsRead(notification) {
-        if (!notification) return;
-        
-        // Get the ID for storage
-        const notificationId = this.generateNotificationId(notification, true);
-        
-        // Mark as read in memory and localStorage
-        this.readNotificationsMap.set(notificationId, true);
-        this.saveReadStatusToStorage();
-        
-        // Set notification as read in model
-        notification.isRead = true;
-        
-        // Update count
-        this.updateUnreadCount();
-        
-        return notification;
-    }
-    
-    /**
-     * Check if a notification has been read
-     */
-    isNotificationRead(notification) {
-        if (!notification) return false;
-        const notificationId = this.generateNotificationId(notification, true);
-        return this.readNotificationsMap.has(notificationId);
-    }
-    
-    /**
-     * Mark all notifications as read
-     */
-    async markAllAsRead() {
+    async updateUnreadCount() {
         const currentUser = authService.getCurrentUser();
-        if (!currentUser) return;
-        
-        const cacheKey = `${currentUser.username}_ALL_NOTIFICATIONS`;
-        const cachedData = this.getCachedNotifications(cacheKey);
-        
-        if (cachedData && cachedData.notifications) {
-            // Mark all as read in memory and localStorage
-            cachedData.notifications.forEach(notification => {
-                const notificationId = this.generateNotificationId(notification, true);
-                this.readNotificationsMap.set(notificationId, true);
-                notification.isRead = true;
-            });
-            
-            // Update cache
-            this.setCachedNotifications(cacheKey, cachedData);
-            
-            // Save to localStorage
-            this.saveReadStatusToStorage();
-            
-            // Update count
+        if (!currentUser) {
             this.unreadCount = 0;
-            eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
+            eventEmitter.emit('notifications:unread_count_updated', 0);
+            return 0;
         }
+        try {
+            const cacheKey = `${currentUser.username}_new_count`;
+            let count = this._getCached(cacheKey);
+            if (count === null) {
+                const notifications = await this._fetchFromAPI(currentUser.username, 'new', 2500, 0);
+                count = notifications.length;
+                this._setCached(cacheKey, count);
+            }
+            this.unreadCount = count;
+        } catch (error) {
+            console.error('NotificationsService: error getting unread count', error);
+        }
+        eventEmitter.emit('notifications:unread_count_updated', this.unreadCount);
+        return this.unreadCount;
     }
 
     /**
-     * Fetches notifications for the current user
+     * Get notifications for the current user with optional type filter and
+     * page-based pagination (the full list is fetched once and cached).
+     *
+     * @param {string}  type         - TYPES.ALL or a specific type ('vote', 'reply', â€¦)
+     * @param {number}  page         - 1-based page number
+     * @param {number}  limit        - items per page
+     * @param {boolean} forceRefresh - bypass cache
+     * @returns {{ notifications: Array, hasMore: boolean }}
      */
     async getNotifications(type = TYPES.ALL, page = 1, limit = 20, forceRefresh = false) {
         const currentUser = authService.getCurrentUser();
-        if (!currentUser) {
-            console.warn('Cannot get notifications: No authenticated user');
-            return { notifications: [], hasMore: false };
-        }
+        if (!currentUser) return { notifications: [], hasMore: false };
 
         const username = currentUser.username;
-        
-        try {
-            // Se in cache e non forzato, usa la cache
-            const cacheKey = `${username}_ALL_NOTIFICATIONS`;
-            let allNotifications = null;
-            
-            if (!forceRefresh) {
-                allNotifications = this.getCachedNotifications(cacheKey)?.notifications;
-            }
-            
-            // Se la cache non esiste o è forzato il refresh, recupera tutto
-            if (!allNotifications || forceRefresh) {
-                // Recupera TUTTE le notifiche storiche
-                allNotifications = await this.fetchAllHistoricalNotifications(username);
-                
-                // Salva in cache
-                this.setCachedNotifications(cacheKey, { 
-                    notifications: allNotifications,
-                    hasMore: false
-                });
-            }
-            
-            // Filtra per tipo (se non è ALL)
-            let filteredNotifications = allNotifications;
-            if (type !== TYPES.ALL) {
-                filteredNotifications = allNotifications.filter(n => n.type === type);
-            }
-            
-            // Debug dei conteggi per tipo
-            if (this.debugMode) {
-                const countByType = allNotifications.reduce((acc, n) => {
-                    acc[n.type] = (acc[n.type] || 0) + 1;
-                    return acc;
-                }, {});
-            }
-            
-            // Applica paginazione
+        const cacheKey = `${username}_all_notifications`;
+
+        if (forceRefresh) {
+            this._cache.delete(cacheKey);
+            this._walletState.delete(username);
+            this._lastReadTimestamp.delete(username);
+        }
+
+        let allNotifications = this._getCached(cacheKey);
+        if (!allNotifications) {
+            // Fetch notifications and reward fund in parallel.
+            // Give the reward fund up to 3s; if it's not ready by then we proceed anyway.
+            const fundTimeout = new Promise(resolve => setTimeout(resolve, 3000));
+            [allNotifications] = await Promise.all([
+                this._fetchFromAPI(username, 'all', 2500, 0),
+                Promise.race([this._ensureRewardFund().catch(() => {}), fundTimeout])
+            ]);
+            this._setCached(cacheKey, allNotifications);
+        } else {
+            this._ensureRewardFund().catch(() => {});
+        }
+
+        // Non-wallet filters: simple pagination from the SteemWorld list
+        if (type !== TYPES.ALL) {
+            const filtered = allNotifications.filter(n => n.type === type);
             const start = (page - 1) * limit;
-            const end = start + limit;
-            const paginatedNotifications = filteredNotifications.slice(start, end);
-            
-            return {
-                notifications: paginatedNotifications,
-                hasMore: end < filteredNotifications.length
-            };
-        } catch (error) {
-            console.error(`❌ Errore nel recupero notifiche:`, error);
-            return { notifications: [], hasMore: false };
+            const end   = start + limit;
+            return { notifications: this._applyLocalRead(username, filtered.slice(start, end)), hasMore: end < filtered.length };
         }
-    }
 
-    /**
-     * Get notifications from cache
-     */
-    getCachedNotifications(cacheKey) {
-        const cacheEntry = this.notificationsCache.get(cacheKey);
-        
-        if (!cacheEntry) {
-            return null;
+        // ALL type: progressively merge wallet events as the user scrolls
+        const state = this._getWalletState(username);
+        const start = (page - 1) * limit;
+        const end   = start + limit;
+
+        // The cutoff: timestamp of the oldest SW item that would appear on this page.
+        // We need to scan wallet history at least this far back to catch interleaved wallet events.
+        const cutoffItem = allNotifications[end - 1] ?? allNotifications[allNotifications.length - 1];
+        const swCutoff   = cutoffItem?.timestamp ?? null;
+
+        // Fetch wallet batches until the scan has gone back past the cutoff (or history is exhausted)
+        while (!state.complete) {
+            if (swCutoff && state.oldestTimestamp && state.oldestTimestamp <= swCutoff) break;
+            if (!swCutoff && end <= this._buildMergedList(allNotifications, state.items).length) break;
+            await this._fetchNextWalletBatch(username, state);
         }
-        
-        const now = Date.now();
-        if (now - cacheEntry.timestamp > this.cacheExpiry) {
-            this.notificationsCache.delete(cacheKey);
-            return null;
-        }
-        
-        return cacheEntry.data;
-    }
 
-    /**
-     * Cache notifications
-     */
-    setCachedNotifications(cacheKey, data) {
-        this.notificationsCache.set(cacheKey, {
-            data,
-            timestamp: Date.now()
-        });
-    }
-
-    /**
-     * Recupera e analizza TUTTA la storia dell'account
-     */
-    async fetchAllHistoricalNotifications(username) {
-        // RECUPERO MULTI-CICLO DI TUTTA LA STORIA SENZA SALTI
-        
-        // Parametri iniziali
-        let lastId = -1;
-        let allNotifications = [];
-        let seenTransactions = new Set();
-        let seenNotifications = new Set();
-        let historySizesUsed = [100, 500, 200]; // Steem max ~100 con from=-1
-        let cycleCount = 0;
-        let continueSearch = true;
-        let totalTransactions = 0;
-        
-        //this.showBusyMessage("RECUPERO STORICO NOTIFICHE IN CORSO...<br>Potrebbe richiedere qualche minuto");
-        
-        // APPROCCIO MASSIVO:
-        // Recupera lo storico ripetutamente con diverse dimensioni batch fino a ID=1
-        while (continueSearch && cycleCount < 100) { // Limite di sicurezza
-            cycleCount++;
-            
-            for (const batchSize of historySizesUsed) {
-                try {
-                    //this.updateBusyMessage(`Ciclo ${cycleCount}: Recupero ${batchSize} transazioni da ID ${lastId}<br>Trovate ${allNotifications.length} notifiche`);
-                    
-                    const history = await transactionHistoryService.getUserTransactionHistory(username, batchSize, lastId);
-                    
-                    if (!history || !Array.isArray(history) || history.length === 0) {
-                        continueSearch = false;
-                        break;
-                    }
-                    
-                    totalTransactions += history.length;
-                    
-                    // Trova l'ID più vecchio da cui continuare
-                    const lastTransaction = history[history.length - 1];
-                    if (!Array.isArray(lastTransaction) || lastTransaction.length < 1) {
-                        continueSearch = false;
-                        break;
-                    }
-                    
-                    const oldestId = lastTransaction[0];
-                    
-                    // Se abbiamo raggiunto l'inizio o siamo bloccati, fermiamoci
-                    if (oldestId <= 1 || oldestId === lastId) {
-                        continueSearch = false;
-                        break;
-                    }
-                    
-                    // Salva il nuovo lastId per il prossimo ciclo
-                    lastId = oldestId;
-                    
-                    // Processa le transazioni per estrarre notifiche
-                    const newNotifications = this.processAccountHistory(history);
-                    
-                    // Aggiungi solo notifiche uniche
-                    newNotifications.forEach(notification => {
-                        const notificationId = this.generateNotificationId(notification, true);
-                        if (!seenNotifications.has(notificationId)) {
-                            seenNotifications.add(notificationId);
-                            allNotifications.push(notification);
-                        }
-                    });
-                    
-                    // Breve pausa per non sovraccaricare
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    // Se poche transazioni, probabilmente abbiamo finito
-                    if (history.length < batchSize / 2) {
-                        continueSearch = false;
-                        break;
-                    }
-                    
-                    break; // Usciamo dal ciclo for se abbiamo avuto successo con questa dimensione
-                } catch (error) {
-                    console.error(`⚠️ Errore con batch size ${batchSize}:`, error);
-                    // Continuiamo con la prossima dimensione batch
-                }
-            }
-        }
-        
-        this.hideBusyMessage();
-        
-        // Ordina per data (più recenti prima)
-        allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
-        // Statistiche per tipo
-        const countByType = {};
-        allNotifications.forEach(n => {
-            countByType[n.type] = (countByType[n.type] || 0) + 1;
-        });
-        
-        return allNotifications;
-    }
-
-    /**
-     * Processa la storia dell'account in modo più permissivo
-     */
-    processAccountHistory(history) {
-        if (!history || !Array.isArray(history)) {
-            return [];
-        }
-        
-        const notifications = [];
-        const currentUser = authService.getCurrentUser()?.username;
-        if (!currentUser) return [];
-        
-        const seenIds = new Set();
-        
-        history.forEach(historyItem => {
-            try {
-                if (!Array.isArray(historyItem) || historyItem.length < 2) return;
-                
-                const [id, transaction] = historyItem;
-                
-                // Estrai operazione e dati
-                let opType, opData;
-                
-                if (transaction.op && Array.isArray(transaction.op) && transaction.op.length >= 2) {
-                    opType = transaction.op[0];
-                    opData = transaction.op[1];
-                } else if (transaction.operation && Array.isArray(transaction.operation) && transaction.operation.length >= 2) {
-                    opType = transaction.operation[0];
-                    opData = transaction.operation[1];
-                } else if (transaction.operations && Array.isArray(transaction.operations) && transaction.operations.length > 0) {
-                    const firstOp = transaction.operations[0];
-                    if (Array.isArray(firstOp) && firstOp.length >= 2) {
-                        opType = firstOp[0];
-                        opData = firstOp[1];
-                    } else {
-                        return;
-                    }
-                } else {
-                    return;
-                }
-                
-                // Timestamp
-                const timestamp = transaction.timestamp || new Date().toISOString();
-                
-                // REPLIES (quando qualcuno risponde a un tuo post)
-                if (opType === 'comment' && opData.parent_author === currentUser) {
-                    notifications.push(this.createNotification(
-                        TYPES.REPLIES,
-                        {
-                            id,
-                            author: opData.author,
-                            permlink: opData.permlink,
-                            parent_permlink: opData.parent_permlink,
-                            body: opData.body?.substring(0, 140) + (opData.body?.length > 140 ? '...' : '') || '',
-                            timestamp
-                        },
-                        false // Non letto
-                    ));
-                }
-                
-                // MENTIONS (quando qualcuno ti menziona)
-                if (opType === 'comment' && opData.body && opData.body.includes(`@${currentUser}`)) {
-                    notifications.push(this.createNotification(
-                        TYPES.MENTIONS,
-                        {
-                            id,
-                            author: opData.author,
-                            permlink: opData.permlink,
-                            body: opData.body?.substring(0, 140) + (opData.body?.length > 140 ? '...' : '') || '',
-                            timestamp
-                        },
-                        false
-                    ));
-                }
-                
-                // UPVOTES (quando qualcuno vota un tuo post)
-                if (opType === 'vote' && opData.author === currentUser && opData.weight > 0) {
-                    notifications.push(this.createNotification(
-                        TYPES.UPVOTES,
-                        {
-                            id,
-                            voter: opData.voter,
-                            permlink: opData.permlink,
-                            weight: opData.weight / 100,
-                            timestamp
-                        },
-                        false
-                    ));
-                }
-                
-                // CUSTOM_JSON per FOLLOWS e RESTEEMS
-                if (opType === 'custom_json') {
-                    let jsonData;
-                    try {
-                        jsonData = typeof opData.json === 'string' ? JSON.parse(opData.json) : opData.json;
-                    } catch (e) {
-                        return;
-                    }
-                    
-                    if (jsonData && Array.isArray(jsonData) && jsonData.length > 1) {
-                        // FOLLOWS
-                        if (jsonData[0] === 'follow') {
-                            const followData = jsonData[1];
-                            if (followData && followData.following === currentUser && 
-                                followData.what && Array.isArray(followData.what) && followData.what.includes('blog')) {
-                                notifications.push(this.createNotification(
-                                    TYPES.FOLLOWS,
-                                    {
-                                        id,
-                                        follower: followData.follower,
-                                        timestamp
-                                    },
-                                    false
-                                ));
-                            }
-                        } 
-                        // RESTEEMS
-                        else if (jsonData[0] === 'reblog') {
-                            const reblogData = jsonData[1];
-                            if (reblogData && reblogData.author === currentUser) {
-                                notifications.push(this.createNotification(
-                                    TYPES.RESTEEMS,
-                                    {
-                                        id,
-                                        account: reblogData.account,
-                                        permlink: reblogData.permlink,
-                                        timestamp
-                                    },
-                                    false
-                                ));
-                            }
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Errore nel processare item:', error);
-            }
-        });
-        
-        return notifications;
-    }
-
-    // UI helpers per il feedback durante recupero
-    showBusyMessage(message) {
-        let busyElement = document.getElementById('notifications-busy-message');
-        
-        if (!busyElement) {
-            busyElement = document.createElement('div');
-            busyElement.id = 'notifications-busy-message';
-            busyElement.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 20px; border-radius: 10px; z-index: 9999; max-width: 80vw;';
-            document.body.appendChild(busyElement);
-        }
-        
-        busyElement.innerHTML = `
-            <div style="text-align:center">
-                <div style="width:50px;height:50px;border:3px solid rgba(255,255,255,0.2);border-top:3px solid white;border-radius:50%;margin:0 auto 15px;animation:notifications-spin 1s linear infinite"></div>
-                <div style="font-weight:bold;margin-bottom:10px">RECUPERO NOTIFICHE</div>
-                <div>${message}</div>
-            </div>
-        `;
-        
-        if (!document.querySelector('style#notifications-spin-style')) {
-            const style = document.createElement('style');
-            style.id = 'notifications-spin-style';
-            style.textContent = '@keyframes notifications-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}';
-            document.head.appendChild(style);
-        }
-    }
-
-    updateBusyMessage(message) {
-        const busyElement = document.getElementById('notifications-busy-message');
-        if (busyElement) {
-            const messageDiv = busyElement.querySelector('div > div:last-child');
-            if (messageDiv) {
-                messageDiv.innerHTML = message;
-            }
-        }
-    }
-
-    hideBusyMessage() {
-        const busyElement = document.getElementById('notifications-busy-message');
-        if (busyElement) {
-            busyElement.remove();
-        }
-    }
-
-    /**
-     * Clear the notifications cache completely
-     */
-    clearCache() {
-        this.notificationsCache.clear();
-        this.allNotificationsCache = null; // Direct reset instead of calling non-existent method
-        this.unreadCount = 0;
-    }
-
-    /**
-     * Clear the specific all-notifications cache
-     */
-    clearAllNotificationsCache() {
-        this.allNotificationsCache = null;
-    }
-
-    /**
-     * Creates a notification object
-     */
-    createNotification(type, data, isRead = false) {
+        // Apply blockchain lastRead cutoff to wallet items
+        const lastReadTs = this._getLastReadTimestamp(username, allNotifications);
+        const correctedWallet = state.items.map(item => ({
+            ...item,
+            isRead: lastReadTs ? item.timestamp <= lastReadTs : false
+        }));
+        const merged = this._buildMergedList(allNotifications, correctedWallet);
         return {
-            type,
-            data,
-            timestamp: data.timestamp || new Date().toISOString(),
-            isRead
+            notifications: this._applyLocalRead(username, merged.slice(start, end)),
+            hasMore: end < merged.length || !state.complete
         };
     }
 
+    /** Stable unique ID for a notification (used for deduplication in the view). */
+    generateNotificationId(notification) {
+        return String(notification.id);
+    }
+
+    // ─── Client-side read tracking (localStorage) ─────────────────────────────
+
+    _getLocalReadKey(username) {
+        return `cur8_read_${username}`;
+    }
+
+    _getLocallyReadIds(username) {
+        try {
+            const raw = localStorage.getItem(this._getLocalReadKey(username));
+            return new Set(raw ? JSON.parse(raw) : []);
+        } catch {
+            return new Set();
+        }
+    }
+
+    /** Marks a single notification as locally read (persisted in localStorage). */
+    markLocallyRead(notificationId) {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) return;
+        try {
+            const ids = this._getLocallyReadIds(currentUser.username);
+            ids.add(String(notificationId));
+            const arr = [...ids].slice(-2000);
+            localStorage.setItem(this._getLocalReadKey(currentUser.username), JSON.stringify(arr));
+        } catch {
+            // localStorage unavailable or full — fail silently
+        }
+    }
+
+    /** Applies locally-cached read state on top of server-provided isRead flags. */
+    _applyLocalRead(username, items) {
+        const locallyRead = this._getLocallyReadIds(username);
+        if (!locallyRead.size) return items;
+        return items.map(n => (!n.isRead && locallyRead.has(String(n.id)) ? { ...n, isRead: true } : n));
+    }
+
     /**
-     * Generate a unique ID for a notification
-     * @param {Object} notification - The notification object
-     * @param {boolean} forLookup - Whether this ID is for lookup (excludes timestamp)
+     * Derives the "last read" cutoff timestamp from SW notification data:
+     * the max timestamp among notifications already marked isRead=true on the blockchain.
+     * This mirrors the date broadcast by setLastRead custom_json.
      */
-    generateNotificationId(notification, forLookup = false) {
-        const { type, data } = notification;
-        let idParts = [type];
-        
-        switch (type) {
-            case TYPES.REPLIES:
-            case TYPES.MENTIONS:
-                idParts.push(data.author, data.permlink);
-                break;
-            case TYPES.UPVOTES:
-                idParts.push(data.voter, data.permlink);
-                break;
-            case TYPES.FOLLOWS:
-                idParts.push(data.follower);
-                break;
-            case TYPES.RESTEEMS:
-                idParts.push(data.account, data.permlink);
-                break;
+    _getLastReadTimestamp(username, allSWNotifications) {
+        if (this._lastReadTimestamp.has(username)) {
+            return this._lastReadTimestamp.get(username);
         }
-        
-        if (!forLookup && notification.timestamp) {
-            idParts.push(notification.timestamp);
+        let maxTs = null;
+        for (const n of allSWNotifications) {
+            if (n.isRead && (!maxTs || n.timestamp > maxTs)) {
+                maxTs = n.timestamp;
+            }
         }
-        
-        return idParts.join('_');
+        this._lastReadTimestamp.set(username, maxTs);
+        return maxTs;
+    }
+
+    /**
+     * Marks all notifications as read by broadcasting a `notify` custom_json
+     * with ["setLastRead", {"date": "<UTC datetime>"}].
+     * Clears the local cache and resets the unread badge on success.
+     */
+    async markAllAsRead() {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) throw new Error('Not authenticated');
+
+        const date = new Date().toISOString().slice(0, 19); // "2026-05-21T09:27:20"
+        const jsonStr = JSON.stringify(['setLastRead', { date }]);
+
+        const operations = [['custom_json', {
+            required_auths:         [],
+            required_posting_auths: [currentUser.username],
+            id:   'notify',
+            json: jsonStr
+        }]];
+
+        await this._broadcast(currentUser, operations);
+
+        // Optimistic update: everything is now read
+        this.unreadCount = 0;
+        this.clearCache();
+        // Preserve the new cutoff so wallet items are shown as read immediately on next render
+        this._lastReadTimestamp.set(currentUser.username, new Date().toISOString());
+        eventEmitter.emit('notifications:unread_count_updated', 0);
+    }
+
+    async _broadcast(user, operations) {
+        const { username, loginMethod } = user;
+
+        if (loginMethod === 'keychain') {
+            if (!window.steem_keychain) throw new Error('Steem Keychain non installato');
+            return new Promise((resolve, reject) => {
+                window.steem_keychain.requestBroadcast(
+                    username, operations, 'posting',
+                    (response) => {
+                        if (response.success) resolve(response);
+                        else reject(new Error(response.error || 'Keychain error'));
+                    }
+                );
+            });
+        }
+
+        if (loginMethod === 'privateKey') {
+            await steemService.ensureLibraryLoaded();
+            const postingKey = authService.getPostingKey();
+            if (!postingKey) throw new Error('Chiave posting non disponibile. Rieffettua il login.');
+            return new Promise((resolve, reject) => {
+                window.steem.broadcast.send(
+                    { operations, extensions: [] },
+                    { posting: postingKey },
+                    (err, result) => { if (err) reject(err); else resolve(result); }
+                );
+            });
+        }
+
+        throw new Error('markAllAsRead non supportato per il metodo di login corrente.');
+    }
+
+    /** Returns (creating if needed) the per-user wallet scan state. */
+    _getWalletState(username) {
+        if (!this._walletState.has(username)) {
+            // oldestTimestamp: ISO string of the oldest op seen so far (used to know how far back the scan has reached)
+            this._walletState.set(username, { items: [], from: -1, complete: false, oldestTimestamp: null });
+        }
+        return this._walletState.get(username);
+    }
+
+    /** Merges SteemWorld notifications with wallet items, sorted most-recent-first. */
+    _buildMergedList(swItems, walletItems) {
+        if (!walletItems.length) return swItems;
+        const merged = [...swItems, ...walletItems];
+        merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return merged;
+    }
+
+    /**
+     * Fetches ONE batch of 1000 account-history ops going backwards in time.
+     * Appends matching wallet events to state.items and advances state.from.
+     * Sets state.complete = true when history is exhausted.
+     */
+    async _fetchNextWalletBatch(username, state) {
+        if (state.complete) return;
+        const steem  = await steemService.ensureLibraryLoaded();
+        const WANTED = new Set(['transfer', 'delegate_vesting_shares', 'fill_vesting_withdraw']);
+
+        const batch = await new Promise((resolve, reject) => {
+            steem.api.getAccountHistory(username, state.from, 1000, (err, result) => {
+                if (err) reject(err);
+                else resolve(result || []);
+            });
+        });
+
+        if (!batch.length) { state.complete = true; return; }
+
+        batch
+            .filter(([, tx]) => WANTED.has(tx.op[0]))
+            .filter(([, tx]) => {
+                const [type, op] = tx.op;
+                if (type === 'transfer')                return op.to === username;
+                if (type === 'delegate_vesting_shares') return op.delegatee === username;
+                if (type === 'fill_vesting_withdraw')   return op.to_account === username;
+                return false;
+            })
+            .forEach(([index, tx]) => {
+                const [type, op] = tx.op;
+                const account = type === 'transfer'                 ? op.from
+                              : type === 'delegate_vesting_shares'  ? op.delegator
+                              : op.from_account;
+                const amount  = type === 'transfer'                 ? op.amount
+                              : type === 'delegate_vesting_shares'  ? op.vesting_shares
+                              : op.deposited;
+                state.items.push({
+                    id:        `wallet_${tx.trx_id || index}`,
+                    timestamp: new Date(tx.timestamp + 'Z').toISOString(),
+                    type:      TYPES.WALLET,
+                    subtype:   type,
+                    isRead:    false, // corrected later using lastReadTimestamp
+                    account,
+                    amount,
+                    memo: type === 'transfer' ? (op.memo || '') : null,
+                });
+            });
+
+        // Track how far back in time this scan has reached
+        const oldestInBatch = batch.reduce((min, [, tx]) => {
+            const t = new Date(tx.timestamp + 'Z').getTime();
+            return t < min ? t : min;
+        }, Infinity);
+        if (isFinite(oldestInBatch)) {
+            state.oldestTimestamp = new Date(oldestInBatch).toISOString();
+        }
+
+        const lowestIndex = batch[0][0];
+        if (lowestIndex <= 0 || batch.length < 1000) {
+            state.complete = true;
+        } else {
+            state.from = lowestIndex - 1;
+        }
+    }
+
+    /**
+     * Fetches received wallet events with progressive loading.
+     * Each call may trigger a new account-history batch if more items are needed.
+     */
+    async getWalletNotifications(page = 1, limit = 20, forceRefresh = false) {
+        const currentUser = authService.getCurrentUser();
+        if (!currentUser) return { notifications: [], hasMore: false };
+
+        const username = currentUser.username;
+        if (forceRefresh) this._walletState.delete(username);
+
+        const state = this._getWalletState(username);
+        const start = (page - 1) * limit;
+        const end   = start + limit;
+
+        // Fetch batches until we have enough items for this page or scan is done
+        while (state.items.length < end && !state.complete) {
+            await this._fetchNextWalletBatch(username, state);
+        }
+
+        // Apply blockchain lastRead cutoff to wallet items
+        const swCacheKey = `${username}_all_notifications`;
+        const swItems = this._getCached(swCacheKey);
+        const lastReadTs = swItems
+            ? this._getLastReadTimestamp(username, swItems)
+            : (this._lastReadTimestamp.get(username) ?? null);
+
+        const correctedItems = state.items.map(item => ({
+            ...item,
+            isRead: lastReadTs ? item.timestamp <= lastReadTs : false
+        }));
+
+        // Sort most-recent-first before slicing
+        const sorted = [...correctedItems].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return {
+            notifications: this._applyLocalRead(username, sorted.slice(start, end)),
+            hasMore: end < sorted.length || !state.complete
+        };
     }
 }
 

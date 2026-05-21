@@ -49,7 +49,7 @@ export default class CommentView extends View {
     this.commentController = new CommentController(this);
 
     // Content renderer for comment body
-    this.initializeContentRenderer();
+    this._contentRendererReady = this.initializeContentRenderer();
   }
 
   async initializeContentRenderer() {
@@ -180,6 +180,7 @@ export default class CommentView extends View {
       this.loadingIndicator.hide();
 
       // Inizializza e renderizza i componenti
+      await this._contentRendererReady;
       this.initComponents();
       await this.renderComponents();
       
