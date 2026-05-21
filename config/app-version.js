@@ -5,8 +5,8 @@
  */
 
 export const APP_CONFIG = {
-  version: '1.0.163',
-  buildTimestamp: '2026-05-21T13:12:05Z',
+  version: '1.0.164',
+  buildTimestamp: '2026-05-21T20:18:33Z',
   environment: 'production', // può essere 'development', 'staging', o 'production'
   updateCheckInterval: 60 * 60 * 1000, // 1 ora in millisecondi
   skipUpdateCheck: false, // impostare a true durante lo sviluppo locale
