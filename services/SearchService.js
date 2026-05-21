@@ -293,12 +293,12 @@ export class SearchService {
 
             const tags = await steemService.rpcCall(
                 'condenser_api.get_trending_tags',
-                [normalizedQuery, 10]
+                [normalizedQuery, 100]
             ) || [];
 
             // Filter and map the results
             return tags
-                .filter(tag => tag.name.toLowerCase().startsWith(normalizedQuery))
+                .filter(tag => tag.name.toLowerCase().includes(normalizedQuery))
                 .map(tag => ({
                     type: 'tag',
                     name: tag.name,
@@ -306,6 +306,36 @@ export class SearchService {
                 }));
         } catch (error) {
             console.error('Failed to search tags:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Search posts by text using SteemWorld content search API
+     * @param {string} query - The search text
+     * @param {number} limit - Max results
+     * @returns {Promise<Array>} Array of post objects
+     */
+    async searchPosts(query, limit = 20, offset = 0) {
+        try {
+            const text = encodeURIComponent(query.trim());
+            const url = `https://sds.steemworld.org/content_search_api/getPostsByText/${text}/any/null/150/time/DESC/${limit}/${offset}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (!data?.result?.rows) return [];
+
+            return data.result.rows.map(row => ({
+                type: 'post',
+                author: row[6],
+                permlink: row[7],
+                created: row[8],
+                title: row[31] || 'Untitled',
+                body: (row[32] || '').replace(/(<([^>]+)>)/gi, '').replace(/!\[.*?\]\(.*?\)/g, '').substring(0, 150),
+                category: row[27]
+            }));
+        } catch (error) {
+            console.error('Failed to search posts:', error);
             return [];
         }
     }

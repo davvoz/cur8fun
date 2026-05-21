@@ -2,16 +2,23 @@ import View from './View.js';
 import searchService from '../services/SearchService.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
+import InfiniteScroll from '../utils/InfiniteScroll.js';
 
 class SearchView extends View {
   constructor(params = {}) {
     super();
     this.params = params;
     this.searchInput = null;
-    this.suggestionsContainer = null;
     this.resultsContainer = null;
+    this._debounceTimer = null;
+    this._currentSearchId = null;
+    this._postOffset = 0;
+    this._postQuery = '';
+    this._infiniteScroll = null;
+    this._resultsList = null;
+    this._emptyHint = null;
     this.loadingIndicator = new LoadingIndicator();
-    this.currentSearchMethod = 'users'; // Rinominato per chiarezza
+    this.currentSearchMethod = 'users';
   }
 
   async render(container) {
@@ -44,6 +51,12 @@ class SearchView extends View {
     this.resultsContainer = document.createElement('div');
     this.resultsContainer.className = 'search-results';
     searchContainer.appendChild(this.resultsContainer);
+
+    // Welcome hint — sibling of resultsContainer so innerHTML='' never kills it
+    this._emptyHint = document.createElement('div');
+    this._emptyHint.className = 'search-empty-hint';
+    searchContainer.appendChild(this._emptyHint);
+    this._updateHint();
 
     // Get search query from URL if exists
     const urlParams = new URLSearchParams(window.location.search);
@@ -117,43 +130,18 @@ class SearchView extends View {
     // Aggiungiamo il wrapper di input e icona al wrapper principale
     inputWrapper.appendChild(inputIconWrapper);
 
-    // Aggiungiamo un contenitore per gli elementi che devono stare sotto l'input
-    const belowInputContainer = document.createElement('div');
-    belowInputContainer.style.marginTop = '8px';
-
-    // Aggiungi un hint sotto il campo di ricerca
-    const searchHint = document.createElement('div');
-    searchHint.className = 'search-hint';
-    this.updateSearchHint(searchHint, this.currentSearchMethod);
-    searchHint.style.marginBottom = '5px';
-    belowInputContainer.appendChild(searchHint);
-
-    // Add search stats counter
-    const searchStats = document.createElement('div');
-    searchStats.className = 'search-stats';
-    searchStats.innerHTML = '<span class="stat-count">0</span> results found';
-    searchStats.style.marginBottom = '5px';
-    belowInputContainer.appendChild(searchStats);
-
-    // Add keyboard shortcuts hint
-    const keyboardHint = document.createElement('div');
-    keyboardHint.className = 'keyboard-shortcuts';
-    keyboardHint.innerHTML = `
-      <span><kbd>↵</kbd> to search</span>
-      <span><kbd>↑</kbd><kbd>↓</kbd> to navigate</span>
-      <span><kbd>ESC</kbd> to close</span>
-    `;
-    belowInputContainer.appendChild(keyboardHint);
-    
-    // Aggiungiamo il contenitore degli elementi sotto l'input
-    inputWrapper.appendChild(belowInputContainer);
+    // No extra hints/stats between input and results
 
     this.searchInput.addEventListener('input', (event) => {
       const query = this.searchInput.value.trim();
+      clearTimeout(this._debounceTimer);
       if (query.length >= 2) {
-        searchService.showSuggestions(query, this.currentSearchMethod);
+        this._debounceTimer = setTimeout(() => this.performSearch(query), 500);
       } else {
-        searchService.hideSuggestions();
+        this._destroyInfiniteScroll();
+        this.resultsContainer.innerHTML = '';
+        this._updateHint();
+        if (this._emptyHint) this._emptyHint.style.display = '';
       }
     });
 
@@ -162,23 +150,14 @@ class SearchView extends View {
         event.preventDefault();
         const query = this.searchInput.value.trim();
         if (query) {
-          searchService.hideSuggestions();
           if (this.currentSearchMethod === 'tags') {
             router.navigate(`/tag/${query}`);
-          } else {
-            searchService.handleSearch(query);
-          }
+          } else if (this.currentSearchMethod === 'posts') {
+            this.performSearch(query);
+          } // do nothing for users
         }
       }
     });
-
-    this.suggestionsContainer = document.createElement('div');
-    this.suggestionsContainer.className = 'search-suggestions';
-    inputWrapper.appendChild(this.suggestionsContainer);
-
-    // IMPORTANTE: Assegna il container dei suggerimenti al servizio, 
-    // ma non inizializzare gli eventi
-    searchService.suggestionsContainer = this.suggestionsContainer;
 
     // Create filter tabs — placed BEFORE the input so they're not hidden by the mobile keyboard
     const filterButtons = document.createElement('div');
@@ -186,12 +165,14 @@ class SearchView extends View {
 
     const filters = [
       { id: 'users', icon: 'person',    text: 'Users' },
-      { id: 'tags',  icon: 'tag',       text: 'Tags'  }
+      { id: 'tags',  icon: 'tag',       text: 'Tags'  },
+      { id: 'posts', icon: 'article',   text: 'Posts'  }
     ];
 
     filters.forEach(filter => {
       const button = document.createElement('button');
       button.className = `filter-button ${this.currentSearchMethod === filter.id ? 'active' : ''}`;
+      button.dataset.filter = filter.id;
       button.innerHTML = `<span class="material-icons" style="font-size:1.1rem">${filter.icon}</span> ${filter.text}`;
       button.addEventListener('click', () => {
         this.changeSearchMethod(filter.id);
@@ -211,6 +192,7 @@ class SearchView extends View {
     const placeholders = {
       users: 'Type a username to search...',
       tags: 'Type a tag name without # to search...',
+      posts: 'Search posts by keyword...',
     };
     this.searchInput.placeholder = placeholders[method] || 'Search...';
   }
@@ -226,6 +208,35 @@ class SearchView extends View {
     hintElement.innerHTML = `<i class="fas fa-info-circle"></i> ${hints[method] || ''}`;
   }
 
+  _updateHint() {
+    if (!this._emptyHint) return;
+    const hints = {
+      users: {
+        icon: 'person_search',
+        title: 'Search for Steem users',
+        desc: 'Type a username to find accounts on the Steem blockchain. Results appear as you type.'
+      },
+      tags: {
+        icon: 'tag',
+        title: 'Explore tags and topics',
+        desc: 'Type a keyword to discover trending tags. Press Enter to browse all posts for a tag.'
+      },
+      posts: {
+        icon: 'article',
+        title: 'Search posts',
+        desc: 'Type any keyword to find posts across the Steem ecosystem. Results load automatically.'
+      }
+    };
+    const h = hints[this.currentSearchMethod] || hints.users;
+    this._emptyHint.innerHTML = `
+      <div style="text-align:center; margin-top:32px; margin-bottom:24px;">
+        <span class="material-icons" style="font-size:3rem; color:var(--primary-color);">${h.icon}</span><br>
+        <b style="font-size:1.15rem; color:var(--text-color);">${h.title}</b><br>
+        <span style="font-size:1rem; color:var(--text-muted);">${h.desc}</span>
+      </div>
+    `;
+  }
+
   changeSearchMethod(method) {
     this.currentSearchMethod = method;
     
@@ -236,26 +247,20 @@ class SearchView extends View {
 
     // Update active button state
     document.querySelectorAll('.filter-button').forEach(btn => {
-      btn.classList.toggle('active', btn.textContent.toLowerCase().includes(method));
+      btn.classList.toggle('active', btn.dataset.filter === method);
     });
 
-    // Clear suggestions and update placeholder
-    searchService.hideSuggestions();
     this.updatePlaceholder(method);
-    
-    // Aggiorna l'hint
-    const hintElement = document.querySelector('.search-hint');
-    if (hintElement) {
-      this.updateSearchHint(hintElement, method);
-    }
 
-    // Re-run search and show suggestions if there's a query
+    // Re-run search if there's a query
     const query = this.searchInput.value.trim();
-    if (query) {
+    if (query.length >= 2) {
       this.performSearch(query);
-      if (query.length >= 2) {
-        searchService.showSuggestions(query, method);
-      }
+    } else {
+      this._destroyInfiniteScroll();
+      this.resultsContainer.innerHTML = '';
+      this._updateHint();
+      if (this._emptyHint) this._emptyHint.style.display = '';
     }
   }
 
@@ -263,28 +268,91 @@ class SearchView extends View {
     const queryTrimmed = query.trim();
     if (!queryTrimmed) return;
 
+    // Store search ID to handle race conditions
+    const searchId = Date.now();
+    this._currentSearchId = searchId;
+
+    // Reset infinite scroll state for new search
+    this._destroyInfiniteScroll();
+    this._postOffset = 0;
+    this._postQuery = queryTrimmed;
+
     try {
-      this.resultsContainer.innerHTML = '';
-      this.loadingIndicator.show(this.resultsContainer);
+      // Subtle loading indication
+      if (this.resultsContainer.innerHTML) {
+        this.resultsContainer.style.opacity = '0.7';
+      }
 
       let results;
       if (this.currentSearchMethod === 'tags') {
         results = await searchService.searchTags(queryTrimmed);
       } else if (this.currentSearchMethod === 'users') {
         results = await searchService.findSimilarAccounts(queryTrimmed);
+      } else if (this.currentSearchMethod === 'posts') {
+        results = await searchService.searchPosts(queryTrimmed, 20, 0);
+        this._postOffset = results.length;
       }
 
-      this.displayResults(results);
+      // Only display if this is still the latest search
+      if (this._currentSearchId === searchId) {
+        requestAnimationFrame(() => {
+          this.displayResults(results);
+          this.resultsContainer.style.opacity = '1';
+          // Setup infinite scroll for posts
+          if (this.currentSearchMethod === 'posts' && results && results.length >= 20) {
+            this._setupInfiniteScroll();
+          }
+        });
+      }
     } catch (error) {
       console.error('Search error:', error);
-      this.showError('An error occurred while searching');
-    } finally {
-      this.loadingIndicator.hide();
+      if (this._currentSearchId === searchId) {
+        this.showError('An error occurred while searching');
+        this.resultsContainer.style.opacity = '1';
+      }
+    }
+  }
+
+  async _loadMorePosts() {
+    const results = await searchService.searchPosts(this._postQuery, 20, this._postOffset);
+    if (!results || results.length === 0) return [];
+    this._postOffset += results.length;
+
+    // Append to existing list
+    if (this._resultsList) {
+      results.forEach(result => {
+        const item = this.createResultItem(result);
+        if (item) this._resultsList.appendChild(item);
+      });
+    }
+
+    return results;
+  }
+
+  _setupInfiniteScroll() {
+    this._destroyInfiniteScroll();
+    this._infiniteScroll = new InfiniteScroll({
+      container: this.resultsContainer,
+      loadMore: async () => {
+        const results = await this._loadMorePosts();
+        return results && results.length >= 20;
+      },
+      threshold: '300px',
+      loadingMessage: 'Loading more posts...',
+      endMessage: 'No more posts to load'
+    });
+  }
+
+  _destroyInfiniteScroll() {
+    if (this._infiniteScroll) {
+      this._infiniteScroll.destroy?.();
+      this._infiniteScroll = null;
     }
   }
 
   displayResults(results) {
     this.resultsContainer.innerHTML = '';
+    if (this._emptyHint) this._emptyHint.style.display = 'none';
 
     if (!results || results.length === 0) {
       const noResults = document.createElement('div');
@@ -298,12 +366,14 @@ class SearchView extends View {
           <p>Try a different username or check your spelling.</p>
         `;
       } else if (this.currentSearchMethod === 'tags') {
+        const tagQuery = this.searchInput.value.trim();
         noResults.innerHTML = `
           <div class="no-results-icon"><i class="fas fa-hashtag"></i></div>
-          <h3>No tags found</h3>
-          <p>We couldn't find any tags matching your search.</p>
-          <p>You can still search for this tag by pressing Enter.</p>
-          <button class="search-tag-anyway">Search for this tag</button>
+          <h3>No matching tags</h3>
+          <p>Want to explore posts with this keyword?</p>
+          <button class="search-tag-anyway">
+            <i class="fas fa-hashtag"></i> Browse ${tagQuery}
+          </button>
         `;
         
         // Add event listener to the button
@@ -318,6 +388,12 @@ class SearchView extends View {
             });
           }
         }, 0);
+      } else if (this.currentSearchMethod === 'posts') {
+        noResults.innerHTML = `
+          <div class="no-results-icon"><span class="material-icons" style="font-size:2.5rem">article</span></div>
+          <h3>No posts found</h3>
+          <p>We couldn't find any posts matching your search.</p>
+        `;
       } else {
         noResults.textContent = 'No results found';
       }
@@ -326,26 +402,15 @@ class SearchView extends View {
       return;
     }
 
-    // Add search results count and summary
-    const resultsHeader = document.createElement('div');
-    resultsHeader.className = 'results-header';
-    resultsHeader.innerHTML = `
-      <h2>Search Results</h2>
-      <p>Found ${results.length} ${this.currentSearchMethod === 'users' ? 'users' : 'tags'} matching your search</p>
-    `;
-    this.resultsContainer.appendChild(resultsHeader);
+    this._resultsList = document.createElement('div');
+    this._resultsList.className = 'results-list';
 
-    const resultsList = document.createElement('div');
-    resultsList.className = 'results-list';
-
-    // Add staggered animation delay to results
-    results.forEach((result, index) => {
+    results.forEach((result) => {
       const resultItem = this.createResultItem(result);
-      resultItem.style.animationDelay = `${index * 0.1}s`; 
-      resultsList.appendChild(resultItem);
+      if (resultItem) this._resultsList.appendChild(resultItem);
     });
 
-    this.resultsContainer.appendChild(resultsList);
+    this.resultsContainer.appendChild(this._resultsList);
   }
 
   createResultItem(result) {
@@ -363,10 +428,6 @@ class SearchView extends View {
             <div class="user-info">
               <h3>${result.profile?.name || result.name}</h3>
               <span>@${result.name}</span>
-              ${result.profile?.about ? `<p class="user-about">${result.profile.about.substring(0, 60)}${result.profile.about.length > 60 ? '...' : ''}</p>` : ''}
-              <div class="user-action">
-                <span class="view-profile">View Profile <i class="fas fa-arrow-right"></i></span>
-              </div>
             </div>
           </div>
         `;
@@ -379,28 +440,39 @@ class SearchView extends View {
             <i class="fas fa-hashtag"></i>
             <div class="tag-info">
               <h3>${result.name}</h3>
-              <span class="tag-count">${result.count} posts</span>
-              <div class="tag-action">
-                <span class="view-tag">Browse Tag <i class="fas fa-arrow-right"></i></span>
-              </div>
             </div>
           </div>
         `;
         item.addEventListener('click', () => router.navigate(`/tag/${result.name}`));
         break;
+
+      case 'post':
+        const snippet = result.body ? result.body.substring(0, 120) + (result.body.length > 120 ? '...' : '') : '';
+        // Format date (created is a unix timestamp in seconds)
+        let dateStr = '';
+        if (result.created) {
+          const d = new Date(result.created * 1000);
+          dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+        item.innerHTML = `
+          <div class="post-result">
+            <img src="https://images.hive.blog/u/${result.author}/avatar/small"
+                 onerror="this.src='assets/img/default_avatar.png'"
+                 alt="${result.author}"
+                 class="user-avatar">
+            <div class="post-info">
+              <h3>${result.title}</h3>
+              <span class="post-author">@${result.author}${dateStr ? ' · <span class=\'post-date\'>' + dateStr + '</span>' : ''}</span>
+              ${snippet ? `<p class="post-snippet">${snippet}</p>` : ''}
+            </div>
+          </div>
+        `;
+        item.addEventListener('click', () => router.navigate(`/@${result.author}/${result.permlink}`));
+        break;
       default:
         console.error('Unknown result type:', result.type);
         return null; // Return null for unknown types 
     }
-
-    // Add hover effect
-    item.addEventListener('mouseenter', () => {
-      item.classList.add('hover');
-    });
-    
-    item.addEventListener('mouseleave', () => {
-      item.classList.remove('hover');
-    });
 
     return item;
   }
