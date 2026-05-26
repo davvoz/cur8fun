@@ -36,51 +36,97 @@ export default class MarkdownEditor extends Component {
     // Create toolbar
     const toolbar = document.createElement('div');
     toolbar.className = 'markdown-toolbar';
-    
-    const toolbarItems = [
+
+    // --- Markdown formatting submenu toggle ---
+    const markdownToggle = document.createElement('button');
+    markdownToggle.type = 'button';
+    markdownToggle.className = 'toolbar-button toolbar-md-toggle';
+    markdownToggle.title = 'Markdown Formatting';
+    markdownToggle.innerHTML = `<span class="material-icons">text_format</span><span class="toolbar-btn-label">Markdown</span><span class="material-icons toolbar-chevron">expand_more</span>`;
+    toolbar.appendChild(markdownToggle);
+
+    // Separator between toggle and action buttons
+    const sep1 = document.createElement('div');
+    sep1.className = 'toolbar-separator';
+    toolbar.appendChild(sep1);
+
+    // --- Upload Image button (prominent) ---
+    const uploadBtn = document.createElement('button');
+    uploadBtn.type = 'button';
+    uploadBtn.className = 'toolbar-button toolbar-action-btn toolbar-upload-btn';
+    uploadBtn.dataset.action = 'image';
+    uploadBtn.title = 'Upload Image';
+    uploadBtn.innerHTML = `<span class="material-icons">add_photo_alternate</span><span class="toolbar-btn-label">Image</span>`;
+    toolbar.appendChild(uploadBtn);
+
+    // --- Preview button (prominent) ---
+    const previewBtn = document.createElement('button');
+    previewBtn.type = 'button';
+    previewBtn.className = 'toolbar-button toolbar-action-btn toolbar-preview-btn';
+    previewBtn.dataset.action = 'preview';
+    previewBtn.title = 'Preview';
+    previewBtn.innerHTML = `<span class="material-icons">visibility</span><span class="toolbar-btn-label">Preview</span>`;
+    this.registerEventHandler(previewBtn, 'click', () => this.handleToolbarAction('preview', true));
+    toolbar.appendChild(previewBtn);
+
+    this.element.appendChild(toolbar);
+
+    // --- Markdown formatting submenu (horizontal expandable) ---
+    const mdSubmenu = document.createElement('div');
+    mdSubmenu.className = 'markdown-submenu';
+    mdSubmenu.style.display = 'none';
+
+    const mdItems = [
       { icon: 'format_bold', action: 'bold', tooltip: 'Bold' },
       { icon: 'format_italic', action: 'italic', tooltip: 'Italic' },
       { icon: 'format_quote', action: 'quote', tooltip: 'Quote' },
       { icon: 'code', action: 'code', tooltip: 'Code' },
       { icon: 'link', action: 'link', tooltip: 'Link' },
-      { icon: 'image', action: 'image', tooltip: 'Image' },
-      { type: 'separator' },
-      { icon: 'format_list_bulleted', action: 'bullet-list', tooltip: 'Bullet List' },
-      { icon: 'format_list_numbered', action: 'ordered-list', tooltip: 'Numbered List' },
-      { icon: 'horizontal_rule', action: 'hr', tooltip: 'Horizontal Rule' },
       { type: 'separator' },
       { icon: 'title', action: 'h1', tooltip: 'Heading 1' },
       { icon: 'text_fields', action: 'h2', tooltip: 'Heading 2' },
       { icon: 'text_format', action: 'h3', tooltip: 'Heading 3' },
       { type: 'separator' },
+      { icon: 'format_list_bulleted', action: 'bullet-list', tooltip: 'Bullet List' },
+      { icon: 'format_list_numbered', action: 'ordered-list', tooltip: 'Numbered List' },
+      { icon: 'horizontal_rule', action: 'hr', tooltip: 'Horizontal Rule' },
+      { type: 'separator' },
       { icon: 'table_chart', action: 'table', tooltip: 'Table' },
-      { icon: 'preview', action: 'preview', tooltip: 'Preview', toggle: true }
     ];
-    
-    toolbarItems.forEach(item => {
+
+    mdItems.forEach(item => {
       if (item.type === 'separator') {
         const separator = document.createElement('div');
         separator.className = 'toolbar-separator';
-        toolbar.appendChild(separator);
+        mdSubmenu.appendChild(separator);
         return;
       }
-      
+
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'toolbar-button';
       button.dataset.action = item.action;
       button.title = item.tooltip;
-      
+
       const icon = document.createElement('span');
       icon.className = 'material-icons';
       icon.textContent = item.icon;
       button.appendChild(icon);
-      
-      this.registerEventHandler(button, 'click', () => this.handleToolbarAction(item.action, item.toggle));
-      toolbar.appendChild(button);
+
+      this.registerEventHandler(button, 'click', () => this.handleToolbarAction(item.action));
+      mdSubmenu.appendChild(button);
     });
-    
-    this.element.appendChild(toolbar);
+
+    this.element.appendChild(mdSubmenu);
+
+    // Toggle submenu visibility
+    this.registerEventHandler(markdownToggle, 'click', () => {
+      const isOpen = mdSubmenu.style.display !== 'none';
+      mdSubmenu.style.display = isOpen ? 'none' : 'flex';
+      markdownToggle.classList.toggle('active', !isOpen);
+      const chevron = markdownToggle.querySelector('.toolbar-chevron');
+      if (chevron) chevron.textContent = isOpen ? 'expand_more' : 'expand_less';
+    });
     
     // Create editor container
     const editorContainer = document.createElement('div');
@@ -312,9 +358,13 @@ export default class MarkdownEditor extends Component {
     this.previewArea.style.display = this.previewMode ? 'block' : 'none';
     
     // Update toggle button
-    const previewButton = this.element.querySelector('[data-action="preview"]');
+    const previewButton = this.element.querySelector('.toolbar-preview-btn');
     if (previewButton) {
       previewButton.classList.toggle('active', this.previewMode);
+      const icon = previewButton.querySelector('.material-icons');
+      if (icon) icon.textContent = this.previewMode ? 'edit' : 'visibility';
+      const label = previewButton.querySelector('.toolbar-btn-label');
+      if (label) label.textContent = this.previewMode ? 'Edit' : 'Preview';
     }
     
     if (this.previewMode) {
@@ -322,20 +372,35 @@ export default class MarkdownEditor extends Component {
     }
   }
   
-  updatePreview() {
-    // Use our content renderer to process the markdown properly
+  async updatePreview() {
     try {
       // Clear previous content
       while (this.previewArea.firstChild) {
         this.previewArea.removeChild(this.previewArea.firstChild);
       }
-      
-      // Use the content renderer to process the markdown
+
+      // Lazy-load SteemContentRenderer if the renderer isn't ready yet
+      if (!this.contentRenderer.steemRenderer) {
+        this.previewArea.textContent = 'Loading preview…';
+        try {
+          await ContentRenderer.loadSteemContentRenderer();
+          // Re-init now that the library is available
+          this.contentRenderer.initSteemRenderer();
+        } catch (e) {
+          console.warn('SteemContentRenderer could not be loaded, using fallback preview.');
+        }
+      }
+
+      // Clear loading message
+      while (this.previewArea.firstChild) {
+        this.previewArea.removeChild(this.previewArea.firstChild);
+      }
+
+      // Render with the content renderer (will use steem renderer or fallback)
       const rendered = this.contentRenderer.render({
         body: this.value
       });
-      
-      // Append the processed content to our preview area
+
       if (rendered.container) {
         this.previewArea.appendChild(rendered.container);
       }

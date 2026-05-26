@@ -24,7 +24,6 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.prefilledCommunityTitle = params.communityTitle || null;
     
     // Opzioni beneficiari - versione aggiornata con supporto multiplo
-    this.includeBeneficiary = true;
     this.beneficiaries = [{
       account: createPostService.defaultBeneficiary.name,
       weight: createPostService.defaultBeneficiary.weight
@@ -50,6 +49,9 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.isScheduled = false;
     this.publishDate = null;
     this.publishTime = null;
+
+    // Payout choice: 'default' (50/50), 'power_up' (100% SP), 'decline'
+    this.payoutOption = 'default';
   }
 
   // Aggiornamento della funzione render per un'interfaccia più compatta
@@ -174,23 +176,40 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Add an event listener to allow searching when user types
     communitySearch.addEventListener('input', (e) => {
+      const value = e.target.value;
+
+      // If the user edits the text after picking a community, the prior
+      // selection no longer matches what's typed — drop it so submit can't
+      // silently use a stale value.
+      if (this.selectedCommunity) {
+        const expected = (this.selectedCommunity.title || this.selectedCommunity.name || '').trim();
+        if (value.trim() !== expected) {
+          this.selectedCommunity = null;
+          communitySearch.setAttribute('data-selected', 'false');
+          this.hasUnsavedChanges = true;
+        }
+      }
+
+      // Hide any previous error while the user is actively typing
+      this.clearCommunityError();
+
       // Non fare ricerca se l'input è vuoto o è molto breve
-      if (!e.target.value.trim() || e.target.value.trim().length < 2) {
+      if (!value.trim() || value.trim().length < 2) {
         return;
       }
-      
+
       // Cancel previous timeout
       clearTimeout(this.searchTimeout);
-      
+
       // Setup a new timeout
       this.searchTimeout = setTimeout(() => {
-        this.searchCommunities(e.target.value);
+        this.searchCommunities(value);
       }, 300);
-      
+
       // Mostra il pulsante di pulizia se c'è testo nell'input
       const clearBtn = document.getElementById('clear-community-btn');
       if (clearBtn) {
-        if (e.target.value.trim()) {
+        if (value.trim()) {
           clearBtn.classList.remove('hidden');
         } else {
           clearBtn.classList.add('hidden');
@@ -198,7 +217,14 @@ class CreatePostView extends View {  constructor(params = {}) {
       }
     });
 
-    // Toggle dropdown on click 
+    // Validate on blur — empty is OK (personal blog), but free text must
+    // correspond to a community picked from the dropdown.
+    communitySearch.addEventListener('blur', () => {
+      // Defer so a click on a dropdown item registers before we validate
+      setTimeout(() => this.validateCommunityField(), 150);
+    });
+
+    // Toggle dropdown on click
     communitySearch.addEventListener('click', (e) => {
       this.toggleDropdown();
     });
@@ -232,6 +258,12 @@ class CreatePostView extends View {  constructor(params = {}) {
     communityHelp.className = 'form-text';
     communityHelp.textContent = 'Select a community to post in, or leave empty to post on your personal blog.';
     communityGroup.appendChild(communityHelp);
+
+    // Error message slot (hidden until validation fails)
+    const communityError = document.createElement('small');
+    communityError.className = 'form-text community-error hidden';
+    communityError.id = 'community-error';
+    communityGroup.appendChild(communityError);
 
     form.appendChild(communityGroup);
 
@@ -303,7 +335,14 @@ class CreatePostView extends View {  constructor(params = {}) {
     tagsInput.className = 'form-control';
     tagsInput.placeholder = 'Enter tags separated by spaces (e.g., steem art photography)';
     tagsInput.addEventListener('input', (e) => {
-      this.tags = e.target.value.split(' ').filter(tag => tag.trim() !== '');
+      // Steem tags must be lowercase — coerce as the user types
+      const lowered = e.target.value.toLowerCase();
+      if (e.target.value !== lowered) {
+        const cursor = e.target.selectionStart;
+        e.target.value = lowered;
+        e.target.setSelectionRange(cursor, cursor);
+      }
+      this.tags = lowered.split(' ').filter(tag => tag.trim() !== '');
       this.hasUnsavedChanges = true;
     });
     tagsGroup.appendChild(tagsInput);
@@ -311,255 +350,31 @@ class CreatePostView extends View {  constructor(params = {}) {
     const tagsHelp = document.createElement('small');
     tagsHelp.className = 'form-text';
     tagsHelp.textContent = 'Add up to 5 tags to help categorize your post. The first tag becomes the main category.';
-    tagsGroup.appendChild(tagsHelp);    form.appendChild(tagsGroup);
+    tagsGroup.appendChild(tagsHelp);
+    form.appendChild(tagsGroup);
 
-    // Publish Date/Time section
-    const publishDateGroup = document.createElement('div');
-    publishDateGroup.className = 'form-group publish-date-group';
+    // Post controls row: scheduling on the left, advanced options on the right.
+    // Each opens its own dedicated modal.
+    const controlsRow = document.createElement('div');
+    controlsRow.className = 'post-controls-row';
 
-    const publishDateLabel = document.createElement('div');
-    publishDateLabel.className = 'form-label-with-toggle';
-    
-    const publishDateLabelText = document.createElement('label');
-    publishDateLabelText.textContent = 'Schedule Publishing';
-    publishDateLabelText.htmlFor = 'schedule-toggle';
-    
-    const scheduleToggleContainer = document.createElement('div');
-    scheduleToggleContainer.className = 'toggle-switch-container';
-    
-    const scheduleToggle = document.createElement('input');
-    scheduleToggle.type = 'checkbox';
-    scheduleToggle.id = 'schedule-toggle';
-    scheduleToggle.className = 'toggle-switch';
-    scheduleToggle.checked = false;
-    
-    const scheduleToggleLabel = document.createElement('label');
-    scheduleToggleLabel.htmlFor = 'schedule-toggle';
-    scheduleToggleLabel.className = 'toggle-label';
-    
-    scheduleToggleContainer.appendChild(scheduleToggle);
-    scheduleToggleContainer.appendChild(scheduleToggleLabel);
-    
-    publishDateLabel.appendChild(publishDateLabelText);
-    publishDateLabel.appendChild(scheduleToggleContainer);
-    
-    publishDateGroup.appendChild(publishDateLabel);
+    controlsRow.appendChild(this.buildScheduleControl());
+    controlsRow.appendChild(this.buildAdvancedOptionsBar());
 
-    // DateTime picker content (hidden by default)
-    const dateTimeContent = document.createElement('div');
-    dateTimeContent.className = 'datetime-content';
-    dateTimeContent.style.display = 'none';
+    form.appendChild(controlsRow);
 
-    // Date picker
-    const datePickerGroup = document.createElement('div');
-    datePickerGroup.className = 'datetime-input-group';
+    // Submit + advanced row
+    const submitRow = document.createElement('div');
+    submitRow.className = 'submit-row';
 
-    const dateLabel = document.createElement('label');
-    dateLabel.htmlFor = 'publish-date';
-    dateLabel.textContent = 'Date';
-
-    const dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    dateInput.id = 'publish-date';
-    dateInput.className = 'form-control datetime-input';
-    
-    // Set minimum date to today
-    const today = new Date().toISOString().split('T')[0];
-    dateInput.min = today;
-    dateInput.value = today;
-
-    datePickerGroup.appendChild(dateLabel);
-    datePickerGroup.appendChild(dateInput);
-
-    // Time picker
-    const timePickerGroup = document.createElement('div');
-    timePickerGroup.className = 'datetime-input-group';
-
-    const timeLabel = document.createElement('label');
-    timeLabel.htmlFor = 'publish-time';
-    timeLabel.textContent = 'Time';
-
-    const timeInput = document.createElement('input');
-    timeInput.type = 'time';
-    timeInput.id = 'publish-time';
-    timeInput.className = 'form-control datetime-input';
-    
-    // Set default time to current time + 1 hour
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    timeInput.value = now.toTimeString().slice(0, 5);
-
-    timePickerGroup.appendChild(timeLabel);
-    timePickerGroup.appendChild(timeInput);
-
-    // DateTime container
-    const dateTimeInputsContainer = document.createElement('div');
-    dateTimeInputsContainer.className = 'datetime-inputs-container';
-    dateTimeInputsContainer.appendChild(datePickerGroup);
-    dateTimeInputsContainer.appendChild(timePickerGroup);
-
-    dateTimeContent.appendChild(dateTimeInputsContainer);
-
-    // Preview of selected datetime
-    const datetimePreview = document.createElement('div');
-    datetimePreview.className = 'datetime-preview';
-    datetimePreview.id = 'datetime-preview';
-
-    dateTimeContent.appendChild(datetimePreview);    // Help text
-    const dateTimeHelp = document.createElement('div');
-    dateTimeHelp.className = 'datetime-help';
-    
-    const clockIcon = document.createElement('span');
-    clockIcon.className = 'material-icons info-icon';
-    clockIcon.textContent = 'schedule';
-    
-    const datetimeHelpText = document.createElement('small');
-    datetimeHelpText.className = 'form-text';
-    datetimeHelpText.textContent = 'Schedule your post to be published at a specific date and time. Times are in your local timezone.';
-    
-    dateTimeHelp.appendChild(clockIcon);
-    dateTimeHelp.appendChild(datetimeHelpText);
-    dateTimeContent.appendChild(dateTimeHelp);
-
-    publishDateGroup.appendChild(dateTimeContent);
-
-    // Event handlers for scheduling
-    scheduleToggle.addEventListener('change', (e) => {
-      const isScheduled = e.target.checked;
-      console.log('[DEBUG] Schedule toggle changed:', isScheduled);
-      dateTimeContent.style.display = isScheduled ? 'block' : 'none';
-      this.isScheduled = isScheduled;
-      this.hasUnsavedChanges = true;
-      this.updateDateTimePreview();
-      
-      // Update submit button text
-      const submitBtn = document.getElementById('submit-post-btn');
-      if (submitBtn) {
-        submitBtn.textContent = isScheduled ? 'Schedule Post' : 'Publish Post';
-        console.log('[DEBUG] Submit button text updated to:', submitBtn.textContent);
-      }
-    });
-
-    // Update preview when date/time changes
-    dateInput.addEventListener('change', () => {
-      this.publishDate = dateInput.value;
-      this.hasUnsavedChanges = true;
-      this.updateDateTimePreview();
-    });
-
-    timeInput.addEventListener('change', () => {
-      this.publishTime = timeInput.value;
-      this.hasUnsavedChanges = true;
-      this.updateDateTimePreview();
-    });
-
-    form.appendChild(publishDateGroup);
-
-    // Beneficiary section
-    const beneficiaryGroup = document.createElement('div');
-    beneficiaryGroup.className = 'form-group beneficiary-group';
-
-    const beneficiaryLabel = document.createElement('div');
-    beneficiaryLabel.className = 'form-label-with-toggle';
-    
-    const beneficiaryLabelText = document.createElement('label');
-    beneficiaryLabelText.textContent = 'Reward Beneficiaries';
-    beneficiaryLabelText.htmlFor = 'beneficiary-toggle';
-    
-    const beneficiaryToggleContainer = document.createElement('div');
-    beneficiaryToggleContainer.className = 'toggle-switch-container';
-    
-    const beneficiaryToggle = document.createElement('input');
-    beneficiaryToggle.type = 'checkbox';
-    beneficiaryToggle.id = 'beneficiary-toggle';
-    beneficiaryToggle.className = 'toggle-switch';
-    beneficiaryToggle.checked = this.includeBeneficiary;
-    
-    const toggleLabel = document.createElement('label');
-    toggleLabel.htmlFor = 'beneficiary-toggle';
-    toggleLabel.className = 'toggle-label';
-    
-    beneficiaryToggleContainer.appendChild(beneficiaryToggle);
-    beneficiaryToggleContainer.appendChild(toggleLabel);
-    
-    beneficiaryLabel.appendChild(beneficiaryLabelText);
-    beneficiaryLabel.appendChild(beneficiaryToggleContainer);
-    
-    beneficiaryGroup.appendChild(beneficiaryLabel);
-
-    // Beneficiary content container (shown/hidden based on toggle)
-    const beneficiaryContent = document.createElement('div');
-    beneficiaryContent.className = 'beneficiary-content';
-    beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
-
-    // Lista di beneficiari
-    const beneficiariesList = document.createElement('div');
-    beneficiariesList.className = 'beneficiaries-list';
-    beneficiariesList.id = 'beneficiaries-list';
-    
-    // Popola la lista con i beneficiari esistenti
-    this.renderBeneficiaryItems(beneficiariesList);
-    
-    beneficiaryContent.appendChild(beneficiariesList);
-    
-    // Pulsante per aggiungere nuovo beneficiario
-    const addBeneficiaryBtn = document.createElement('button');
-    addBeneficiaryBtn.type = 'button';
-    addBeneficiaryBtn.className = 'add-beneficiary-btn';
-    addBeneficiaryBtn.id = 'add-beneficiary-btn';
-    addBeneficiaryBtn.innerHTML = '<span class="material-icons">add</span> Add Beneficiary';
-    addBeneficiaryBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
-    
-    addBeneficiaryBtn.addEventListener('click', () => {
-      this.showAddBeneficiaryDialog();
-    });
-    
-    beneficiaryContent.appendChild(addBeneficiaryBtn);
-    
-    // Riepilogo beneficiari (percentuale totale)
-    const beneficiarySummary = document.createElement('div');
-    beneficiarySummary.className = 'beneficiary-summary';
-    beneficiarySummary.id = 'beneficiary-summary';
-    
-    this.updateBeneficiarySummary(beneficiarySummary);
-    
-    beneficiaryContent.appendChild(beneficiarySummary);
-    
-    // Beneficiary info text
-    const beneficiaryHelp = document.createElement('div');
-    beneficiaryHelp.className = 'beneficiary-help';
-    
-    // Icon for info
-    const infoIcon = document.createElement('span');
-    infoIcon.className = 'material-icons info-icon';
-    infoIcon.textContent = 'info';
-    
-    // Help text
-    const helpText = document.createElement('small');
-    helpText.className = 'form-text';
-    helpText.textContent = 'Beneficiaries receive a percentage of your post rewards. You can add up to 8 beneficiaries.';
-    
-    beneficiaryHelp.appendChild(infoIcon);
-    beneficiaryHelp.appendChild(helpText);
-    beneficiaryContent.appendChild(beneficiaryHelp);
-    
-    beneficiaryGroup.appendChild(beneficiaryContent);
-    form.appendChild(beneficiaryGroup);
-    
-    // Event handlers for beneficiary section
-    beneficiaryToggle.addEventListener('change', (e) => {
-      this.includeBeneficiary = e.target.checked;
-      beneficiaryContent.style.display = this.includeBeneficiary ? 'block' : 'none';
-      this.hasUnsavedChanges = true;
-    });
-
-    // Submit button
     const submitBtn = document.createElement('button');
     submitBtn.type = 'submit';
-    submitBtn.className = 'btn primary-btn';
+    submitBtn.className = 'btn primary-btn submit-post-btn';
     submitBtn.id = 'submit-post-btn';
     submitBtn.textContent = 'Publish Post';
-    form.appendChild(submitBtn);
+    submitRow.appendChild(submitBtn);
+
+    form.appendChild(submitRow);
 
     // Append form to container
     postEditor.appendChild(form);
@@ -609,6 +424,580 @@ class CreatePostView extends View {  constructor(params = {}) {
     if (clearBtn) {
       clearBtn.classList.remove('hidden');
     }
+  }
+
+  // ----- Advanced options (payout / scheduling / beneficiaries) -----
+
+  /**
+   * Compact bar shown in the main form with a one-line summary of advanced
+   * settings + an "Edit" button that opens the modal.
+   */
+  buildAdvancedOptionsBar() {
+    const wrap = document.createElement('div');
+    wrap.className = 'advanced-options-bar';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'advanced-options-edit-btn';
+    editBtn.id = 'advanced-options-edit-btn';
+    editBtn.innerHTML = '<span class="material-icons">tune</span> Advanced options';
+    editBtn.addEventListener('click', () => this.openAdvancedOptionsModal());
+    wrap.appendChild(editBtn);
+
+    return wrap;
+  }
+
+  /**
+   * Refresh dependent controls after state changes. The advanced-options
+   * button itself has no summary — only the schedule control and the submit
+   * button label react to state.
+   */
+  updateAdvancedOptionsSummary() {
+    this.updateScheduleControlLabel();
+    this.updateSubmitButtonText();
+  }
+
+  updateSubmitButtonText() {
+    const submitBtn = document.getElementById('submit-post-btn');
+    if (!submitBtn) return;
+    submitBtn.textContent = this.isScheduled ? 'Schedule Post' : 'Publish Post';
+  }
+
+  /**
+   * Opens the advanced-options modal containing all 3 sections.
+   */
+  openAdvancedOptionsModal() {
+    // Avoid duplicates
+    const existing = document.querySelector('.advanced-options-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'advanced-options-modal';
+
+    const content = document.createElement('div');
+    content.className = 'advanced-options-modal-content';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'advanced-options-modal-header';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Advanced options';
+    header.appendChild(title);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'advanced-options-close-btn';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<span class="material-icons">close</span>';
+    closeBtn.addEventListener('click', () => this.closeAdvancedOptionsModal());
+    header.appendChild(closeBtn);
+
+    content.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'advanced-options-modal-body';
+
+    body.appendChild(this.buildPayoutSection());
+    body.appendChild(this.buildBeneficiariesSection());
+
+    content.appendChild(body);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'advanced-options-modal-footer';
+
+    const doneBtn = document.createElement('button');
+    doneBtn.type = 'button';
+    doneBtn.className = 'btn primary-btn';
+    doneBtn.textContent = 'Done';
+    doneBtn.addEventListener('click', () => this.closeAdvancedOptionsModal());
+    footer.appendChild(doneBtn);
+
+    content.appendChild(footer);
+    modal.appendChild(content);
+
+    // Backdrop click closes
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeAdvancedOptionsModal();
+    });
+
+    // ESC to close
+    this.advancedModalKeyHandler = (e) => {
+      if (e.key === 'Escape') this.closeAdvancedOptionsModal();
+    };
+    document.addEventListener('keydown', this.advancedModalKeyHandler);
+
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  }
+
+  closeAdvancedOptionsModal() {
+    const modal = document.querySelector('.advanced-options-modal');
+    if (modal) modal.remove();
+    document.body.classList.remove('modal-open');
+    if (this.advancedModalKeyHandler) {
+      document.removeEventListener('keydown', this.advancedModalKeyHandler);
+      this.advancedModalKeyHandler = null;
+    }
+    this.updateAdvancedOptionsSummary();
+  }
+
+  // ----- Modal sections -----
+
+  buildPayoutSection() {
+    const section = document.createElement('section');
+    section.className = 'advanced-section payout-section';
+
+    const heading = document.createElement('h4');
+    heading.className = 'advanced-section-title';
+    heading.textContent = 'Reward payout';
+    section.appendChild(heading);
+
+    const options = [
+      {
+        value: 'default',
+        label: '50% SBD + 50% SP',
+        desc: 'Standard Steem reward split — half in SBD, half in Steem Power.'
+      },
+      {
+        value: 'power_up',
+        label: 'Power Up 100%',
+        desc: 'Convert your entire payout into Steem Power.'
+      },
+      {
+        value: 'decline',
+        label: 'Decline payout',
+        desc: 'Refuse all rewards for this post (cannot be undone after publishing).'
+      }
+    ];
+
+    const list = document.createElement('div');
+    list.className = 'payout-options';
+
+    options.forEach(opt => {
+      const card = document.createElement('label');
+      card.className = 'payout-option-card';
+      if (this.payoutOption === opt.value) card.classList.add('selected');
+
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'payout-option';
+      input.value = opt.value;
+      input.checked = this.payoutOption === opt.value;
+      input.addEventListener('change', () => {
+        if (input.checked) {
+          this.payoutOption = opt.value;
+          this.hasUnsavedChanges = true;
+          list.querySelectorAll('.payout-option-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+        }
+      });
+
+      const radioVisual = document.createElement('span');
+      radioVisual.className = 'payout-option-radio';
+
+      const textWrap = document.createElement('div');
+      textWrap.className = 'payout-option-text';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'payout-option-label';
+      labelEl.textContent = opt.label;
+
+      const descEl = document.createElement('div');
+      descEl.className = 'payout-option-desc';
+      descEl.textContent = opt.desc;
+
+      textWrap.appendChild(labelEl);
+      textWrap.appendChild(descEl);
+
+      card.appendChild(input);
+      card.appendChild(radioVisual);
+      card.appendChild(textWrap);
+
+      list.appendChild(card);
+    });
+
+    section.appendChild(list);
+    return section;
+  }
+
+  // ----- Schedule control (standalone, separate from advanced-options) -----
+
+  /**
+   * Compact "Schedule" button shown next to the advanced-options bar.
+   * Label reflects current scheduling state.
+   */
+  buildScheduleControl() {
+    const wrap = document.createElement('div');
+    wrap.className = 'schedule-control';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'schedule-control-btn';
+    btn.className = 'schedule-control-btn';
+    btn.addEventListener('click', () => this.openScheduleModal());
+
+    wrap.appendChild(btn);
+    setTimeout(() => this.updateScheduleControlLabel(), 0);
+    return wrap;
+  }
+
+  /** Returns a short human-readable scheduling label. */
+  formatScheduleLabel() {
+    if (!this.isScheduled || !this.publishDate || !this.publishTime) {
+      return { icon: 'schedule', text: 'Schedule', scheduled: false };
+    }
+    const dt = new Date(`${this.publishDate}T${this.publishTime}`);
+    const formatted = dt.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    return { icon: 'schedule', text: formatted, scheduled: true };
+  }
+
+  updateScheduleControlLabel() {
+    const btn = document.getElementById('schedule-control-btn');
+    if (!btn) return;
+    const { icon, text, scheduled } = this.formatScheduleLabel();
+    btn.innerHTML = `<span class="material-icons">${icon}</span><span class="schedule-control-text">${text}</span>`;
+    btn.classList.toggle('is-scheduled', scheduled);
+    btn.title = scheduled ? 'Scheduled — click to change' : 'Click to schedule';
+  }
+
+  // ----- Schedule modal (dedicated) -----
+
+  openScheduleModal() {
+    const existing = document.querySelector('.schedule-modal');
+    if (existing) existing.remove();
+
+    // Working copy: applied to instance only on "Save"
+    const draftState = {
+      isScheduled: this.isScheduled,
+      date: this.publishDate || this.todayISO(),
+      time: this.publishTime || this.defaultFutureTime()
+    };
+
+    const modal = document.createElement('div');
+    modal.className = 'schedule-modal';
+
+    const content = document.createElement('div');
+    content.className = 'schedule-modal-content';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'schedule-modal-header';
+    const title = document.createElement('h3');
+    title.textContent = 'Schedule publishing';
+    header.appendChild(title);
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'schedule-modal-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<span class="material-icons">close</span>';
+    closeBtn.addEventListener('click', () => this.closeScheduleModal());
+    header.appendChild(closeBtn);
+    content.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'schedule-modal-body';
+
+    // --- Publish now card (clears scheduling) ---
+    const nowCard = document.createElement('button');
+    nowCard.type = 'button';
+    nowCard.className = 'schedule-now-card';
+    nowCard.innerHTML = `
+      <span class="material-icons">send</span>
+      <div class="schedule-now-text">
+        <div class="schedule-now-title">Publish now</div>
+        <div class="schedule-now-desc">The post will be broadcast as soon as you submit it.</div>
+      </div>
+    `;
+    if (!draftState.isScheduled) nowCard.classList.add('active');
+    nowCard.addEventListener('click', () => {
+      draftState.isScheduled = false;
+      nowCard.classList.add('active');
+      presetGrid.querySelectorAll('.schedule-preset').forEach(b => b.classList.remove('active'));
+      this.renderSchedulePreview(previewEl, draftState);
+    });
+    body.appendChild(nowCard);
+
+    // --- Or schedule label ---
+    const orLabel = document.createElement('div');
+    orLabel.className = 'schedule-or';
+    orLabel.textContent = 'Or schedule for later';
+    body.appendChild(orLabel);
+
+    // --- Presets ---
+    const presetGrid = document.createElement('div');
+    presetGrid.className = 'schedule-presets';
+
+    const presets = this.buildSchedulePresets();
+    presets.forEach(preset => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'schedule-preset';
+      card.innerHTML = `
+        <div class="schedule-preset-label">${preset.label}</div>
+        <div class="schedule-preset-when">${preset.when}</div>
+      `;
+      card.addEventListener('click', () => {
+        const d = preset.date;
+        draftState.isScheduled = true;
+        draftState.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        draftState.time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        dateInput.value = draftState.date;
+        timeInput.value = draftState.time;
+        nowCard.classList.remove('active');
+        presetGrid.querySelectorAll('.schedule-preset').forEach(b => b.classList.remove('active'));
+        card.classList.add('active');
+        this.renderSchedulePreview(previewEl, draftState);
+      });
+      presetGrid.appendChild(card);
+    });
+    body.appendChild(presetGrid);
+
+    // --- Custom datetime ---
+    const customSection = document.createElement('div');
+    customSection.className = 'schedule-custom';
+
+    const customLabel = document.createElement('div');
+    customLabel.className = 'schedule-custom-label';
+    customLabel.textContent = 'Custom date and time';
+    customSection.appendChild(customLabel);
+
+    const customRow = document.createElement('div');
+    customRow.className = 'schedule-custom-row';
+
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.className = 'form-control schedule-date-input';
+    dateInput.min = this.todayISO();
+    dateInput.value = draftState.date;
+
+    const timeInput = document.createElement('input');
+    timeInput.type = 'time';
+    timeInput.className = 'form-control schedule-time-input';
+    timeInput.value = draftState.time;
+
+    const handleCustomChange = () => {
+      draftState.isScheduled = true;
+      draftState.date = dateInput.value;
+      draftState.time = timeInput.value;
+      nowCard.classList.remove('active');
+      presetGrid.querySelectorAll('.schedule-preset').forEach(b => b.classList.remove('active'));
+      this.renderSchedulePreview(previewEl, draftState);
+    };
+    dateInput.addEventListener('change', handleCustomChange);
+    timeInput.addEventListener('change', handleCustomChange);
+
+    customRow.appendChild(dateInput);
+    customRow.appendChild(timeInput);
+    customSection.appendChild(customRow);
+    body.appendChild(customSection);
+
+    // --- Preview ---
+    const previewEl = document.createElement('div');
+    previewEl.className = 'schedule-preview';
+    this.renderSchedulePreview(previewEl, draftState);
+    body.appendChild(previewEl);
+
+    content.appendChild(body);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'schedule-modal-footer';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn secondary-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => this.closeScheduleModal());
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn primary-btn';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => {
+      if (draftState.isScheduled) {
+        if (!draftState.date || !draftState.time) {
+          this.renderSchedulePreview(previewEl, draftState, 'Please pick both date and time.');
+          return;
+        }
+        const picked = new Date(`${draftState.date}T${draftState.time}`);
+        if (picked <= new Date()) {
+          this.renderSchedulePreview(previewEl, draftState, 'Scheduled time must be in the future.');
+          return;
+        }
+        this.isScheduled = true;
+        this.publishDate = draftState.date;
+        this.publishTime = draftState.time;
+      } else {
+        this.isScheduled = false;
+        this.publishDate = null;
+        this.publishTime = null;
+      }
+      this.hasUnsavedChanges = true;
+      this.closeScheduleModal();
+    });
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(saveBtn);
+    content.appendChild(footer);
+
+    modal.appendChild(content);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeScheduleModal();
+    });
+
+    this.scheduleModalKeyHandler = (e) => {
+      if (e.key === 'Escape') this.closeScheduleModal();
+    };
+    document.addEventListener('keydown', this.scheduleModalKeyHandler);
+
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  }
+
+  closeScheduleModal() {
+    const modal = document.querySelector('.schedule-modal');
+    if (modal) modal.remove();
+    document.body.classList.remove('modal-open');
+    if (this.scheduleModalKeyHandler) {
+      document.removeEventListener('keydown', this.scheduleModalKeyHandler);
+      this.scheduleModalKeyHandler = null;
+    }
+    this.updateAdvancedOptionsSummary();
+  }
+
+  /** Builds preset options relative to "now". */
+  buildSchedulePresets() {
+    const now = new Date();
+    const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+
+    const tonight = new Date(now);
+    tonight.setHours(20, 0, 0, 0);
+    const tonightValid = tonight > now;
+
+    const tomorrow9 = new Date(now);
+    tomorrow9.setDate(tomorrow9.getDate() + 1);
+    tomorrow9.setHours(9, 0, 0, 0);
+
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    nextWeek.setHours(9, 0, 0, 0);
+
+    const fmt = (d) => d.toLocaleString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const presets = [
+      { label: 'In 1 hour', when: fmt(in1h), date: in1h }
+    ];
+    if (tonightValid) {
+      presets.push({ label: 'Tonight 8 PM', when: fmt(tonight), date: tonight });
+    }
+    presets.push({ label: 'Tomorrow 9 AM', when: fmt(tomorrow9), date: tomorrow9 });
+    presets.push({ label: 'Next week', when: fmt(nextWeek), date: nextWeek });
+
+    return presets;
+  }
+
+  renderSchedulePreview(el, state, errorMsg) {
+    if (errorMsg) {
+      el.className = 'schedule-preview error';
+      el.innerHTML = `<span class="material-icons">error</span> ${errorMsg}`;
+      return;
+    }
+
+    if (!state.isScheduled) {
+      el.className = 'schedule-preview';
+      el.innerHTML = `<span class="material-icons">send</span> Will publish immediately when you hit submit.`;
+      return;
+    }
+
+    const dt = new Date(`${state.date}T${state.time}`);
+    if (isNaN(dt.getTime())) {
+      el.className = 'schedule-preview';
+      el.innerHTML = '';
+      return;
+    }
+
+    const now = new Date();
+    const isPast = dt <= now;
+    const formatted = dt.toLocaleString(undefined, {
+      weekday: 'long', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    if (isPast) {
+      el.className = 'schedule-preview error';
+      el.innerHTML = `<span class="material-icons">warning</span> This time is in the past — pick a future moment.`;
+      return;
+    }
+
+    const relative = this.formatRelativeFuture(dt, now);
+    el.className = 'schedule-preview ok';
+    el.innerHTML = `<span class="material-icons">schedule</span> <strong>${formatted}</strong> <span class="schedule-relative">(${relative})</span>`;
+  }
+
+  formatRelativeFuture(dt, now) {
+    const diffMs = dt - now;
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 60) return `in ${mins} min`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `in ${hours} hour${hours === 1 ? '' : 's'}`;
+    const days = Math.round(hours / 24);
+    if (days < 14) return `in ${days} day${days === 1 ? '' : 's'}`;
+    const weeks = Math.round(days / 7);
+    return `in ${weeks} week${weeks === 1 ? '' : 's'}`;
+  }
+
+  todayISO() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  defaultFutureTime() {
+    const d = new Date();
+    d.setHours(d.getHours() + 1);
+    return d.toTimeString().slice(0, 5);
+  }
+
+  buildBeneficiariesSection() {
+    const section = document.createElement('section');
+    section.className = 'advanced-section beneficiaries-section';
+
+    const heading = document.createElement('h4');
+    heading.className = 'advanced-section-title';
+    heading.textContent = 'Reward beneficiaries';
+    section.appendChild(heading);
+
+    const desc = document.createElement('p');
+    desc.className = 'advanced-section-desc';
+    desc.textContent = `Share a percentage of your post rewards. Up to ${createPostService.maxBeneficiaries} accounts, total ≤ 90%.`;
+    section.appendChild(desc);
+
+    // Existing beneficiaries list
+    const list = document.createElement('div');
+    list.className = 'beneficiaries-list';
+    list.id = 'beneficiaries-list';
+    this.renderBeneficiaryItems(list);
+    section.appendChild(list);
+
+    // Inline add form
+    const addForm = this.buildInlineBeneficiaryForm();
+    section.appendChild(addForm);
+
+    // Summary (Author X% / Beneficiaries Y%)
+    const summary = document.createElement('div');
+    summary.className = 'beneficiary-summary';
+    summary.id = 'beneficiary-summary';
+    this.updateBeneficiarySummary(summary);
+    section.appendChild(summary);
+
+    return section;
   }
 
   /**
@@ -758,40 +1147,18 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.isScheduled = true;
       this.publishDate = draft.publishDate;
       this.publishTime = draft.publishTime;
-
-      const scheduleToggle = document.getElementById('schedule-toggle');
-      const dateInput = document.getElementById('publish-date');
-      const timeInput = document.getElementById('publish-time');
-      const dateTimeContent = document.querySelector('.datetime-content');
-      const submitBtn = document.getElementById('submit-post-btn');
-
-      if (scheduleToggle) {
-        scheduleToggle.checked = true;
-      }
-
-      if (dateTimeContent) {
-        dateTimeContent.style.display = 'block';
-      }
-
-      if (dateInput && draft.publishDate) {
-        dateInput.value = draft.publishDate;
-      }
-
-      if (timeInput && draft.publishTime) {
-        timeInput.value = draft.publishTime;
-      }
-
-      if (submitBtn) {
-        submitBtn.textContent = 'Schedule Post';
-      }
-
-      // Update the datetime preview
-      this.updateDateTimePreview();
     }
-    
+
+    // Load advanced state into memory (UI shows them when the modal opens)
+    if (draft.payoutOption) this.payoutOption = draft.payoutOption;
+    if (Array.isArray(draft.beneficiaries) && draft.beneficiaries.length > 0) {
+      this.beneficiaries = draft.beneficiaries;
+    }
+    this.updateAdvancedOptionsSummary();
+
     // Segnala che non ci sono modifiche non salvate
     this.hasUnsavedChanges = false;
-    
+
     // Mostra notifica
     this.showStatus('Draft loaded successfully', 'success');
     
@@ -867,37 +1234,15 @@ class CreatePostView extends View {  constructor(params = {}) {
         this.isScheduled = true;
         this.publishDate = draft.publishDate;
         this.publishTime = draft.publishTime;
-
-        const scheduleToggle = document.getElementById('schedule-toggle');
-        const dateInput = document.getElementById('publish-date');
-        const timeInput = document.getElementById('publish-time');
-        const dateTimeContent = document.querySelector('.datetime-content');
-        const submitBtn = document.getElementById('submit-post-btn');
-
-        if (scheduleToggle) {
-          scheduleToggle.checked = true;
-        }
-
-        if (dateTimeContent) {
-          dateTimeContent.style.display = 'block';
-        }
-
-        if (dateInput && draft.publishDate) {
-          dateInput.value = draft.publishDate;
-        }
-
-        if (timeInput && draft.publishTime) {
-          timeInput.value = draft.publishTime;
-        }
-
-        if (submitBtn) {
-          submitBtn.textContent = 'Schedule Post';
-        }
-
-        // Update the datetime preview
-        this.updateDateTimePreview();
       }
-      
+
+      // Load advanced state into memory (UI shows them when the modal opens)
+      if (draft.payoutOption) this.payoutOption = draft.payoutOption;
+      if (Array.isArray(draft.beneficiaries) && draft.beneficiaries.length > 0) {
+        this.beneficiaries = draft.beneficiaries;
+      }
+      this.updateAdvancedOptionsSummary();
+
       // Mark as no unsaved changes since we just loaded
       this.hasUnsavedChanges = false;
       
@@ -973,7 +1318,9 @@ class CreatePostView extends View {  constructor(params = {}) {
       community: this.selectedCommunity?.name,
       isScheduled: this.isScheduled,
       publishDate: this.publishDate,
-      publishTime: this.publishTime
+      publishTime: this.publishTime,
+      payoutOption: this.payoutOption,
+      beneficiaries: this.beneficiaries
     };
     
     if (createPostService.saveDraft(draftData)) {
@@ -1411,6 +1758,9 @@ class CreatePostView extends View {  constructor(params = {}) {
     
     // Dai focus all'input per permettere una nuova ricerca
     searchInput.focus();
+
+    // Clearing the field is valid (personal blog) — drop any error state
+    this.clearCommunityError();
     this.hasUnsavedChanges = true;
   }
 
@@ -1442,7 +1792,64 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Close the dropdown
     dropdown.classList.remove('dropdown-active');
     searchInput.classList.remove('dropdown-active');
+
+    // A valid pick clears any previous validation error
+    this.clearCommunityError();
     this.hasUnsavedChanges = true;
+  }
+
+  /**
+   * Verifica se il valore corrente dell'input corrisponde alla community
+   * selezionata. Usato per distinguere "selezione confermata" da "testo libero".
+   */
+  isCommunityInputValid() {
+    const input = document.getElementById('community-search');
+    if (!input) return true;
+    const value = (input.value || '').trim();
+
+    // Empty input is allowed — falls back to personal blog
+    if (!value) return true;
+
+    if (!this.selectedCommunity) return false;
+    const expected = (this.selectedCommunity.title || this.selectedCommunity.name || '').trim();
+    return value === expected;
+  }
+
+  /**
+   * Validates the community field and shows/hides the inline error.
+   * @returns {boolean} true if the field is valid
+   */
+  validateCommunityField() {
+    if (this.isCommunityInputValid()) {
+      this.clearCommunityError();
+      return true;
+    }
+    this.showCommunityError('Please select a community from the dropdown, or clear the field to post on your personal blog.');
+    return false;
+  }
+
+  showCommunityError(message) {
+    const input = document.getElementById('community-search');
+    const inputGroup = input ? input.closest('.community-input-group') : null;
+    const errorEl = document.getElementById('community-error');
+
+    if (inputGroup) inputGroup.classList.add('invalid');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
+  }
+
+  clearCommunityError() {
+    const input = document.getElementById('community-search');
+    const inputGroup = input ? input.closest('.community-input-group') : null;
+    const errorEl = document.getElementById('community-error');
+
+    if (inputGroup) inputGroup.classList.remove('invalid');
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+    }
   }
 
   /**
@@ -1455,6 +1862,14 @@ class CreatePostView extends View {  constructor(params = {}) {
     console.log('[DEBUG] handleSubmit called, isScheduled:', this.isScheduled);
 
     if (this.isSubmitting) return;
+
+    // Block submission if free text was typed without picking from the dropdown
+    if (!this.validateCommunityField()) {
+      this.showError('Please select a valid community, or clear the community field to post on your personal blog.');
+      const communityInput = document.getElementById('community-search');
+      if (communityInput) communityInput.focus();
+      return;
+    }
 
     // Verifica dati
     if (!this.postTitle.trim()) {
@@ -1482,33 +1897,24 @@ class CreatePostView extends View {  constructor(params = {}) {
         tagsInput.focus();
       }
       return;
-    }    // Verifica che la percentuale totale dei beneficiari non superi il limite
-    if (this.includeBeneficiary) {
-      if (!createPostService.validateBeneficiaryPercentage(this.beneficiaries)) {
-        this.showError('Total beneficiary percentage cannot exceed 90%');
-        return;
-      }
+    }
+
+    // Validate beneficiary total (if any)
+    if (this.beneficiaries.length > 0
+        && !createPostService.validateBeneficiaryPercentage(this.beneficiaries)) {
+      this.showError('Total beneficiary percentage cannot exceed 90%');
+      return;
     }
 
     // Validate scheduled publishing if enabled
     if (this.isScheduled) {
-      console.log('[DEBUG] Validating scheduled publishing...');
-      const dateInput = document.getElementById('publish-date');
-      const timeInput = document.getElementById('publish-time');
-      
-      console.log('[DEBUG] Date input value:', dateInput?.value, 'Time input value:', timeInput?.value);
-      
-      if (!dateInput.value || !timeInput.value) {
-        this.showError('Please select both date and time for scheduled publishing');
+      if (!this.publishDate || !this.publishTime) {
+        this.showError('Please open Advanced options and pick a date and time for scheduling.');
         return;
       }
 
-      const scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`);
-      const now = new Date();
-      
-      console.log('[DEBUG] Scheduled datetime:', scheduledDateTime, 'Current time:', now);
-      
-      if (scheduledDateTime <= now) {
+      const scheduledDateTime = new Date(`${this.publishDate}T${this.publishTime}`);
+      if (scheduledDateTime <= new Date()) {
         this.showError('Scheduled date and time must be in the future');
         return;
       }
@@ -1553,23 +1959,17 @@ class CreatePostView extends View {  constructor(params = {}) {
 
       // Add scheduled publishing data if enabled
       if (this.isScheduled) {
-        const dateInput = document.getElementById('publish-date');
-        const timeInput = document.getElementById('publish-time');
-        const scheduledDateTime = new Date(`${dateInput.value}T${timeInput.value}`).toISOString();
-        postData.scheduledDateTime = scheduledDateTime;
-        console.log('[DEBUG] Added scheduled datetime to postData:', scheduledDateTime);
+        postData.scheduledDateTime = new Date(`${this.publishDate}T${this.publishTime}`).toISOString();
       }
 
-      // Opzioni per i beneficiari
+      // Options forwarded to the create-post service
       const options = {
-        includeBeneficiary: this.includeBeneficiary,
-        isScheduled: this.isScheduled
+        isScheduled: this.isScheduled,
+        payoutOption: this.payoutOption,
+        includeBeneficiary: this.beneficiaries.length > 0
       };
-      
-      console.log('[DEBUG] Calling createPost with data:', postData, 'options:', options);
 
-      // Se i beneficiari sono abilitati, passa l'array completo
-      if (this.includeBeneficiary && this.beneficiaries.length > 0) {
+      if (this.beneficiaries.length > 0) {
         options.beneficiaries = this.beneficiaries;
       }
 
@@ -2080,6 +2480,14 @@ class CreatePostView extends View {  constructor(params = {}) {
       clearTimeout(this.searchTimeout);
     }
 
+    if (this.beneficiarySearchTimeout) {
+      clearTimeout(this.beneficiarySearchTimeout);
+    }
+
+    if (this.beneficiaryValidationTimeout) {
+      clearTimeout(this.beneficiaryValidationTimeout);
+    }
+
     // Remove resize event listener
     window.removeEventListener('resize', this.handleResize.bind(this));
     
@@ -2099,6 +2507,19 @@ class CreatePostView extends View {  constructor(params = {}) {
     if (this.autoSaveTimeout) {
       clearInterval(this.autoSaveTimeout);
     }
+
+    // Tear down advanced-options + schedule modals if still open
+    if (this.advancedModalKeyHandler) {
+      document.removeEventListener('keydown', this.advancedModalKeyHandler);
+      this.advancedModalKeyHandler = null;
+    }
+    if (this.scheduleModalKeyHandler) {
+      document.removeEventListener('keydown', this.scheduleModalKeyHandler);
+      this.scheduleModalKeyHandler = null;
+    }
+    document.querySelectorAll('.advanced-options-modal, .schedule-modal')
+      .forEach(m => m.remove());
+    document.body.classList.remove('modal-open');
 
     super.unmount();
   }
@@ -2275,25 +2696,26 @@ class CreatePostView extends View {  constructor(params = {}) {
    */
   selectBeneficiary(username) {
     if (!username) return;
-    
-    this.customBeneficiary = username;
-    
-    // Aggiorna l'input con il nome selezionato
+    const account = username.toLowerCase();
+
     const beneficiaryInput = document.getElementById('beneficiary-name');
     if (beneficiaryInput) {
-      beneficiaryInput.value = username;
+      beneficiaryInput.value = account;
+      beneficiaryInput.focus();
     }
-    
-    // Aggiorna il testo informativo
-    const currentBeneficiarySpan = document.getElementById('current-beneficiary');
-    if (currentBeneficiarySpan) {
-      currentBeneficiarySpan.textContent = username;
-    }
-    
-    // Nascondi i suggerimenti
+
     this.hideBeneficiarySuggestions();
-    
-    // Marca come modificato
+    this.clearBeneficiaryFormError();
+
+    // Bypass the input listener to avoid re-opening the suggestions dropdown:
+    // the account already came from a confirmed search result.
+    clearTimeout(this.beneficiarySearchTimeout);
+    clearTimeout(this.beneficiaryValidationTimeout);
+    this.inlineBeneficiaryState = { status: 'checking', account };
+    this.updateBeneficiaryValidationIcon();
+    this.updateBeneficiaryAddButton();
+    this.validateBeneficiaryAccountInline(account);
+
     this.hasUnsavedChanges = true;
   }
   
@@ -2501,385 +2923,363 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   /**
-   * Mostra il dialog per aggiungere un nuovo beneficiario
+   * Builds the inline form used to add a new beneficiary.
+   * Replaces the legacy modal dialog — search, validate and pick % in place.
    */
-  showAddBeneficiaryDialog() {
-    // Verifica se è stato raggiunto il limite massimo
-    if (this.beneficiaries.length >= createPostService.maxBeneficiaries) {
-      return this.showStatus(`Maximum ${createPostService.maxBeneficiaries} beneficiaries allowed`, 'error');
-    }
-    
-    // Verifica se esiste già un dialog e rimuovilo
-    const existingDialog = document.querySelector('.add-beneficiary-dialog');
-    if (existingDialog) {
-      existingDialog.remove();
-    }
-    
-    // Crea il dialog
-    const dialog = document.createElement('div');
-    dialog.className = 'add-beneficiary-dialog';
-    
-    const dialogContent = document.createElement('div');
-    dialogContent.className = 'dialog-content';
-    
-    // Header
-    const header = document.createElement('div');
-    header.className = 'dialog-header';
-    
-    const title = document.createElement('h3');
-    title.textContent = 'Add Beneficiary';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'close-button';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '<span class="material-icons">close</span>';
-    
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    
-    // Body
-    const body = document.createElement('div');
-    body.className = 'dialog-body';
-    
-    // Campo per il nome del beneficiario
-    const nameGroup = document.createElement('div');
-    nameGroup.className = 'form-group';
-    
-    const nameLabel = document.createElement('div');
-    nameLabel.className = 'form-label-with-info';
-    
-    const nameText = document.createElement('label');
-    nameText.htmlFor = 'new-beneficiary-name';
-    nameText.textContent = 'Account Name';
-    
-    // Info icon with tooltip
-    const infoIcon = document.createElement('span');
-    infoIcon.className = 'material-icons info-icon';
-    infoIcon.textContent = 'info';
-    infoIcon.title = 'Enter a valid Hive account name';
-    
-    nameLabel.appendChild(nameText);
-    nameLabel.appendChild(infoIcon);
-    
-    const nameInputContainer = document.createElement('div');
-    nameInputContainer.className = 'beneficiary-input-container';
-    
-    // Add search icon inside the input
-    const inputWrapper = document.createElement('div');
-    inputWrapper.className = 'input-icon-wrapper';
-    
-    const searchIcon = document.createElement('span');
-    searchIcon.className = 'material-icons input-icon';
-    searchIcon.textContent = 'search';
-    
+  buildInlineBeneficiaryForm() {
+    const form = document.createElement('div');
+    form.className = 'beneficiary-add-form';
+    form.id = 'beneficiary-add-form';
+
+    // Row: @name | % | +
+    const row = document.createElement('div');
+    row.className = 'beneficiary-add-row';
+
+    // Name field with leading @ and trailing validation icon
+    const nameField = document.createElement('div');
+    nameField.className = 'beneficiary-name-field';
+
+    const atIcon = document.createElement('span');
+    atIcon.className = 'material-icons name-prefix-icon';
+    atIcon.textContent = 'alternate_email';
+    nameField.appendChild(atIcon);
+
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
-    nameInput.id = 'new-beneficiary-name';
-    nameInput.className = 'form-control with-icon';
-    nameInput.placeholder = 'Search by username';
+    nameInput.id = 'beneficiary-name';
+    nameInput.className = 'beneficiary-name-input';
+    nameInput.placeholder = 'Search Steem username';
     nameInput.autocomplete = 'off';
-    
-    inputWrapper.appendChild(searchIcon);
-    inputWrapper.appendChild(nameInput);
-    
-    nameInputContainer.appendChild(inputWrapper);
-    
-    // Container per i suggerimenti con header
-    const suggestionsWrapper = document.createElement('div');
-    suggestionsWrapper.className = 'suggestions-wrapper';
-    
-    const suggestionsContainer = document.createElement('div');
-    suggestionsContainer.className = 'beneficiary-suggestions';
-    suggestionsContainer.id = 'beneficiary-suggestions';
-    
-    suggestionsWrapper.appendChild(suggestionsContainer);
-    nameInputContainer.appendChild(suggestionsWrapper);
-    
-    nameGroup.appendChild(nameLabel);
-    nameGroup.appendChild(nameInputContainer);
-    
-    // Frequently used accounts section
-    const frequentSection = document.createElement('div');
-    frequentSection.className = 'frequent-accounts-section';
-    
-    const frequentHeader = document.createElement('div');
-    frequentHeader.className = 'frequent-accounts-header';
-    frequentHeader.innerHTML = '<span class="material-icons">history</span> Recent Beneficiaries';
-    
-    const frequentList = document.createElement('div');
-    frequentList.className = 'frequent-accounts-list';
-    
-    // Aggiungiamo alcuni account frequenti (useremo account recenti in una implementazione futura)
-    const recentBeneficiaries = [
-      { name: 'micro.cur8', isDefault: true },
-      ...(this.getRecentBeneficiaries() || [])
-    ];
-    
-    recentBeneficiaries.forEach(account => {
-      if (!account.name) return;
-      
-      const accountChip = document.createElement('div');
-      accountChip.className = 'account-chip';
-      if (account.isDefault) {
-        accountChip.classList.add('default-account');
-      }
-      
-      accountChip.textContent = account.name;
-      accountChip.addEventListener('click', () => {
-        nameInput.value = account.name;
-        // Trigger input event to update UI
-        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      });
-      
-      frequentList.appendChild(accountChip);
-    });
-    
-    frequentSection.appendChild(frequentHeader);
-    frequentSection.appendChild(frequentList);
-    
-    nameGroup.appendChild(frequentSection);
-    
-    // Campo per la percentuale
-    const percentGroup = document.createElement('div');
-    percentGroup.className = 'form-group';
-    
-    const percentLabel = document.createElement('div');
-    percentLabel.className = 'form-label-with-info';
-    
-    const percentText = document.createElement('label');
-    percentText.htmlFor = 'new-beneficiary-percent';
-    percentText.textContent = 'Percentage';
-    
-    percentLabel.appendChild(percentText);
-    
-    // Visualizzazione migliorata dello slider
-    const sliderContainer = document.createElement('div');
-    sliderContainer.className = 'slider-container';
-    
-    const percentSlider = document.createElement('input');
-    percentSlider.type = 'range';
-    percentSlider.id = 'new-beneficiary-percent';
-    percentSlider.className = 'form-control range-input';
-    percentSlider.min = '0';
-    percentSlider.max = '5000';
-    percentSlider.step = '50';
-    percentSlider.value = '500'; // 5% predefinito
-    
-    const sliderMarks = document.createElement('div');
-    sliderMarks.className = 'slider-marks';
-    
-    // Aggiungiamo alcuni mark points
-    [0, 25, 50].forEach(percent => {
-      const mark = document.createElement('span');
-      mark.className = 'slider-mark';
-      mark.style.left = `${percent}%`;
-      mark.dataset.value = `${percent}%`;
-      
-      sliderMarks.appendChild(mark);
-    });
-    
-    sliderContainer.appendChild(percentSlider);
-    sliderContainer.appendChild(sliderMarks);
-    
-    // Visualizzazione percentuale
-    const percentageDisplay = document.createElement('div');
-    percentageDisplay.className = 'percentage-display';
-    
-    const percentValue = document.createElement('div');
-    percentValue.className = 'range-value';
-    percentValue.textContent = '5.0%';
-    
-    percentageDisplay.appendChild(percentValue);
-    
-    // Quick percentage presets
-    const percentPresets = document.createElement('div');
-    percentPresets.className = 'percent-presets';
-    
-    [1, 5, 10, 20, 50].forEach(percent => {
-      const preset = document.createElement('button');
-      preset.type = 'button';
-      preset.className = 'percent-preset-btn';
-      preset.textContent = `${percent}%`;
-      preset.addEventListener('click', () => {
-        percentSlider.value = percent * 100;
-        percentValue.textContent = `${percent}.0%`;
-      });
-      
-      percentPresets.appendChild(preset);
-    });
-    
-    // Update percentage value when slider changes
-    percentSlider.addEventListener('input', (e) => {
-      const value = parseFloat(e.target.value) / 100;
-      percentValue.textContent = `${value.toFixed(1)}%`;
-    });
-    
-    percentGroup.appendChild(percentLabel);
-    percentGroup.appendChild(sliderContainer);
-    percentGroup.appendChild(percentageDisplay);
-    percentGroup.appendChild(percentPresets);
-    
-    // Pulsanti
-    const buttons = document.createElement('div');
-    buttons.className = 'dialog-buttons';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn secondary-btn';
-    cancelBtn.textContent = 'Cancel';
-    
+    nameField.appendChild(nameInput);
+
+    const validationIcon = document.createElement('span');
+    validationIcon.className = 'material-icons beneficiary-validation-icon';
+    validationIcon.id = 'beneficiary-validation-icon';
+    nameField.appendChild(validationIcon);
+
+    row.appendChild(nameField);
+
+    // Percent field
+    const percentField = document.createElement('div');
+    percentField.className = 'beneficiary-percent-field';
+
+    const percentInput = document.createElement('input');
+    percentInput.type = 'number';
+    percentInput.id = 'beneficiary-percent';
+    percentInput.className = 'beneficiary-percent-input';
+    percentInput.min = '0.5';
+    percentInput.max = '90';
+    percentInput.step = '0.5';
+    percentInput.value = '5';
+    percentField.appendChild(percentInput);
+
+    const percentSuffix = document.createElement('span');
+    percentSuffix.className = 'percent-suffix';
+    percentSuffix.textContent = '%';
+    percentField.appendChild(percentSuffix);
+
+    row.appendChild(percentField);
+
+    // Add button
     const addBtn = document.createElement('button');
-    addBtn.className = 'btn primary-btn';
-    addBtn.innerHTML = '<span class="material-icons">add</span> Add Beneficiary';
-    addBtn.disabled = true; // Inizialmente disabilitato
-    
-    buttons.appendChild(cancelBtn);
-    buttons.appendChild(addBtn);
-    
-    // Assembla il dialog
-    body.appendChild(nameGroup);
-    body.appendChild(percentGroup);
-    body.appendChild(buttons);
-    
-    dialogContent.appendChild(header);
-    dialogContent.appendChild(body);
-    
-    dialog.appendChild(dialogContent);
-    
-    // Aggiungi il dialog al DOM
-    document.body.appendChild(dialog);
-    
-    // Event handlers
-    closeBtn.addEventListener('click', () => {
-      dialog.remove();
+    addBtn.type = 'button';
+    addBtn.id = 'add-beneficiary-btn';
+    addBtn.className = 'add-beneficiary-inline-btn';
+    addBtn.title = 'Add beneficiary';
+    addBtn.disabled = true;
+    const addIcon = document.createElement('span');
+    addIcon.className = 'material-icons';
+    addIcon.textContent = 'add';
+    addBtn.appendChild(addIcon);
+    row.appendChild(addBtn);
+
+    form.appendChild(row);
+
+    // Autocomplete suggestions (anchored under the name field)
+    const suggestions = document.createElement('div');
+    suggestions.className = 'beneficiary-suggestions';
+    suggestions.id = 'beneficiary-suggestions';
+    form.appendChild(suggestions);
+
+    // Quick row: percent presets + recent chips
+    const quickRow = document.createElement('div');
+    quickRow.className = 'beneficiary-quick-row';
+
+    const percentPresets = document.createElement('div');
+    percentPresets.className = 'beneficiary-percent-presets';
+    [1, 5, 10, 25].forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'percent-preset-btn';
+      btn.dataset.percent = String(p);
+      btn.textContent = `${p}%`;
+      btn.addEventListener('click', () => {
+        percentInput.value = String(p);
+        percentInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      percentPresets.appendChild(btn);
     });
-    
-    cancelBtn.addEventListener('click', () => {
-      dialog.remove();
-    });
-    
-    // Abilita/disabilita il pulsante in base all'input
+    quickRow.appendChild(percentPresets);
+
+    const recents = document.createElement('div');
+    recents.className = 'beneficiary-recents';
+    recents.id = 'beneficiary-recents';
+    quickRow.appendChild(recents);
+
+    form.appendChild(quickRow);
+
+    // Inline error slot
+    const errorEl = document.createElement('div');
+    errorEl.className = 'beneficiary-form-error hidden';
+    errorEl.id = 'beneficiary-form-error';
+    form.appendChild(errorEl);
+
+    // Wire up listeners + initial state
+    setTimeout(() => this.setupInlineBeneficiaryForm(), 0);
+
+    return form;
+  }
+
+  setupInlineBeneficiaryForm() {
+    const nameInput = document.getElementById('beneficiary-name');
+    const percentInput = document.getElementById('beneficiary-percent');
+    const addBtn = document.getElementById('add-beneficiary-btn');
+    if (!nameInput || !percentInput || !addBtn) return;
+
+    // Validation state for the inline form
+    this.inlineBeneficiaryState = { status: 'idle', account: '' };
+
+    this.renderRecentBeneficiariesChips();
+    this.updateBeneficiaryAddButton();
+
     nameInput.addEventListener('input', (e) => {
-      const value = e.target.value.trim();
-      addBtn.disabled = !value;
-      
-      // Cerca utenti solo se la query ha almeno 3 caratteri
-      if (value && value.length >= 3) {
-        // Cancella il timeout precedente
-        clearTimeout(this.beneficiarySearchTimeout);
-        
-        // Imposta un nuovo timeout
+      // Steem usernames are lowercase
+      const value = e.target.value.toLowerCase().replace(/^@+/, '').trim();
+      if (e.target.value !== value) {
+        const cursor = e.target.selectionStart;
+        e.target.value = value;
+        e.target.setSelectionRange(cursor, cursor);
+      }
+
+      this.clearBeneficiaryFormError();
+      this.inlineBeneficiaryState = { status: value ? 'checking' : 'idle', account: value };
+      this.updateBeneficiaryValidationIcon();
+      this.updateBeneficiaryAddButton();
+
+      // Show autocomplete dropdown for queries >= 2 chars
+      clearTimeout(this.beneficiarySearchTimeout);
+      if (value && value.length >= 2) {
         this.beneficiarySearchTimeout = setTimeout(() => {
           this.searchBeneficiaries(value);
-        }, 300);
+        }, 250);
       } else {
         this.hideBeneficiarySuggestions();
       }
-    });
-    
-    addBtn.addEventListener('click', () => {
-      const account = nameInput.value.trim();
-      const weight = parseInt(percentSlider.value);
-      
-      if (!account) {
-        this.showDialogError('Please enter a valid account name', dialog);
-        return;
-      }
-      
-      this.addBeneficiary(account, weight, dialog);
-      
-      // Aggiungi alla lista di account recenti
-      this.saveRecentBeneficiary(account);
-    });
-    
-    // Chiudi con Escape
-    dialog.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        dialog.remove();
+
+      // Validate account existence on Steem (debounced)
+      clearTimeout(this.beneficiaryValidationTimeout);
+      if (value && value.length >= 3) {
+        this.beneficiaryValidationTimeout = setTimeout(() => {
+          this.validateBeneficiaryAccountInline(value);
+        }, 500);
       }
     });
-    
-    // Click fuori per chiudere
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) {
-        dialog.remove();
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!addBtn.disabled) addBtn.click();
       }
     });
-    
-    // Focus sull'input del nome
-    nameInput.focus();
+
+    percentInput.addEventListener('input', () => {
+      this.clearBeneficiaryFormError();
+      this.updateBeneficiaryAddButton();
+    });
+
+    addBtn.addEventListener('click', () => this.handleInlineAddBeneficiary());
   }
 
   /**
-   * Mostra un errore nel dialog
-   * @param {string} message - Il messaggio di errore
-   * @param {HTMLElement} dialog - Il dialog
+   * Calls Steem to confirm the account exists. Updates inline state + icon.
    */
-  showDialogError(message, dialog) {
-    // Rimuovi eventuali errori precedenti
-    const existingError = dialog.querySelector('.dialog-error');
-    if (existingError) {
-      existingError.remove();
+  async validateBeneficiaryAccountInline(account) {
+    if (!account) return;
+    try {
+      await userService.getUserProfile(account);
+      // Bail out if the input has changed in the meantime
+      if (this.inlineBeneficiaryState.account !== account) return;
+      this.inlineBeneficiaryState = { status: 'valid', account };
+    } catch (err) {
+      if (this.inlineBeneficiaryState.account !== account) return;
+      this.inlineBeneficiaryState = { status: 'invalid', account };
     }
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'dialog-error';
-    errorDiv.textContent = message;
-    
-    const body = dialog.querySelector('.dialog-body');
-    if (body) {
-      body.insertBefore(errorDiv, body.firstChild);
+    this.updateBeneficiaryValidationIcon();
+    this.updateBeneficiaryAddButton();
+  }
+
+  updateBeneficiaryValidationIcon() {
+    const icon = document.getElementById('beneficiary-validation-icon');
+    if (!icon) return;
+    icon.classList.remove('valid', 'invalid', 'checking');
+    const status = this.inlineBeneficiaryState?.status;
+    if (status === 'checking') {
+      icon.classList.add('checking');
+      icon.textContent = 'hourglass_empty';
+    } else if (status === 'valid') {
+      icon.classList.add('valid');
+      icon.textContent = 'check_circle';
+    } else if (status === 'invalid') {
+      icon.classList.add('invalid');
+      icon.textContent = 'cancel';
+    } else {
+      icon.textContent = '';
     }
   }
 
   /**
-   * Aggiunge un nuovo beneficiario
+   * Enables the "+" button only when account is verified, % is in range,
+   * no duplicate, max beneficiaries not reached and total weight stays <= 90%.
+   */
+  updateBeneficiaryAddButton() {
+    const addBtn = document.getElementById('add-beneficiary-btn');
+    const percentInput = document.getElementById('beneficiary-percent');
+    if (!addBtn || !percentInput) return;
+
+    const state = this.inlineBeneficiaryState || {};
+    const percent = parseFloat(percentInput.value);
+    const reasons = [];
+
+    if (this.beneficiaries.length >= createPostService.maxBeneficiaries) {
+      reasons.push(`Max ${createPostService.maxBeneficiaries} beneficiaries reached`);
+    }
+    if (state.status !== 'valid') {
+      // No nag while typing — only block, no reason text
+    }
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 90) {
+      reasons.push('Percentage must be between 0.5% and 90%');
+    }
+    if (state.account && this.beneficiaries.some(b => b.account.toLowerCase() === state.account)) {
+      reasons.push('This account is already a beneficiary');
+    }
+    if (Number.isFinite(percent) && percent > 0) {
+      const projected = this.calculateTotalWeight() + Math.round(percent * 100);
+      if (projected > 9000) {
+        reasons.push('Total beneficiary share cannot exceed 90%');
+      }
+    }
+
+    const canAdd = state.status === 'valid' && reasons.length === 0;
+    addBtn.disabled = !canAdd;
+    addBtn.title = canAdd ? 'Add beneficiary' : (reasons[0] || 'Search a Steem account');
+  }
+
+  handleInlineAddBeneficiary() {
+    const percentInput = document.getElementById('beneficiary-percent');
+    const state = this.inlineBeneficiaryState || {};
+    const percent = parseFloat(percentInput?.value);
+
+    if (state.status !== 'valid' || !state.account) {
+      this.showBeneficiaryFormError('Please pick a valid Steem account first.');
+      return;
+    }
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 90) {
+      this.showBeneficiaryFormError('Percentage must be between 0.5% and 90%.');
+      return;
+    }
+
+    const weight = Math.round(percent * 100);
+    this.addBeneficiary(state.account, weight);
+    this.saveRecentBeneficiary(state.account);
+    this.clearInlineBeneficiaryForm();
+  }
+
+  clearInlineBeneficiaryForm() {
+    const nameInput = document.getElementById('beneficiary-name');
+    const percentInput = document.getElementById('beneficiary-percent');
+    if (nameInput) nameInput.value = '';
+    if (percentInput) percentInput.value = '5';
+    this.inlineBeneficiaryState = { status: 'idle', account: '' };
+    this.hideBeneficiarySuggestions();
+    this.updateBeneficiaryValidationIcon();
+    this.updateBeneficiaryAddButton();
+    this.clearBeneficiaryFormError();
+  }
+
+  showBeneficiaryFormError(message) {
+    const errorEl = document.getElementById('beneficiary-form-error');
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
+
+  clearBeneficiaryFormError() {
+    const errorEl = document.getElementById('beneficiary-form-error');
+    if (!errorEl) return;
+    errorEl.textContent = '';
+    errorEl.classList.add('hidden');
+  }
+
+  /**
+   * Renders the chip row of recent/default beneficiaries as quick picks.
+   */
+  renderRecentBeneficiariesChips() {
+    const container = document.getElementById('beneficiary-recents');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const chips = [
+      { name: 'micro.cur8', isDefault: true },
+      ...(this.getRecentBeneficiaries() || [])
+    ];
+
+    const seen = new Set();
+    chips.forEach(item => {
+      if (!item.name || seen.has(item.name.toLowerCase())) return;
+      seen.add(item.name.toLowerCase());
+
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'account-chip';
+      if (item.isDefault) chip.classList.add('default-account');
+      chip.textContent = item.name;
+      chip.addEventListener('click', () => {
+        const nameInput = document.getElementById('beneficiary-name');
+        if (!nameInput) return;
+        nameInput.value = item.name;
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        nameInput.focus();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  /**
+   * Aggiunge un nuovo beneficiario alla lista (chiamato dal form inline).
    * @param {string} account - Il nome dell'account
    * @param {number} weight - Il peso (0-10000)
-   * @param {HTMLElement} dialog - Il dialog da chiudere dopo l'aggiunta
    */
-  addBeneficiary(account, weight, dialog) {
-    // Verifica se è stato raggiunto il limite massimo
+  addBeneficiary(account, weight) {
     if (this.beneficiaries.length >= createPostService.maxBeneficiaries) {
-      this.showDialogError(`Maximum ${createPostService.maxBeneficiaries} beneficiaries allowed`, dialog);
+      this.showBeneficiaryFormError(`Maximum ${createPostService.maxBeneficiaries} beneficiaries allowed`);
       return;
     }
-    
-    // Verifica se il beneficiario esiste già
-    const existingIndex = this.beneficiaries.findIndex(b => b.account.toLowerCase() === account.toLowerCase());
-    if (existingIndex !== -1) {
-      this.showDialogError('This beneficiary is already in the list', dialog);
+
+    if (this.beneficiaries.some(b => b.account.toLowerCase() === account.toLowerCase())) {
+      this.showBeneficiaryFormError('This beneficiary is already in the list');
       return;
     }
-    
-    // Aggiungi il beneficiario
-    this.beneficiaries.push({
-      account: account,
-      weight: weight
-    });
-    
-    // Aggiorna la UI
+
+    this.beneficiaries.push({ account, weight });
+
     const beneficiariesList = document.getElementById('beneficiaries-list');
-    if (beneficiariesList) {
-      this.renderBeneficiaryItems(beneficiariesList);
-    }
-    
-    // Aggiorna il pulsante di aggiunta
-    const addBtn = document.getElementById('add-beneficiary-btn');
-    if (addBtn) {
-      addBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
-    }
-    
-    // Aggiorna il riepilogo
+    if (beneficiariesList) this.renderBeneficiaryItems(beneficiariesList);
+
     const summaryElement = document.getElementById('beneficiary-summary');
-    if (summaryElement) {
-      this.updateBeneficiarySummary(summaryElement);
-    }
-    
-    // Chiudi il dialog
-    if (dialog) {
-      dialog.remove();
-    }
-    
+    if (summaryElement) this.updateBeneficiarySummary(summaryElement);
+
+    this.updateBeneficiaryAddButton();
+    this.updateAdvancedOptionsSummary();
     this.hasUnsavedChanges = true;
   }
 
@@ -2889,28 +3289,17 @@ class CreatePostView extends View {  constructor(params = {}) {
    */
   removeBeneficiary(index) {
     if (index < 0 || index >= this.beneficiaries.length) return;
-    
-    // Rimuovi il beneficiario
+
     this.beneficiaries.splice(index, 1);
-    
-    // Aggiorna la UI
+
     const beneficiariesList = document.getElementById('beneficiaries-list');
-    if (beneficiariesList) {
-      this.renderBeneficiaryItems(beneficiariesList);
-    }
-    
-    // Aggiorna il pulsante di aggiunta
-    const addBtn = document.getElementById('add-beneficiary-btn');
-    if (addBtn) {
-      addBtn.disabled = this.beneficiaries.length >= createPostService.maxBeneficiaries;
-    }
-    
-    // Aggiorna il riepilogo
+    if (beneficiariesList) this.renderBeneficiaryItems(beneficiariesList);
+
     const summaryElement = document.getElementById('beneficiary-summary');
-    if (summaryElement) {
-      this.updateBeneficiarySummary(summaryElement);
-    }
-    
+    if (summaryElement) this.updateBeneficiarySummary(summaryElement);
+
+    this.updateBeneficiaryAddButton();
+    this.updateAdvancedOptionsSummary();
     this.hasUnsavedChanges = true;
   }
 
@@ -3190,15 +3579,14 @@ class CreatePostView extends View {  constructor(params = {}) {
     try {
       // Verifica che ci sia del contenuto da formattare
       if (!this.postBody || this.postBody.trim() === '') {
-        this.showStatus('Non c\'è contenuto da formattare. Inserisci prima del testo.', 'error');
+        this.showStatus('There is no content to format. Please enter some text first.', 'error');
         return;
       }
-      
-      // Importa il servizio MarkdownFormatService
+
       const MarkdownFormatService = await import('../services/MarkdownFormatService.js')
         .then(module => module.default)
         .catch(err => {
-          throw new Error('Impossibile caricare il servizio di formattazione Markdown: ' + err.message);
+          throw new Error('Could not load the Markdown formatting service: ' + err.message);
         });
       
       // Crea un elemento dialog
@@ -3217,7 +3605,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       
       const closeBtn = document.createElement('button');
       closeBtn.className = 'close-button';
-      closeBtn.setAttribute('aria-label', 'Chiudi');
+      closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.innerHTML = '<span class="material-icons">close</span>';
       
       header.appendChild(title);
@@ -3263,7 +3651,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       
       const styleLabel = document.createElement('label');
       styleLabel.htmlFor = 'format-style';
-      styleLabel.textContent = 'Stile di formattazione:';
+      styleLabel.textContent = 'Formatting style:';
       
       const styleSelect = document.createElement('select');
       styleSelect.id = 'format-style';
@@ -3292,7 +3680,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       previewGroup.className = 'form-group';
       
       const previewLabel = document.createElement('label');
-      previewLabel.textContent = 'Anteprima del contenuto:';
+      previewLabel.textContent = 'Content preview:';
       
       const previewText = document.createElement('div');
       previewText.className = 'preview-text';
@@ -3312,11 +3700,11 @@ class CreatePostView extends View {  constructor(params = {}) {
       
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'btn secondary-btn';
-      cancelBtn.textContent = 'Annulla';
-      
+      cancelBtn.textContent = 'Cancel';
+
       const formatBtn = document.createElement('button');
       formatBtn.className = 'btn primary-btn';
-      formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Formatta';
+      formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Format';
       
       actions.appendChild(cancelBtn);
       actions.appendChild(formatBtn);
@@ -3343,32 +3731,25 @@ class CreatePostView extends View {  constructor(params = {}) {
       
       formatBtn.addEventListener('click', async () => {
         try {
-          // Disabilita il pulsante e mostra stato di caricamento
           formatBtn.disabled = true;
-          formatBtn.innerHTML = '<span class="spinner"></span> Avvio formattazione...';
-          
-          // Ottieni lo stile selezionato
+          formatBtn.innerHTML = '<span class="spinner"></span> Starting formatting...';
+
           const style = styleSelect.value;
-          
-          // Avvia la formattazione
+
           await MarkdownFormatService.formatMarkdown(this.postBody, style);
-          
-          // Rimuovi il dialog
+
           dialog.remove();
         } catch (error) {
-          console.error('Errore durante la formattazione:', error);
-          
-          // Mostra errore nel dialog
+          console.error('Error during formatting:', error);
+
           const errorDiv = document.createElement('div');
           errorDiv.className = 'dialog-error';
-          errorDiv.textContent = `Errore: ${error.message}`;
-          
-          // Inserisci l'errore all'inizio del body
+          errorDiv.textContent = `Error: ${error.message}`;
+
           body.insertBefore(errorDiv, body.firstChild);
-          
-          // Ripristina il pulsante
+
           formatBtn.disabled = false;
-          formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Riprova';
+          formatBtn.innerHTML = '<span class="material-icons">auto_fix_high</span> Retry';
         }
       });
       
@@ -3388,7 +3769,7 @@ class CreatePostView extends View {  constructor(params = {}) {
                 : '<span class="token-missing"><span class="material-icons">error</span> GitHub token required</span>';
             }
           } catch (error) {
-            console.error('Errore durante la configurazione del token:', error);
+            console.error('Error while configuring the token:', error);
           }
         });
       }
@@ -3412,8 +3793,8 @@ class CreatePostView extends View {  constructor(params = {}) {
       });
       
     } catch (error) {
-      console.error('Errore nell\'apertura del formatter:', error);
-      this.showStatus(`Errore nell'apertura del formatter: ${error.message}`, 'error');
+      console.error('Error opening the formatter:', error);
+      this.showStatus(`Error opening the formatter: ${error.message}`, 'error');
     }
   }
 
@@ -3433,7 +3814,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       // Fallback: controlla direttamente nello storage
       return !!(localStorage.getItem('github_oauth_token') || sessionStorage.getItem('github_oauth_token'));
     } catch (error) {
-      console.error('Errore nel controllo del token GitHub:', error);
+      console.error('Error checking GitHub token:', error);
       return false;
     }
   }

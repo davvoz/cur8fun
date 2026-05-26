@@ -742,6 +742,585 @@
   box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
 }
 
+/* ============================================================
+ * Post controls row: schedule button + advanced options bar
+ * ============================================================ */
+.post-controls-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin: 16px 0;
+}
+
+.schedule-control {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.schedule-control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  height: 100%;
+  white-space: nowrap;
+}
+
+.schedule-control-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.schedule-control-btn .material-icons {
+  font-size: 18px;
+}
+
+.schedule-control-btn.is-scheduled {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color-alpha, rgba(0, 123, 255, 0.08));
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* ============================================================
+ * Advanced options trigger (button only — no summary inline)
+ * ============================================================ */
+.advanced-options-bar {
+  display: flex;
+  align-items: stretch;
+  margin: 0;
+}
+
+.advanced-options-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  height: 100%;
+}
+
+.advanced-options-edit-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.advanced-options-edit-btn .material-icons {
+  font-size: 18px;
+}
+
+.submit-row {
+  display: flex;
+  margin-top: 12px;
+}
+
+.submit-post-btn {
+  flex: 1;
+}
+
+/* Modal overlay */
+.advanced-options-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  animation: advFadeIn 0.15s ease;
+}
+
+@keyframes advFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.advanced-options-modal-content {
+  background-color: var(--background);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.advanced-options-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.advanced-options-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.advanced-options-close-btn {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease;
+}
+
+.advanced-options-close-btn:hover {
+  background-color: var(--background-lighter);
+}
+
+.advanced-options-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.advanced-options-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Advanced sections inside modal */
+.advanced-section + .advanced-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.advanced-section-title {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.advanced-section-desc {
+  margin: 0 0 12px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Payout option cards */
+.payout-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.payout-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  background-color: var(--background-light);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.payout-option-card:hover {
+  border-color: var(--primary-color);
+}
+
+.payout-option-card.selected {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color-alpha, rgba(0, 123, 255, 0.06));
+}
+
+.payout-option-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.payout-option-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background-color: var(--background);
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.payout-option-card.selected .payout-option-radio {
+  border-color: var(--primary-color);
+}
+
+.payout-option-card.selected .payout-option-radio::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+}
+
+.payout-option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.payout-option-label {
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 2px;
+}
+
+.payout-option-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+ * Schedule modal (dedicated, separate from advanced options)
+ * ============================================================ */
+.schedule-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 16px;
+  animation: advFadeIn 0.15s ease;
+}
+
+.schedule-modal-content {
+  background-color: var(--background);
+  border-radius: var(--radius-lg, 8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.schedule-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.schedule-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.schedule-modal-close {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease;
+}
+
+.schedule-modal-close:hover {
+  background-color: var(--background-lighter);
+}
+
+.schedule-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.schedule-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* "Publish now" card */
+.schedule-now-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  background-color: var(--background-light);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.schedule-now-card:hover {
+  border-color: var(--primary-color);
+}
+
+.schedule-now-card.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color-alpha, rgba(0, 123, 255, 0.06));
+}
+
+.schedule-now-card .material-icons {
+  font-size: 28px;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.schedule-now-title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.schedule-now-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* "Or schedule" divider label */
+.schedule-or {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+/* Preset grid */
+.schedule-presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.schedule-preset {
+  text-align: left;
+  padding: 10px 12px;
+  background-color: var(--background-light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.schedule-preset:hover {
+  border-color: var(--primary-color);
+}
+
+.schedule-preset.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color-alpha, rgba(0, 123, 255, 0.06));
+}
+
+.schedule-preset-label {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.schedule-preset-when {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Custom datetime row */
+.schedule-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.schedule-custom-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.schedule-custom-row {
+  display: flex;
+  gap: 8px;
+}
+
+.schedule-date-input,
+.schedule-time-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 4px);
+  background-color: var(--background);
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
+.schedule-date-input:focus,
+.schedule-time-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color-alpha, rgba(0, 123, 255, 0.15));
+}
+
+/* Preview line */
+.schedule-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 4px);
+  font-size: 0.9rem;
+  background-color: var(--background-light);
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.schedule-preview .material-icons {
+  font-size: 20px;
+}
+
+.schedule-preview.ok {
+  background-color: var(--success-color-alpha, rgba(40, 167, 69, 0.08));
+  color: var(--success-color, #28a745);
+}
+
+.schedule-preview.error {
+  background-color: var(--danger-color-alpha, rgba(220, 53, 69, 0.1));
+  color: var(--danger-color, #dc3545);
+}
+
+.schedule-relative {
+  margin-left: 4px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+/* Modal responsive */
+@media (max-width: 580px) {
+  .post-controls-row {
+    flex-direction: column;
+  }
+  .schedule-control-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .advanced-options-edit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .advanced-options-modal,
+  .schedule-modal {
+    padding: 0;
+  }
+  .advanced-options-modal-content,
+  .schedule-modal-content {
+    max-width: none;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+  .schedule-presets {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Invalid state — shown when user typed text without picking from the dropdown */
+.community-input-group.invalid {
+  border-color: var(--error-color, #e53935);
+  box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.12);
+}
+
+.community-input-group.invalid:focus-within {
+  border-color: var(--error-color, #e53935);
+  box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.18);
+}
+
+.community-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--error-color, #e53935);
+}
+
+.community-error.hidden {
+  display: none;
+}
+
+/* Edit-post: locked first tag chip alongside the additional-tags input */
+.tags-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.tags-edit-row .tag-chip.locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 38px;
+  padding: 0 12px;
+  background-color: rgba(var(--primary-color-rgb), 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: not-allowed;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tags-edit-row .tag-chip.locked .material-icons {
+  font-size: 16px;
+}
+
+.tags-input-editable {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
 /* Bottone per mostrare le community sottoscritte */
 .show-subscribed-btn {
   display: flex;

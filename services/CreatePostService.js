@@ -90,10 +90,10 @@ class CreatePostService {
     const { title, body, tags, community, permlink: customPermlink } = postData;
     const currentUser = this.validateUserAuthentication();
     const username = currentUser.username;
-    
+
     // Process beneficiary options
     const includeBeneficiary = options.includeBeneficiary !== false;
-    
+
     // Prepara i beneficiari
     const beneficiaries = [];
     if (includeBeneficiary) {
@@ -103,7 +103,7 @@ class CreatePostService {
         const validBeneficiaries = options.beneficiaries
           .filter(b => b && b.account && b.weight > 0 && b.weight <= 10000)
           .slice(0, this.maxBeneficiaries);
-          
+
         beneficiaries.push(...validBeneficiaries);
       }
       // Altrimenti usa il beneficiario predefinito con peso personalizzato se fornito
@@ -114,21 +114,25 @@ class CreatePostService {
         });
       }
     }
-    
+
     // Generate permlink or use the provided one
     const permlink = customPermlink || this.generatePermlink(title);
-    
+
     // Process tags
     const processedTags = this.processTags(tags);
-    
+
     // Determine parent permlink - use community if provided, otherwise first tag
-    const parentPermlink = community 
+    const parentPermlink = community
       ? `hive-${community.replace(/^hive-/, '')}`
       : (processedTags[0] || 'steemee');
-    
+
     // Prepare metadata
     const metadata = this.createPostMetadata(processedTags, community);
-    
+
+    // Payout settings (Steem comment_options)
+    const payoutOption = options.payoutOption || 'default';
+    const payoutSettings = this.mapPayoutOption(payoutOption);
+
     return {
       username,
       title,
@@ -137,8 +141,28 @@ class CreatePostService {
       parentPermlink,
       metadata,
       beneficiaries,
-      community
+      community,
+      payoutOption,
+      payoutSettings
     };
+  }
+
+  /**
+   * Maps a high-level payout choice to Steem comment_options values.
+   *   default  → 50/50 SBD/SP (Steem default)
+   *   power_up → 100% Steem Power
+   *   decline  → declined payout
+   */
+  mapPayoutOption(option) {
+    switch (option) {
+      case 'power_up':
+        return { max_accepted_payout: '1000000.000 SBD', percent_steem_dollars: 0 };
+      case 'decline':
+        return { max_accepted_payout: '0.000 SBD', percent_steem_dollars: 10000 };
+      case 'default':
+      default:
+        return { max_accepted_payout: '1000000.000 SBD', percent_steem_dollars: 10000 };
+    }
   }
 
   validateUserAuthentication() {
@@ -234,10 +258,12 @@ class CreatePostService {
     eventEmitter.emit('post:creation-error', { error: errorMessage });
   }
   
-  broadcastPostWithKeychain({ username, parentPermlink, title, body, permlink, metadata, beneficiaries = [] }) {
+  broadcastPostWithKeychain({ username, parentPermlink, title, body, permlink, metadata, beneficiaries = [], payoutOption = 'default', payoutSettings }) {
     return new Promise((resolve, reject) => {
       const jsonMetadata = JSON.stringify(metadata);
-      
+      const payout = payoutSettings || this.mapPayoutOption(payoutOption);
+      const needsCommentOptions = beneficiaries.length > 0 || payoutOption !== 'default';
+
       // Create operations array
       const operations = [
         ['comment', {
@@ -250,27 +276,25 @@ class CreatePostService {
           json_metadata: jsonMetadata
         }]
       ];
-      
-      // Add comment_options operation with beneficiary if needed
-      if (beneficiaries.length > 0) {
-        // Per le opzioni standard del post
-        const commentOptionsOperation = [
-          'comment_options', 
+
+      // Emit comment_options when we have beneficiaries OR a non-default payout
+      if (needsCommentOptions) {
+        const extensions = beneficiaries.length > 0
+          ? [[0, { beneficiaries: beneficiaries }]]
+          : [];
+
+        operations.push([
+          'comment_options',
           {
             author: username,
             permlink: permlink,
-            max_accepted_payout: '1000000.000 SBD',
-            percent_steem_dollars: 10000,
+            max_accepted_payout: payout.max_accepted_payout,
+            percent_steem_dollars: payout.percent_steem_dollars,
             allow_votes: true,
             allow_curation_rewards: true,
-            extensions: [
-              [0, {
-                beneficiaries: beneficiaries
-              }]
-            ]
+            extensions
           }
-        ];
-        operations.push(commentOptionsOperation);
+        ]);
       }
       
       window.steem_keychain.requestBroadcast(
@@ -386,53 +410,55 @@ class CreatePostService {
       .slice(0, 5); // Limit to 5 tags
   }
   
-  async broadcastPost({ username, postingKey, parentPermlink, title, body, permlink, metadata, beneficiaries = [] }) {
-    // Format JSON metadata
+  async broadcastPost({ username, postingKey, parentPermlink, title, body, permlink, metadata, beneficiaries = [], payoutOption = 'default', payoutSettings }) {
     const jsonMetadata = JSON.stringify(metadata);
-    
+    const payout = payoutSettings || this.mapPayoutOption(payoutOption);
+    const needsCommentOptions = beneficiaries.length > 0 || payoutOption !== 'default';
+
     return new Promise((resolve, reject) => {
-      // Prima, crea il post
       window.steem.broadcast.comment(
-        postingKey,          // Posting key
-        '',                  // Parent author (empty for new post)
-        parentPermlink,      // Primary tag as parent permlink
-        username,            // Author
-        permlink,            // Permlink
-        title,               // Title
-        body,                // Body
-        jsonMetadata,        // JSON metadata
+        postingKey,
+        '',
+        parentPermlink,
+        username,
+        permlink,
+        title,
+        body,
+        jsonMetadata,
         (err, result) => {
           if (err) {
             reject(err);
             return;
           }
-          
-          // Se ci sono beneficiari, aggiungi le opzioni al post
-          if (beneficiaries.length > 0) {
-            window.steem.broadcast.commentOptions(
-              postingKey,
-              username,
-              permlink,
-              '1000000.000 SBD',  // max_accepted_payout
-              10000,              // percent_steem_dollars (100%)
-              true,               // allow_votes
-              true,               // allow_curation_rewards
-              [
-                [0, { beneficiaries: beneficiaries }]
-              ],
-              (optErr, optResult) => {
-                if (optErr) {
-                  console.error('Failed to set beneficiaries:', optErr);
-                  // Risolviamo comunque perché il post è stato creato
-                  resolve(result);
-                } else {
-                  resolve(optResult);
-                }
-              }
-            );
-          } else {
+
+          if (!needsCommentOptions) {
             resolve(result);
+            return;
           }
+
+          const extensions = beneficiaries.length > 0
+            ? [[0, { beneficiaries: beneficiaries }]]
+            : [];
+
+          window.steem.broadcast.commentOptions(
+            postingKey,
+            username,
+            permlink,
+            payout.max_accepted_payout,
+            payout.percent_steem_dollars,
+            true,
+            true,
+            extensions,
+            (optErr, optResult) => {
+              if (optErr) {
+                console.error('Failed to set comment_options:', optErr);
+                // Resolve anyway because the post itself succeeded
+                resolve(result);
+              } else {
+                resolve(optResult);
+              }
+            }
+          );
         }
       );
     });
