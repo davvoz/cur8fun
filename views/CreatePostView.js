@@ -22,6 +22,13 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.draftId = params.draftId;
     this.prefilledCommunity = params.community || null;
     this.prefilledCommunityTitle = params.communityTitle || null;
+
+    // Optional "edit a scheduled post" mode. Set by DraftsView when the user
+    // chooses to modify an existing remote scheduled post — the submit will
+    // call updateScheduledPost instead of creating a new one. The id is the
+    // ridd API id; we never persist scheduled data in local draft storage.
+    this.editScheduledMode = params.mode === 'edit-scheduled';
+    this.scheduledPostId = this.editScheduledMode ? (params.scheduledPostId ?? null) : null;
     
     // Opzioni beneficiari - versione aggiornata con supporto multiplo
     this.beneficiaries = [{
@@ -38,7 +45,6 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Reference per i gestori eventi esterni
     this.outsideClickHandler = null;
     this.keyDownHandler = null;
-    this.autoSaveTimeout = null;
       // Per gestire i suggerimenti dei beneficiari
     this.beneficiarySuggestions = [];
     
@@ -80,42 +86,32 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Titolo 
     const heading = document.createElement('h1');
     heading.textContent = 'Create New Post';
-    header.appendChild(heading);    // Editor quick actions
+    header.appendChild(heading);
+
+    // Editor quick actions: explicit Save + View drafts buttons (no autosave)
     const quickActions = document.createElement('div');
     quickActions.className = 'editor-quick-actions';
-      // View Drafts button
-    const draftsButton = document.createElement('button');
-    draftsButton.className = 'action-button drafts-button';
-    draftsButton.title = 'View Drafts';
-    draftsButton.innerHTML = '<span class="material-icons">drafts</span>';
-    draftsButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      router.navigate('/drafts');
-    });quickActions.appendChild(draftsButton);
-    
-    // ...rimosso pulsante save-button, autosave attivo...
 
-    // Save as new draft button
-    const saveAsButton = document.createElement('button');
-    saveAsButton.className = 'action-button save-as-button';
-    saveAsButton.title = 'Save as New Draft';
-    saveAsButton.innerHTML = '<span class="material-icons">save_as</span>';
-    saveAsButton.addEventListener('click', (e) => {
+    const saveDraftBtn = document.createElement('button');
+    saveDraftBtn.type = 'button';
+    saveDraftBtn.className = 'editor-quick-action-btn save-draft-btn';
+    saveDraftBtn.innerHTML = '<span class="material-icons">save</span> <span>Save draft</span>';
+    saveDraftBtn.addEventListener('click', (e) => {
       e.preventDefault();
       this.saveAsNewDraft();
     });
-    quickActions.appendChild(saveAsButton);
+    quickActions.appendChild(saveDraftBtn);
 
-    // Draft status pill
-    const draftStatus = document.createElement('div');
-    draftStatus.className = 'draft-status-pill';
-    draftStatus.id = 'draft-status';
-    draftStatus.innerHTML = `
-      <span class="material-icons">sync</span>
-      <span id="draft-status-text">Auto-saving</span>
-    `;
-    quickActions.appendChild(draftStatus);
-    
+    const viewDraftsBtn = document.createElement('button');
+    viewDraftsBtn.type = 'button';
+    viewDraftsBtn.className = 'editor-quick-action-btn view-drafts-btn';
+    viewDraftsBtn.innerHTML = '<span class="material-icons">drafts</span> <span>View drafts</span>';
+    viewDraftsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      router.navigate('/drafts');
+    });
+    quickActions.appendChild(viewDraftsBtn);
+
     header.appendChild(quickActions);
     postEditor.appendChild(header);
 
@@ -129,12 +125,6 @@ class CreatePostView extends View {  constructor(params = {}) {
     statusArea.id = 'post-status-message';
     statusArea.className = 'status-message hidden';
     form.appendChild(statusArea);
-
-    // COMPATTO: Draft recovery banner integrato nella parte superiore
-    const draftRecovery = document.createElement('div');
-    draftRecovery.id = 'draft-recovery';
-    draftRecovery.className = 'draft-recovery-banner hidden';
-    form.appendChild(draftRecovery);
 
     // Community selection
     const communityGroup = document.createElement('div');
@@ -284,7 +274,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     titleInput.required = true;
     titleInput.addEventListener('input', (e) => {
       this.postTitle = e.target.value;
-      this.hasUnsavedChanges = true;
+      this.markDirty();
     });
     titleGroup.appendChild(titleInput);
 
@@ -343,7 +333,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         e.target.setSelectionRange(cursor, cursor);
       }
       this.tags = lowered.split(' ').filter(tag => tag.trim() !== '');
-      this.hasUnsavedChanges = true;
+      this.markDirty();
     });
     tagsGroup.appendChild(tagsInput);
 
@@ -371,7 +361,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     submitBtn.type = 'submit';
     submitBtn.className = 'btn primary-btn submit-post-btn';
     submitBtn.id = 'submit-post-btn';
-    submitBtn.textContent = 'Publish Post';
+    submitBtn.textContent = this.getSubmitButtonText();
     submitRow.appendChild(submitBtn);
 
     form.appendChild(submitRow);
@@ -384,22 +374,97 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.initializeMarkdownEditor();
 
     // Check if we're editing a specific draft
-    if (this.draftId) {
+    if (this.editScheduledMode && this.scheduledPostId != null) {
+      // Scheduled posts are API-only: pull the fresh record from ridd
+      this.loadScheduledFromApi(this.scheduledPostId);
+    } else if (this.draftId) {
       this.loadSpecificDraft(this.draftId);
     } else {
-      // Verifica se esiste una bozza e mostra il prompt
-      this.checkForDraft();
+      // No autosave / no "Draft available" prompt — drafts are saved only
+      // via the explicit Save draft button.
       this.applyPrefilledCommunity();
+      // One-time sweep: clear any legacy current-draft slot that older
+      // autosave versions may have left in localStorage.
+      try { createPostService.clearDraft(); } catch (_) { /* noop */ }
     }
-    
-    // Avvia il salvataggio automatico
-    this.startAutoSave();
 
     // Add resize listener to reposition dropdown when window resizes
     window.addEventListener('resize', this.handleResize.bind(this));
     
     // Imposta i gestori per chiudere i dropdown
     this.setupKeyboardHandler();
+  }
+
+  /**
+   * Fetches a scheduled post from the ridd API and prefills the editor.
+   * Scheduled posts never live in local draft storage — single source of
+   * truth is the backend. Failures bounce the user back to the drafts page.
+   */
+  async loadScheduledFromApi(postId) {
+    try {
+      this.showStatus('Loading scheduled post...', 'info');
+      const post = await createPostService.getScheduledPostById(postId);
+
+      if (!post) throw new Error('Scheduled post not found on the server');
+
+      this.postTitle = post.title || '';
+      this.postBody = post.body || '';
+      this.tags = Array.isArray(post.tags)
+        ? post.tags
+        : (typeof post.tags === 'string' ? post.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+
+      if (post.community) {
+        let communityTitle = post.community_title || post.community;
+        // Try to resolve the human-readable title from the community code
+        if (!post.community_title) {
+          try {
+            const cached = communityService.cachedCommunities;
+            const found = cached ? cached.find(c => c.name === post.community) : null;
+            if (found) {
+              communityTitle = found.title || post.community;
+            } else {
+              const results = await communityService.searchCommunities(post.community);
+              const match = results.find(c => c.name === post.community);
+              if (match) communityTitle = match.title || post.community;
+            }
+          } catch (_) { /* fallback to code */ }
+        }
+        this.selectedCommunity = { name: post.community, title: communityTitle };
+      }
+
+      const when = post.scheduled_time ? new Date(post.scheduled_time) : null;
+      if (when && !isNaN(when.getTime())) {
+        this.isScheduled = true;
+        this.publishDate = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`;
+        this.publishTime = `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`;
+      }
+
+      // Push values into the rendered DOM
+      const titleInput = document.getElementById('post-title');
+      if (titleInput) titleInput.value = this.postTitle;
+      const tagsInput = document.getElementById('post-tags');
+      if (tagsInput) tagsInput.value = this.tags.join(' ');
+      if (this.markdownEditor && typeof this.markdownEditor.setValue === 'function') {
+        this.markdownEditor.setValue(this.postBody);
+      }
+
+      const searchInput = document.getElementById('community-search');
+      if (searchInput && this.selectedCommunity) {
+        searchInput.value = this.selectedCommunity.title || this.selectedCommunity.name;
+        searchInput.setAttribute('data-selected', 'true');
+        const clearBtn = document.getElementById('clear-community-btn');
+        if (clearBtn) clearBtn.classList.remove('hidden');
+      }
+
+      this.updateAdvancedOptionsSummary();
+      this.hasUnsavedChanges = false;
+      this.showStatus('Editing scheduled post', 'info');
+    } catch (error) {
+      console.error('Failed to load scheduled post:', error);
+      this.showError(error.message || 'Failed to load scheduled post');
+      // Bounce back to the drafts page so the user isn't stuck in a broken state
+      setTimeout(() => router.navigate('/drafts'), 1500);
+    }
   }
 
   applyPrefilledCommunity() {
@@ -460,7 +525,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   updateSubmitButtonText() {
     const submitBtn = document.getElementById('submit-post-btn');
     if (!submitBtn) return;
-    submitBtn.textContent = this.isScheduled ? 'Schedule Post' : 'Publish Post';
+    submitBtn.textContent = this.getSubmitButtonText();
   }
 
   /**
@@ -1001,184 +1066,6 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   /**
-   * Controlla se esiste una bozza salvata precedentemente e la mostra
-   * Versione compatta del metodo
-   */
-  checkForDraft() {
-    if (createPostService.hasDraft()) {
-      const draft = createPostService.getDraft();
-      if (!draft) return;
-      
-      const draftAge = createPostService.getDraftAge();
-      
-      // Crea il prompt per recuperare la bozza in versione compatta
-      const draftRecovery = document.getElementById('draft-recovery');
-      if (draftRecovery) {
-        draftRecovery.classList.remove('hidden');
-        
-        // Clear any existing content
-        while (draftRecovery.firstChild) {
-          draftRecovery.removeChild(draftRecovery.firstChild);
-        }
-        
-        // Create icon container
-        const iconDiv = document.createElement('div');
-        iconDiv.className = 'draft-recovery-icon';
-        const icon = document.createElement('i');
-        icon.className = 'material-icons';
-        icon.textContent = 'history';
-        iconDiv.appendChild(icon);
-        
-        // Create message container
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'draft-recovery-message';
-        const strong = document.createElement('strong');
-        strong.textContent = 'Draft available';
-        messageDiv.appendChild(strong);
-        
-        // Add text node for the message
-        messageDiv.appendChild(document.createTextNode(' '));
-        messageDiv.appendChild(document.createTextNode(`Draft from ${draftAge}: "${draft.title || '(No title)'}""`));
-        
-        // Create actions container
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'draft-recovery-actions';
-        
-        // Discard button
-        const discardBtn = document.createElement('button');
-        discardBtn.className = 'btn secondary-btn';
-        discardBtn.id = 'discard-draft-btn';
-        discardBtn.textContent = 'Discard';
-        
-        // Recover button
-        const recoverBtn = document.createElement('button');
-        recoverBtn.className = 'btn primary-btn';
-        recoverBtn.id = 'recover-draft-btn';
-        recoverBtn.textContent = 'Recover';
-        
-        // Append buttons to actions
-        actionsDiv.appendChild(discardBtn);
-        actionsDiv.appendChild(recoverBtn);
-        
-        // Append all elements to draft recovery container
-        draftRecovery.appendChild(iconDiv);
-        draftRecovery.appendChild(messageDiv);
-        draftRecovery.appendChild(actionsDiv);
-        
-        // Aggiungi gli event listener ai pulsanti
-        recoverBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.loadDraft();
-          draftRecovery.classList.add('hidden');
-        });
-        
-        discardBtn.addEventListener('click', () => {
-          createPostService.clearDraft();
-          draftRecovery.classList.add('hidden');
-        });
-      }
-    }
-  }
-
-  /**
-   * Carica la bozza salvata nei campi del form
-   */
-  loadDraft() {
-    const draft = createPostService.getDraft();
-    if (!draft) return;
-    
-    // Carica i dati negli input
-    if (draft.title) {
-      this.postTitle = draft.title;
-      const titleInput = document.getElementById('post-title');
-      if (titleInput) titleInput.value = draft.title;
-    }
-    
-    if (draft.body) {
-      this.postBody = draft.body;
-      if (this.markdownEditor) {
-        // Fix: MarkdownEditor non ha il metodo updateValue
-        // Usa il metodo setValue che è quello corretto
-        if (typeof this.markdownEditor.setValue === 'function') {
-          this.markdownEditor.setValue(draft.body);
-        } 
-        // Fallback: prova anche altri metodi comuni se setValue non è disponibile
-        else if (typeof this.markdownEditor.setContent === 'function') {
-          this.markdownEditor.setContent(draft.body);
-        }
-        else if (typeof this.markdownEditor.setMarkdown === 'function') {
-          this.markdownEditor.setMarkdown(draft.body);
-        }
-        // Se nessuno dei metodi è disponibile, registra un errore
-        else {
-          console.error('Non è possibile aggiornare il contenuto dell\'editor: metodo non trovato');
-        }
-      }
-    }
-    
-    if (draft.tags && Array.isArray(draft.tags)) {
-      this.tags = draft.tags;
-      const tagsInput = document.getElementById('post-tags');
-      if (tagsInput) tagsInput.value = draft.tags.join(' ');
-    } else if (typeof draft.tags === 'string') {
-      this.tags = draft.tags.split(' ').filter(tag => tag.trim() !== '');
-      const tagsInput = document.getElementById('post-tags');
-      if (tagsInput) tagsInput.value = draft.tags;
-    }
-      if (draft.community) {
-      this.selectedCommunity = {
-        name: draft.community
-      };
-      
-      const communitySearch = document.getElementById('community-search');
-      if (communitySearch) {
-        communitySearch.value = draft.community;
-        communitySearch.setAttribute('data-selected', 'true');
-      }
-      
-      const clearBtn = document.getElementById('clear-community-btn');
-      if (clearBtn) {
-        clearBtn.classList.remove('hidden');
-      }
-    }
-
-    // Load scheduled publishing data if available
-    if (draft.isScheduled) {
-      this.isScheduled = true;
-      this.publishDate = draft.publishDate;
-      this.publishTime = draft.publishTime;
-    }
-
-    // Load advanced state into memory (UI shows them when the modal opens)
-    if (draft.payoutOption) this.payoutOption = draft.payoutOption;
-    if (Array.isArray(draft.beneficiaries) && draft.beneficiaries.length > 0) {
-      this.beneficiaries = draft.beneficiaries;
-    }
-    this.updateAdvancedOptionsSummary();
-
-    // Segnala che non ci sono modifiche non salvate
-    this.hasUnsavedChanges = false;
-
-    // Mostra notifica
-    this.showStatus('Draft loaded successfully', 'success');
-    
-    // Aggiorna lo stato della bozza
-    this.updateDraftStatus('Saved');
-    
-    // Nascondi correttamente il banner di recupero bozza
-    const draftRecovery = document.getElementById('draft-recovery');
-    if (draftRecovery) {
-      draftRecovery.classList.add('hidden');
-    }
-    
-    // Sposta il focus al titolo per una migliore esperienza utente
-    const titleInput = document.getElementById('post-title');
-    if (titleInput) {
-      titleInput.focus();
-    }
-  }
-
-  /**
    * Load a specific draft by ID
    * @param {string} draftId - The ID of the draft to load
    */  /**
@@ -1219,22 +1106,19 @@ class CreatePostView extends View {  constructor(params = {}) {
         if (tagsInput) tagsInput.value = draft.tags.join(' ');
       }
         if (draft.community) {
-        this.selectedCommunity = { name: draft.community };
+        const displayTitle = draft.communityTitle || draft.community;
+        this.selectedCommunity = { name: draft.community, title: displayTitle };
         const communitySearch = document.getElementById('community-search');
         if (communitySearch) {
-          communitySearch.value = draft.community;
+          communitySearch.value = displayTitle;
           communitySearch.setAttribute('data-selected', 'true');
         }
         const clearBtn = document.getElementById('clear-community-btn');
         if (clearBtn) clearBtn.classList.remove('hidden');
       }
 
-      // Load scheduled publishing data if available
-      if (draft.isScheduled) {
-        this.isScheduled = true;
-        this.publishDate = draft.publishDate;
-        this.publishTime = draft.publishTime;
-      }
+      // Scheduling fields intentionally ignored — scheduled posts live on
+      // the ridd API only.
 
       // Load advanced state into memory (UI shows them when the modal opens)
       if (draft.payoutOption) this.payoutOption = draft.payoutOption;
@@ -1245,10 +1129,7 @@ class CreatePostView extends View {  constructor(params = {}) {
 
       // Mark as no unsaved changes since we just loaded
       this.hasUnsavedChanges = false;
-      
-      // Update draft status
-      this.updateDraftStatus('Loaded');
-      
+
       // Show success message
       this.showStatus('Draft loaded successfully', 'success');
       
@@ -1259,132 +1140,61 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   /**
-   * Aggiorna lo stato visualizzato del draft
-   * Versione ottimizzata
+   * Explicit "Save draft" action triggered from the editor header.
+   * Persists the current form into the multi-draft store with a fresh ID.
    */
-  updateDraftStatus(status) {
-    const draftStatusEl = document.getElementById('draft-status');
-    const statusText = document.getElementById('draft-status-text');
-    
-    if (!draftStatusEl || !statusText) return;
-    
-    // Rimuovi tutte le classi di stato
-    draftStatusEl.classList.remove('saving', 'saved', 'unsaved');
-    
-    // Aggiorna icona e testo in base allo stato
-    let icon = 'sync';
-    
-    if (status === 'Saving...') {
-      draftStatusEl.classList.add('saving');
-      statusText.textContent = 'Saving...';
-      icon = 'sync';
-    } else if (status === 'Saved') {
-      draftStatusEl.classList.add('saved');
-      statusText.textContent = 'Saved';
-      icon = 'check_circle';
-      
-      // Nascondi dopo 3 secondi
-      setTimeout(() => {
-        draftStatusEl.classList.remove('saved');
-        statusText.textContent = 'Auto-save on';
-        draftStatusEl.querySelector('.material-icons').textContent = 'sync';
-      }, 3000);
-    } else if (status === 'Unsaved changes') {
-      draftStatusEl.classList.add('unsaved');
-      statusText.textContent = 'Unsaved';
-      icon = 'edit';
-    }
-    
-    // Aggiorna l'icona
-    draftStatusEl.querySelector('.material-icons').textContent = icon;
-  }
-
-  /**
-   * Salva solo se ci sono modifiche non salvate
-   */  /**
-   * Salva solo se ci sono modifiche non salvate
-   * Versione migliorata con supporto per draft multipli
-   */  saveIfChanged() {
-    if (!this.hasUnsavedChanges) return;
-    
-    // Mostra stato "Saving..."
-    this.updateDraftStatus('Saving...');
-    
-    // Salva la bozza corrente (manteniamo il comportamento legacy)
-    const draftData = {
-      title: this.postTitle,
-      body: this.postBody,
-      tags: this.tags,
-      community: this.selectedCommunity?.name,
-      isScheduled: this.isScheduled,
-      publishDate: this.publishDate,
-      publishTime: this.publishTime,
-      payoutOption: this.payoutOption,
-      beneficiaries: this.beneficiaries
-    };
-    
-    if (createPostService.saveDraft(draftData)) {
-      // Aggiorna lo stato di salvataggio
-      this.hasUnsavedChanges = false;
-      
-      // Mostra "Saved" con ritardo per l'animazione
-      setTimeout(() => {
-        this.updateDraftStatus('Saved');
-      }, 500);
-    } else {
-      this.updateDraftStatus('Failed to save');
-      console.error("Failed to save draft");
-    }
-  }
-
-  /**
-   * Salva il draft corrente come nuovo draft con ID
-   * @returns {Object} - Risultato dell'operazione
-   */  saveAsNewDraft() {
+  saveAsNewDraft() {
     try {
-      const draftData = {
-        title: this.postTitle || 'Untitled Draft',
-        body: this.postBody || '',
-        tags: this.tags || [],
-        community: this.selectedCommunity?.name,
-        isScheduled: this.isScheduled,
-        publishDate: this.publishDate,
-        publishTime: this.publishTime
-      };
+      const titleEmpty = !this.postTitle || !this.postTitle.trim();
+      const bodyEmpty = !this.postBody || !this.postBody.trim();
+      if (titleEmpty && bodyEmpty) {
+        this.showStatus('Add a title or some content before saving the draft.', 'error');
+        return { success: false, error: 'empty' };
+      }
 
+      const draftData = this.collectDraftFields({ allowUntitled: true });
       const result = createPostService.saveDraftWithId(draftData);
-      
+
       if (result.success) {
-        this.showStatus('Draft saved successfully', 'success');
+        this.showStatus('Draft saved.', 'success');
         this.hasUnsavedChanges = false;
-        this.updateDraftStatus('Saved');
       } else {
         this.showStatus(result.error || 'Failed to save draft', 'error');
       }
 
       return result;
     } catch (error) {
-      console.error('Failed to save as new draft:', error);
+      console.error('Failed to save draft:', error);
       this.showStatus('Failed to save draft', 'error');
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Avvia il salvataggio automatico
+   * Returns the fields persisted into a local draft.
+   * Scheduling (isScheduled / publishDate / publishTime / scheduledPostId)
+   * is intentionally excluded — scheduled posts live on the ridd API only
+   * and must not bleed into the local draft store.
    */
-  startAutoSave() {
-    // Pulisci eventuali timeout esistenti
-    if (this.autoSaveTimeout) {
-      clearInterval(this.autoSaveTimeout);
-    }
-    
-    // Imposta un nuovo intervallo per il salvataggio automatico (ogni 15 secondi)
-    this.autoSaveTimeout = setInterval(() => {
-      if (this.hasUnsavedChanges) {
-        this.saveIfChanged();
-      }
-    }, 15000);
+  collectDraftFields({ allowUntitled = false } = {}) {
+    return {
+      title: allowUntitled ? (this.postTitle || 'Untitled Draft') : this.postTitle,
+      body: this.postBody,
+      tags: this.tags,
+      community: this.selectedCommunity?.name,
+      communityTitle: this.selectedCommunity?.title || null,
+      payoutOption: this.payoutOption,
+      beneficiaries: this.beneficiaries
+    };
+  }
+
+  /**
+   * Auto-save was removed by request. Drafts are now saved only via the
+   * explicit "Save draft" button in the editor header. `markDirty()` still
+   * exists as a no-op so older call sites don't blow up.
+   */
+  markDirty() {
+    this.hasUnsavedChanges = true;
   }
 
   /**
@@ -1933,36 +1743,58 @@ class CreatePostView extends View {  constructor(params = {}) {
     }
 
     try {
-      // Notifica inizio creazione
+      const username = this.user.username;
+      const isEditingScheduled = this.editScheduledMode && this.scheduledPostId && this.isScheduled;
+
+      // ── Branch A: editing an existing scheduled post on the backend ──
+      if (isEditingScheduled) {
+        this.showStatus('Updating scheduled post...', 'info');
+
+        const scheduledDateTime = new Date(`${this.publishDate}T${this.publishTime}`).toISOString();
+        const updatedData = {
+          title: this.postTitle,
+          body: this.postBody,
+          tags: this.tags,
+          community: this.selectedCommunity ? (this.selectedCommunity.name || this.selectedCommunity.id) : '',
+          community_title: this.selectedCommunity?.title || null,
+          scheduled_time: scheduledDateTime,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        };
+
+        await createPostService.updateScheduledPost(this.scheduledPostId, username, updatedData);
+
+        // Clear the local working copy of this scheduled post
+        createPostService.clearDraft();
+
+        this.showStatus('Scheduled post updated!', 'success');
+        setTimeout(() => router.navigate('/drafts'), 1500);
+        return;
+      }
+
+      // ── Branch B: regular create (immediate or new schedule) ──
       if (this.isScheduled) {
         this.showStatus('Scheduling your post...', 'info');
       } else {
         this.showStatus('Publishing your post...', 'info');
       }
 
-      // Genera permlink dal titolo
       const permlink = this.generatePermlink(this.postTitle);
-      const username = this.user.username;
 
-      // Dati post
       const postData = {
         title: this.postTitle,
         body: this.postBody,
         tags: this.tags,
         permlink: permlink
       };
-      
-      // Aggiungi la community se selezionata
+
       if (this.selectedCommunity) {
         postData.community = this.selectedCommunity.name || this.selectedCommunity.id;
       }
 
-      // Add scheduled publishing data if enabled
       if (this.isScheduled) {
         postData.scheduledDateTime = new Date(`${this.publishDate}T${this.publishTime}`).toISOString();
       }
 
-      // Options forwarded to the create-post service
       const options = {
         isScheduled: this.isScheduled,
         payoutOption: this.payoutOption,
@@ -1973,42 +1805,35 @@ class CreatePostView extends View {  constructor(params = {}) {
         options.beneficiaries = this.beneficiaries;
       }
 
-      // Usa il servizio centralizzato per creare post con le opzioni dei beneficiari
-      const result = await createPostService.createPost(postData, options);
+      await createPostService.createPost(postData, options);
 
-      // Send notification to Telegram after successful post creation
-      if (result) {
-        try {
-          // Optional: implementa la notifica
-        } catch (notifyErr) {
-          // Non bloccare il flusso per errori di notifica
-        }
-      }
-      
-      // Mostra messaggio di successo
       if (this.isScheduled) {
         this.showStatus('Post scheduled successfully!', 'success');
-        
-        // For scheduled posts, redirect to drafts or stay on current page
-        setTimeout(() => {
-          router.navigate('/drafts');
-        }, 2000);
+        setTimeout(() => router.navigate('/drafts'), 2000);
       } else {
         this.showStatus('Post published successfully!', 'success');
-        
-        // Reindirizza alla pagina del post dopo un breve ritardo
         setTimeout(() => {
           window.location.href = `/@${username}/${permlink}`;
         }, 2000);
-      }    } catch (error) {
-      this.showError(`Failed to ${this.isScheduled ? 'schedule' : 'publish'} post: ${error.message}`);
+      }
+    } catch (error) {
+      const verb = this.editScheduledMode ? 'update' : (this.isScheduled ? 'schedule' : 'publish');
+      this.showError(`Failed to ${verb} post: ${error.message}`);
 
-      // Ripristina pulsante
       submitBtn.disabled = false;
-      submitBtn.textContent = this.isScheduled ? 'Schedule Post' : 'Publish Post';
+      submitBtn.textContent = this.getSubmitButtonText();
     } finally {
       this.isSubmitting = false;
     }
+  }
+
+  /**
+   * Returns the label that should be shown on the submit button based on the
+   * current mode (immediate publish, schedule, or update existing schedule).
+   */
+  getSubmitButtonText() {
+    if (this.editScheduledMode) return 'Update Scheduled Post';
+    return this.isScheduled ? 'Schedule Post' : 'Publish Post';
   }
 
   /**
@@ -2501,11 +2326,6 @@ class CreatePostView extends View {  constructor(params = {}) {
     if (this.keyDownHandler) {
       document.removeEventListener('keydown', this.keyDownHandler);
       this.keyDownHandler = null;
-    }
-
-    // Clear auto-save interval
-    if (this.autoSaveTimeout) {
-      clearInterval(this.autoSaveTimeout);
     }
 
     // Tear down advanced-options + schedule modals if still open
@@ -3368,7 +3188,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         placeholder: 'Write your post content here using Markdown...',
         onChange: (value) => {
           this.postBody = value;
-          this.hasUnsavedChanges = true;
+          this.markDirty();
         },
         height: '500px',
         initialValue: this.postBody || ''

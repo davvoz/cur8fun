@@ -376,7 +376,7 @@ export class ApiScheduledClient {
         };
         
         const options = {
-            method: 'PUT',
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'API-Key': this.apiKey

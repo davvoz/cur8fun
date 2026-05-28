@@ -273,12 +273,6 @@
 .draft-actions {
   display: flex;
   gap: 0.25rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.draft-card:hover .draft-actions {
-  opacity: 1;
 }
 
 .draft-action-btn {
@@ -442,7 +436,7 @@
 /* Toast Notifications */
 .toast {
   position: fixed;
-  top: 20px;
+  bottom: 20px;
   right: 20px;
   padding: 1rem 1.5rem;
   border-radius: 8px;
@@ -450,6 +444,7 @@
   font-weight: 500;
   z-index: 10000;
   opacity: 0;
+  max-width: 350px;
   transform: translateX(100%);
   transition: all 0.3s ease;
 }

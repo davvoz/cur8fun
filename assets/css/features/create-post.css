@@ -502,13 +502,49 @@
   }
 }
 
-/* Quick action buttons in editor */
+/* Quick action buttons in editor (Save + View drafts) */
 .editor-quick-actions {
   display: flex;
-  gap: 5px;
+  gap: 8px;
   margin-left: auto;
+  flex-wrap: wrap;
 }
 
+.editor-quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 4px);
+  border: 1px solid var(--border-color);
+  background-color: var(--background-light);
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: all 0.15s ease;
+}
+
+.editor-quick-action-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.editor-quick-action-btn .material-icons {
+  font-size: 18px;
+}
+
+.editor-quick-action-btn.save-draft-btn {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-on-primary, #fff);
+}
+
+.editor-quick-action-btn.save-draft-btn:hover {
+  filter: brightness(0.95);
+  color: var(--text-on-primary, #fff);
+}
+
+/* Legacy action-button styles kept for any leftover usage */
 .action-button {
   display: flex;
   align-items: center;

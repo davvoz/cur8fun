@@ -209,211 +209,170 @@ class DraftsView extends View {
     return `${ageWeeks} week${ageWeeks !== 1 ? 's' : ''} ago`;
   }
   /**
-   * Render drafts list with improved functionality
+   * Renders the drafts page split into two clean sections.
+   * Stats live as a single one-line summary, Export is the only action.
    */
   renderDrafts(container, drafts) {
     container.innerHTML = '';
 
-    // Separate drafts by type
     const localDrafts = drafts.filter(d => !d.isScheduled);
     const scheduledPosts = drafts.filter(d => d.isScheduled);
-    const currentDrafts = drafts.filter(d => d.isCurrent);
 
-    // Add stats header
-    const statsHeader = document.createElement('div');
-    statsHeader.className = 'drafts-stats';
-    statsHeader.innerHTML = `
-      <div class="stat-item">
-        <span class="stat-number">${localDrafts.length}</span>
-        <span class="stat-label">Local Draft${localDrafts.length !== 1 ? 's' : ''}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">${scheduledPosts.length}</span>
-        <span class="stat-label">Scheduled Post${scheduledPosts.length !== 1 ? 's' : ''}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">${currentDrafts.length}</span>
-        <span class="stat-label">Current</span>
-      </div>
-    `;
-    container.appendChild(statsHeader);
+    // ── Compact summary line + optional Export ──
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'drafts-summary-row';
 
-    // Add actions bar
-    const actionsBar = document.createElement('div');
-    actionsBar.className = 'drafts-actions-bar';
-    actionsBar.innerHTML = `
-      <button class="outline-btn cleanup-btn" title="Clean up expired drafts">
-        <span class="material-icons">cleaning_services</span>
-        Clean Up
-      </button>
-      <button class="outline-btn export-btn" title="Export drafts">
-        <span class="material-icons">download</span>
-        Export
-      </button>
-    `;
-    container.appendChild(actionsBar);
+    const summary = document.createElement('div');
+    summary.className = 'drafts-summary-text';
+    summary.textContent = `${localDrafts.length} draft${localDrafts.length === 1 ? '' : 's'} · ${scheduledPosts.length} scheduled`;
+    summaryRow.appendChild(summary);
 
-    // Add event listeners for action buttons
-    const cleanupBtn = actionsBar.querySelector('.cleanup-btn');
-    const exportBtn = actionsBar.querySelector('.export-btn');
+    if (drafts.length > 0) {
+      const exportBtn = document.createElement('button');
+      exportBtn.className = 'outline-btn export-btn';
+      exportBtn.title = 'Export drafts as JSON';
+      exportBtn.innerHTML = '<span class="material-icons">download</span> Export';
+      exportBtn.addEventListener('click', () => this.exportDrafts(drafts));
+      summaryRow.appendChild(exportBtn);
+    }
 
-    cleanupBtn.addEventListener('click', () => this.cleanupExpiredDrafts());
-    exportBtn.addEventListener('click', () => this.exportDrafts(drafts));
+    container.appendChild(summaryRow);
 
-    // Create drafts grid
-    const draftsGrid = document.createElement('div');
-    draftsGrid.className = 'drafts-grid';
-    
-    // Sort drafts: current first, then by last modified (newest first)
-    const sortedDrafts = drafts.sort((a, b) => {
+    // ── My drafts: current first, then by last modified desc ──
+    const sortedLocal = [...localDrafts].sort((a, b) => {
       if (a.isCurrent && !b.isCurrent) return -1;
       if (!a.isCurrent && b.isCurrent) return 1;
-      return b.lastModified - a.lastModified;
+      return (b.lastModified || 0) - (a.lastModified || 0);
     });
-    
-    sortedDrafts.forEach(draft => {
-      const draftCard = this.createDraftCard(draft);
-      draftsGrid.appendChild(draftCard);
-    });
+    container.appendChild(
+      this.renderDraftsSection('My drafts', sortedLocal, 'No saved drafts yet.')
+    );
 
-    container.appendChild(draftsGrid);
+    // ── Scheduled: by scheduled_time asc (next first) ──
+    const sortedScheduled = [...scheduledPosts].sort((a, b) => {
+      const ta = a.scheduledDateTime ? new Date(a.scheduledDateTime).getTime() : Infinity;
+      const tb = b.scheduledDateTime ? new Date(b.scheduledDateTime).getTime() : Infinity;
+      return ta - tb;
+    });
+    container.appendChild(
+      this.renderDraftsSection('Scheduled posts', sortedScheduled, 'No scheduled posts.')
+    );
+  }
+
+  /**
+   * Builds a titled section with a grid of cards or a quiet empty hint.
+   */
+  renderDraftsSection(title, items, emptyMessage) {
+    const section = document.createElement('section');
+    section.className = 'drafts-section';
+
+    const heading = document.createElement('h2');
+    heading.className = 'drafts-section-title';
+    heading.textContent = `${title} (${items.length})`;
+    section.appendChild(heading);
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'drafts-section-empty';
+      empty.textContent = emptyMessage;
+      section.appendChild(empty);
+      return section;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'drafts-grid';
+    items.forEach(draft => grid.appendChild(this.createDraftCard(draft)));
+    section.appendChild(grid);
+
+    return section;
   }  /**
-   * Create a draft card with enhanced functionality
+   * Removes a single card from the page without a full re-render.
+   */
+  removeCardFromDom(predicate) {
+    document.querySelectorAll('.draft-card').forEach(el => {
+      if (predicate(el)) el.remove();
+    });
+  }
+
+  /**
+   * Compact draft card.
+   * - Click anywhere on the card to edit
+   * - Top-right corner: small icon buttons (Duplicate for local non-current
+   *   drafts, Delete always). Buttons stopPropagation so they don't trigger
+   *   the card-level edit.
+   * - Body: excerpt + tag chips + meta line
    */
   createDraftCard(draft) {
-    const card = document.createElement('div');
-    card.className = `draft-card ${draft.isCurrent ? 'current-draft' : ''} ${draft.isScheduled ? 'scheduled-draft' : ''}`;
-    
-    // Add click handler to edit draft
+    const card = document.createElement('article');
+    card.className = 'draft-card';
+    if (draft.isCurrent) card.classList.add('current-draft');
+    if (draft.isScheduled) card.classList.add('scheduled-draft');
+
+    card.dataset.draftId = draft.id;
+    if (draft.apiId != null) card.dataset.apiId = String(draft.apiId);
+
     card.addEventListener('click', (e) => {
-      // Don't trigger if clicking on action buttons
-      if (!e.target.closest('.draft-actions')) {
+      if (e.target.closest('.draft-actions')) return;
+      if (draft.isScheduled) {
+        this.editScheduledPost(draft);
+      } else {
         this.editDraft(draft);
       }
     });
 
-    // Calculate additional metadata
     const wordCount = this.getWordCount(draft.body || '');
-    const age = this.getDraftAge(draft.lastModified);
 
-    // Format scheduled time if applicable
-    const scheduledTimeText = draft.isScheduled && draft.scheduledDateTime 
-      ? new Date(draft.scheduledDateTime).toLocaleString()
-      : '';
+    // ── Header: badges + title + action icons ──
+    const header = document.createElement('header');
+    header.className = 'draft-header';
 
-    card.innerHTML = `
-      <div class="draft-header">
-        ${draft.isCurrent ? '<div class="current-draft-badge">Current Draft</div>' : ''}
-        ${draft.isScheduled ? '<div class="scheduled-draft-badge">Scheduled</div>' : ''}
-        <h3 class="draft-title" title="${this.escapeHtml(draft.title || 'Untitled Draft')}">
-          ${this.escapeHtml(draft.title || 'Untitled Draft')}
-        </h3>
-        <div class="draft-meta">
-          ${draft.isScheduled ? `
-            <span class="scheduled-time">
-              <span class="material-icons">schedule</span>
-              ${scheduledTimeText}
-            </span>
-          ` : `
-            <span class="draft-age">${age}</span>
-          `}
-          <span class="draft-words">${wordCount} words</span>
-        </div>
-      </div>
-      
-      <div class="draft-content">
-        <div class="draft-excerpt">
-          ${this.createExcerpt(draft.body || '')}
-        </div>
-        
-        ${draft.tags && draft.tags.length > 0 ? `
-          <div class="draft-tags">
-            ${draft.tags.slice(0, 3).map(tag => 
-              `<span class="draft-tag">${this.escapeHtml(tag)}</span>`
-            ).join('')}
-            ${draft.tags.length > 3 ? `<span class="draft-tag-more">+${draft.tags.length - 3}</span>` : ''}
-          </div>
-        ` : ''}
-      </div>
-      
-      <div class="draft-footer">
-        <div class="draft-info">
-          ${draft.community ? `
-            <span class="draft-community">
-              <span class="material-icons">groups</span>
-              ${this.escapeHtml(draft.community)}
-            </span>
-          ` : ''}
-          ${draft.status ? `
-            <span class="draft-status status-${draft.status}">
-              ${this.capitalizeFirst(draft.status)}
-            </span>
-          ` : ''}
-        </div>
-        
-        <div class="draft-actions">
-          ${draft.isScheduled ? `
-            <button class="draft-action-btn edit-scheduled-btn" title="Edit scheduled post">
-              <span class="material-icons">edit_calendar</span>
-            </button>
-            <button class="draft-action-btn cancel-schedule-btn" title="Cancel schedule">
-              <span class="material-icons">cancel_schedule_send</span>
-            </button>
-          ` : `
-            <button class="draft-action-btn edit-btn" title="Edit draft">
-              <span class="material-icons">edit</span>
-            </button>
-            ${!draft.isCurrent ? `
-              <button class="draft-action-btn duplicate-btn" title="Duplicate draft">
-                <span class="material-icons">content_copy</span>
-              </button>
-              <button class="draft-action-btn load-current-btn" title="Load as current draft">
-                <span class="material-icons">open_in_new</span>
-              </button>
-            ` : `
-              <button class="draft-action-btn save-as-btn" title="Save as new draft">
-                <span class="material-icons">save_as</span>
-              </button>
-            `}
-          `}
-          <button class="draft-action-btn delete-btn" title="Delete ${draft.isScheduled ? 'scheduled post' : 'draft'}">
-            <span class="material-icons">delete</span>
-          </button>
-        </div>
-      </div>
-    `;
+    const headerLeft = document.createElement('div');
+    headerLeft.className = 'draft-header-left';
 
-    // Add event listeners for action buttons
-    const editBtn = card.querySelector('.edit-btn');
-    const editScheduledBtn = card.querySelector('.edit-scheduled-btn');
-    const cancelScheduleBtn = card.querySelector('.cancel-schedule-btn');
-    const deleteBtn = card.querySelector('.delete-btn');
-    const duplicateBtn = card.querySelector('.duplicate-btn');
-    const loadCurrentBtn = card.querySelector('.load-current-btn');
-    const saveAsBtn = card.querySelector('.save-as-btn');
-
-    if (editBtn) {
-      editBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.editDraft(draft);
-      });
+    if (draft.isCurrent) {
+      const badge = document.createElement('span');
+      badge.className = 'draft-badge draft-badge-current';
+      badge.textContent = 'Current';
+      headerLeft.appendChild(badge);
+    }
+    if (draft.isScheduled) {
+      const badge = document.createElement('span');
+      badge.className = 'draft-badge draft-badge-scheduled';
+      badge.innerHTML = '<span class="material-icons">schedule</span> Scheduled';
+      headerLeft.appendChild(badge);
     }
 
-    if (editScheduledBtn) {
-      editScheduledBtn.addEventListener('click', (e) => {
+    const title = document.createElement('h3');
+    title.className = 'draft-title';
+    title.textContent = draft.title || 'Untitled draft';
+    title.title = draft.title || 'Untitled draft';
+    headerLeft.appendChild(title);
+
+    header.appendChild(headerLeft);
+
+    const actions = document.createElement('div');
+    actions.className = 'draft-actions';
+
+    // Duplicate: only meaningful for non-current local drafts
+    if (!draft.isScheduled && !draft.isCurrent) {
+      const dupBtn = document.createElement('button');
+      dupBtn.type = 'button';
+      dupBtn.className = 'draft-action-btn duplicate-btn';
+      dupBtn.title = 'Duplicate draft';
+      dupBtn.innerHTML = '<span class="material-icons">content_copy</span>';
+      dupBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.editScheduledPost(draft);
+        this.duplicateDraft(draft);
       });
+      actions.appendChild(dupBtn);
     }
 
-    if (cancelScheduleBtn) {
-      cancelScheduleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.cancelScheduledPost(draft);
-      });
-    }
-
-    deleteBtn.addEventListener('click', (e) => {
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'draft-action-btn delete-btn';
+    delBtn.title = draft.isScheduled ? 'Cancel scheduled post' : 'Delete draft';
+    delBtn.innerHTML = '<span class="material-icons">delete</span>';
+    delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (draft.isScheduled) {
         this.deleteScheduledPost(draft);
@@ -421,36 +380,79 @@ class DraftsView extends View {
         this.deleteDraft(draft);
       }
     });
+    actions.appendChild(delBtn);
 
-    if (duplicateBtn) {
-      duplicateBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.duplicateDraft(draft);
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // ── Body: excerpt + tag chips ──
+    const body = document.createElement('div');
+    body.className = 'draft-body';
+
+    const excerpt = document.createElement('p');
+    excerpt.className = 'draft-excerpt';
+    excerpt.textContent = this.createExcerpt(draft.body || '');
+    body.appendChild(excerpt);
+
+    if (Array.isArray(draft.tags) && draft.tags.length > 0) {
+      const tagRow = document.createElement('div');
+      tagRow.className = 'draft-tags';
+      draft.tags.slice(0, 3).forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'draft-tag';
+        chip.textContent = t;
+        tagRow.appendChild(chip);
       });
+      if (draft.tags.length > 3) {
+        const more = document.createElement('span');
+        more.className = 'draft-tag-more';
+        more.textContent = `+${draft.tags.length - 3}`;
+        tagRow.appendChild(more);
+      }
+      body.appendChild(tagRow);
     }
 
-    if (loadCurrentBtn) {
-      loadCurrentBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.loadDraftAsCurrent(draft);
+    card.appendChild(body);
+
+    // ── Footer: meta line (time + words + community) ──
+    const footer = document.createElement('footer');
+    footer.className = 'draft-footer';
+
+    const meta = document.createElement('div');
+    meta.className = 'draft-meta';
+
+    if (draft.isScheduled && draft.scheduledDateTime) {
+      const when = new Date(draft.scheduledDateTime);
+      const whenLabel = isNaN(when.getTime()) ? '—' : when.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
       });
+      const span = document.createElement('span');
+      span.className = 'draft-meta-item';
+      span.innerHTML = `<span class="material-icons">schedule</span> ${whenLabel}`;
+      meta.appendChild(span);
+    } else {
+      const span = document.createElement('span');
+      span.className = 'draft-meta-item';
+      span.textContent = this.getDraftAge(draft.lastModified);
+      meta.appendChild(span);
     }
 
-    if (saveAsBtn) {
-      saveAsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.saveCurrentDraftAsNew();
-      });
+    const wordsSpan = document.createElement('span');
+    wordsSpan.className = 'draft-meta-item';
+    wordsSpan.textContent = `${wordCount} word${wordCount === 1 ? '' : 's'}`;
+    meta.appendChild(wordsSpan);
+
+    if (draft.community) {
+      const communitySpan = document.createElement('span');
+      communitySpan.className = 'draft-meta-item';
+      communitySpan.innerHTML = `<span class="material-icons">groups</span> ${this.escapeHtml(draft.community)}`;
+      meta.appendChild(communitySpan);
     }
+
+    footer.appendChild(meta);
+    card.appendChild(footer);
 
     return card;
-  }
-
-  /**
-   * Capitalize first letter of a string
-   */
-  capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
   /**
@@ -490,86 +492,31 @@ class DraftsView extends View {
       // For current draft, just navigate to create view
       router.navigate('/create');
     } else {
-      // For saved drafts, load as current and navigate
-      const success = createPostService.loadDraftAsCurrent(draft.id);
-      if (success) {
-        router.navigate('/create');
-      } else {
-        this.showToast('Failed to load draft', 'error');
-      }
+      // For saved drafts, navigate passing the draftId so CreatePostView
+      // can load it directly via loadSpecificDraft.
+      router.navigate('/create', { draftId: draft.id });
     }
   }
   /**
-   * Edit a scheduled post
+   * Edit a scheduled post.
+   * Scheduled posts live only on the ridd API — we never persist them in
+   * local draft storage. We just pass the API id forward; CreatePostView
+   * fetches the fresh record from the API on entry and submits via
+   * updateScheduledPost.
    */
   editScheduledPost(draft) {
-    if (!draft.isScheduled || !draft.apiId) {
+    if (!draft.isScheduled || draft.apiId == null) {
       this.showToast('Invalid scheduled post', 'error');
       return;
     }
-
-    // For scheduled posts, we need to load the data and navigate to create view
-    try {
-      // Load the scheduled post data as current draft
-      const draftData = {
-        title: draft.title,
-        body: draft.body,
-        tags: draft.tags,
-        community: draft.community,
-        isScheduled: true,
-        scheduledDateTime: draft.scheduledDateTime,
-        timezone: draft.timezone,
-        scheduledPostId: draft.apiId
-      };
-
-      const success = createPostService.saveDraft(draftData);
-      if (success) {
-        // Navigate to create view with scheduled post editing mode
-        router.navigate('/create?mode=edit-scheduled');
-      } else {
-        this.showToast('Failed to load scheduled post for editing', 'error');
-      }
-    } catch (error) {
-      console.error('Error editing scheduled post:', error);
-      this.showToast('Failed to edit scheduled post', 'error');
-    }
+    router.navigate('/create', {
+      mode: 'edit-scheduled',
+      scheduledPostId: draft.apiId
+    });
   }
 
   /**
-   * Cancel a scheduled post
-   */
-  async cancelScheduledPost(draft) {
-    if (!draft.isScheduled || !draft.apiId) {
-      this.showToast('Invalid scheduled post', 'error');
-      return;
-    }
-
-    try {
-      // Show confirmation dialog
-      const confirmed = await this.showCancelScheduleDialog(draft);
-      if (!confirmed) return;
-
-      // Show loading state
-      this.showToast('Canceling scheduled post...', 'loading');
-
-      // Delete the scheduled post via API
-      const success = await createPostService.deleteScheduledPost(draft.apiId, draft.username);
-      
-      if (success) {
-        this.showToast('Scheduled post canceled successfully', 'success');
-        // Reload the view
-        this.render(this.container);
-      } else {
-        this.showToast('Failed to cancel scheduled post', 'error');
-      }
-    } catch (error) {
-      console.error('Error canceling scheduled post:', error);
-      this.showToast('Failed to cancel scheduled post', 'error');
-    }
-  }
-
-  /**
-   * Delete a scheduled post
+   * Delete (cancel) a scheduled post — single unified action.
    */
   async deleteScheduledPost(draft) {
     if (!draft.isScheduled || !draft.apiId) {
@@ -578,20 +525,16 @@ class DraftsView extends View {
     }
 
     try {
-      // Show confirmation dialog
       const confirmed = await this.showDeleteScheduledPostDialog(draft);
       if (!confirmed) return;
 
-      // Show loading state
       this.showToast('Deleting scheduled post...', 'loading');
 
-      // Delete the scheduled post via API
       const success = await createPostService.deleteScheduledPost(draft.apiId, draft.username);
-      
+
       if (success) {
         this.showToast('Scheduled post deleted successfully', 'success');
-        // Reload the view
-        this.render(this.container);
+        this.removeCardFromDom(el => el.dataset.apiId === String(draft.apiId));
       } else {
         this.showToast('Failed to delete scheduled post', 'error');
       }
@@ -599,55 +542,6 @@ class DraftsView extends View {
       console.error('Error deleting scheduled post:', error);
       this.showToast('Failed to delete scheduled post', 'error');
     }
-  }
-
-  /**
-   * Show cancel schedule confirmation dialog
-   */
-  async showCancelScheduleDialog(draft) {
-    const scheduledTime = new Date(draft.scheduledDateTime).toLocaleString();
-    
-    const previewData = `
-      <div class="scheduled-post-preview">
-        <h4>${this.escapeHtml(draft.title || 'Untitled Scheduled Post')}</h4>
-        <div class="scheduled-meta-info">
-          <span class="meta-item">
-            <span class="material-icons">schedule</span>
-            Scheduled for: ${scheduledTime}
-          </span>
-          <span class="meta-item">
-            <span class="material-icons">subject</span>
-            ${this.getWordCount(draft.body)} words
-          </span>
-          ${draft.community ? `
-            <span class="meta-item">
-              <span class="material-icons">groups</span>
-              ${this.escapeHtml(draft.community)}
-            </span>
-          ` : ''}
-        </div>
-        ${draft.tags && draft.tags.length > 0 ? `
-          <div class="scheduled-tags-preview">
-            ${draft.tags.slice(0, 3).map(tag => 
-              `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
-            ).join('')}
-            ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
-          </div>
-        ` : ''}
-      </div>
-    `;
-
-    return await DialogUtility.showConfirmationDialog({
-      title: 'Cancel Scheduled Post',
-      message: 'Are you sure you want to cancel this scheduled post?',
-      confirmText: 'Cancel Schedule',
-      cancelText: 'Keep Schedule',
-      icon: 'cancel_schedule_send',
-      type: 'warning',
-      showPreview: true,
-      previewData: previewData,
-      details: 'This action will remove the post from the publishing queue. You can still edit and reschedule it later.'
-    });
   }
 
   /**
@@ -704,24 +598,19 @@ class DraftsView extends View {
    */
   async deleteDraft(draft) {
     try {
-      // Show confirmation dialog following the standard pattern
       const confirmed = await this.showDeleteDraftDialog(draft);
       if (!confirmed) return;
-      
-      // Show loading state
+
       this.showToast('Deleting draft...', 'loading');
-      
-      // Perform delete operation
+
       const success = createPostService.deleteDraftById(draft.id);
-      
+
       if (success) {
         this.showToast('Draft deleted successfully', 'success');
-        // Reload the view
-        this.render(this.container);
+        this.removeCardFromDom(el => el.dataset.draftId === String(draft.id));
       } else {
         this.showToast('Failed to delete draft', 'error');
       }
-      
     } catch (error) {
       console.error('Error deleting draft:', error);
       this.showToast('Failed to delete draft', 'error');
@@ -734,64 +623,14 @@ class DraftsView extends View {
    * @returns {Promise<boolean>} - true if user confirms, false otherwise
    */
   async showDeleteDraftDialog(draft) {
-    // Calculate draft metadata
-    const wordCount = this.getWordCount(draft.body || '');
-    const age = this.getDraftAge(draft.lastModified);
-    
-    // Create rich preview content for the dialog
-    const previewData = `
-      <div class="draft-preview">
-        <h4>${this.escapeHtml(draft.title || 'Untitled Draft')}</h4>
-        <div class="draft-meta-info">
-          <span class="meta-item">
-            <span class="material-icons">schedule</span>
-            ${age}
-          </span>
-          <span class="meta-item">
-            <span class="material-icons">subject</span>
-            ${wordCount} words
-          </span>
-          ${draft.community ? `
-            <span class="meta-item">
-              <span class="material-icons">groups</span>
-              ${this.escapeHtml(draft.community)}
-            </span>
-          ` : ''}
-        </div>
-        ${draft.tags && draft.tags.length > 0 ? `
-          <div class="draft-tags-preview">
-            ${draft.tags.slice(0, 3).map(tag => 
-              `<span class="tag-chip">${this.escapeHtml(tag)}</span>`
-            ).join('')}
-            ${draft.tags.length > 3 ? `<span class="tag-more">+${draft.tags.length - 3}</span>` : ''}
-          </div>
-        ` : ''}
-        ${draft.body ? `
-          <div class="draft-excerpt-preview">
-            ${this.escapeHtml(this.createExcerpt(draft.body, 100))}
-          </div>
-        ` : ''}
-      </div>
-    `;
-
-    // Additional warning for current drafts
-    const additionalDetails = draft.isCurrent ? `
-      <div class="current-draft-warning">
-        <span class="material-icons">warning</span>
-        <span>This is your current draft. Deleting it will remove your work in progress.</span>
-      </div>
-    ` : null;
-
-    // Use DialogUtility for consistent experience
+    const title = draft.title ? `"${this.escapeHtml(draft.title)}"` : 'this draft';
     return await DialogUtility.showConfirmationDialog({
-      title: 'Delete Draft',
-      message: 'Are you sure you want to delete this draft?',
-      confirmText: 'Delete Draft',
+      title: 'Delete draft',
+      message: `Delete ${title}? This cannot be undone.`,
+      confirmText: 'Delete',
       cancelText: 'Cancel',
-      icon: 'delete_forever',      type: 'danger',
-      showPreview: true,
-      previewData: previewData,
-      details: additionalDetails
+      icon: 'delete',
+      type: 'danger'
     });
   }
 
@@ -818,62 +657,6 @@ class DraftsView extends View {
   /**
    * Load a draft as the current draft
    */
-  loadDraftAsCurrent(draft) {
-    try {
-      const success = createPostService.loadDraftAsCurrent(draft.id);
-      
-      if (success) {
-        this.showToast('Draft loaded as current', 'success');
-        // Navigate to create view
-        router.navigate('/create');
-      } else {
-        this.showToast('Failed to load draft', 'error');
-      }
-    } catch (error) {
-      console.error('Error loading draft as current:', error);
-      this.showToast('Failed to load draft', 'error');
-    }
-  }
-
-  /**
-   * Save current draft as a new saved draft
-   */
-  saveCurrentDraftAsNew() {
-    try {
-      const result = createPostService.moveCurrentDraftToSaved();
-      
-      if (result.success) {
-        this.showToast('Current draft saved', 'success');
-        // Reload the view to show the new saved draft
-        this.render(this.container);
-      } else {
-        this.showToast(result.error || 'Failed to save draft', 'error');
-      }
-    } catch (error) {
-      console.error('Error saving current draft as new:', error);
-      this.showToast('Failed to save draft', 'error');
-    }
-  }
-
-  /**
-   * Clean up expired drafts
-   */
-  cleanupExpiredDrafts() {
-    try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) return;
-
-      createPostService.cleanupExpiredDrafts(currentUser.username);
-      this.showToast('Expired drafts cleaned up', 'success');
-      
-      // Reload the view
-      this.render(this.container);
-    } catch (error) {
-      console.error('Error cleaning up drafts:', error);
-      this.showToast('Failed to clean up drafts', 'error');
-    }
-  }
-
   /**
    * Export drafts as JSON
    */
@@ -941,15 +724,8 @@ class DraftsView extends View {
   renderEmptyState(container) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">
-          <span class="material-icons">draft</span>
-        </div>
-        <h3>No drafts yet</h3>
-        <p>Your saved drafts will appear here. Start writing your first post!</p>
-        <a href="/create" class="primary-btn">
-          <span class="material-icons">add</span>
-          Create New Post
-        </a>
+        <span class="material-icons">edit_note</span>
+        <p>No drafts yet. <a href="/create">Write something</a></p>
       </div>
     `;
   }

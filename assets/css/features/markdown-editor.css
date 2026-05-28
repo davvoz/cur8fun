@@ -246,7 +246,7 @@
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .markdown-toolbar {
-    padding: var(--space-xs) var(--space-xxs);
+    padding: var(--space-xs) var(--space-sm);
     flex-wrap: wrap;
     gap: var(--space-xxs);
   }
@@ -266,6 +266,11 @@
     padding: var(--space-xs) var(--space-sm);
     margin-left: 0;
     font-size: 0.78rem;
+  }
+
+  /* Preview stays pushed to the right on mobile too */
+  .toolbar-preview-btn {
+    margin-left: auto;
   }
 
   /* Other toolbar buttons (submenu) get compact padding */

@@ -1324,15 +1324,54 @@ class AuthService {
     }
 
     /**
-     * Autorizza cur8 usando Active Key
+     * Resolves an active key for the current user using the same PIN-protected
+     * pattern as WalletService:
+     *   - if active key is in memory       → return it
+     *   - else if PIN-protected on disk    → prompt PIN, unlock, return
+     *   - else                             → prompt active key, ask user to set PIN, store, return
+     * Returns null if the user cancels at any step.
+     */
+    async getActiveKeyWithPinFlow(username, { promptTitle = 'Enter Active Key PIN', promptHint = 'This operation requires your active key. Enter your PIN to continue.' } = {}) {
+        // Already in memory
+        if (this.getActiveKey()) return this.getActiveKey();
+
+        // PIN-protected on disk → ask for PIN
+        if (this.hasActiveKeyPinProtected && this.hasActiveKeyPinProtected()) {
+            const { default: pinInput } = await import('../components/auth/PinInputComponent.js');
+            const pin = await pinInput.promptPin(
+                promptTitle,
+                promptHint,
+                async (p) => { await this.unlockActiveKeyWithPin(p); }
+            );
+            if (!pin) return null;
+            return this.getActiveKey();
+        }
+
+        // First-time: ask for active key then ask to set a PIN to store it
+        const { default: activeKeyInput } = await import('../components/auth/ActiveKeyInputComponent.js');
+        const key = await activeKeyInput.promptForActiveKey('Enter Active Key', {
+            validate: (k) => this.verifyKey(username, k, 'active')
+        });
+        if (!key) return null;
+
+        const { default: pinInput } = await import('../components/auth/PinInputComponent.js');
+        const newPin = await pinInput.promptSetPin('Set a PIN for your Active Key');
+        if (!newPin) return null;
+
+        await this.storeActiveKeyWithPin(username, key, newPin);
+        return this.getActiveKey() || key;
+    }
+
+    /**
+     * Autorizza cur8 usando Active Key (con flow PIN come nel wallet)
      */
     async authorizeCur8WithActiveKey(currentUser) {
         try {
-            // Richiedi la Active Key all'utente
-            const activeKey = await activeKeyInput.promptForActiveKey(
-                'Enter Active Key to authorize cur8 for scheduled posts'
-            );
-            
+            const activeKey = await this.getActiveKeyWithPinFlow(currentUser.username, {
+                promptTitle: 'Authorize cur8',
+                promptHint: 'Scheduled posts need cur8 as a posting authority. Enter your PIN to grant this permission.'
+            });
+
             if (!activeKey) {
                 throw new Error('Active key is required for authorization');
             }
@@ -1345,11 +1384,11 @@ class AuthService {
 
             // Prepara la nuova lista di autorizzazioni posting
             const currentPostingAuths = userAccount.posting?.account_auths || [];
-            
+
             // Verifica se cur8 è già autorizzato
             const existingCur8Auth = currentPostingAuths.find(auth => auth[0] === 'cur8');
             let newPostingAuths;
-            
+
             if (existingCur8Auth) {
                 // cur8 è già autorizzato, aggiorna il peso se necessario
                 newPostingAuths = currentPostingAuths.map(auth => 
@@ -1487,15 +1526,15 @@ class AuthService {
     }
 
     /**
-     * Revoca cur8 usando Active Key
+     * Revoca cur8 usando Active Key (con flow PIN)
      */
     async revokeCur8WithActiveKey(currentUser) {
         try {
-            // Richiedi la Active Key all'utente
-            const activeKey = await activeKeyInput.promptForActiveKey(
-                'Enter Active Key to revoke cur8 authorization'
-            );
-            
+            const activeKey = await this.getActiveKeyWithPinFlow(currentUser.username, {
+                promptTitle: 'Revoke cur8',
+                promptHint: 'Enter your PIN to revoke cur8 posting authority.'
+            });
+
             if (!activeKey) {
                 throw new Error('Active key is required to revoke authorization');
             }

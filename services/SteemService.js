@@ -300,11 +300,38 @@ class SteemService {
     async broadcastWithPostingKey(operations, postingKey) {
         await this.ensureLibraryLoaded();
         console.log('SteemService: Broadcasting with posting key');
-        
+
         return new Promise((resolve, reject) => {
             this.core.steem.broadcast.send(
                 { operations, extensions: [] },
                 { posting: postingKey },
+                (err, result) => {
+                    if (err) {
+                        console.error('Broadcast error:', err);
+                        reject(err);
+                    } else {
+                        console.log('Broadcast result:', result);
+                        resolve(result);
+                    }
+                }
+            );
+        });
+    }
+
+    /**
+     * Broadcasts operations signed with the active key.
+     * Used by account_update operations (e.g. granting cur8 posting auth).
+     * @param {Array} operations
+     * @param {string} activeKey - WIF active key
+     */
+    async broadcastWithActiveKey(operations, activeKey) {
+        await this.ensureLibraryLoaded();
+        console.log('SteemService: Broadcasting with active key');
+
+        return new Promise((resolve, reject) => {
+            this.core.steem.broadcast.send(
+                { operations, extensions: [] },
+                { active: activeKey },
                 (err, result) => {
                     if (err) {
                         console.error('Broadcast error:', err);
