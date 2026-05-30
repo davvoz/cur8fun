@@ -52,8 +52,70 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Feed clickable hint — keyframes */
+@keyframes feed-border-pulse {
+  0%, 100% {
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--primary-color) 30%);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  }
+  50% {
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.25), 0 0 22px rgba(var(--primary-color-rgb), 0.25);
+  }
+}
+
+@keyframes feed-shimmer-sweep {
+  0%   { transform: translateX(-150%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateX(280%); opacity: 0; }
+}
+
+@keyframes feed-chevron-bounce {
+  0%, 100% { transform: translateY(0); }
+  40%       { transform: translateY(5px); }
+  70%       { transform: translateY(2px); }
+}
+
+@keyframes feed-hint-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .header-area-home.feed-switchable {
   cursor: pointer;
+  overflow: hidden;
+  animation: feed-border-pulse 1.8s ease-in-out 1;
+}
+
+.header-area-home.feed-switchable::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--primary-color-rgb), 0.09) 50%,
+    transparent 100%
+  );
+  animation: feed-shimmer-sweep 1.8s ease-in-out 1 forwards;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.feed-hint-indicator {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 1.6rem;
+  color: var(--primary-color);
+  opacity: 0;
+  margin-left: 4px;
+  line-height: 1;
+  animation: feed-hint-in 0.4s ease-out 0.5s forwards,
+             feed-chevron-bounce 0.7s ease-in-out 1 0.9s;
+  pointer-events: none;
+  user-select: none;
 }
 
 .header-area-home:hover {

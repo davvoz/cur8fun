@@ -1569,6 +1569,14 @@ class BasePostView {
 
     headerArea.classList.add('feed-switchable');
 
+    // Clickability hint — bouncing chevron next to the feed title
+    const hintEl = document.createElement('span');
+    hintEl.className = 'feed-hint-indicator material-icons';
+    hintEl.textContent = 'expand_more';
+    const titleEl = headerArea.querySelector('.header-title');
+    if (titleEl) titleEl.appendChild(hintEl);
+    this._hintEl = hintEl;
+
     const panel = document.createElement('div');
     panel.className = 'feed-switcher-panel';
     panel.inert = true;

@@ -337,6 +337,12 @@ class HomeView extends BasePostView {  constructor(params) {
         } else {
           titleEl.textContent = `${this.formatTagName(newTag)} Posts`;
         }
+        // Re-append hint arrow (textContent wipes child nodes)
+        if (this._hintEl) {
+          this._hintEl.style.animation = 'none';
+          this._hintEl.style.opacity = '1';
+          titleEl.appendChild(this._hintEl);
+        }
       }
       if (subtitleEl) {
         const subtitles = {
