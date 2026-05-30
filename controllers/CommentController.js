@@ -2,6 +2,7 @@ import commentService from '../services/CommentService.js';
 import authService from '../services/AuthService.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
+import MarkdownEditor from '../components/MarkdownEditor.js';
 
 
 export default class CommentController {
@@ -99,13 +100,14 @@ export default class CommentController {
     const commentForm = this.findCommentForm();
     if (!commentForm) return;
 
+    const mdEditor = commentForm._mdEditor || null;
     const textarea = commentForm.querySelector('textarea');
     if (!textarea) {
       console.error('Comment textarea not found');
       return;
     }
 
-    const commentText = textarea.value.trim();
+    const commentText = (mdEditor ? mdEditor.getValue() : textarea.value).trim();
 
     // Validate comment and check login
     if (!this.validateComment(commentText, textarea) || !this.checkLoggedIn()) {
@@ -244,7 +246,13 @@ export default class CommentController {
 
     // Reset and update UI
     setTimeout(() => {
-      textarea.value = '';
+      // Prefer the editor's setValue so the MarkdownEditor's internal state
+      // (preview, onChange) stays in sync with the cleared textarea.
+      const commentForm = textarea.closest('.comment-form');
+      const mdEditor = commentForm?._mdEditor;
+      if (mdEditor) mdEditor.setValue('');
+      else textarea.value = '';
+
       this.setSubmitState(submitButton, textarea, false, originalText);
       submitButton.classList.remove('success');
 
@@ -1286,37 +1294,51 @@ export default class CommentController {
     editForm = document.createElement('form');
     editForm.className = 'edit-comment-form';
     editForm.dataset.originalCommentBody = originalContent; // Salva il contenuto originale
-    
-    // Create textarea
-    const textarea = document.createElement('textarea');
-    textarea.className = 'edit-comment-textarea';
-    textarea.value = comment.body || '';
-    textarea.rows = 6;
-    
+
+    // Mount the same MarkdownEditor used in CreatePost so users get markdown
+    // formatting, image upload and preview while editing their comment.
+    const editorMount = document.createElement('div');
+    editorMount.className = 'edit-comment-editor-mount';
+    editForm.appendChild(editorMount);
+
+    const mdEditor = new MarkdownEditor(editorMount, {
+      compact: true,
+      placeholder: 'Edit your comment...',
+      height: '160px',
+      initialValue: comment.body || ''
+    });
+    mdEditor.render();
+    editForm._mdEditor = mdEditor;
+
+    // Keep the textarea reference for legacy code paths (save/cancel below
+    // still treat `.value` as the source of truth — the editor keeps it in
+    // sync via its own input handler).
+    const textarea = mdEditor.textarea;
+    textarea.classList.add('edit-comment-textarea');
+
     // Create buttons container
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'edit-comment-buttons';
-    
+
     // Create save button
     const saveButton = document.createElement('button');
     saveButton.type = 'button';
     saveButton.className = 'save-edit-button';
     saveButton.textContent = 'Save';
     saveButton.addEventListener('click', () => this.saveCommentEdit(comment, commentElement, textarea, editForm, commentBody));
-    
+
     // Create cancel button
     const cancelButton = document.createElement('button');
     cancelButton.type = 'button';
     cancelButton.className = 'cancel-edit-button';
     cancelButton.textContent = 'Cancel';
     cancelButton.addEventListener('click', () => this.cancelCommentEdit(editForm, commentBody));
-    
+
     // Assemble form
     buttonsContainer.appendChild(saveButton);
     buttonsContainer.appendChild(cancelButton);
-    editForm.appendChild(textarea);
     editForm.appendChild(buttonsContainer);
-    
+
     // Insert form after comment body
     if (commentBody.parentNode) {
       commentBody.parentNode.insertBefore(editForm, commentBody.nextSibling);
@@ -1324,9 +1346,9 @@ export default class CommentController {
       // Fallback per casi speciali
       commentElement.appendChild(editForm);
     }
-    
-    // Focus textarea
-    textarea.focus();
+
+    // Focus the editor's textarea
+    mdEditor.focus();
   }
   
   /**

@@ -28,10 +28,15 @@ class ProfileView extends View {
     this.loadingIndicator = new LoadingIndicator();
     this.container = null;
     this.profile = null;
-    
+
     // Aggiungi questa proprietà
     this.walletContainer = null;
-    
+
+    // Capture back-navigation state up-front: Router resets these flags
+    // after the constructor runs, so read them now.
+    this._isBackNavigation = router.isBackNavigation === true;
+    this._pendingScroll = this._isBackNavigation ? router.pendingScrollRestore : undefined;
+
     // Get components from cache or create new ones
     this.initializeComponentsFromCache();
     
@@ -80,9 +85,15 @@ class ProfileView extends View {
       manageContentContainers: false
     });
     
+    // On back navigation, keep the cached posts so the previous view is
+    // restored instantly at the right scroll position. Otherwise reset.
+    const reuse = this._isBackNavigation;
+
     // Get or create blog component (blog posts + reblogs)
     if (!componentCache.blog[this.username]) {
       componentCache.blog[this.username] = new PostsList(this.username, true, 'blog');
+    } else if (reuse) {
+      componentCache.blog[this.username].prepareForReuse();
     } else {
       componentCache.blog[this.username].reset();
     }
@@ -91,6 +102,8 @@ class ProfileView extends View {
     // Get or create posts component (all author posts, no reblogs)
     if (!componentCache.posts[this.username]) {
       componentCache.posts[this.username] = new PostsList(this.username, true, 'posts');
+    } else if (reuse) {
+      componentCache.posts[this.username].prepareForReuse();
     } else {
       componentCache.posts[this.username].reset();
     }
@@ -115,6 +128,27 @@ class ProfileView extends View {
 
   async render(container) {
     this.container = container;
+
+    // Back-navigation flicker fix: while we rebuild the DOM, hide #main-content
+    // so the user does not see the page render from the top and then snap to
+    // the saved scroll position. The reveal happens once scroll is restored
+    // (or after a short safety timeout if no restore was scheduled).
+    const mainContent = document.getElementById('main-content');
+    const scrollTarget = this._pendingScroll;
+    const shouldRestoreScroll =
+      this._isBackNavigation && typeof scrollTarget === 'number' && scrollTarget > 0 && !!mainContent;
+
+    if (shouldRestoreScroll) {
+      // Consume so BasePostView.renderPosts does not also fight for it.
+      router.pendingScrollRestore = undefined;
+      mainContent.style.visibility = 'hidden';
+      // Safety net: always reveal within 900ms even if something goes wrong.
+      this._scrollRestoreSafetyTimer = setTimeout(() => {
+        if (mainContent) mainContent.style.visibility = '';
+        this._scrollRestoreSafetyTimer = null;
+      }, 900);
+    }
+
     const profileContainer = document.createElement('div');
     profileContainer.className = 'profile-container';
     container.appendChild(profileContainer);
@@ -153,20 +187,42 @@ class ProfileView extends View {
 
       // Render profile structure
       this.renderProfile(profileContainer);
-      
+
       // Initialize components
       this.initComponents();
-      
+
       // Render components
       this.renderComponents(profileContainer);
-      
+
       // Load initial content based on current tab
       this.loadContentForCurrentTab();
-      
+
+      // Apply saved scroll position (back navigation) only after the cached
+      // posts have had a chance to render. Two rAFs let the browser flush
+      // layout for the profile header + first batch of post cards.
+      if (shouldRestoreScroll) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (mainContent) {
+            mainContent.scrollTop = scrollTarget;
+            mainContent.style.visibility = '';
+          }
+          if (this._scrollRestoreSafetyTimer) {
+            clearTimeout(this._scrollRestoreSafetyTimer);
+            this._scrollRestoreSafetyTimer = null;
+          }
+        }));
+      }
+
       // Check if logged-in user is following this profile
       await this.checkFollowStatus();
     } catch (error) {
       skeletonEl.remove();
+      // On error we must reveal the page or the user sees a blank screen.
+      if (shouldRestoreScroll && mainContent) mainContent.style.visibility = '';
+      if (this._scrollRestoreSafetyTimer) {
+        clearTimeout(this._scrollRestoreSafetyTimer);
+        this._scrollRestoreSafetyTimer = null;
+      }
       this.renderErrorState(profileContainer, error);
     }
   }
@@ -613,6 +669,16 @@ class ProfileView extends View {
   }
   
   unmount() {
+    // Clear scroll-restore safety timer and make sure the page is visible
+    if (this._scrollRestoreSafetyTimer) {
+      clearTimeout(this._scrollRestoreSafetyTimer);
+      this._scrollRestoreSafetyTimer = null;
+    }
+    const mainContent = document.getElementById('main-content');
+    if (mainContent && mainContent.style.visibility === 'hidden') {
+      mainContent.style.visibility = '';
+    }
+
     this.postsArea = null;
     this.isSwitchingTab = false;
     this.pendingTabSwitch = null;

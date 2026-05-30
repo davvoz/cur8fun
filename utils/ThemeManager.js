@@ -59,14 +59,16 @@ class ThemeManager {
   applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     
-    // Update meta theme-color for mobile browsers
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute(
-        'content', 
-        theme === this.DARK_THEME ? '#121212' : '#ffffff'
-      );
-    }
+    // Update meta theme-color for mobile browsers.
+    // Two tags exist with prefers-color-scheme media queries; when the user
+    // picks a theme explicitly we override both so the chosen theme wins
+    // regardless of OS preference.
+    const color = theme === this.DARK_THEME ? '#1a1a1a' : '#f5f7fa';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((tag) => {
+      tag.setAttribute('content', color);
+    });
+    const navButton = document.querySelector('meta[name="msapplication-navbutton-color"]');
+    if (navButton) navButton.setAttribute('content', color);
   }
 }
 

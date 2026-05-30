@@ -308,3 +308,77 @@
 [data-theme="dark"] .markdown-preview {
   background-color: var(--surface-dark);
 }
+
+/* ── Compact variant (used by comment + reply forms) ── */
+.markdown-editor--compact {
+  margin-bottom: 0;
+}
+
+.markdown-editor--compact .markdown-toolbar {
+  padding: 2px var(--space-xs);
+  gap: 2px;
+}
+
+.markdown-editor--compact .toolbar-button {
+  padding: 2px 4px;
+}
+
+.markdown-editor--compact .toolbar-button .material-icons {
+  font-size: 1.05rem;
+}
+
+.markdown-editor--compact .toolbar-btn-label {
+  font-size: 0.72rem;
+}
+
+.markdown-editor--compact .toolbar-action-btn,
+.markdown-editor--compact .toolbar-md-toggle {
+  padding: 2px var(--space-xs);
+}
+
+.markdown-editor--compact .markdown-submenu {
+  padding: 2px var(--space-xs);
+}
+
+.markdown-editor--compact .markdown-textarea {
+  padding: var(--space-sm);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.markdown-editor--compact .markdown-preview {
+  padding: var(--space-sm);
+  min-height: 80px;
+}
+
+.markdown-editor--disabled {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* When a markdown editor lives inside a comment/reply form, the surrounding
+   form already provides padding + background, so neutralise the generic
+   textarea rules from features/comments.css and pages/nested-comments.css
+   that would otherwise add a second border / min-height. */
+.comment-form .markdown-editor .markdown-textarea,
+.reply-form .markdown-editor .markdown-textarea,
+.edit-comment-form .markdown-editor .markdown-textarea {
+  border: none;
+  margin-bottom: 0;
+  border-radius: 0;
+  resize: none;
+}
+
+.comment-form .markdown-editor,
+.reply-form .markdown-editor,
+.edit-comment-form .markdown-editor {
+  background-color: var(--surface-color);
+}
+
+.comment-editor-mount,
+.reply-editor-mount,
+.edit-comment-editor-mount {
+  margin-bottom: var(--space-sm);
+}

@@ -507,10 +507,37 @@ class CreatePostView extends View {  constructor(params = {}) {
     editBtn.className = 'advanced-options-edit-btn';
     editBtn.id = 'advanced-options-edit-btn';
     editBtn.innerHTML = '<span class="material-icons">tune</span> Advanced options';
-    editBtn.addEventListener('click', () => this.openAdvancedOptionsModal());
+    editBtn.addEventListener('click', () => {
+      // Defensive: scheduling disables the button via updateAdvancedOptionsState,
+      // but guard against a stale click on a re-enabled element.
+      if (this.isScheduled) return;
+      this.openAdvancedOptionsModal();
+    });
     wrap.appendChild(editBtn);
 
+    setTimeout(() => this.updateAdvancedOptionsState(), 0);
     return wrap;
+  }
+
+  /**
+   * Advanced options (payout / beneficiaries) aren't delivered by the
+   * scheduled-post API path — disable the button when scheduling is on so the
+   * user can't open a modal whose choices would be silently dropped.
+   */
+  updateAdvancedOptionsState() {
+    const btn = document.getElementById('advanced-options-edit-btn');
+    if (!btn) return;
+    if (this.isScheduled) {
+      btn.disabled = true;
+      btn.classList.add('is-disabled');
+      btn.title = 'Advanced options are not available for scheduled posts';
+      btn.setAttribute('aria-disabled', 'true');
+    } else {
+      btn.disabled = false;
+      btn.classList.remove('is-disabled');
+      btn.title = '';
+      btn.removeAttribute('aria-disabled');
+    }
   }
 
   /**
@@ -521,6 +548,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   updateAdvancedOptionsSummary() {
     this.updateScheduleControlLabel();
     this.updateSubmitButtonText();
+    this.updateAdvancedOptionsState();
   }
 
   updateSubmitButtonText() {

@@ -553,6 +553,127 @@ class CommunityService {
   }
 
   /**
+   * Pin a post in a community. Requires owner/admin/mod role.
+   * @param {string} username - Acting moderator username
+   * @param {string} community - Community name (with or without hive- prefix)
+   * @param {string} author - Post author
+   * @param {string} permlink - Post permlink
+   */
+  async pinPost(username, community, author, permlink) {
+    return this._setPinState('pinPost', username, community, author, permlink);
+  }
+
+  /**
+   * Unpin a post in a community. Requires owner/admin/mod role.
+   */
+  async unpinPost(username, community, author, permlink) {
+    return this._setPinState('unpinPost', username, community, author, permlink);
+  }
+
+  async _setPinState(action, username, community, author, permlink) {
+    await steemService.ensureLibraryLoaded();
+
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      throw new Error('You must be logged in to moderate community posts');
+    }
+    if (!username || !community || !author || !permlink) {
+      throw new Error('Missing required parameters for pin operation');
+    }
+
+    const normalizedCommunity = community.startsWith('hive-') ? community : `hive-${community}`;
+
+    const operations = [
+      ['custom_json', {
+        required_auths: [],
+        required_posting_auths: [username],
+        id: 'community',
+        json: JSON.stringify([
+          action,
+          {
+            community: normalizedCommunity,
+            account: author,
+            permlink: permlink
+          }
+        ])
+      }]
+    ];
+
+    try {
+      let result;
+      if (currentUser.loginMethod === 'keychain' && this.isKeychainAvailable()) {
+        result = await this.broadcastWithKeychain(username, operations);
+      } else {
+        const postingKey = authService.getPostingKey();
+        if (!postingKey) {
+          throw new Error('Posting key not available. Please log in again.');
+        }
+        result = await this.broadcastWithPostingKey(operations, postingKey);
+      }
+
+      // Invalidate cached community (roles/state may change)
+      const cacheKeyPrefix = `${normalizedCommunity}:`;
+      for (const key of Array.from(this.swCommunityCache.keys())) {
+        if (key.startsWith(cacheKeyPrefix)) this.swCommunityCache.delete(key);
+      }
+
+      eventEmitter.emit('community:pin-completed', {
+        success: true,
+        action,
+        community: normalizedCommunity,
+        author,
+        permlink
+      });
+
+      return result;
+    } catch (error) {
+      console.error(`Error performing ${action} on @${author}/${permlink}:`, error);
+      eventEmitter.emit('community:pin-error', {
+        error: error.message,
+        action,
+        community: normalizedCommunity,
+        author,
+        permlink
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Return the role string for a user in a community (e.g. 'owner', 'admin', 'mod', 'member', 'guest', 'muted').
+   * Returns null when the user has no explicit role row.
+   * @param {Object|string} communityOrName - Community object (with roles.rows) or community name
+   * @param {string} username
+   */
+  async getUserCommunityRole(communityOrName, username) {
+    if (!username) return null;
+
+    let community = communityOrName;
+    if (typeof communityOrName === 'string') {
+      community = await this.findCommunityByName(communityOrName);
+    }
+
+    const rows = community?.roles?.rows;
+    if (!Array.isArray(rows)) return null;
+
+    const cols = community.roles.cols || { account: 1, role: 3 };
+    const accountIdx = typeof cols.account === 'number' ? cols.account : 1;
+    const roleIdx = typeof cols.role === 'number' ? cols.role : 3;
+
+    const lowerUser = String(username).toLowerCase();
+    const row = rows.find((r) => String(r?.[accountIdx] || '').toLowerCase() === lowerUser);
+    return row ? (row[roleIdx] || null) : null;
+  }
+
+  /**
+   * Check whether a given community role can pin/unpin posts.
+   * Owner, admin and mod are allowed.
+   */
+  canPinInCommunity(role) {
+    return role === 'owner' || role === 'admin' || role === 'mod';
+  }
+
+  /**
    * Trasmette un'operazione usando Keychain
    * @private
    * @param {string} username - Username dell'utente

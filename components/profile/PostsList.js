@@ -273,6 +273,16 @@ export default class PostsList extends BasePostView {
   }
   
   /**
+   * Prepare the component for reuse on back navigation without wiping
+   * the cached posts. Mirrors CommentsList.prepareForReuse.
+   * @returns {PostsList}
+   */
+  prepareForReuse() {
+    this.loading = false;
+    return this;
+  }
+
+  /**
    * Reset the component state - needed for compatibility with ProfileView
    * @returns {PostsList} - Returns this instance for chaining
    */

@@ -58,6 +58,12 @@ class PostHeader {
     this.onShare = typeof options.onShare === 'function' ? options.onShare : null;
     this.onEdit = typeof options.onEdit === 'function' ? options.onEdit : null;
     this.canEdit = options.canEdit === true;
+    this.canPin = options.canPin === true;
+    // isPinned can be true, false, or undefined (unknown). When unknown we
+    // expose both pin and unpin menu actions so the moderator can pick.
+    this.isPinned = typeof options.isPinned === 'boolean' ? options.isPinned : undefined;
+    this.onPin = typeof options.onPin === 'function' ? options.onPin : null;
+    this.onUnpin = typeof options.onUnpin === 'function' ? options.onUnpin : null;
     this.menuOpen = false;
     this.menuRoot = null;
     this.menuDropdown = null;
@@ -190,7 +196,9 @@ class PostHeader {
 
     dataro.appendChild(postDate);
 
-    if (this.showActionsMenu && (this.onShare || (this.canEdit && this.onEdit))) {
+    // Always create the menu root so we can lazily add items (e.g. pin/unpin after
+    // an async community role lookup). It's hidden when empty.
+    if (this.showActionsMenu) {
       const menuRoot = document.createElement('div');
       menuRoot.className = 'post-header-menu';
 
@@ -205,22 +213,6 @@ class PostHeader {
       menuDropdown.className = 'post-header-menu-dropdown';
       menuDropdown.setAttribute('hidden', 'hidden');
 
-      if (this.onShare) {
-        const shareItem = this.createMenuItem('share', 'Share', () => {
-          this.closeActionsMenu();
-          this.onShare();
-        });
-        menuDropdown.appendChild(shareItem);
-      }
-
-      if (this.canEdit && this.onEdit) {
-        const editItem = this.createMenuItem('edit', 'Edit', () => {
-          this.closeActionsMenu();
-          this.onEdit();
-        });
-        menuDropdown.appendChild(editItem);
-      }
-
       menuTrigger.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -233,6 +225,8 @@ class PostHeader {
 
       this.menuRoot = menuRoot;
       this.menuDropdown = menuDropdown;
+
+      this.rebuildMenuItems();
     }
 
     // Add both containers to post meta
@@ -255,6 +249,56 @@ class PostHeader {
     } catch (e) {
       return {};
     }
+  }
+
+  rebuildMenuItems() {
+    if (!this.menuRoot || !this.menuDropdown) return;
+
+    while (this.menuDropdown.firstChild) {
+      this.menuDropdown.removeChild(this.menuDropdown.firstChild);
+    }
+
+    if (this.onShare) {
+      this.menuDropdown.appendChild(this.createMenuItem('share', 'Share', () => {
+        this.closeActionsMenu();
+        this.onShare();
+      }));
+    }
+
+    if (this.canEdit && this.onEdit) {
+      this.menuDropdown.appendChild(this.createMenuItem('edit', 'Edit', () => {
+        this.closeActionsMenu();
+        this.onEdit();
+      }));
+    }
+
+    if (this.canPin) {
+      if (this.isPinned === true && this.onUnpin) {
+        this.menuDropdown.appendChild(this.createMenuItem('push_pin', 'Unpin', () => {
+          this.closeActionsMenu();
+          this.onUnpin();
+        }));
+      } else if (this.isPinned === false && this.onPin) {
+        this.menuDropdown.appendChild(this.createMenuItem('push_pin', 'Pin', () => {
+          this.closeActionsMenu();
+          this.onPin();
+        }));
+      }
+    }
+
+    // Hide trigger if no items
+    const hasItems = this.menuDropdown.children.length > 0;
+    this.menuRoot.style.display = hasItems ? '' : 'none';
+  }
+
+  setPinPermissions({ canPin, isPinned, onPin, onUnpin } = {}) {
+    if (typeof canPin === 'boolean') this.canPin = canPin;
+    if (arguments[0] && 'isPinned' in arguments[0]) {
+      this.isPinned = typeof isPinned === 'boolean' ? isPinned : undefined;
+    }
+    if (typeof onPin === 'function') this.onPin = onPin;
+    if (typeof onUnpin === 'function') this.onUnpin = onUnpin;
+    this.rebuildMenuItems();
   }
 
   createMenuItem(icon, label, onClick) {

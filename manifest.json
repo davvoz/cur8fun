@@ -4,8 +4,8 @@
   "description": "Decentralized social network powered by STEEM blockchain",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2196f3",
+  "background_color": "#f5f7fa",
+  "theme_color": "#f5f7fa",
   "icons": [
     {
       "src": "assets/img/logo_tra.png",

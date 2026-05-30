@@ -465,9 +465,16 @@ class PostView extends View {  constructor(params = {}) {
         showActionsMenu: true,
         onShare: () => this.handleShare(),
         onEdit: () => this.handleEdit(),
-        canEdit: this.canEditPost()
+        canEdit: this.canEditPost(),
+        // Leave isPinned undefined when stats are absent so both pin/unpin
+        // items are shown to moderators (state is unknown).
+        isPinned: this.post?.stats ? !!this.post.stats.is_pinned : undefined
       }
     );
+
+    // Asynchronously check whether the current user can pin/unpin this post
+    // in its community, then update the header menu accordingly.
+    this.updatePinPermissions(communityTag);
     
     this.postContentComponent = new PostContent(
       this.post, 
@@ -546,6 +553,91 @@ class PostView extends View {  constructor(params = {}) {
   canEditPost() {
     const currentUser = authService.getCurrentUser();
     return currentUser && currentUser.username === this.post.author;
+  }
+
+  /**
+   * Check the user's role in the post's community and, if they are
+   * owner/admin/mod, expose pin/unpin actions in the header menu.
+   */
+  async updatePinPermissions(communityTag) {
+    if (!this.postHeaderComponent || !communityTag) return;
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser?.username) return;
+
+    try {
+      const community = await communityService.findCommunityByName(communityTag);
+      if (!community) return;
+      const role = await communityService.getUserCommunityRole(community, currentUser.username);
+      if (!communityService.canPinInCommunity(role)) return;
+
+      // condenser_api.get_content (used by PostView) omits stats.is_pinned,
+      // so query bridge.get_post to know the current pinned state reliably.
+      let isPinned = !!this.post?.stats?.is_pinned;
+      try {
+        const bridgePost = await steemService.rpcCall('bridge.get_post', {
+          author: this.post.author,
+          permlink: this.post.permlink,
+          observer: currentUser.username
+        });
+        if (bridgePost?.stats) {
+          isPinned = !!bridgePost.stats.is_pinned;
+          if (!this.post.stats) this.post.stats = {};
+          this.post.stats.is_pinned = isPinned;
+        }
+      } catch (_) { /* fall back to whatever we already know */ }
+
+      this.postHeaderComponent.setPinPermissions({
+        canPin: true,
+        isPinned,
+        onPin: () => this.handlePinToggle(communityTag, true),
+        onUnpin: () => this.handlePinToggle(communityTag, false)
+      });
+    } catch (error) {
+      console.warn('Pin permission check failed:', error);
+    }
+  }
+
+  async handlePinToggle(communityTag, pin) {
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser?.username) {
+      router.navigate('/login');
+      return;
+    }
+
+    const confirmed = await DialogUtility.showConfirmationDialog({
+      message: pin ? 'Pin this post?' : 'Unpin this post?',
+      confirmText: pin ? 'Pin' : 'Unpin',
+      cancelText: 'Cancel',
+      icon: 'push_pin',
+      type: 'info'
+    });
+    if (!confirmed) return;
+
+    try {
+      if (pin) {
+        await communityService.pinPost(currentUser.username, communityTag, this.post.author, this.post.permlink);
+      } else {
+        await communityService.unpinPost(currentUser.username, communityTag, this.post.author, this.post.permlink);
+      }
+
+      // Reflect new state locally and rebuild the menu item label
+      if (!this.post.stats) this.post.stats = {};
+      this.post.stats.is_pinned = pin;
+      if (this.postHeaderComponent) {
+        this.postHeaderComponent.setPinPermissions({ isPinned: pin });
+      }
+
+      this.emit('notification', {
+        type: 'success',
+        message: pin ? 'Post pinned' : 'Post unpinned'
+      });
+    } catch (error) {
+      console.error('Pin toggle failed:', error);
+      this.emit('notification', {
+        type: 'error',
+        message: `Failed to ${pin ? 'pin' : 'unpin'} post: ${error.message}`
+      });
+    }
   }
 
   // Update this method to be async and handle asynchronous component rendering

@@ -871,6 +871,16 @@
   color: var(--primary-color);
 }
 
+.advanced-options-edit-btn:disabled,
+.advanced-options-edit-btn.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: var(--background-lighter, var(--background-light));
+  color: var(--text-secondary, var(--text-color));
+  border-color: var(--border-color);
+}
+
 .advanced-options-edit-btn .material-icons {
   font-size: 18px;
 }

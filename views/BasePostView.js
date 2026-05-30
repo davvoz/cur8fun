@@ -732,11 +732,11 @@ class BasePostView {
     
     const info = document.createElement('div');
     info.className = 'post-info';
-    
-    // Create top row with author and community
-    const infoTopRow = document.createElement('div');
-    infoTopRow.className = 'post-info-top-row';
-    
+
+    // Left column: author on top, community below (replaces the old date slot)
+    const infoLeft = document.createElement('div');
+    infoLeft.className = 'post-info-left';
+
     const author = document.createElement('div');
     author.className = 'post-author';
     author.textContent = `@${post.author}`;
@@ -745,16 +745,16 @@ class BasePostView {
       e.stopPropagation();
       router.navigate(`/@${post.author}`);
     });
-    
-    infoTopRow.appendChild(author);
-    
+
+    infoLeft.appendChild(author);
+
     // Add community if available
     const communityTag = this.getCommunityTag(post);
     if (communityTag) {
       // Try to get community title from custom_json if available
       let communityTitle = '';
       let communityId = communityTag.replace('hive-', '');
-      
+
       try {
         const metadata = this.parseMetadata(post.json_metadata);
         if (metadata && metadata.community_title) {
@@ -763,42 +763,36 @@ class BasePostView {
       } catch (e) {
         console.log('Could not parse community title from metadata');
       }
-      
-      // Add separator
-      const separator = document.createElement('span');
-      separator.className = 'post-info-separator';
-      separator.textContent = '•';
-      infoTopRow.appendChild(separator);
-      
+
       // Add community link
       const community = document.createElement('div');
       community.className = 'post-community';
-      
+
       // Add icon
       const communityIcon = document.createElement('span');
       communityIcon.className = 'material-icons community-icon';
       communityIcon.textContent = 'group';
       communityIcon.style.fontSize = '14px';
-      
+
       community.appendChild(communityIcon);
-      
+
       // If we have a title, display it, otherwise just show the ID
       if (communityTitle) {
         community.appendChild(document.createTextNode(` ${communityTitle}`));
       } else {
         community.appendChild(document.createTextNode(` ${communityId}`));
-        
+
         // Try to fetch the community name asynchronously
         this.fetchCommunityName(community, communityId);
       }
-      
+
       // Add click handler to navigate to community
       community.addEventListener('click', (e) => {
         e.stopPropagation();
         router.navigate(`/community/${communityId}`);
       });
-      
-      infoTopRow.appendChild(community);
+
+      infoLeft.appendChild(community);
     }
     
     const date = document.createElement('div');
@@ -837,7 +831,7 @@ class BasePostView {
         });
       }
 
-    info.appendChild(infoTopRow);
+    info.appendChild(infoLeft);
     info.appendChild(date);
     header.append(avatarContainer, info);
     

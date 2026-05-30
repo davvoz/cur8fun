@@ -30,6 +30,7 @@
 @import 'components/settings.css'; /* Added import for settings page styles */
 @import 'components/registration.css'; /* Added import for registration styles */
 @import 'components/dialog-utility.css'; /* Added import for dialog utility styles */
+@import 'components/back-to-top.css'; /* Floating back-to-top button */
 
 /* Feature-specific styles */
 @import 'features/animations.css';
@@ -68,6 +69,7 @@
 @import 'pages/search.css';
 @import 'pages/login.css';
 @import 'pages/notifications.css';
+@import 'pages/witnesses.css';
 
 /* Additional component styles */
 @import 'components/comment-dialogs.css';

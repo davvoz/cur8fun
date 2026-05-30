@@ -1,0 +1,68 @@
+/* Floating back-to-top button — discreto, appare solo dopo scroll */
+.back-to-top-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 20px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  background: var(--background-light, rgba(255, 255, 255, 0.9));
+  color: var(--text-color-secondary, #555);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 950;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.back-to-top-btn.is-visible {
+  opacity: 0.7;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.back-to-top-btn.is-visible:hover {
+  opacity: 1;
+  color: var(--primary-color, #e53935);
+}
+
+.back-to-top-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #e53935);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.back-to-top-btn .material-icons {
+  font-size: 18px;
+}
+
+/* On mobile lift the button above the bottom navigation (~60px + safe area) */
+@media (max-width: 768px) {
+  .back-to-top-btn {
+    right: 12px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    width: 32px;
+    height: 32px;
+  }
+  .back-to-top-btn .material-icons {
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-to-top-btn {
+    transition: opacity 0.15s ease;
+    transform: none;
+  }
+  .back-to-top-btn.is-visible {
+    transform: none;
+  }
+}

@@ -20,6 +20,7 @@ class MenuView extends View {
     menuContainer.appendChild(this.createCategory('Tools'));
     const toolsGrid = document.createElement('div');
     toolsGrid.className = 'menu-tools-grid';
+    toolsGrid.appendChild(this.createToolCard('/witnesses',      'gavel',     'Witnesses',       'Vote for Steem witnesses'));
     toolsGrid.appendChild(this.createToolCard('/cur8-bot-stats', 'favorite',  'Cur8 Statistics', 'Curation performance & metrics'));
     toolsGrid.appendChild(this.createToolCard('/cur8-stats',     'bar_chart', 'Analytics',       'Stats for #cur8 tagged posts'));
     toolsGrid.appendChild(this.createToolCard('https://games.cur8.fun/', 'sports_esports', 'Games', 'Play games and earn rewards', true));

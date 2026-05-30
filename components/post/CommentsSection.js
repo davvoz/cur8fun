@@ -4,6 +4,7 @@ import steemApi from '../../services/SteemApi.js';
 import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
 import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
+import MarkdownEditor from '../MarkdownEditor.js';
 
 // Improved inert attribute polyfill with better event handling
 function ensureInertSupport() {
@@ -89,21 +90,31 @@ class CommentsSection {
       // Prevent default form submission to handle it with JavaScript
       commentForm.addEventListener('submit', (e) => e.preventDefault());
 
-      const textarea = document.createElement('textarea');
-      textarea.placeholder = 'Write a comment...';
-      textarea.name = 'comment-text'; // Add name attribute for better form handling
-      textarea.required = true; // Make it required
+      // Mount a MarkdownEditor (compact) inside the form so users get the same
+      // editing affordances as the post composer (formatting, image upload,
+      // preview).
+      const editorMount = document.createElement('div');
+      editorMount.className = 'comment-editor-mount';
+      commentForm.appendChild(editorMount);
+
+      const commentEditor = new MarkdownEditor(editorMount, {
+        compact: true,
+        placeholder: 'Write a comment...',
+        height: '140px',
+        onChange: () => {}
+      });
+      commentEditor.render();
+      commentForm._mdEditor = commentEditor;
 
       const submitButton = document.createElement('button');
       submitButton.className = 'submit-comment';
       submitButton.textContent = 'Post Comment';
       submitButton.type = 'submit'; // Set proper button type
-      
+
       // Add data attributes to help identify the form
       commentForm.dataset.parentAuthor = this.parentPost?.author || '';
       commentForm.dataset.parentPermlink = this.parentPost?.permlink || '';
 
-      commentForm.appendChild(textarea);
       commentForm.appendChild(submitButton);
 
       const commentsList = document.createElement('div');
@@ -808,25 +819,37 @@ class CommentsSection {
     const replyForm = document.createElement('div');
     replyForm.className = 'reply-form';
     replyForm.style.display = 'none';
-    
-    const replyTextarea = document.createElement('textarea');
-    replyTextarea.placeholder = `Reply to @${comment.author}...`;
+
+    const editorMount = document.createElement('div');
+    editorMount.className = 'reply-editor-mount';
+    replyForm.appendChild(editorMount);
+
+    const replyEditor = new MarkdownEditor(editorMount, {
+      compact: true,
+      placeholder: `Reply to @${comment.author}...`,
+      height: '120px',
+      onChange: () => {}
+    });
+    replyEditor.render();
+    replyForm._mdEditor = replyEditor;
+
+    // Expose the editor's textarea so legacy code paths that read .value or
+    // bind keyboard handlers keep working transparently.
+    const replyTextarea = replyEditor.textarea;
     replyTextarea.setAttribute('aria-label', `Reply to ${comment.author}`);
-    replyTextarea.id = `reply-textarea-${comment.author}-${Date.now()}`;
 
     const submitReplyBtn = document.createElement('button');
     submitReplyBtn.className = 'submit-reply';
     submitReplyBtn.textContent = 'Post Reply';
     submitReplyBtn.type = 'button';
 
-    replyForm.appendChild(replyTextarea);
     replyForm.appendChild(submitReplyBtn);
 
     // Initially disable form with inert attribute
     if ('inert' in replyForm) {
       replyForm.inert = true;
     }
-    
+
     return { replyForm, replyTextarea, submitReplyBtn };
   }
   
@@ -859,8 +882,10 @@ class CommentsSection {
       return;
     }
     
+    const mdEditor = replyForm._mdEditor;
+
     const submitReply = async () => {
-      const replyText = replyTextarea.value.trim();
+      const replyText = (mdEditor ? mdEditor.getValue() : replyTextarea.value).trim();
       if (!replyText) return;
 
       const submitBtn = replyForm.querySelector('.submit-reply');
@@ -872,11 +897,13 @@ class CommentsSection {
         submitBtn.innerHTML = '<span class="material-icons loading">refresh</span> Posting...';
         submitBtn.classList.add('processing');
       }
-      replyTextarea.disabled = true;
+      if (mdEditor) mdEditor.setDisabled(true);
+      else replyTextarea.disabled = true;
 
       try {
         await this.handleReplyCallback(comment, replyText);
-        replyTextarea.value = '';
+        if (mdEditor) mdEditor.setValue('');
+        else replyTextarea.value = '';
         this.closeReplyForm(replyForm, replyBtn);
       } catch (error) {
         console.error('Error submitting reply:', error);
@@ -886,7 +913,8 @@ class CommentsSection {
           submitBtn.textContent = originalText;
           submitBtn.classList.remove('processing');
         }
-        replyTextarea.disabled = false;
+        if (mdEditor) mdEditor.setDisabled(false);
+        else replyTextarea.disabled = false;
       }
     };
 

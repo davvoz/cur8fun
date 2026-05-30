@@ -13,6 +13,7 @@ import cookieConsentManager from './services/CookieConsentManager.js';
 
 // Components
 import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
+import backToTopButton from './components/BackToTopButton.js';
 import './components/MarkdownFormatterUI.js';
 
 // Content views
@@ -37,6 +38,7 @@ import ProfileView from './views/ProfileView.js';
 import RegisterView from './views/RegisterView.js';
 import EditProfileView from './views/EditProfileView.js';
 import WalletView from './views/WalletView.js';
+import WitnessesView from './views/WitnessesView.js';
 
 // Utility views
 import NotFoundView from './views/NotFoundView.js';
@@ -65,6 +67,7 @@ router
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
   .addRoute('/communities', CommunitiesListView)
+  .addRoute('/witnesses', WitnessesView)
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .addRoute('/menu', MenuView)
   .addRoute('/faq', FAQView)
@@ -106,6 +109,9 @@ function initApp() {
 
   // Inizializza il service worker e il sistema di aggiornamenti
   initPwaFeatures();
+
+  // Floating "back to top" button (listens to #main-content scroll)
+  backToTopButton.init();
 
   // Carica subito il conteggio notifiche non lette (senza aspettare l'apertura della campanella)
   if (authService.getCurrentUser()) {

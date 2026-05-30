@@ -8,7 +8,9 @@ export default class MarkdownEditor extends Component {
     this.value = options.initialValue || '';
     this.placeholder = options.placeholder || 'Write your content here...';
     this.onChange = options.onChange || (() => {});
-    this.height = options.height || '400px';
+    this.compact = options.compact === true;
+    this.height = options.height || (this.compact ? '120px' : '400px');
+    this.showTips = options.showTips !== undefined ? options.showTips : !this.compact;
     this.previewMode = false;
     
     // Initialize ContentRenderer with preview-specific options
@@ -31,7 +33,7 @@ export default class MarkdownEditor extends Component {
   
   render() {
     this.element = document.createElement('div');
-    this.element.className = 'markdown-editor';
+    this.element.className = 'markdown-editor' + (this.compact ? ' markdown-editor--compact' : '');
     
     // Create toolbar
     const toolbar = document.createElement('div');
@@ -149,8 +151,14 @@ export default class MarkdownEditor extends Component {
     editorContainer.appendChild(this.previewArea);
     
     this.element.appendChild(editorContainer);
-    
-    // Create helpful tips container
+
+    // Create helpful tips container (skipped in compact mode)
+    if (!this.showTips) {
+      this.parentElement.appendChild(this.element);
+      this.setupImageUpload();
+      return this.element;
+    }
+
     const tipsContainer = document.createElement('div');
     tipsContainer.className = 'markdown-tips';
     
@@ -413,6 +421,17 @@ export default class MarkdownEditor extends Component {
   getValue() {
     return this.value;
   }
+
+  setDisabled(disabled) {
+    if (this.textarea) this.textarea.disabled = !!disabled;
+    this.element?.classList.toggle('markdown-editor--disabled', !!disabled);
+  }
+
+  focus() {
+    if (this.textarea) {
+      try { this.textarea.focus(); } catch (e) {}
+    }
+  }
   
   setValue(value) {
     this.value = value;
@@ -460,13 +479,16 @@ export default class MarkdownEditor extends Component {
    * Gestisce il caricamento e l'inserimento di immagini nell'editor
    */
   setupImageUpload() {
-    // Aggiungi un input file nascosto all'editor
+    // Aggiungi un input file nascosto all'editor (per-istanza per evitare
+    // collisioni quando più editor coesistono sulla stessa pagina, ad es.
+    // form di reply inline nei thread di commenti)
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
     fileInput.style.display = 'none';
-    fileInput.id = 'markdown-image-upload';
+    fileInput.className = 'markdown-image-upload-input';
     this.element.appendChild(fileInput);
+    this.fileInput = fileInput;
     
     // Trova il pulsante immagine nella toolbar
     const imageButton = this.element.querySelector('[data-action="image"]');
@@ -556,8 +578,9 @@ export default class MarkdownEditor extends Component {
    * Gestisce l'upload di un'immagine
    */
   async handleImageUpload() {
-    const fileInput = document.getElementById('markdown-image-upload');
-    
+    const fileInput = this.fileInput || this.element.querySelector('.markdown-image-upload-input');
+    if (!fileInput) return;
+
     // Aggiungi attributo multiple per permettere selezione multipla
     fileInput.multiple = true;
     
@@ -658,8 +681,8 @@ export default class MarkdownEditor extends Component {
    * Mostra un messaggio di stato per l'upload
    */
   showUploadStatus(message, type) {
-    // Rimuovi eventuali messaggi esistenti
-    const existingStatus = document.querySelector('.upload-status-message');
+    // Rimuovi eventuali messaggi esistenti di QUESTO editor (scoped)
+    const existingStatus = this.element.querySelector('.upload-status-message');
     if (existingStatus) {
       existingStatus.remove();
     }

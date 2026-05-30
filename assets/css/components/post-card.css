@@ -105,27 +105,41 @@
   vertical-align: middle;
 }
 
-/* Nuovi stili per la riga superiore del post-info */
-.post-info-top-row {
+/* post-info: author/community a sinistra, data in alto a destra */
+.post-card .post-info {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
-/* Separatore tra autore e community */
-.post-info-separator {
-  color: var(--text-muted);
-  margin: 0 4px;
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-/* Layout esistente della post-info */
-.post-info {
+.post-card .post-info-left {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.post-card .post-info .post-date {
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Quando il post è pinned, lascia spazio al badge in alto a destra */
+.post-card.is-pinned .post-info .post-date {
+  margin-right: 70px;
+}
+
+@media (max-width: 768px) {
+  .post-card.is-pinned .post-info .post-date {
+    /* Sui mobile il badge mostra solo l'icona, quindi meno spazio */
+    margin-right: 32px;
+  }
 }
 
 /* Stili per pulsante di voto migliorato */
