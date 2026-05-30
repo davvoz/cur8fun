@@ -2,6 +2,8 @@
  * PayoutInfoPopup.js
  * Displays detailed payout information for a post in a popup
  */
+import { isPayoutDeclined, applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
+
 class PayoutInfoPopup {
   constructor(post) {
     this.post = post;
@@ -347,6 +349,7 @@ class PayoutInfoPopup {
     const payoutValue = document.createElement('div');
     payoutValue.className = 'payout-value';
     payoutValue.textContent = `$${pendingPayout}`;
+    applyDeclinedPayoutStyle(payoutValue, this.post);
 
     mainPayoutInfo.appendChild(payoutLabel);
     mainPayoutInfo.appendChild(payoutValue);
@@ -355,7 +358,9 @@ class PayoutInfoPopup {
     const payoutDateInfo = document.createElement('div');
     payoutDateInfo.className = 'payout-date-info';
 
-    if (isPaidOut) {
+    if (isPayoutDeclined(this.post)) {
+      payoutDateInfo.textContent = 'Author declined payout for this post';
+    } else if (isPaidOut) {
       payoutDateInfo.textContent = 'Payout has been completed';
     } else if (daysUntilPayout === 'Processing') {
       payoutDateInfo.textContent = 'Processing payout';

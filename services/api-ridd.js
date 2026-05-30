@@ -320,7 +320,7 @@ export class ApiScheduledClient {
         const payload = { 
             username, 
             title, 
-            tags, 
+            tags: Array.isArray(tags) ? tags.join(',') : (tags || ''), 
             body, 
             scheduled_time: scheduledTime, 
             timezone, 
@@ -369,10 +369,14 @@ export class ApiScheduledClient {
 
     async UpdateScheduledPost(postId, username, updatedData) {
         const url = `${this.baseUrl}/update_scheduled`;
+        const normalizedData = { ...updatedData };
+        if (Array.isArray(normalizedData.tags)) {
+            normalizedData.tags = normalizedData.tags.join(',');
+        }
         const payload = { 
             id: postId, 
             username, 
-            ...updatedData 
+            ...normalizedData 
         };
         
         const options = {

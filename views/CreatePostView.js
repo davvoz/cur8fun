@@ -5,6 +5,7 @@ import createPostService from '../services/CreatePostService.js';
 import communityService from '../services/CommunityService.js';
 import userService from '../services/UserService.js';
 import router from '../utils/Router.js';
+import eventEmitter from '../utils/EventEmitter.js';
 
 class CreatePostView extends View {  constructor(params = {}) {
     super(params);
@@ -1859,7 +1860,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * @param {string} message - Messaggio di errore
    */
   showError(message) {
-    this.showStatus(message, 'error');
+    eventEmitter.emit('notification', { type: 'error', message, duration: 6000 });
   }
 
   /**
@@ -1887,16 +1888,12 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Aggiorna il contenuto con icona
     statusArea.innerHTML = icon + message;
 
-    // Nascondi automaticamente dopo un po' se è un successo
+    // Success → toast, then hide inline area
     if (type === 'success') {
+      eventEmitter.emit('notification', { type: 'success', message, duration: 4000 });
       setTimeout(() => {
         statusArea.className = 'status-message hidden';
-      }, 5000);
-    } 
-    
-    // Fai scorrere in vista il messaggio di errore
-    if (type === 'error') {
-      statusArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
     }
   }
 

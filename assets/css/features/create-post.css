@@ -460,6 +460,22 @@
   white-space: nowrap; /* Prevent button text from wrapping */
 }
 
+/* Mobile: header compatto — solo icone nei bottoni */
+@media (max-width: 576px) {
+  .editor-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .editor-quick-action-btn {
+    padding: 8px;
+    gap: 0;
+  }
+
+  .editor-quick-action-btn span:not(.material-icons) {
+    display: none;
+  }
+}
+
 /* Mobile responsiveness for draft recovery banner */
 @media (max-width: 576px) {
   .draft-recovery-banner {

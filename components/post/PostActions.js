@@ -3,6 +3,7 @@ import PayoutInfoPopup from './PayoutInfoPopup.js';
 import RebloggersPopup from './RebloggersPopup.js';
 import authService from '../../services/AuthService.js';
 import reblogService from '../../services/ReblogService.js';
+import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 
 class PostActions {
   constructor(post, upvoteCallback, commentCallback, shareCallback, editCallback, reblogCallback, canEdit = false, hasReblogged = false, showReblog = true, showShareEditInFooter = true) {
@@ -106,6 +107,7 @@ class PostActions {
     payoutInfo.className = 'payout-info';
     payoutInfo.textContent = `$${this.getPendingPayout(this.post)}`;
     payoutInfo.addEventListener('click', this.handlePayoutClick);
+    applyDeclinedPayoutStyle(payoutInfo, this.post);
     
     postActions.appendChild(upvoteBtn);
     postActions.appendChild(commentBtn);

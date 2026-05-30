@@ -1,6 +1,7 @@
 // Router
 import router from '../utils/Router.js';
 import { proxifyImage, getImageUrl } from '../utils/ImageUtils.js';
+import { applyDeclinedPayoutStyle } from '../utils/PayoutUtils.js';
 import userPreferencesService from '../services/UserPreferencesService.js';
 
 // Components
@@ -1063,6 +1064,7 @@ class BasePostView {
     payoutAction.className = 'action-item card-payout-info';
     payoutAction.textContent = `$${parseFloat(this.getPendingPayout(post)).toFixed(2)}`;
     payoutAction.addEventListener('click', () => new PayoutInfoPopup(post).show());
+    applyDeclinedPayoutStyle(payoutAction, post);
 
     if (post._isComment) {
       actions.append(voteWrapper, commentAction, payoutAction);

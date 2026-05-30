@@ -147,6 +147,21 @@
   color: var(--primary-color);
 }
 
+/* Declined payout: strike-through the value wherever it appears
+   (feed cards, post action bar, comment payout button, popup). */
+.payout-declined,
+.payout-declined .count,
+.payout-declined .payout-value {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--error-color, #d9534f);
+  opacity: 0.75;
+}
+
+.payout-declined {
+  cursor: help;
+}
+
 /* Dark theme adjustments */
 [data-theme="dark"] .payout-popup-content {
   color: var(--text-color);

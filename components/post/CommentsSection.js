@@ -3,6 +3,7 @@ import router from '../../utils/Router.js';
 import steemApi from '../../services/SteemApi.js';
 import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
+import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 
 // Improved inert attribute polyfill with better event handling
 function ensureInertSupport() {
@@ -732,6 +733,7 @@ class CommentsSection {
     payoutBtn.type = 'button';
     payoutBtn.textContent = `$${this.getPendingPayout(comment)}`;
     payoutBtn.title = 'Show payout details';
+    applyDeclinedPayoutStyle(payoutBtn, comment);
     payoutBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();

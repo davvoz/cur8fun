@@ -1,5 +1,6 @@
 import router from '../../utils/Router.js';
 import { proxifyImage, getImageUrl } from '../../utils/ImageUtils.js';
+import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 import authService from '../../services/AuthService.js';
 import profileService from '../../services/ProfileService.js';
 
@@ -288,6 +289,7 @@ export default class PostRenderer {
 
     const payoutAction = this.createActionItem('attach_money', parseFloat(post.pending_payout_value || 0).toFixed(2));
     payoutAction.classList.add('payout-action');
+    applyDeclinedPayoutStyle(payoutAction, post);
 
     actions.append(voteAction, commentAction, payoutAction);
 
