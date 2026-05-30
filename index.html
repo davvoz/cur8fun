@@ -26,17 +26,6 @@
 
                 document.documentElement.setAttribute('data-theme', theme);
                 document.documentElement.style.colorScheme = theme;
-
-                // Also update theme-color meta tags immediately so the browser
-                // chrome (status bar, bottom nav bar on Android) uses the correct
-                // colour from the very first paint — before ThemeManager.js loads.
-                var themeColor = theme === 'dark' ? '#1a1a1a' : '#f5f7fa';
-                document.querySelectorAll('meta[name="theme-color"]').forEach(function (tag) {
-                    tag.removeAttribute('media'); // override OS-preference condition
-                    tag.setAttribute('content', themeColor);
-                });
-                var navColor = document.querySelector('meta[name="msapplication-navbutton-color"]');
-                if (navColor) navColor.setAttribute('content', themeColor);
             } catch (_) {
                 // If storage is unavailable, keep default theme.
             }

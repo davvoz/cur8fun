@@ -46,11 +46,7 @@ def javascript_files(filename):
 # Serve specific root files
 @app.route('/manifest.json')
 def manifest():
-    response = send_file('manifest.json', mimetype='application/json')
-    # Prevent the browser from caching a stale manifest whose theme_color
-    # could make the PWA launch with the wrong colour (e.g. old blue bar).
-    response.headers['Cache-Control'] = 'no-store'
-    return response
+    return send_file('manifest.json', mimetype='application/json')
 
 @app.route('/sw.js')
 def service_worker():
