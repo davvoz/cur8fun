@@ -8,16 +8,28 @@
   "theme_color": "#f5f7fa",
   "icons": [
     {
-      "src": "assets/img/logo_tra.png",
+      "src": "assets/img/pwa/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/img/logo_tra.png",
+      "src": "assets/img/pwa/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "assets/img/pwa/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/img/pwa/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
