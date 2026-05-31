@@ -26,8 +26,9 @@ function backgroundSvg(size) {
 }
 
 async function buildIcon(size, outName) {
-  // Logo occupies ~70% of canvas — well within the 80% diameter safe circle.
-  const logoSize = Math.round(size * 0.70);
+  // Logo occupies ~85% of canvas. Safe-zone diameter is 80%, but the logo is
+  // roughly circular so only the (already transparent) corners get cropped.
+  const logoSize = Math.round(size * 0.85);
 
   const logo = await sharp(srcLogo)
     .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
