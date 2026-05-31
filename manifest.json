@@ -4,8 +4,8 @@
   "description": "Decentralized social network powered by STEEM blockchain",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f7fa",
-  "theme_color": "#f5f7fa",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
   "icons": [
     {
       "src": "assets/img/pwa/icon-192x192.png",
