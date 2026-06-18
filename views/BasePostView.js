@@ -1363,10 +1363,11 @@ class BasePostView {
         
         // Store the vote percentage in the dataset
         voteActionElement.dataset.percent = weight;
-        
-        // Add success animation
+
+        // Add success animation + animated payout update
         this.voteController.addSuccessAnimation(voteActionElement);
-        
+        this.voteController.animatePayoutAfterVote(voteActionElement, weight);
+
       } catch (error) {
         // Reset UI
         voteActionElement.classList.remove('voting', 'disabled');

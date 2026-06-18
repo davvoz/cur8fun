@@ -250,6 +250,7 @@ class EditPostView extends View {
         e.target.setSelectionRange(cursor, cursor);
       }
       this.additionalTags = lowered.split(' ').filter(tag => tag.trim() !== '');
+      this.updateTagsValidation();
     });
     tagsRow.appendChild(tagsInput);
 
@@ -261,6 +262,7 @@ class EditPostView extends View {
       ? `The main category "${this.lockedFirstTag}" is locked. You can add up to 4 more tags.`
       : 'Add up to 5 tags to help categorize your post.';
     tagsGroup.appendChild(tagsHelp);
+    this.tagsHelpEl = tagsHelp;
 
     form.appendChild(tagsGroup);
 
@@ -303,6 +305,40 @@ class EditPostView extends View {
       }
     );
     this.markdownEditor.render();
+
+    // Reflect the initial tag state: a post loaded with more tags than allowed
+    // must surface the problem (and block submit) before the user even edits.
+    this.updateTagsValidation();
+  }
+
+  /**
+   * Aggiorna il feedback sui tag in tempo reale: mostra un avviso e disabilita
+   * il pulsante di submit quando i tag superano il massimo consentito on-chain
+   * (5 totali, cioè la categoria bloccata + 4, oppure 5 se non c'è categoria).
+   */
+  updateTagsValidation() {
+    const cap = this.lockedFirstTag ? 4 : 5;
+    const over = this.additionalTags.length > cap;
+    const submitBtn = document.getElementById('submit-post-btn');
+    const helpEl = this.tagsHelpEl;
+
+    if (over) {
+      const excess = this.additionalTags.length - cap;
+      if (helpEl) {
+        helpEl.textContent = `Too many tags — remove ${excess} (max ${cap}${this.lockedFirstTag ? ` besides the locked "${this.lockedFirstTag}"` : ''}).`;
+        helpEl.style.color = 'var(--error-dark, #d32f2f)';
+      }
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      if (helpEl) {
+        helpEl.textContent = this.lockedFirstTag
+          ? `The main category "${this.lockedFirstTag}" is locked. You can add up to ${cap} more tags.`
+          : `Add up to ${cap} tags to help categorize your post.`;
+        helpEl.style.color = '';
+      }
+      // Don't re-enable mid-submit (the spinner state owns the button then).
+      if (submitBtn && !this.isSubmitting) submitBtn.disabled = false;
+    }
   }
 
   /**
@@ -408,7 +444,13 @@ class EditPostView extends View {
     if (!statusArea) return;
 
     statusArea.textContent = message;
-    statusArea.className = `status-message ${type}`;
+    // `visible` is required: the base .status-message rule keeps the box at
+    // opacity:0 / max-height:0, so without it the message never appeared.
+    statusArea.className = `status-message ${type} visible`;
+
+    // Bring it into view — on mobile the status area sits at the top of the
+    // form, off-screen while the user taps Update at the bottom.
+    statusArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Nascondi automaticamente dopo un po' se è un successo
     if (type === 'success') {

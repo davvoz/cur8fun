@@ -323,40 +323,69 @@ class VoteService {
       
       await steemService.ensureLibraryLoaded();
       
-      // Get account info and global properties
-      const [account, props, rewardFund] = await Promise.all([
+      // Get account info, global properties, reward fund and the price feed
+      const [account, props, rewardFund, medianPrice] = await Promise.all([
         steemService.getUser(user),
         this._getDynamicGlobalProperties(),
-        this._getRewardFund()
+        this._getRewardFund(),
+        this._getCurrentMedianHistoryPrice()
       ]);
-      
+
       if (!account || !props || !rewardFund) {
         throw new Error('Could not retrieve necessary information');
       }
-      
-      // Calculate effective vesting shares
+
+      // Effective vesting shares (own + received delegations − outgoing delegations)
       const vestingShares = parseFloat(account.vesting_shares.replace(' VESTS', ''));
       const receivedShares = parseFloat(account.received_vesting_shares.replace(' VESTS', ''));
       const delegatedShares = parseFloat(account.delegated_vesting_shares.replace(' VESTS', ''));
       const effectiveVests = vestingShares + receivedShares - delegatedShares;
-      
-      // Calculate current voting power (ranges from 0 to 10000, meaning 0% to 100%)
-      const lastVoteTime = new Date(account.last_vote_time + 'Z').getTime();
-      const secondsSinceLastVote = (new Date().getTime() - lastVoteTime) / 1000;
-      let votingPower = account.voting_power + (10000 * secondsSinceLastVote / 432000);
-      votingPower = Math.min(votingPower, 10000);
-      
-      // Calculate vote rshares
-      const usedPower = votingPower * 100 / 10000; // Full power vote (100%)
-      const rshares = ((effectiveVests * 1000000) * usedPower) / 10000;
-      
-      // Calculate the value from rshares
+
+      // Current voting power (0..10000), regenerated to "now". On modern Steem
+      // the authoritative source is voting_manabar (the legacy voting_power
+      // field is often stale), so prefer it and fall back only if it's absent.
+      let votingPower;
+      const manabar = account.voting_manabar;
+      if (manabar && manabar.current_mana !== undefined && effectiveVests > 0) {
+        const maxMana = effectiveVests * 1e6;                    // micro-vests
+        const currentMana = parseFloat(manabar.current_mana) || 0;
+        const lastUpdate = parseInt(manabar.last_update_time, 10) || 0; // unix seconds (UTC)
+        const elapsed = Math.max(0, (Date.now() / 1000) - lastUpdate);
+        const regenerated = currentMana + (maxMana * elapsed / 432000);
+        const mana = Math.min(regenerated, maxMana);
+        votingPower = maxMana > 0 ? (mana / maxMana) * 10000 : 0;
+      } else {
+        // Legacy fallback: regenerate the voting_power field since last_vote_time
+        const lastVoteTime = new Date(account.last_vote_time + 'Z').getTime();
+        const secondsSinceLastVote = (Date.now() - lastVoteTime) / 1000;
+        votingPower = (account.voting_power || 0) + (10000 * secondsSinceLastVote / 432000);
+      }
+      votingPower = Math.max(0, Math.min(votingPower, 10000));
+
+      // rshares for a FULL (100%) vote. The blockchain divides the used power by
+      // max_vote_denom = vote_power_reserve_rate * (VOTE_REGEN_SECONDS / 1 day)
+      // = vote_power_reserve_rate * 5 (≈ 50 with the usual reserve rate of 10).
+      // Omitting this divisor was making the estimate ~2x too low.
+      const reserveRate = props.vote_power_reserve_rate || 10;
+      const maxVoteDenom = reserveRate * 5;
+      const usedPower = votingPower / maxVoteDenom;
+      const rshares = (effectiveVests * 1e6 * usedPower) / 10000;
+
+      // Convert rshares → STEEM via the reward pool, then → SBD/USD via the feed.
       const recentClaims = parseFloat(rewardFund.recent_claims);
       const rewardBalance = parseFloat(rewardFund.reward_balance.replace(' STEEM', ''));
-      const steemPrice = 1; // This should ideally be fetched from market data
-      
-      const voteValue = rshares / recentClaims * rewardBalance * steemPrice;
-      
+      if (!recentClaims || recentClaims <= 0) return 0;
+
+      // SBD per STEEM (≈ USD); falls back to 1 only if the feed is unavailable.
+      let steemPrice = 1;
+      if (medianPrice) {
+        const base = parseFloat(medianPrice.base);    // SBD
+        const quote = parseFloat(medianPrice.quote);  // STEEM
+        if (quote > 0) steemPrice = base / quote;
+      }
+
+      const voteValue = (rshares / recentClaims) * rewardBalance * steemPrice;
+
       return voteValue;
     } catch (error) {
       console.error('Error estimating vote value:', error);
@@ -450,6 +479,21 @@ class VoteService {
           resolve(result);
         }
       });
+    });
+  }
+
+  /**
+   * Get the current median history price (price feed).
+   * Returns { base: "X SBD", quote: "Y STEEM" } or null on failure.
+   * @private
+   */
+  _getCurrentMedianHistoryPrice() {
+    return new Promise((resolve) => {
+      try {
+        window.steem.api.getCurrentMedianHistoryPrice((err, result) => resolve(err ? null : result));
+      } catch (e) {
+        resolve(null);
+      }
     });
   }
   

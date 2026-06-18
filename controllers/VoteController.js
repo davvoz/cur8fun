@@ -232,13 +232,15 @@ export default class VoteController {
     button.appendChild(percentIndicator);
 
     this.addSuccessAnimation(button);
+    this.animatePayoutAfterVote(button, weight);
   }
-  
+
   addSuccessAnimation(button) {
     button.classList.add('vote-success-animation');
     setTimeout(() => {
       button.classList.remove('vote-success-animation');
     }, 600);
+    this.playVoteBurst(button);
   }
   
   handleVoteError(error, button, countElement) {
@@ -338,190 +340,385 @@ export default class VoteController {
     }
   }
   
-  showVotePercentagePopup(targetElement, callback, defaultValue = 100) {
-    // Remove existing popups
-    const existingPopup = document.querySelector('.vote-percentage-popup');
-    if (existingPopup) {
-      existingPopup.remove();
+  showVotePercentagePopup(targetElement, callback, defaultValue = null) {
+    // Remove any existing inline bars first
+    document.querySelectorAll('.vote-inline-bar').forEach(el => this._closeInlineVoteBar(el, true));
+
+    // Start from the last percentage the user picked (remembered), unless an
+    // explicit default was passed.
+    const initial = (defaultValue != null) ? defaultValue : this._getLastVotePercent();
+
+    // The bar overlays the post's action row, replacing its icons in place.
+    const row = targetElement.closest('.post-actions, .post-actions-post, .comment-actions')
+      || targetElement.parentElement;
+    if (!row) { callback(initial * 100); return; }
+
+    // The row must be a positioning context for the absolute bar
+    if (!('votePrevPosition' in row.dataset)) {
+      row.dataset.votePrevPosition = row.style.position || '';
+    }
+    if (getComputedStyle(row).position === 'static') {
+      row.style.position = 'relative';
     }
 
-    const popup = document.createElement('div');
-    popup.className = 'vote-percentage-popup';
-    
-    // Create popup header
-    const popupHeader = document.createElement('div');
-    popupHeader.className = 'popup-header';
-    popupHeader.textContent = 'Select Vote Percentage';
-    popup.appendChild(popupHeader);
-    
-    // Create popup content
-    const popupContent = document.createElement('div');
-    popupContent.className = 'popup-content';
-    
-    // Create slider container
-    const sliderContainer = document.createElement('div');
-    sliderContainer.className = 'slider-container';
-    
-    // Create slider input
+    const bar = document.createElement('div');
+    bar.className = 'vote-inline-bar';
+    bar._row = row;
+    bar._target = targetElement;
+
+    // Live percentage readout
+    const pctEl = document.createElement('span');
+    pctEl.className = 'vote-inline-pct';
+    pctEl.textContent = `${initial}%`;
+
+    // Slider (fills the bar)
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.min = '1';
     slider.max = '100';
-    slider.value = defaultValue.toString();
+    slider.value = String(initial);
     slider.className = 'percentage-slider';
-    sliderContainer.appendChild(slider);
-    
-    // Create percentage display
-    const percentageDisplay = document.createElement('div');
-    percentageDisplay.className = 'percentage-display';
-    percentageDisplay.textContent = `${defaultValue}%`;
-    sliderContainer.appendChild(percentageDisplay);
-    
-    // Create slider labels
-    const sliderLabels = document.createElement('div');
-    sliderLabels.className = 'slider-labels';
-    
-    const minLabel = document.createElement('span');
-    minLabel.textContent = '1%';
-    sliderLabels.appendChild(minLabel);
-    
-    const maxLabel = document.createElement('span');
-    maxLabel.textContent = '100%';
-    sliderLabels.appendChild(maxLabel);
-    
-    sliderContainer.appendChild(sliderLabels);
-    popupContent.appendChild(sliderContainer);
-    
-    // Create popup actions
-    const popupActions = document.createElement('div');
-    popupActions.className = 'popup-actions';
-    
-    // Create cancel button
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'cancel-btn';
-    cancelBtn.textContent = 'Cancel';
-    popupActions.appendChild(cancelBtn);
-    
-    // Create confirm button
+
+    // Confirm thumb at the far end of the bar
     const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'confirm-btn';
-    confirmBtn.textContent = 'Vote';
-    popupActions.appendChild(confirmBtn);
-    
-    popupContent.appendChild(popupActions);
-    popup.appendChild(popupContent);
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'vote-inline-confirm';
+    confirmBtn.setAttribute('aria-label', 'Confirm vote');
+    confirmBtn.innerHTML = '<span class="material-icons">thumb_up_alt</span>';
 
-    // Add to DOM
-    document.body.appendChild(popup);
-    
-    // Track this popup for cleanup
-    this.popups.push(popup);
+    bar.appendChild(pctEl);
+    bar.appendChild(slider);
+    bar.appendChild(confirmBtn);
 
-    // Position the popup
-    this.positionPopup(popup, targetElement);
+    // Opaque background matching the surface behind the row, so the bar cleanly
+    // covers the icons it overlaps (items to its right stay visible).
+    bar.style.background = this._resolveSurfaceColor(row);
 
-    // Setup event handlers
-    slider.addEventListener('input', () => {
-      const value = slider.value;
-      percentageDisplay.textContent = `${value}%`;
-      this.updatePercentageColor(percentageDisplay, value);
-    });
+    row.appendChild(bar);
+    row.classList.add('vote-inline-active');
 
-    cancelBtn.addEventListener('click', () => {
-      popup.remove();
-      const index = this.popups.indexOf(popup);
-      if (index > -1) this.popups.splice(index, 1);
-    });
+    // Use the empty space up to — but not glued to — the payout (leaving a small
+    // gap). Falls back to a comfortable width on rows without a payout (e.g.
+    // comment likes).
+    const rowRect = row.getBoundingClientRect();
+    const payoutEl = row.querySelector('.card-payout-info, .payout-info');
+    let barWidth;
+    if (payoutEl) {
+      barWidth = payoutEl.getBoundingClientRect().left - rowRect.left - 14;
+    } else {
+      barWidth = Math.min(320, rowRect.width);
+    }
+    if (barWidth > 60) {
+      bar.style.right = 'auto';
+      bar.style.width = `${barWidth}px`;
+    }
+
+    // Track for cleanup
+    this.popups.push(bar);
+
+    const setPct = (val) => {
+      const v = Math.max(1, Math.min(100, parseInt(val) || 1));
+      slider.value = String(v);
+      pctEl.textContent = `${v}%`;
+      const color = this._percentColor(v);
+      pctEl.style.color = color;
+      slider.style.setProperty('--fill', `${v}%`);
+      // Drive the slider fill, thumb and confirm button color from the % too
+      bar.style.setProperty('--vote-color', color);
+    };
+    setPct(initial);
+
+    // Play the wipe-in on the next frame
+    requestAnimationFrame(() => bar.classList.add('open'));
+
+    // While dragging the value is free (full control, no jumping); the
+    // magnetic snap to multiples of 5 only settles on release (change event).
+    slider.addEventListener('input', () => setPct(parseInt(slider.value, 10) || 1));
+    slider.addEventListener('change', () => setPct(this._magneticSnap(parseInt(slider.value, 10) || 1)));
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') this._closeInlineVoteBar(bar);
+    };
+    document.addEventListener('keydown', onKey);
+    bar._onKey = onKey;
+
+    // Close when clicking outside the bar or the vote button
+    const onOutside = (e) => {
+      if (!bar.contains(e.target) && !targetElement.contains(e.target) && e.target !== targetElement) {
+        this._closeInlineVoteBar(bar);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', onOutside), 50);
+    bar._onOutside = onOutside;
 
     confirmBtn.addEventListener('click', () => {
-      // Converte il valore percentuale (0-100) in peso di voto (0-10000)
-      const weight = parseInt(slider.value) * 100;
-      popup.remove();
-      const index = this.popups.indexOf(popup);
-      if (index > -1) this.popups.splice(index, 1);
+      const pct = parseInt(slider.value, 10);
+      this._setLastVotePercent(pct);            // remember for next time
+      const weight = pct * 100;                  // percentage (1-100) → weight (100-10000)
+      confirmBtn.classList.add('confirming');
+      setTimeout(() => this._closeInlineVoteBar(bar), 160);
       callback(weight);
     });
+  }
 
-    // Close on outside click
-    this.setupOutsideClickHandler(popup, targetElement);
+  /**
+   * Last vote percentage the user picked, persisted across sessions.
+   * Defaults to 100 when nothing is stored.
+   */
+  _getLastVotePercent() {
+    try {
+      const v = parseInt(localStorage.getItem('cur8_last_vote_percent'), 10);
+      if (v >= 1 && v <= 100) return v;
+    } catch (e) { /* localStorage unavailable */ }
+    return 100;
   }
-  
-  updatePercentageColor(element, value) {
-    if (value > 75) {
-      element.style.color = 'var(--success-color, #28a745)';
-    } else if (value > 25) {
-      element.style.color = 'var(--primary-color, #ff7518)';
-    } else if (value > 0) {
-      element.style.color = 'var(--warning-color, #fd7e14)';
-    } else {
-      element.style.color = 'var(--error-color, #dc3545)';
+
+  _setLastVotePercent(pct) {
+    try {
+      if (pct >= 1 && pct <= 100) {
+        localStorage.setItem('cur8_last_vote_percent', String(pct));
+      }
+    } catch (e) { /* localStorage unavailable */ }
+  }
+
+  /**
+   * Make multiples of 5 "sticky": a value within 1 of a multiple of 5 snaps to
+   * it, so the user easily lands on 5/10/15/20/… while in-between values
+   * (…,17,18,22,23,…) are still reachable.
+   */
+  _magneticSnap(v) {
+    const rem = v % 5;
+    let snapped = v;
+    if (rem === 1) snapped = v - 1;
+    else if (rem === 4) snapped = v + 1;
+    return Math.max(1, Math.min(100, snapped));
+  }
+
+  /**
+   * Close + cleanup for the inline vote bar: wipe it back out, fade the row's
+   * icons back in, and restore the row's original position style.
+   * @param {HTMLElement} bar
+   * @param {boolean} immediate - skip the close animation (used when replacing)
+   */
+  _closeInlineVoteBar(bar, immediate = false) {
+    if (!bar || bar._closing) return;
+    bar._closing = true;
+
+    if (bar._onKey) {
+      document.removeEventListener('keydown', bar._onKey);
+      bar._onKey = null;
     }
-  }
-  
-  setupOutsideClickHandler(popup, targetElement) {
-    const closeOnOutsideClick = (event) => {
-      if (!popup.contains(event.target) && !targetElement.contains(event.target) && event.target !== targetElement) {
-        popup.remove();
-        const index = this.popups.indexOf(popup);
-        if (index > -1) this.popups.splice(index, 1);
-        document.removeEventListener('click', closeOnOutsideClick);
+    if (bar._onOutside) {
+      document.removeEventListener('click', bar._onOutside);
+      bar._onOutside = null;
+    }
+
+    const index = this.popups.indexOf(bar);
+    if (index > -1) this.popups.splice(index, 1);
+
+    const row = bar._row;
+    const restoreRow = () => {
+      if (!row) return;
+      // Only restore once no inline bar remains in this row
+      if (!row.querySelector('.vote-inline-bar') || row.querySelector('.vote-inline-bar') === bar) {
+        row.classList.remove('vote-inline-active');
+        const prev = row.dataset.votePrevPosition;
+        if (prev !== undefined) {
+          row.style.position = prev;
+          delete row.dataset.votePrevPosition;
+        }
       }
     };
 
-    popup.addEventListener('click', (event) => {
-      event.stopPropagation();
-    });
+    const remove = () => {
+      if (bar.parentNode) bar.remove();
+      restoreRow();
+    };
 
-    setTimeout(() => {
-      document.addEventListener('click', closeOnOutsideClick);
-    }, 100);
+    if (immediate) {
+      remove();
+      return;
+    }
+
+    // Quick opacity fade-out (keeps the wipe revealed); snappier than reversing
+    // the clip-path, which animated poorly / felt laggy.
+    if (row) row.classList.remove('vote-inline-active');
+    bar.classList.add('closing');
+    bar.addEventListener('transitionend', remove, { once: true });
+    setTimeout(remove, 220); // fallback if transitionend doesn't fire
   }
 
-  positionPopup(popup, targetElement) {
-    const targetRect = targetElement.getBoundingClientRect();
-    popup.style.position = 'fixed';
-
-    const isMobile = window.innerWidth <= 480;
-
-    if (isMobile) {
-      popup.style.bottom = '0';
-      popup.style.left = '0';
-      popup.style.width = '100%';
-      popup.style.borderBottomLeftRadius = '0';
-      popup.style.borderBottomRightRadius = '0';
-      popup.style.transform = 'translateY(0)';
-    } else {
-      const popupHeight = 180; // Estimated height
-
-      if (targetRect.top > popupHeight + 10) {
-        popup.style.bottom = `${window.innerHeight - targetRect.top + 5}px`;
-        popup.style.left = `${targetRect.left}px`;
-      } else {
-        popup.style.top = `${targetRect.bottom + 5}px`;
-        popup.style.left = `${targetRect.left}px`;
+  /**
+   * Find the first opaque background color among the row's ancestors, so the
+   * inline bar can match the card surface in any theme. Falls back to a var.
+   */
+  _resolveSurfaceColor(el) {
+    try {
+      let node = el;
+      while (node && node !== document.body) {
+        const c = getComputedStyle(node).backgroundColor;
+        if (c && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)') return c;
+        node = node.parentElement;
       }
-
-      // Fix positioning after rendering
-      setTimeout(() => {
-        const popupRect = popup.getBoundingClientRect();
-        
-        if (popupRect.right > window.innerWidth) {
-          popup.style.left = `${window.innerWidth - popupRect.width - 10}px`;
-        }
-
-        if (popupRect.bottom > window.innerHeight) {
-          popup.style.top = 'auto';
-          popup.style.bottom = '10px';
-        }
-      }, 0);
-    }
+    } catch (e) { /* ignore */ }
+    return 'var(--background-lighter, #fff)';
   }
   
+  /**
+   * Continuous intensity color for a vote percentage (low → high):
+   * orange → yellow → green, linearly interpolated so it morphs smoothly
+   * instead of jumping between fixed colors.
+   */
+  _percentColor(value) {
+    const v = Math.max(1, Math.min(100, value));
+    const stops = [
+      { p: 1,   c: [243, 156, 18] },  // orange  #f39c12
+      { p: 50,  c: [241, 196, 15] },  // yellow  #f1c40f
+      { p: 100, c: [46, 204, 113] }   // green   #2ecc71
+    ];
+    let lo = stops[0];
+    let hi = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (v >= stops[i].p && v <= stops[i + 1].p) {
+        lo = stops[i];
+        hi = stops[i + 1];
+        break;
+      }
+    }
+    const t = (v - lo.p) / ((hi.p - lo.p) || 1);
+    const mix = (a, b) => Math.round(a + (b - a) * t);
+    return `rgb(${mix(lo.c[0], hi.c[0])}, ${mix(lo.c[1], hi.c[1])}, ${mix(lo.c[2], hi.c[2])})`;
+  }
+
+  updatePercentageColor(element, value) {
+    element.style.color = this._percentColor(value);
+  }
+  
+  /**
+   * Spawn a celebratory burst (popping thumb + radiating particles) at the
+   * center of the vote button. Purely cosmetic; fails silently.
+   */
+  playVoteBurst(button) {
+    try {
+      if (!button || typeof button.getBoundingClientRect !== 'function') return;
+      const rect = button.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      const layer = document.createElement('div');
+      layer.className = 'vote-burst-layer';
+      layer.style.left = `${cx}px`;
+      layer.style.top = `${cy}px`;
+
+      const thumb = document.createElement('span');
+      thumb.className = 'vote-burst-thumb material-icons';
+      thumb.textContent = 'thumb_up_alt';
+      layer.appendChild(thumb);
+
+      const particleCount = 8;
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('span');
+        particle.className = 'vote-burst-particle';
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const distance = 26 + Math.random() * 14;
+        particle.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+        particle.style.setProperty('--dy', `${Math.sin(angle) * distance}px`);
+        layer.appendChild(particle);
+      }
+
+      document.body.appendChild(layer);
+      setTimeout(() => layer.remove(), 900);
+    } catch (e) {
+      // cosmetic only
+    }
+  }
+
+  /**
+   * After a successful vote, estimate the value this vote adds and animate the
+   * post's payout figure counting up, with a pulse and a floating "+$x" gain.
+   * No-ops gracefully for comments (no payout element) or declined-payout posts.
+   * @param {HTMLElement} voteEl - the vote button/wrapper that was clicked
+   * @param {number} weight - vote weight (100-10000)
+   */
+  async animatePayoutAfterVote(voteEl, weight) {
+    try {
+      if (!voteEl || !weight) return;
+
+      const bar = voteEl.closest('.post-actions-post, .post-actions');
+      const payoutEl = bar?.querySelector('.payout-info, .card-payout-info');
+      if (!payoutEl) return;                                  // e.g. comments
+      if (payoutEl.classList.contains('payout-declined')) return;
+
+      const current = parseFloat((payoutEl.textContent || '').replace(/[^0-9.]/g, '')) || 0;
+
+      const fullValue = await voteService.getEstimatedVoteValue();
+      if (!fullValue || fullValue <= 0) {
+        this.pulsePayout(payoutEl);
+        return;
+      }
+
+      const delta = fullValue * (weight / 10000);
+      if (!(delta > 0)) {
+        this.pulsePayout(payoutEl);
+        return;
+      }
+
+      this.showPayoutGain(payoutEl, delta);
+      this.animateCountUp(payoutEl, current, current + delta);
+      this.pulsePayout(payoutEl);
+    } catch (e) {
+      // non-critical
+    }
+  }
+
+  pulsePayout(el) {
+    if (!el) return;
+    el.classList.remove('payout-pulse');
+    // force reflow so the animation can replay
+    void el.offsetWidth;
+    el.classList.add('payout-pulse');
+    setTimeout(() => el.classList.remove('payout-pulse'), 800);
+  }
+
+  showPayoutGain(el, delta) {
+    try {
+      const rect = el.getBoundingClientRect();
+      const gain = document.createElement('div');
+      gain.className = 'payout-gain';
+      gain.textContent = `+$${delta < 0.01 ? delta.toFixed(3) : delta.toFixed(2)}`;
+      gain.style.left = `${rect.left + rect.width / 2}px`;
+      gain.style.top = `${rect.top - 6}px`;
+      document.body.appendChild(gain);
+      setTimeout(() => gain.remove(), 1200);
+    } catch (e) {
+      // cosmetic only
+    }
+  }
+
+  animateCountUp(el, from, to, duration = 900) {
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const value = from + (to - from) * eased;
+      el.textContent = `$${value.toFixed(2)}`;
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = `$${to.toFixed(2)}`;
+      }
+    };
+    requestAnimationFrame(step);
+  }
+
   cleanup() {
-    // Close any open popups
-    this.popups.forEach(popup => {
-      if (popup && popup.parentNode) {
-        popup.remove();
+    // Close any open inline vote bars (restores their host rows)
+    [...this.popups].forEach(el => {
+      if (el && el.classList && el.classList.contains('vote-inline-bar')) {
+        this._closeInlineVoteBar(el, true);
+      } else if (el && el.parentNode) {
+        el.remove();
       }
     });
     this.popups = [];

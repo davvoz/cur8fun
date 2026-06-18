@@ -184,44 +184,64 @@
   opacity: 1;
 }
 
-/* ---------- Vote Popup Styles ---------- */
-.vote-percentage-popup {
-  background-color: var(--background-lighter);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  width: 250px;
-  padding: var(--space-md);
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
+/* ---------- Inline vote bar ----------
+ * Pressing the upvote button replaces the action row's icons in place with a
+ * slider that wipes in from the left, plus a confirm thumb at the far end.
+ * No popup: everything stays within the post card's action row. */
+
+/* The bar has an opaque surface background (set in JS to match the card) so it
+ * cleanly covers the icons it overlaps. Its width is bounded in JS to end at
+ * the reblog count, so everything to its right (payout, etc.) stays visible. */
+.vote-inline-bar {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+  z-index: 3;
+  background: var(--background-lighter, #fff);
+  /* wipe-in reveal from the left → the confirm thumb arrives last, at the end */
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.popup-header {
-  font-weight: 600;
-  margin-bottom: var(--space-sm);
-  color: var(--text-heading);
+.vote-inline-bar.open { clip-path: inset(0 0 0 0); }
+
+/* Close with a quick opacity fade — reversing the clip-path animates poorly
+ * and felt laggy. */
+.vote-inline-bar.closing {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vote-inline-pct {
+  flex: 0 0 auto;
+  min-width: 36px;
   text-align: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  transition: color 0.2s ease;
 }
 
-.popup-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.slider-container {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-xs) 0;
-}
-
+/* The slider stretches to fill the row between the % readout and the thumb */
 .percentage-slider {
-  width: 100%;
-  margin: var(--space-sm) 0;
+  flex: 1 1 auto;
+  min-width: 40px;
+  margin: 0;
   -webkit-appearance: none;
+  appearance: none;
   height: 6px;
-  border-radius: 5px;
-  background: var(--background);
+  border-radius: 6px;
   outline: none;
+  /* the filled portion is ONE solid color (--vote-color), which itself shifts
+   * gradually with the % (orange→yellow→green, interpolated in JS) */
+  background: linear-gradient(to right,
+    var(--vote-color, var(--secondary-color, #2ecc71)) 0%,
+    var(--vote-color, var(--secondary-color, #2ecc71)) var(--fill, 100%),
+    var(--background, #e6e6e6) var(--fill, 100%),
+    var(--background, #e6e6e6) 100%);
 }
 
 .percentage-slider::-webkit-slider-thumb {
@@ -230,127 +250,159 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--secondary-color);
+  background: #fff;
+  border: 3px solid var(--vote-color, var(--secondary-color, #2ecc71));
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.percentage-slider::-webkit-slider-thumb:hover,
+.percentage-slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .percentage-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--secondary-color);
+  background: #fff;
+  border: 3px solid var(--vote-color, var(--secondary-color, #2ecc71));
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.vote-inline-confirm {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
   border: none;
-}
-
-.percentage-slider::-webkit-slider-thumb:hover {
-  background: var(--secondary-dark);
-  transform: scale(1.1);
-}
-
-.percentage-display {
-  text-align: center;
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--secondary-color);
-  margin: var(--space-xs) 0;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.popup-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.cancel-btn {
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--background);
-  color: var(--text);
+  border-radius: 50%;
+  background: var(--vote-color, var(--secondary-color, #2ecc71));
+  color: #fff;
   cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+  /* pops in just as the wipe reaches the right edge */
+  animation: voteThumbArrive 0.4s ease 0.18s both;
 }
 
-.cancel-btn:hover {
-  background-color: var(--background-hover);
+.vote-inline-confirm .material-icons { font-size: 18px; }
+.vote-inline-confirm:hover { transform: scale(1.12); box-shadow: 0 5px 14px rgba(46, 204, 113, 0.55); }
+.vote-inline-confirm:active { transform: scale(0.9); }
+.vote-inline-confirm.confirming .material-icons { animation: voteConfirmPop 0.45s ease; }
+
+@keyframes voteThumbArrive {
+  0% { transform: scale(0.2); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-.confirm-btn {
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-radius: var(--radius-sm);
-  background-color: var(--secondary-color);
-  color: white;
-  cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
+@keyframes voteConfirmPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4) rotate(-8deg); }
+  100% { transform: scale(1) rotate(0); }
 }
 
-.confirm-btn:hover {
-  background-color: var(--secondary-dark);
+/* ---------- Vote success burst ---------- */
+.vote-burst-layer {
+  position: fixed;
+  z-index: 1100;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.vote-burst-thumb {
+  position: absolute;
+  color: var(--secondary-color, #2ecc71);
+  font-size: 30px;
+  text-shadow: 0 2px 8px rgba(46, 204, 113, 0.5);
+  animation: voteBurstThumb 0.7s cubic-bezier(0.22, 1.4, 0.36, 1) forwards;
+}
+
+@keyframes voteBurstThumb {
+  0% { transform: translate(-50%, -50%) scale(0) rotate(-20deg); opacity: 0; }
+  40% { transform: translate(-50%, -90%) scale(1.3) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -160%) scale(1) rotate(0deg); opacity: 0; }
+}
+
+.vote-burst-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--secondary-color, #2ecc71);
+  animation: voteBurstParticle 0.7s ease-out forwards;
+}
+
+@keyframes voteBurstParticle {
+  0% { transform: translate(-50%, -50%) translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+
+/* ---------- Payout update animation ---------- */
+.payout-info.payout-pulse,
+.card-payout-info.payout-pulse {
+  animation: payoutPulse 0.7s ease;
+}
+
+@keyframes payoutPulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.25); color: var(--secondary-color, #2ecc71); text-shadow: 0 0 10px rgba(46, 204, 113, 0.6); }
+  100% { transform: scale(1); }
+}
+
+.payout-gain {
+  position: fixed;
+  z-index: 1100;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--secondary-color, #2ecc71);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  animation: payoutGain 1.1s ease-out forwards;
+}
+
+@keyframes payoutGain {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -4px) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -28px) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vote-inline-bar,
+  .vote-inline-confirm,
+  .vote-burst-thumb,
+  .vote-burst-particle,
+  .payout-gain,
+  .payout-info.payout-pulse,
+  .card-payout-info.payout-pulse {
+    animation: none !important;
+    transition: clip-path 0.15s ease, opacity 0.15s ease !important;
+  }
 }
 
 /* ---------- Mobile Adaptations ---------- */
-@media (max-width: 480px) {
-  .vote-percentage-popup {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-top-left-radius: var(--radius-lg);
-    border-top-right-radius: var(--radius-lg);
-    padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    animation: slideUp 0.3s ease-out;
-  }
-
-  @keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-
-  .percentage-slider {
-    height: 8px; /* Più alto per mobile */
-  }
-
-  .percentage-slider::-webkit-slider-thumb,
-  .percentage-slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-  }
-
-  .popup-actions {
-    margin-top: var(--space-md);
-  }
-
-  .cancel-btn, .confirm-btn {
-    padding: var(--space-md);
-  }
+/* The inline bar lives in the action row; just enlarge touch targets a little. */
+@media (max-width: 600px) {
+  .percentage-slider::-webkit-slider-thumb { width: 20px; height: 20px; }
+  .percentage-slider::-moz-range-thumb { width: 20px; height: 20px; }
+  .vote-inline-confirm { width: 30px; height: 30px; }
+  .vote-inline-pct { min-width: 34px; font-size: 0.85rem; }
 }
 
 /* ---------- Print Styles ---------- */
 @media print {
   .vote-percent-indicator,
   .action-btn.upvote-btn,
-  .vote-percentage-popup {
+  .vote-inline-bar {
     display: none;
   }
 }

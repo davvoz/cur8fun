@@ -29,6 +29,7 @@ export default class MarkdownEditor extends Component {
     this.handleToolbarAction = this.handleToolbarAction.bind(this);
     this.togglePreview = this.togglePreview.bind(this);
     this.updatePreview = this.updatePreview.bind(this);
+    this.handlePaste = this.handlePaste.bind(this);
   }
   
   render() {
@@ -489,7 +490,13 @@ export default class MarkdownEditor extends Component {
     fileInput.className = 'markdown-image-upload-input';
     this.element.appendChild(fileInput);
     this.fileInput = fileInput;
-    
+
+    // Consenti di incollare immagini direttamente nell'editor con Ctrl/Cmd+V
+    // (screenshot, immagini copiate dal browser, ecc.)
+    if (this.textarea) {
+      this.registerEventHandler(this.textarea, 'paste', this.handlePaste);
+    }
+
     // Trova il pulsante immagine nella toolbar
     const imageButton = this.element.querySelector('[data-action="image"]');
     if (imageButton) {
@@ -583,98 +590,147 @@ export default class MarkdownEditor extends Component {
 
     // Aggiungi attributo multiple per permettere selezione multipla
     fileInput.multiple = true;
-    
+
     // Quando i file vengono selezionati
     fileInput.onchange = async (e) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
-      
       try {
-        // Importa i servizi necessari
-        const imageUploadService = await import('../services/ImageUploadService.js')
-          .then(module => module.default);
-        
-        const authService = await import('../services/AuthService.js')
-          .then(module => module.default);
-        
-        const user = authService.getCurrentUser();
-        if (!user) {
-          this.showUploadStatus('You must be logged in to upload images', 'error');
-          return;
-        }
-        
-        // Mostra messaggio iniziale
-        this.showUploadStatus(`Uploading ${files.length} image${files.length > 1 ? 's' : ''}...`, 'info');
-        
-        // Crea un buffer di markup per tutte le immagini
-        let imagesMarkup = '';
-        
-        // Processa ogni file
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (!file || !file.type.startsWith('image/')) continue;
-          
-          try {
-            // Aggiorna stato per ogni file se ci sono più immagini
-            if (files.length > 1) {
-              this.showUploadStatus(`Uploading image ${i+1} of ${files.length}...`, 'info');
-            }
-            
-            // Esegui upload
-            const imageUrl = await imageUploadService.uploadImage(file, user.username);
-            
-            // Aggiungi l'immagine con spaziatura appropriata
-            if (i > 0) {
-              // Aggiungi una riga vuota tra le immagini per migliorare la leggibilità
-              imagesMarkup += '\n\n';
-            }
-            
-            imagesMarkup += `![${file.name || 'Image'}](${imageUrl})`;
-            
-          } catch (error) {
-            console.error(`Failed to upload image ${file.name}:`, error);
-            this.showUploadStatus(`Failed to upload ${file.name}: ${error.message}`, 'error');
-            // Continua con altri file anche se uno fallisce
-          }
-        }
-        
-        // Inserisci le immagini nell'editor con spaziatura intelligente
-        if (imagesMarkup) {
-          // Ottieni la posizione corrente del cursore
-          const cursorPos = this.textarea.selectionStart;
-          const text = this.textarea.value;
-          
-          // Controlla se dobbiamo aggiungere una riga vuota prima o dopo
-          let finalMarkup = imagesMarkup;
-          
-          // Se non siamo all'inizio del testo e non c'è già una riga vuota prima
-          if (cursorPos > 0 && text.charAt(cursorPos - 1) !== '\n') {
-            finalMarkup = '\n\n' + finalMarkup;
-          }
-          
-          // Se non siamo alla fine del testo e non c'è già una riga vuota dopo
-          if (cursorPos < text.length && text.charAt(cursorPos) !== '\n') {
-            finalMarkup = finalMarkup + '\n\n';
-          }
-          
-          // Inserisci il markup completo
-          this.insertTextAtSelection(finalMarkup);
-        }
-        
-        // Mostra messaggio di successo finale
-        this.showUploadStatus(`${files.length > 1 ? `${files.length} images` : 'Image'} uploaded successfully!`, 'success');
-        
-      } catch (error) {
-        console.error('Image upload process failed:', error);
-        this.showUploadStatus(`Upload failed: ${error.message}`, 'error');
+        await this.uploadAndInsertImages(e.target.files);
       } finally {
         // Reset input
         fileInput.value = '';
       }
     };
-    
+
     // Apri il selettore file
     fileInput.click();
+  }
+
+  /**
+   * Gestisce l'incollaggio (Ctrl/Cmd+V) di immagini dagli appunti.
+   * Se gli appunti contengono immagini le carica e le inserisce, prevenendo
+   * l'incollaggio di default; altrimenti lascia procedere il paste del testo.
+   * @param {ClipboardEvent} e
+   */
+  handlePaste(e) {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    const imageFiles = [];
+
+    // `items` intercetta gli screenshot/immagini senza un vero File entry
+    if (clipboardData.items && clipboardData.items.length) {
+      for (const item of clipboardData.items) {
+        if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+    } else if (clipboardData.files && clipboardData.files.length) {
+      for (const file of clipboardData.files) {
+        if (file && file.type && file.type.startsWith('image/')) imageFiles.push(file);
+      }
+    }
+
+    // Nessuna immagine: lascia che avvenga il normale incollaggio di testo
+    if (imageFiles.length === 0) return;
+
+    // Abbiamo immagini: gestiamole noi ed evitiamo il paste di default
+    e.preventDefault();
+    this.uploadAndInsertImages(imageFiles);
+  }
+
+  /**
+   * Carica una lista di file immagine e ne inserisce il markdown nell'editor.
+   * Condiviso tra il pulsante "Upload Image" e l'incollaggio da clipboard.
+   * @param {FileList|File[]} files
+   */
+  async uploadAndInsertImages(files) {
+    if (!files || files.length === 0) return;
+
+    try {
+      // Importa i servizi necessari
+      const imageUploadService = await import('../services/ImageUploadService.js')
+        .then(module => module.default);
+
+      const authService = await import('../services/AuthService.js')
+        .then(module => module.default);
+
+      const user = authService.getCurrentUser();
+      if (!user) {
+        this.showUploadStatus('You must be logged in to upload images', 'error');
+        return;
+      }
+
+      // Tieni solo i file immagine
+      const imageFiles = Array.from(files).filter(
+        file => file && file.type && file.type.startsWith('image/')
+      );
+      if (imageFiles.length === 0) return;
+
+      // Mostra messaggio iniziale
+      this.showUploadStatus(`Uploading ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}...`, 'info');
+
+      // Crea un buffer di markup per tutte le immagini
+      let imagesMarkup = '';
+
+      // Processa ogni file
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+
+        try {
+          // Aggiorna stato per ogni file se ci sono più immagini
+          if (imageFiles.length > 1) {
+            this.showUploadStatus(`Uploading image ${i + 1} of ${imageFiles.length}...`, 'info');
+          }
+
+          // Esegui upload
+          const imageUrl = await imageUploadService.uploadImage(file, user.username);
+
+          // Aggiungi l'immagine con spaziatura appropriata
+          if (i > 0) {
+            // Aggiungi una riga vuota tra le immagini per migliorare la leggibilità
+            imagesMarkup += '\n\n';
+          }
+
+          imagesMarkup += `![${file.name || 'Image'}](${imageUrl})`;
+
+        } catch (error) {
+          console.error(`Failed to upload image ${file.name}:`, error);
+          this.showUploadStatus(`Failed to upload ${file.name || 'image'}: ${error.message}`, 'error');
+          // Continua con altri file anche se uno fallisce
+        }
+      }
+
+      // Inserisci le immagini nell'editor con spaziatura intelligente
+      if (imagesMarkup) {
+        // Ottieni la posizione corrente del cursore
+        const cursorPos = this.textarea.selectionStart;
+        const text = this.textarea.value;
+
+        // Controlla se dobbiamo aggiungere una riga vuota prima o dopo
+        let finalMarkup = imagesMarkup;
+
+        // Se non siamo all'inizio del testo e non c'è già una riga vuota prima
+        if (cursorPos > 0 && text.charAt(cursorPos - 1) !== '\n') {
+          finalMarkup = '\n\n' + finalMarkup;
+        }
+
+        // Se non siamo alla fine del testo e non c'è già una riga vuota dopo
+        if (cursorPos < text.length && text.charAt(cursorPos) !== '\n') {
+          finalMarkup = finalMarkup + '\n\n';
+        }
+
+        // Inserisci il markup completo
+        this.insertTextAtSelection(finalMarkup);
+
+        // Mostra messaggio di successo finale
+        this.showUploadStatus(`${imageFiles.length > 1 ? `${imageFiles.length} images` : 'Image'} uploaded successfully!`, 'success');
+      }
+
+    } catch (error) {
+      console.error('Image upload process failed:', error);
+      this.showUploadStatus(`Upload failed: ${error.message}`, 'error');
+    }
   }
   
   /**
