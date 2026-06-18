@@ -413,37 +413,78 @@ class SteemService {
     }
 
     try {
-      // Create a promise for each tag using the established postService methods
-      const tagPromises = tags.map(tag => 
-        this.postService.getPostsByTag(tag, 1, limit * 2)
-      );
-
-      // Wait for all requests to complete
-      const results = await Promise.all(tagPromises);
-      
-      // Flatten and merge the arrays
-      let allPosts = [];
-      results.forEach(result => {
-        if (result && Array.isArray(result.posts)) {
-          allPosts = [...allPosts, ...result.posts];
-        }
-      });
-
-      // Remove duplicates (posts can appear in multiple tags)
-      const uniquePosts = allPosts.filter((post, index, self) => 
-        index === self.findIndex(p => p.author === post.author && p.permlink === post.permlink)
-      );
-
-      // Sort by date (newest first)
-      uniquePosts.sort((a, b) => new Date(b.created) - new Date(a.created));
-
-      // Paginate the results
+      const endIndex = page * limit;
       const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedPosts = uniquePosts.slice(startIndex, endIndex);
-      
-      // Check if there are more posts
-      const hasMore = uniquePosts.length > endIndex;
+      const perTagBatch = limit * 2;
+
+      // (Re)initialise the accumulator on the first page or when the tag set
+      // changes. The pool grows across pages so infinite scroll keeps going
+      // instead of being capped to a fixed first-page snapshot.
+      const sameTags = this._preferredFeed &&
+        this._preferredFeed.tags.length === tags.length &&
+        this._preferredFeed.tags.every((t, i) => t === tags[i]);
+
+      if (page === 1 || !this._preferredFeed || !sameTags) {
+        this._preferredFeed = {
+          tags: [...tags],
+          cursors: {},      // tag -> { author, permlink }
+          exhausted: {},    // tag -> bool (no more posts for this tag)
+          seen: new Set(),  // "author_permlink" of every post already pooled
+          pool: []          // accumulated unique posts (sorted newest-first)
+        };
+      }
+
+      const feed = this._preferredFeed;
+
+      // Fetch deeper into each tag until we have enough posts to fill the
+      // requested page, or every tag is exhausted.
+      let safety = 0;
+      while (feed.pool.length < endIndex && safety < 25) {
+        const activeTags = feed.tags.filter(t => !feed.exhausted[t]);
+        if (activeTags.length === 0) break;
+        safety++;
+
+        const batchResults = await Promise.all(
+          activeTags.map(tag =>
+            this.postService.fetchTagBatch(tag, perTagBatch, feed.cursors[tag] || null)
+              .then(res => ({ tag, res }))
+              .catch(() => ({ tag, res: null }))
+          )
+        );
+
+        let added = 0;
+        for (const { tag, res } of batchResults) {
+          if (!res || !Array.isArray(res.posts) || res.posts.length === 0) {
+            feed.exhausted[tag] = true;
+            continue;
+          }
+
+          for (const post of res.posts) {
+            const id = `${post.author}_${post.permlink}`;
+            if (feed.seen.has(id)) continue;
+            feed.seen.add(id);
+            feed.pool.push(post);
+            added++;
+          }
+
+          feed.cursors[tag] = res.nextCursor || feed.cursors[tag];
+          if (!res.hasMore) feed.exhausted[tag] = true;
+        }
+
+        // No new unique posts came back from any tag — avoid spinning forever.
+        if (added === 0) break;
+      }
+
+      // Sort the accumulated pool by date (newest first) and slice the page.
+      feed.pool.sort((a, b) => new Date(b.created) - new Date(a.created));
+      const paginatedPosts = feed.pool.slice(startIndex, endIndex);
+
+      // More posts are available if we have buffered beyond this page, or the
+      // page was fully filled and at least one tag may still yield more. If we
+      // could not even fill the current page, this is the end of the feed.
+      const allExhausted = feed.tags.every(t => feed.exhausted[t]);
+      const hasMore = feed.pool.length > endIndex ||
+        (!allExhausted && feed.pool.length >= endIndex);
 
       return {
         posts: paginatedPosts,

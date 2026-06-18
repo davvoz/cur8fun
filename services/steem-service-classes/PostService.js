@@ -493,6 +493,59 @@ export default class PostService {
         }
     }
 
+    /**
+     * Fetch a single batch of posts for a tag using an explicit pagination cursor.
+     * Unlike getPostsByTag, this does NOT mutate any shared instance state
+     * (this.lastPost), so it is safe to call for several tags in parallel.
+     * Used by the multi-tag "My Tags" feed (getPostsByPreferredTags).
+     * @param {string} tag
+     * @param {number} limit Number of posts to return for this batch
+     * @param {{author:string, permlink:string}|null} cursor Pagination marker (last post of previous batch)
+     * @returns {Promise<{posts:Array, hasMore:boolean, nextCursor:Object|null}>}
+     */
+    async fetchTagBatch(tag, limit = 20, cursor = null) {
+        await this.core.ensureLibraryLoaded();
+
+        if (!tag || typeof tag !== 'string') {
+            return { posts: [], hasMore: false, nextCursor: null };
+        }
+
+        try {
+            const query = {
+                tag: tag.toLowerCase().trim(),
+                limit: limit + 1 // one extra to detect whether more posts exist
+            };
+
+            // When a cursor is provided the API returns that post as the first
+            // element again; the caller is expected to de-duplicate.
+            if (cursor && cursor.author && cursor.permlink) {
+                query.start_author = cursor.author;
+                query.start_permlink = cursor.permlink;
+            }
+
+            const posts = await this.core.executeApiMethod('getDiscussionsByCreated', query);
+
+            if (!Array.isArray(posts) || posts.length === 0) {
+                return { posts: [], hasMore: false, nextCursor: null };
+            }
+
+            const hasMore = posts.length > limit;
+            // Use the last RAW post (the extra one when hasMore) as the next
+            // cursor so the following batch continues without gaps.
+            const last = posts[posts.length - 1];
+            const nextCursor = last
+                ? { author: last.author, permlink: last.permlink }
+                : null;
+
+            const trimmed = hasMore ? posts.slice(0, limit) : posts;
+
+            return { posts: trimmed, hasMore, nextCursor };
+        } catch (error) {
+            console.error(`Error fetching tag batch for "${tag}":`, error);
+            return { posts: [], hasMore: false, nextCursor: null };
+        }
+    }
+
     getSortMethodName(sort) {
         const sortToMethod = {
             'trending': 'getDiscussionsByTrending',

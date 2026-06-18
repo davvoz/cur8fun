@@ -762,15 +762,26 @@ class PostView extends View {  constructor(params = {}) {
       
       // Come fallback, cerca nei tag
       if (metadata && Array.isArray(metadata.tags)) {
-        const communityTag = metadata.tags.find(tag => 
+        const communityTag = metadata.tags.find(tag =>
           tag && typeof tag === 'string' && this.isValidCommunityTag(tag)
         );
-        
+
         if (communityTag) {
           return communityTag;
         }
       }
-      
+
+      // Fallback autorevole: il campo `category` (parent_permlink della root)
+      // riporta la community su Steem indipendentemente dal client usato.
+      // I post di altri autori spesso non includono `community` in
+      // json_metadata, ma `category` resta hive-<id>: senza questo controllo
+      // getCommunityTag() tornerebbe null e il pin/unpin non comparirebbe mai
+      // per i moderatori sui post altrui.
+      const category = this.post.category || this.post.parent_permlink;
+      if (category && this.isValidCommunityTag(category)) {
+        return category;
+      }
+
       return null;
     } catch (error) {
       console.error('Error extracting community tag:', error);
