@@ -191,28 +191,83 @@
 
 /* The bar has an opaque surface background (set in JS to match the card) so it
  * cleanly covers the icons it overlaps. Its width is bounded in JS to end at
- * the reblog count, so everything to its right (payout, etc.) stays visible. */
+ * the reblog count, so everything to its right (payout, etc.) stays visible.
+ *
+ * The wipe is done with a sliding "cover" (transform: translateX) instead of
+ * clip-path — transforms are GPU-composited, so it stays smooth on mobile.
+ * Open reveals left→right; close mirrors it (covers right→left). */
+/* `vote-inline-bar` is a transparent wrapper. The opaque `fill` (background +
+ * % + slider) is REVEALED left→right via clip-path, so the bar appears to grow
+ * from the like; on close it conceals right→left. The confirm thumb lives
+ * OUTSIDE the clipped fill, so it runs its own pop in/out independent of the
+ * wipe (it does NOT get wiped away with the bar). */
 .vote-inline-bar {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: transparent;
+}
+
+.vote-inline-fill {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 2px;
-  z-index: 3;
+  padding: 0 38px 0 2px;   /* reserve room on the right for the absolute thumb */
   background: var(--background-lighter, #fff);
-  /* wipe-in reveal from the left → the confirm thumb arrives last, at the end */
   clip-path: inset(0 100% 0 0);
-  transition: clip-path 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: clip-path;
 }
 
-.vote-inline-bar.open { clip-path: inset(0 0 0 0); }
+.vote-inline-bar.opening .vote-inline-fill {
+  animation: voteBarReveal 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
 
-/* Close with a quick opacity fade — reversing the clip-path animates poorly
- * and felt laggy. */
-.vote-inline-bar.closing {
-  opacity: 0;
-  transition: opacity 0.15s ease;
+.vote-inline-bar.closing .vote-inline-fill {
+  animation: voteBarConceal 0.28s cubic-bezier(0.4, 0, 0.7, 0.2) forwards;
+}
+
+/* grow left→right */
+@keyframes voteBarReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+/* conceal right→left */
+@keyframes voteBarConceal {
+  from { clip-path: inset(0 0 0 0); }
+  to   { clip-path: inset(0 100% 0 0); }
+}
+
+/* The % fades in as the bar grows */
+.vote-inline-bar.opening .vote-inline-pct {
+  animation: voteFadeIn 0.3s ease 0.06s backwards;
+}
+
+/* Thumb: pops IN on open; on close it does the OPPOSITE (pops out / shrinks),
+ * NOT the right→left wipe of the bar. */
+.vote-inline-bar.opening .vote-inline-confirm {
+  animation: voteThumbArrive 0.4s ease-out 0.16s backwards;
+}
+.vote-inline-bar.closing .vote-inline-confirm {
+  animation: voteThumbLeave 0.26s cubic-bezier(0.36, 0, 0.66, -0.4) forwards;
+}
+
+@keyframes voteFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes voteThumbArrive {
+  0%   { transform: scale(0.3); opacity: 0; }
+  55%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes voteThumbLeave {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.2); opacity: 0; }
 }
 
 .vote-inline-pct {
@@ -222,6 +277,7 @@
   font-weight: 800;
   font-size: 0.9rem;
   color: var(--secondary-color);
+  cursor: pointer;
   transition: color 0.2s ease;
 }
 
@@ -240,8 +296,8 @@
   background: linear-gradient(to right,
     var(--vote-color, var(--secondary-color, #2ecc71)) 0%,
     var(--vote-color, var(--secondary-color, #2ecc71)) var(--fill, 100%),
-    var(--background, #e6e6e6) var(--fill, 100%),
-    var(--background, #e6e6e6) 100%);
+    rgba(127, 127, 127, 0.3) var(--fill, 100%),
+    rgba(127, 127, 127, 0.3) 100%);
 }
 
 .percentage-slider::-webkit-slider-thumb {
@@ -274,7 +330,13 @@
 }
 
 .vote-inline-confirm {
-  flex: 0 0 auto;
+  /* absolutely positioned at the bar's right edge, OUTSIDE the clipped fill,
+     vertically centered (margin:auto) so transform stays free for the pop */
+  position: absolute;
+  right: 4px;
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
   width: 28px;
   height: 28px;
   border: none;
@@ -287,20 +349,13 @@
   justify-content: center;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
   transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease;
-  /* pops in just as the wipe reaches the right edge */
-  animation: voteThumbArrive 0.4s ease 0.18s both;
+  z-index: 1;
 }
 
 .vote-inline-confirm .material-icons { font-size: 18px; }
 .vote-inline-confirm:hover { transform: scale(1.12); box-shadow: 0 5px 14px rgba(46, 204, 113, 0.55); }
 .vote-inline-confirm:active { transform: scale(0.9); }
 .vote-inline-confirm.confirming .material-icons { animation: voteConfirmPop 0.45s ease; }
-
-@keyframes voteThumbArrive {
-  0% { transform: scale(0.2); opacity: 0; }
-  60% { transform: scale(1.18); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
 
 @keyframes voteConfirmPop {
   0% { transform: scale(1); }
@@ -377,16 +432,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vote-inline-bar,
-  .vote-inline-confirm,
+  .vote-inline-bar.opening .vote-inline-fill,
+  .vote-inline-bar.closing .vote-inline-fill,
+  .vote-inline-bar.opening .vote-inline-pct,
+  .vote-inline-bar.opening .vote-inline-confirm,
+  .vote-inline-bar.closing .vote-inline-confirm,
   .vote-burst-thumb,
   .vote-burst-particle,
   .payout-gain,
   .payout-info.payout-pulse,
   .card-payout-info.payout-pulse {
     animation: none !important;
-    transition: clip-path 0.15s ease, opacity 0.15s ease !important;
   }
+  /* no motion: the bar just appears at full size */
+  .vote-inline-fill { clip-path: inset(0 0 0 0); }
 }
 
 /* ---------- Mobile Adaptations ---------- */

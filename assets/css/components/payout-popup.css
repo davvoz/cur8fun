@@ -1,36 +1,43 @@
-/* Payout popup styles */
+/* Payout popup — anchored popover above the payout (positioned in JS) */
 .payout-popup {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--background);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 9999;
-  width: 500px;
-  max-height: 80vh;
+  background-color: var(--background-lighter, var(--background));
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  z-index: 1200;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  max-height: 70vh;
   overflow-y: auto;
   font-family: var(--font-family);
+  opacity: 0;
+  transform: scale(0.92) translateY(6px);
+  transform-origin: center bottom;
+  transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
-@media (max-width: 767px) {
-  .payout-popup {
-    width: 95%;
-  }
+.payout-popup.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.payout-popup.closing {
+  opacity: 0;
+  transform: scale(0.96) translateY(4px);
 }
 
 .payout-popup-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-md);
+  padding: 7px 10px;
   border-bottom: 1px solid var(--border-color);
 }
 
 .payout-popup-header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 0.95rem;
   color: var(--text-heading);
 }
 
@@ -38,7 +45,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -46,71 +53,79 @@
 }
 
 .payout-popup-content {
-  padding: var(--space-md);
+  padding: 8px 10px 10px;
 }
 
 .payout-section {
-  margin-bottom: var(--space-lg);
+  margin-bottom: 8px;
+}
+
+.payout-section:last-child {
+  margin-bottom: 0;
 }
 
 .main-payout-info {
   text-align: center;
-  margin-bottom: var(--space-md);
-}
-
-.payout-label {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  margin-bottom: var(--space-xs);
+  margin-bottom: 8px;
 }
 
 .payout-value {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
+  line-height: 1.1;
   color: var(--secondary-color);
 }
 
-.payout-section h3 {
-  font-size: 1.1rem;
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-sm);
-  color: var(--text-heading);
+.payout-date-info {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
-.payout-breakdown-table,
-.beneficiary-table {
-  background-color: var(--background-light);
-  border-radius: var(--radius-sm);
-  padding: var(--space-md);
-}
-
-.payout-row,
-.beneficiary-row {
+/* ---------- Compact chips (breakdown + beneficiaries) ---------- */
+.payout-chips {
   display: flex;
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--border-color);
-  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* breakdown currencies (STEEM / SP) always stay on a single row */
+.payout-chips.currency-chips {
   flex-wrap: nowrap;
-  align-content: center;
-  justify-content: space-between;
-  align-items: baseline;
 }
 
-.payout-row:last-child,
-.beneficiary-row:last-child {
-  border-bottom: none;
-}
-
-.payout-item-label,
-.beneficiary-name {
-  display: flex;
+.payout-chip {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill, 999px);
+  background-color: var(--background-light);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-.payout-item-value,
-.beneficiary-value {
-  font-weight: 500;
+.payout-chip-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.payout-chip-value {
+  font-weight: 700;
+  color: var(--text-heading, var(--text));
+}
+
+.beneficiary-chip .material-icons {
+  font-size: 15px;
+  color: var(--info-color, var(--secondary-color));
+}
+
+.loading-indicator {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 2px 0;
 }
 
 .payout-explanation {
@@ -125,16 +140,6 @@
 .payout-explanation p {
   margin: 0.5em 0;
   line-height: 1.5;
-}
-
-.payout-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
 }
 
 /* Make payout info clickable */

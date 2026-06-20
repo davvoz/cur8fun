@@ -748,7 +748,7 @@ class CommentsSection {
     payoutBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      new PayoutInfoPopup(comment).show();
+      new PayoutInfoPopup(comment).show(payoutBtn);
     });
     commentActions.appendChild(payoutBtn);
 

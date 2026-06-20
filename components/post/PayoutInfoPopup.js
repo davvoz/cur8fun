@@ -233,38 +233,111 @@ class PayoutInfoPopup {
   }
 
   /**
-   * Show the popup
+   * Show the popup as a small popover anchored above the payout element.
+   * @param {HTMLElement} [anchorEl] - the clicked payout element to anchor to
    */
-  async show() {
-    // First close any existing popups to prevent stacking
-    this.close();
+  async show(anchorEl = null) {
+    // Remove any existing payout popups to prevent stacking
+    document.querySelectorAll('.payout-popup, .payout-overlay').forEach(el => el.remove());
+    this.anchorEl = anchorEl;
 
     // Create popup elements
     await this.createPopupElements();
 
-    // Add Escape key listener
-    document.addEventListener('keydown', this.escKeyHandler);
-
-    // Add to DOM
-    document.body.appendChild(this.overlay);
+    // Add to DOM, position next to the anchor, then animate in
     document.body.appendChild(this.popup);
+    this.positionPopup();
+    requestAnimationFrame(() => this.popup && this.popup.classList.add('open'));
+
+    // Close on Escape or outside click
+    document.addEventListener('keydown', this.escKeyHandler);
+    this._outsideHandler = (e) => {
+      if (!this.popup) return;
+      if (!this.popup.contains(e.target) &&
+          !(this.anchorEl && this.anchorEl.contains(e.target))) {
+        this.close();
+      }
+    };
+    setTimeout(() => document.addEventListener('click', this._outsideHandler), 50);
   }
 
   /**
-   * Close the popup
+   * Position the popover above the anchor (or below if there's no room),
+   * horizontally centered and clamped to the viewport.
+   */
+  positionPopup() {
+    if (!this.popup) return;
+    const anchor = this.anchorEl;
+    if (!anchor || typeof anchor.getBoundingClientRect !== 'function') {
+      this.popup.style.left = `${(window.innerWidth - this.popup.offsetWidth) / 2}px`;
+      this.popup.style.top = `${(window.innerHeight - this.popup.offsetHeight) / 2}px`;
+      return;
+    }
+    const margin = 8;
+
+    // Confine the popover to the post card's bounds when inside a card;
+    // otherwise (e.g. the post detail page) fall back to the viewport.
+    const card = anchor.closest('.post-card');
+    const cardRect = card ? card.getBoundingClientRect() : null;
+    const minX = cardRect ? cardRect.left + margin : margin;
+    const maxX = cardRect ? cardRect.right - margin : window.innerWidth - margin;
+    const minY = cardRect ? cardRect.top + margin : margin;
+    const maxY = cardRect ? cardRect.bottom - margin : window.innerHeight - margin;
+
+    // Cap the popover size so it can never exceed the card
+    const availW = maxX - minX;
+    const availH = maxY - minY;
+    this.popup.style.maxWidth = `${Math.max(0, availW)}px`;
+    this.popup.style.maxHeight = `${Math.max(0, availH)}px`;
+
+    const w = Math.min(this.popup.offsetWidth, availW);
+    const h = Math.min(this.popup.offsetHeight, availH);
+    const rect = anchor.getBoundingClientRect();
+
+    let top;
+    let originY;
+    if (rect.top - minY >= h + margin) {
+      top = rect.top - h - margin;   // above the payout
+      originY = 'bottom';
+    } else {
+      top = rect.bottom + margin;    // below it
+      originY = 'top';
+    }
+
+    let left = rect.left + rect.width / 2 - w / 2;
+    left = Math.max(minX, Math.min(left, maxX - w));
+    top = Math.max(minY, Math.min(top, maxY - h));
+
+    this.popup.style.left = `${left}px`;
+    this.popup.style.top = `${top}px`;
+    this.popup.style.transformOrigin = `center ${originY}`;
+  }
+
+  /**
+   * Close the popup (animated)
    */
   close() {
+    document.removeEventListener('keydown', this.escKeyHandler);
+    if (this._outsideHandler) {
+      document.removeEventListener('click', this._outsideHandler);
+      this._outsideHandler = null;
+    }
+
+    // Legacy overlay cleanup (no longer created)
     if (this.overlay) {
-      document.body.removeChild(this.overlay);
+      if (this.overlay.parentNode) this.overlay.remove();
       this.overlay = null;
     }
 
-    if (this.popup) {
-      document.body.removeChild(this.popup);
-      this.popup = null;
-    }
+    const popup = this.popup;
+    this.popup = null;
+    if (!popup) return;
 
-    document.removeEventListener('keydown', this.escKeyHandler);
+    popup.classList.remove('open');
+    popup.classList.add('closing');
+    const remove = () => { if (popup.parentNode) popup.remove(); };
+    popup.addEventListener('transitionend', remove, { once: true });
+    setTimeout(remove, 300); // fallback
   }
 
   /**
@@ -280,12 +353,7 @@ class PayoutInfoPopup {
    * Create popup DOM elements
    */
   async createPopupElements() {
-    // Create overlay
-    this.overlay = document.createElement('div');
-    this.overlay.className = 'payout-overlay';
-    this.overlay.addEventListener('click', this.close);
-
-    // Create popup container
+    // Create popup container (anchored popover — no full-screen overlay)
     this.popup = document.createElement('div');
     this.popup.className = 'payout-popup';
 
@@ -333,176 +401,118 @@ class PayoutInfoPopup {
     const section = document.createElement('div');
     section.className = 'payout-section';
 
-    // Main payout info
     const pendingPayout = this.getPendingPayout();
     const daysUntilPayout = this.getDaysUntilPayout();
     const payoutStatus = this.getPayoutStatus();
     const isPaidOut = this.isPostPaidOut();
 
+    // Headline: big value + a single compact subtitle (status · timing)
     const mainPayoutInfo = document.createElement('div');
     mainPayoutInfo.className = 'main-payout-info';
-
-    const payoutLabel = document.createElement('div');
-    payoutLabel.className = 'payout-label';
-    payoutLabel.textContent = payoutStatus;
 
     const payoutValue = document.createElement('div');
     payoutValue.className = 'payout-value';
     payoutValue.textContent = `$${pendingPayout}`;
     applyDeclinedPayoutStyle(payoutValue, this.post);
-
-    mainPayoutInfo.appendChild(payoutLabel);
     mainPayoutInfo.appendChild(payoutValue);
 
-    // Add payout date info
-    const payoutDateInfo = document.createElement('div');
-    payoutDateInfo.className = 'payout-date-info';
-
+    const sub = document.createElement('div');
+    sub.className = 'payout-date-info';
     if (isPayoutDeclined(this.post)) {
-      payoutDateInfo.textContent = 'Author declined payout for this post';
+      sub.textContent = 'Author declined payout';
     } else if (isPaidOut) {
-      payoutDateInfo.textContent = 'Payout has been completed';
+      sub.textContent = 'Paid out';
     } else if (daysUntilPayout === 'Processing') {
-      payoutDateInfo.textContent = 'Processing payout';
+      sub.textContent = 'Processing payout';
     } else {
-      payoutDateInfo.textContent = `Payout in ${daysUntilPayout} ${daysUntilPayout === 1 ? 'day' : 'days'}`;
+      sub.textContent = `${payoutStatus} · in ${daysUntilPayout} ${daysUntilPayout === 1 ? 'day' : 'days'}`;
     }
-
-    mainPayoutInfo.appendChild(payoutDateInfo);
+    mainPayoutInfo.appendChild(sub);
     section.appendChild(mainPayoutInfo);
 
-    // Breakdown title
-    const breakdownTitle = document.createElement('h3');
-    breakdownTitle.textContent = 'Breakdown:';
-    section.appendChild(breakdownTitle);
-
-    // Create breakdown table for currency distribution
-    const currencyTable = document.createElement('div');
-    currencyTable.className = 'payout-breakdown-table currency-breakdown';
+    // Breakdown as compact inline chips (only non-zero amounts), kept on one row
+    const chips = document.createElement('div');
+    chips.className = 'payout-chips currency-chips';
+    section.appendChild(chips);
 
     if (!isPaidOut) {
-      // Add loading indicator solo per i post non pagati
-      const loadingIndicator = document.createElement('div');
-      loadingIndicator.className = 'loading-indicator';
-      loadingIndicator.textContent = 'Loading breakdown data...';
-      currencyTable.appendChild(loadingIndicator);
+      const loading = document.createElement('div');
+      loading.className = 'loading-indicator';
+      loading.textContent = 'Loading…';
+      chips.appendChild(loading);
 
-      section.appendChild(currencyTable);
-      
-      // Fetch payout breakdown asynchronously
       this.getPayoutBreakdown()
-        .then(currencyBreakdown => {
-          console.log('Currency Breakdown:', currencyBreakdown);
-
-          // Clear the loading indicator
-          currencyTable.innerHTML = '';
-
-          if (!currencyBreakdown) {
-            const errorMessage = document.createElement('div');
-            errorMessage.className = 'error-message';
-            errorMessage.textContent = 'Unable to load payout breakdown';
-            currencyTable.appendChild(errorMessage);
-            return;
+        .then(b => {
+          chips.innerHTML = '';
+          if (b) {
+            this._appendChip(chips, 'STEEM', b.steem, b.steem);
+            this._appendChip(chips, 'SP', b.sp, b.sp);
+            this._appendChip(chips, 'SBD', b.sbd, b.sbd);
           }
-
-          // SBD Row
-          const sbdRow = document.createElement('div');
-          sbdRow.className = 'payout-row';
-
-          const sbdLabel = document.createElement('div');
-          sbdLabel.className = 'payout-item-label';
-          sbdLabel.textContent = 'SBD';
-
-          const sbdValue = document.createElement('div');
-          sbdValue.className = 'payout-item-value';
-          sbdValue.textContent = `${currencyBreakdown.sbd} SBD`;
-
-          sbdRow.appendChild(sbdLabel);
-          sbdRow.appendChild(sbdValue);
-          currencyTable.appendChild(sbdRow);
-
-          // STEEM Row
-          const steemRow = document.createElement('div');
-          steemRow.className = 'payout-row';
-
-          const steemLabel = document.createElement('div');
-          steemLabel.className = 'payout-item-label';
-          steemLabel.textContent = 'STEEM';
-
-          const steemValue = document.createElement('div');
-          steemValue.className = 'payout-item-value';
-          steemValue.textContent = `${currencyBreakdown.steem} STEEM`;
-
-          steemRow.appendChild(steemLabel);
-          steemRow.appendChild(steemValue);
-          currencyTable.appendChild(steemRow);
-
-          // SP Row
-          const spRow = document.createElement('div');
-          spRow.className = 'payout-row';
-
-          const spLabel = document.createElement('div');
-          spLabel.className = 'payout-item-label';
-          spLabel.textContent = 'SP';
-
-          const spValue = document.createElement('div');
-          spValue.className = 'payout-item-value';
-          spValue.textContent = `${currencyBreakdown.sp} SP`;
-
-          spRow.appendChild(spLabel);
-          spRow.appendChild(spValue);
-          currencyTable.appendChild(spRow);
+          if (!chips.children.length) chips.remove();
+          this._reposition();
         })
-        .catch(error => {
-          console.error('Error fetching payout breakdown:', error);
-          currencyTable.innerHTML = '';
-
-          const errorMessage = document.createElement('div');
-          errorMessage.className = 'error-message';
-          errorMessage.textContent = 'Error loading payout breakdown';
-          currencyTable.appendChild(errorMessage);
+        .catch(() => {
+          chips.remove();
+          this._reposition();
         });
-
-      return section;
     } else {
-      // If the post is paid out, show the total payout value instead sbd, steem and sp -> author reward and curator reward in dollars
-      const authorPayout = this.getAuthorPayout();
-      const curatorPayout = this.getCuratorPayout();
-      const authorPayoutRow = document.createElement('div');
-      authorPayoutRow.className = 'payout-row';
-
-      const authorPayoutLabel = document.createElement('div');
-      authorPayoutLabel.className = 'payout-item-label';
-      authorPayoutLabel.textContent = 'Author Reward';
-
-      const authorPayoutValue = document.createElement('div');
-      authorPayoutValue.className = 'payout-item-value';
-      authorPayoutValue.textContent = `$${authorPayout}`;
-
-      authorPayoutRow.appendChild(authorPayoutLabel);
-      authorPayoutRow.appendChild(authorPayoutValue);
-      currencyTable.appendChild(authorPayoutRow);
-
-      // Curator Row
-      const curatorPayoutRow = document.createElement('div');
-      curatorPayoutRow.className = 'payout-row';
-
-      const curatorPayoutLabel = document.createElement('div');
-      curatorPayoutLabel.className = 'payout-item-label';
-      curatorPayoutLabel.textContent = 'Curator Reward';
-
-      const curatorPayoutValue = document.createElement('div');
-      curatorPayoutValue.className = 'payout-item-value';
-      curatorPayoutValue.textContent = `$${curatorPayout}`;
-
-      curatorPayoutRow.appendChild(curatorPayoutLabel);
-      curatorPayoutRow.appendChild(curatorPayoutValue);
-      currencyTable.appendChild(curatorPayoutRow);
-
-      // Add the table to the section
-      section.appendChild(currencyTable);
-      return section;
+      this._appendChip(chips, 'Author', `$${this.getAuthorPayout()}`, this.getAuthorPayout());
+      this._appendChip(chips, 'Curator', `$${this.getCuratorPayout()}`, this.getCuratorPayout());
+      if (!chips.children.length) chips.remove();
     }
+
+    return section;
+  }
+
+  /**
+   * Append a compact chip "LABEL value" — only when the amount is non-zero.
+   */
+  _appendChip(container, label, value, amount) {
+    if (!(parseFloat(amount) > 0)) return;
+    const chip = document.createElement('div');
+    chip.className = 'payout-chip';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'payout-chip-label';
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement('span');
+    valueEl.className = 'payout-chip-value';
+    valueEl.textContent = value;
+
+    chip.appendChild(labelEl);
+    chip.appendChild(valueEl);
+    container.appendChild(chip);
+  }
+
+  /** Re-anchor the popover to the payout after its content (height) changed. */
+  _reposition() {
+    if (this.popup) {
+      try { this.positionPopup(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  /**
+   * Append a label/value row to a table, but only when the amount is non-zero
+   * (so empty currencies/rewards don't clutter the popover).
+   */
+  _appendPayoutRow(table, label, valueText, amount) {
+    if (!(parseFloat(amount) > 0)) return;
+    const row = document.createElement('div');
+    row.className = 'payout-row';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'payout-item-label';
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'payout-item-value';
+    valueEl.textContent = valueText;
+
+    row.appendChild(labelEl);
+    row.appendChild(valueEl);
+    table.appendChild(row);
   }
 
   /**
@@ -512,40 +522,33 @@ class PayoutInfoPopup {
     const section = document.createElement('div');
     section.className = 'payout-section';
 
-    // Section title
-    const title = document.createElement('h3');
-    title.textContent = 'Beneficiaries:';
-    section.appendChild(title);
-
-    // Create beneficiary table
-    const beneficiaryTable = document.createElement('div');
-    beneficiaryTable.className = 'beneficiary-table';
+    // Compact inline chips: "🤝 @account 100%"
+    const chips = document.createElement('div');
+    chips.className = 'payout-chips beneficiary-chips';
 
     beneficiaries.forEach(b => {
-      const row = document.createElement('div');
-      row.className = 'beneficiary-row';
-
-      const nameLabel = document.createElement('div');
-      nameLabel.className = 'beneficiary-nameop';
+      const chip = document.createElement('div');
+      chip.className = 'payout-chip beneficiary-chip';
 
       const icon = document.createElement('span');
       icon.className = 'material-icons';
       icon.textContent = 'volunteer_activism';
-      icon.style.color = 'var(--info-color)';
 
-      nameLabel.appendChild(icon);
-      nameLabel.appendChild(document.createTextNode(`@${b.account} (${b.percentage}%)`));
+      const name = document.createElement('span');
+      name.className = 'payout-chip-label';
+      name.textContent = `@${b.account}`;
 
-      const value = document.createElement('div');
-      value.className = 'beneficiary-value';
-      value.textContent = `$${b.payout}`;
+      const value = document.createElement('span');
+      value.className = 'payout-chip-value';
+      value.textContent = `${b.percentage}%`;
 
-      row.appendChild(nameLabel);
-      row.appendChild(value);
-      beneficiaryTable.appendChild(row);
+      chip.appendChild(icon);
+      chip.appendChild(name);
+      chip.appendChild(value);
+      chips.appendChild(chip);
     });
 
-    section.appendChild(beneficiaryTable);
+    section.appendChild(chips);
     return section;
   }
 }

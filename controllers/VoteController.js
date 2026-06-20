@@ -362,7 +362,7 @@ export default class VoteController {
     }
 
     const bar = document.createElement('div');
-    bar.className = 'vote-inline-bar';
+    bar.className = 'vote-inline-bar opening'; // `opening` runs the reveal animation
     bar._row = row;
     bar._target = targetElement;
 
@@ -386,13 +386,18 @@ export default class VoteController {
     confirmBtn.setAttribute('aria-label', 'Confirm vote');
     confirmBtn.innerHTML = '<span class="material-icons">thumb_up_alt</span>';
 
-    bar.appendChild(pctEl);
-    bar.appendChild(slider);
-    bar.appendChild(confirmBtn);
+    // The opaque "fill" (background + % + slider) is clipped and revealed
+    // left→right (the bar appears to grow). The confirm thumb lives OUTSIDE the
+    // fill so it runs its own pop in/out independent of the wipe.
+    const fill = document.createElement('div');
+    fill.className = 'vote-inline-fill';
+    fill.style.background = this._resolveSurfaceColor(row);
+    fill.appendChild(pctEl);
+    fill.appendChild(slider);
 
-    // Opaque background matching the surface behind the row, so the bar cleanly
-    // covers the icons it overlaps (items to its right stay visible).
-    bar.style.background = this._resolveSurfaceColor(row);
+    bar.appendChild(fill);
+    bar.appendChild(confirmBtn);
+    bar._fill = fill;
 
     row.appendChild(bar);
     row.classList.add('vote-inline-active');
@@ -428,13 +433,19 @@ export default class VoteController {
     };
     setPct(initial);
 
-    // Play the wipe-in on the next frame
-    requestAnimationFrame(() => bar.classList.add('open'));
+    // The reveal animation runs automatically thanks to the `opening` class.
 
     // While dragging the value is free (full control, no jumping); the
     // magnetic snap to multiples of 5 only settles on release (change event).
     slider.addEventListener('input', () => setPct(parseInt(slider.value, 10) || 1));
     slider.addEventListener('change', () => setPct(this._magneticSnap(parseInt(slider.value, 10) || 1)));
+
+    // Clicking the percentage readout dismisses the bar
+    pctEl.title = 'Close';
+    pctEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._closeInlineVoteBar(bar);
+    });
 
     const onKey = (e) => {
       if (e.key === 'Escape') this._closeInlineVoteBar(bar);
@@ -540,12 +551,15 @@ export default class VoteController {
       return;
     }
 
-    // Quick opacity fade-out (keeps the wipe revealed); snappier than reversing
-    // the clip-path, which animated poorly / felt laggy.
-    if (row) row.classList.remove('vote-inline-active');
+    // Close: the fill conceals right→left (clip-path) while the thumb runs its
+    // own pop-out. Remove the bar once the fill's conceal finishes.
+    bar.classList.remove('opening');
     bar.classList.add('closing');
-    bar.addEventListener('transitionend', remove, { once: true });
-    setTimeout(remove, 220); // fallback if transitionend doesn't fire
+    const fill = bar._fill;
+    if (fill) {
+      fill.addEventListener('animationend', remove, { once: true });
+    }
+    setTimeout(remove, 360); // fallback if animationend doesn't fire
   }
 
   /**

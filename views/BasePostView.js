@@ -1057,7 +1057,10 @@ class BasePostView {
     const payoutAction = document.createElement('div');
     payoutAction.className = 'action-item card-payout-info';
     payoutAction.textContent = `$${parseFloat(this.getPendingPayout(post)).toFixed(2)}`;
-    payoutAction.addEventListener('click', () => new PayoutInfoPopup(post).show());
+    payoutAction.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new PayoutInfoPopup(post).show(payoutAction);
+    });
     applyDeclinedPayoutStyle(payoutAction, post);
 
     if (post._isComment) {

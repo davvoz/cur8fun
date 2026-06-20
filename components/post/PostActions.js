@@ -206,7 +206,7 @@ class PostActions {
     event.preventDefault();
     event.stopPropagation();
     const payoutPopup = new PayoutInfoPopup(this.post);
-    payoutPopup.show();
+    payoutPopup.show(event.currentTarget);
   }
 
   createActionButton(className, icon, countOrText) {
