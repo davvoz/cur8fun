@@ -175,10 +175,25 @@ export default class CommentController {
     let postAuthor;
     let postPermlink;
 
-    // Method 1: From view.post object
+    // Method 0: From the form's own data attributes (set by CommentsSection).
+    // This is the most reliable source: it always points to the intended
+    // parent, both in PostView (the post) and in CommentView (the main
+    // comment), and cannot be confused by nested replies in the DOM.
+    if (commentForm?.dataset?.parentAuthor && commentForm?.dataset?.parentPermlink) {
+      return {
+        author: commentForm.dataset.parentAuthor,
+        permlink: commentForm.dataset.parentPermlink,
+        isValid: true
+      };
+    }
+
+    // Method 1: From view.post (PostView) or view.comment (CommentView)
     if (this.view.post?.author && this.view.post?.permlink) {
       postAuthor = this.view.post.author;
       postPermlink = this.view.post.permlink;
+    } else if (this.view.comment?.author && this.view.comment?.permlink) {
+      postAuthor = this.view.comment.author;
+      postPermlink = this.view.comment.permlink;
     }
     // Method 2: From data attributes on page elements
     else if (!postAuthor || !postPermlink) {
