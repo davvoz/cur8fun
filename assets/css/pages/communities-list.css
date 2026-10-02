@@ -785,3 +785,212 @@
   padding: 5px;
   background-color: var(--background-light);
 }
+
+/* ---- cur8 community in evidence (like cur8.witness on /witnesses) ---- */
+.communities-list-view .community-spotlight {
+  position: relative;
+  margin-bottom: var(--space-xl);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(var(--primary-color-rgb), 0.18), transparent 60%),
+    var(--surface-color);
+  border: 1px solid rgba(var(--primary-color-rgb), 0.35);
+  box-shadow: var(--card-box-shadow);
+}
+
+.communities-list-view .spotlight-cover {
+  position: relative;
+  height: 140px;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+  background-size: cover;
+  background-position: center;
+}
+
+.communities-list-view .spotlight-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0, 0, 0, 0.35));
+}
+
+.communities-list-view .spotlight-ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.communities-list-view .spotlight-ribbon .material-icons {
+  font-size: 1rem;
+}
+
+.communities-list-view .spotlight-body {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: var(--space-lg);
+  align-items: start;
+  padding: 0 var(--space-lg) var(--space-lg);
+}
+
+.communities-list-view .spotlight-avatar {
+  position: relative;
+  z-index: 1;
+  width: 96px;
+  height: 96px;
+  margin-top: -48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--surface-color);
+  background: var(--surface-color);
+  box-shadow: 0 0 0 3px var(--primary-color);
+}
+
+.communities-list-view .spotlight-info {
+  min-width: 0;
+  padding-top: var(--space-md);
+}
+
+.communities-list-view .spotlight-title {
+  margin: 0 0 var(--space-xs);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-heading);
+}
+
+.communities-list-view .spotlight-about {
+  margin: 0 0 var(--space-sm);
+  max-width: 620px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.communities-list-view .spotlight-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.communities-list-view .spotlight-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.communities-list-view .spotlight-stat strong {
+  color: var(--text-heading);
+}
+
+.communities-list-view .spotlight-stat .material-icons {
+  font-size: 1rem;
+  color: var(--primary-color);
+}
+
+.communities-list-view .spotlight-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-self: center;
+  padding-top: var(--space-md);
+}
+
+.communities-list-view .spotlight-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.communities-list-view .spotlight-btn .material-icons {
+  font-size: 18px;
+}
+
+.communities-list-view .spotlight-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.communities-list-view .spotlight-join {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.communities-list-view .spotlight-join:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.communities-list-view .spotlight-join.is-joined {
+  background: transparent;
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.communities-list-view .spotlight-visit {
+  background: transparent;
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.communities-list-view .spotlight-visit:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+@media (max-width: 600px) {
+  .communities-list-view .spotlight-cover {
+    height: 110px;
+  }
+
+  .communities-list-view .spotlight-body {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    text-align: center;
+  }
+
+  .communities-list-view .spotlight-avatar {
+    margin: -48px auto 0;
+  }
+
+  .communities-list-view .spotlight-info {
+    padding-top: 0;
+  }
+
+  .communities-list-view .spotlight-about {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .communities-list-view .spotlight-stats {
+    justify-content: center;
+  }
+
+  .communities-list-view .spotlight-actions {
+    flex-direction: row;
+    justify-content: center;
+    padding-top: var(--space-sm);
+  }
+
+  .communities-list-view .spotlight-btn {
+    flex: 1;
+  }
+}

@@ -14,6 +14,7 @@ import cookieConsentManager from './services/CookieConsentManager.js';
 // Components
 import UpdateNotificationComponent from './components/pwa/UpdateNotificationComponent.js';
 import backToTopButton from './components/BackToTopButton.js';
+import confirmLogout from './components/auth/confirmLogout.js';
 import './components/MarkdownFormatterUI.js';
 
 // Content views
@@ -578,15 +579,14 @@ function createUserMenu(user) {
   return userMenu;
 }
 
-function handleLogout(e) {
+async function handleLogout(e) {
   e.preventDefault();
+  if (!(await confirmLogout())) return;
+
+  // logout() emits auth:changed and its own toast, and switches to another
+  // saved account when there is one
   authService.logout();
-  eventEmitter.emit('auth:changed', { user: null });
-  eventEmitter.emit('notification', {
-    type: 'info',
-    message: 'You have been logged out'
-  });
-  router.navigate('/home');
+  if (!authService.getCurrentUser()) router.navigate('/home');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

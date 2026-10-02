@@ -2,6 +2,10 @@ import Component from '../../Component.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
+import DialogUtility from '../../DialogUtility.js';
+
+// WIF private key or "P5…" master password: memos are public on Steem
+const PRIVATE_KEY_RE = /^(5[HJK][1-9A-HJ-NP-Za-km-z]{49}|P5[1-9A-HJ-NP-Za-km-z]{49,51})$/;
 
 export default class TransferTab extends Component {
   constructor(parentElement, options = {}) {
@@ -382,6 +386,11 @@ export default class TransferTab extends Component {
       return;
     }
 
+    if (PRIVATE_KEY_RE.test(memo.trim())) {
+      this.showMessage('Your memo looks like a private key. Memos are public: never send a key in a transfer.', false);
+      return;
+    }
+
     // Pre-flight: balance check (fetch fresh data from blockchain)
     this.showMessage('Checking balance…', null);
     const freshBalances = await walletService.fetchBalances();
@@ -403,6 +412,22 @@ export default class TransferTab extends Component {
       this.showMessage(`Account @${to} does not exist on the Steem blockchain`, false);
       return;
     }
+    messageEl.classList.add('hidden');
+
+    const confirmed = await DialogUtility.showRecapDialog({
+      title: 'Confirm transfer',
+      icon: 'send',
+      rows: [
+        ['From', `@${this.currentUser}`],
+        ['To', `@${to}`],
+        ['Amount', `${amount} ${currency}`, { highlight: true }],
+        ['Memo', memo.trim() || '—']
+      ],
+      note: 'Transfers on Steem are final and cannot be reversed.',
+      noteType: 'warning',
+      confirmText: 'Send'
+    });
+    if (!confirmed) return;
 
     try {
       // Show loading state

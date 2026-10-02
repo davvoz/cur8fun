@@ -1177,6 +1177,31 @@ class AuthService {
     }
 
     /**
+     * Forgets a saved account on this device: deletes its stored keys and
+     * tokens so it no longer appears among the saved accounts. Removing the
+     * current account logs it out (switching to another saved one, if any).
+     * @param {string} username
+     */
+    removeAccount(username) {
+        if (!username) return;
+        const isCurrent = this.getCurrentUser()?.username === username;
+
+        ['_posting_key', '_posting_key_expiry', '_active_key', '_active_key_expiry',
+            '_steemlogin_token', '_keychain_auth'
+        ].forEach(suffix => localStorage.removeItem(`${username}${suffix}`));
+        delete this._keyCache[username];
+
+        if (isCurrent) {
+            this.logout();
+            return;
+        }
+        eventEmitter.emit('notification', {
+            type: 'info',
+            message: `@${username} removed from this device`
+        });
+    }
+
+    /**
      * Shows a modal dialog that allows users to switch between accounts
      */
     showAccountSwitcher() {

@@ -15,13 +15,13 @@ const IMG_MARKDOWN_RE = /!\[[^\]]*\]\((\S+?)(?:\s+"[^"]*")?\)/g;
 const IMG_HTML_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
 const IMG_URL_RE = /https?:\/\/[^\s<>"')]+?\.(?:jpe?g|png|gif|webp)(?:\?[^\s<>"')]*)?(?=[\s)]|$)/gi;
 
-// One pass over the text: markdown link | bare URL | @mention | #hashtag
-const TOKEN_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]*[^\s<.,;:!?)\]'"])|(^|[^\w/@])@([a-z][a-z0-9.-]{1,14}[a-z0-9])|(^|[^\w&/])#([a-z0-9][a-z0-9-]{0,23})/gi;
+// One pass over the text: **bold** | *italic* | markdown link | bare URL | @mention | #hashtag
+const TOKEN_RE = /\*\*(?<bold>[^*\n]+?)\*\*|(?<![\w*])\*(?<italic>[^*\s](?:[^*\n]*?[^*\s])?)\*(?![\w*])|\[(?<mdLabel>[^\]]+)\]\((?<mdUrl>https?:\/\/[^\s)]+)\)|(?<url>https?:\/\/[^\s<]*[^\s<.,;:!?)\]'"])|(?<mentionPrefix>^|[^\w/@])@(?<mention>[a-z][a-z0-9.-]{1,14}[a-z0-9])|(?<tagPrefix>^|[^\w&/])#(?<tag>[a-z0-9][a-z0-9-]{0,23})/gi;
 
 /**
- * Splits a ping body into plain text and the images it contains.
- * Pings are rendered as plain text (no markdown/HTML), so content coming
- * from other Steem apps is reduced to its text plus a media grid.
+ * Splits a ping body into text and the images it contains.
+ * Pings are rendered as text with a few inline marks (bold, italic, links),
+ * so content coming from other Steem apps is reduced to that plus a media grid.
  */
 export function parsePingBody(body) {
   const images = [];
@@ -35,9 +35,9 @@ export function parsePingBody(body) {
     .replace(IMG_HTML_RE, collect)
     .replace(IMG_URL_RE, (url) => collect(null, url))
     .replace(/<[^>]+>/g, '')
-    // Markdown formatting from other apps: headings, bold, strikethrough
+    // Markdown from other apps: drop headings, keep bold in the ** form we render
     .replace(/^#{1,6}\s+/gm, '')
-    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/__(.+?)__/g, '**$1**')
     .replace(/~~(.+?)~~/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -54,11 +54,16 @@ export function renderPingText(text) {
   let lastIndex = 0;
 
   for (const match of text.matchAll(TOKEN_RE)) {
-    const [full, mdLabel, mdUrl, url, mentionPrefix, mention, tagPrefix, tag] = match;
+    const { bold, italic, mdLabel, mdUrl, url, mentionPrefix, mention, tagPrefix, tag } = match.groups;
     fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-    lastIndex = match.index + full.length;
+    lastIndex = match.index + match[0].length;
 
-    if (mdUrl) {
+    if (bold || italic) {
+      // Inner text can still hold links, mentions and hashtags
+      const mark = document.createElement(bold ? 'strong' : 'em');
+      mark.appendChild(renderPingText(bold || italic));
+      fragment.appendChild(mark);
+    } else if (mdUrl) {
       fragment.appendChild(createExternalLink(mdUrl, mdLabel));
     } else if (url) {
       fragment.appendChild(createExternalLink(url, shortenUrl(url)));

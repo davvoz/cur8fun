@@ -351,6 +351,53 @@ class DialogUtility {
    * Escape HTML to prevent XSS
    * @private
    */
+  /**
+   * Confirmation showing a summary of the operation about to be broadcast,
+   * so a misclick can't send funds without a last look.
+   * @param {Object} options
+   * @param {string} options.title
+   * @param {string} [options.message]
+   * @param {Array<[string, string, Object?]>} options.rows - [label, value, { highlight }]
+   * @param {string} [options.note] - Extra information shown under the summary
+   * @param {'info'|'warning'} [options.noteType]
+   * @param {string} [options.confirmText]
+   * @param {string} [options.icon] - Material icon for the title
+   * @returns {Promise<boolean>}
+   */
+  static async showRecapDialog(options = {}) {
+    const {
+      title = 'Confirm',
+      message = 'Please review the details before confirming.',
+      rows = [],
+      note = null,
+      noteType = 'info',
+      confirmText = 'Confirm',
+      icon = 'receipt_long'
+    } = options;
+
+    const rowsHtml = rows.map(([label, value, rowOptions = {}]) => `
+      <div class="recap-row${rowOptions.highlight ? ' recap-row--highlight' : ''}">
+        <span class="recap-label">${this.escapeHtml(String(label))}</span>
+        <span class="recap-value">${this.escapeHtml(String(value))}</span>
+      </div>`).join('');
+
+    const noteHtml = note ? `
+      <div class="recap-note recap-note--${noteType === 'warning' ? 'warning' : 'info'}">
+        <span class="material-icons">${noteType === 'warning' ? 'warning' : 'info'}</span>
+        <span>${this.escapeHtml(note)}</span>
+      </div>` : '';
+
+    return this.showConfirmationDialog({
+      title,
+      message,
+      confirmText,
+      icon,
+      type: 'info',
+      compact: true,
+      details: `<div class="dialog-recap">${rowsHtml}</div>${noteHtml}`
+    });
+  }
+
   static escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;

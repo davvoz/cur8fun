@@ -15,6 +15,8 @@ const SW_COMMUNITY_ENDPOINTS = [
 
 class CommunityService {
   constructor() {
+    // cur8's own community, shown in evidence on the communities page
+    this.PROMOTED_COMMUNITY = 'hive-159863';
     this.apiEndpoint = 'https://imridd.eu.pythonanywhere.com/api/steem';
     this.useSteemitApi = false; // Set to false to use imridd API by default
     this.cachedCommunities = null;
@@ -263,6 +265,24 @@ class CommunityService {
       account_reputation: raw.account_reputation,
       _swSource: true
     };
+  }
+
+  /**
+   * A single community with its stats (subscribers, active authors, pending
+   * posts and cover image), from the Steem bridge API.
+   * @param {string} name - Community id (hive-NNNNNN)
+   * @param {string} [observer] - Username, adds context.subscribed
+   */
+  async getCommunityDetails(name, observer = null) {
+    if (observer) {
+      try {
+        return await steemService.rpcCall('bridge.get_community', { name, observer });
+      } catch (error) {
+        // The bridge rejects unknown observers: fall back to the public data
+        console.warn(`get_community with observer @${observer} failed, retrying without:`, error.message);
+      }
+    }
+    return steemService.rpcCall('bridge.get_community', { name });
   }
 
   async getCommunityFromSteemWorld(communityName, observer = null) {

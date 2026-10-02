@@ -80,9 +80,17 @@ export default class PingComposer {
       this.updateState();
     });
     this.textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const shortcuts = {
+        enter: () => this.submit(),
+        b: () => this.wrapSelection('**', 'bold text'),
+        i: () => this.wrapSelection('*', 'italic text'),
+        k: () => this.insertLink()
+      };
+      const action = shortcuts[e.key.toLowerCase()];
+      if (action) {
         e.preventDefault();
-        this.submit();
+        action();
       }
     });
 
@@ -118,19 +126,32 @@ export default class PingComposer {
     this.submitBtn.textContent = this.submitLabel;
     this.submitBtn.addEventListener('click', () => this.submit());
 
-    const spacer = document.createElement('span');
-    spacer.className = 'ping-composer-spacer';
+    // Only the formatting pings actually render (see renderPingText)
+    this.formatButtons = [
+      this.createToolButton('format_bold', 'Bold (Ctrl+B)', () => this.wrapSelection('**', 'bold text')),
+      this.createToolButton('format_italic', 'Italic (Ctrl+I)', () => this.wrapSelection('*', 'italic text')),
+      this.createToolButton('link', 'Link (Ctrl+K)', () => this.insertLink())
+    ];
 
-    footer.append(this.imageBtn, this.fileInput, spacer, this.counter);
+    // Counter and buttons stay together: on narrow screens they wrap as a block
+    const actions = document.createElement('div');
+    actions.className = 'ping-composer-actions';
+    actions.appendChild(this.counter);
     if (this.onCancel) {
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.className = 'ping-btn ping-btn--ghost';
       cancelBtn.textContent = 'Cancel';
       cancelBtn.addEventListener('click', () => this.onCancel());
-      footer.appendChild(cancelBtn);
+      actions.appendChild(cancelBtn);
     }
-    footer.appendChild(this.submitBtn);
+    actions.appendChild(this.submitBtn);
+
+    const tools = document.createElement('div');
+    tools.className = 'ping-composer-tools';
+    tools.append(this.imageBtn, ...this.formatButtons, this.fileInput);
+
+    footer.append(tools, actions);
     body.append(this.textarea, this.attachments, footer);
     if (this.showAvatar) this.element.appendChild(avatar);
     this.element.appendChild(body);
@@ -149,6 +170,66 @@ export default class PingComposer {
 
     this.updateState();
     return this.element;
+  }
+
+  createToolButton(icon, title, onClick) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ping-icon-btn';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.innerHTML = `<span class="material-icons">${icon}</span>`;
+    // Keep the textarea selection: a mousedown on the button would clear it
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  /**
+   * Replaces the textarea selection and selects `selectStart..selectEnd`
+   * of the inserted text (offsets relative to it).
+   */
+  replaceSelection(insert, selectStart, selectEnd) {
+    const ta = this.textarea;
+    const { selectionStart: start, selectionEnd: end, value } = ta;
+    ta.value = value.slice(0, start) + insert + value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + selectStart, start + selectEnd);
+    ta.dispatchEvent(new Event('input'));
+  }
+
+  /**
+   * Wraps the selection in `marker` (e.g. ** for bold), or inserts a
+   * placeholder to type over when nothing is selected.
+   */
+  wrapSelection(marker, placeholder) {
+    const ta = this.textarea;
+    const selected = ta.value.slice(ta.selectionStart, ta.selectionEnd) || placeholder;
+    this.replaceSelection(`${marker}${selected}${marker}`, marker.length, marker.length + selected.length);
+  }
+
+  /**
+   * [text](url): a selected URL becomes the link target and the text is
+   * selected for typing; any other selection becomes the text and the URL
+   * placeholder is selected.
+   */
+  insertLink() {
+    const ta = this.textarea;
+    const selected = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
+
+    if (/^https?:\/\/\S+$/.test(selected)) {
+      const label = 'link text';
+      this.replaceSelection(`[${label}](${selected})`, 1, 1 + label.length);
+      return;
+    }
+
+    const label = selected || 'link text';
+    const url = 'https://';
+    const insert = `[${label}](${url})`;
+    const urlStart = label.length + 3;
+    // With a selection the text is done: select the URL; otherwise the text
+    if (selected) this.replaceSelection(insert, urlStart, urlStart + url.length);
+    else this.replaceSelection(insert, 1, 1 + label.length);
   }
 
   focus() {
@@ -174,6 +255,7 @@ export default class PingComposer {
     this.counter.classList.toggle('is-over', remaining < 0);
 
     this.imageBtn.disabled = this.submitting || this.images.length + this.uploading >= PINGS_CONFIG.maxImages;
+    this.formatButtons.forEach(btn => { btn.disabled = this.submitting; });
     this.submitBtn.disabled = this.submitting || this.uploading > 0 || !hasContent || remaining < 0;
     this.textarea.disabled = this.submitting;
   }

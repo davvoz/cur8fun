@@ -78,15 +78,30 @@ class PingsService {
   /**
    * Returns the pings (top-level replies) of a wall, newest first.
    */
-  async getWallPings(wall) {
+  async getWallPings(wall, { fresh = false } = {}) {
     const cached = this.wallCache.get(wall.permlink);
-    if (cached && Date.now() - cached.at < WALL_CACHE_TTL_MS) {
+    if (!fresh && cached && Date.now() - cached.at < WALL_CACHE_TTL_MS) {
       return cached.promise;
     }
     const promise = this._loadWallPings(wall);
     this.wallCache.set(wall.permlink, { promise, at: Date.now() });
     promise.catch(() => this.wallCache.delete(wall.permlink));
     return promise;
+  }
+
+  /**
+   * Pings published after `since` on the latest walls, newest first.
+   * Used to offer "N new pings" without reloading the feed.
+   * @param {Date} since
+   * @param {Function} [filterFn]
+   */
+  async getNewPings(since, filterFn = null) {
+    // Two walls cover the day change (a ping may land on yesterday's wall)
+    const walls = await this._fetchWalls(null, 2);
+    const lists = await Promise.all(walls.map(w => this.getWallPings(w, { fresh: true })));
+    return lists.flat()
+      .filter(p => p.created > since && (!filterFn || filterFn(p)))
+      .sort((a, b) => b.created - a.created);
   }
 
   /**

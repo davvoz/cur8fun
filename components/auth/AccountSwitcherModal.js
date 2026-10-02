@@ -3,6 +3,7 @@ import authService from '../../services/AuthService.js';
 import profileService from '../../services/ProfileService.js';
 import { proxifyImage } from '../../utils/ImageUtils.js';
 import eventEmitter from '../../utils/EventEmitter.js';
+import confirmLogout from './confirmLogout.js';
 
 /**
  * Modal component for switching between accounts
@@ -205,6 +206,7 @@ export default class AccountSwitcherModal extends Component {
     // Other accounts section
     if (otherAccounts.length > 0) {
       const otherAccountsLabel = document.createElement('div');
+      otherAccountsLabel.className = 'other-accounts-label';
       otherAccountsLabel.textContent = 'Available Accounts';
       otherAccountsLabel.style.fontSize = '0.85rem';
       otherAccountsLabel.style.color = 'var(--text-secondary, #666)';
@@ -217,14 +219,7 @@ export default class AccountSwitcherModal extends Component {
         accountsContainer.appendChild(accountItem);
       });
     } else {
-      const noAccountsMsg = document.createElement('div');
-      noAccountsMsg.className = 'no-accounts-message';
-      noAccountsMsg.textContent = 'No additional accounts available to switch to.';
-      noAccountsMsg.style.padding = '20px 0';
-      noAccountsMsg.style.textAlign = 'center';
-      noAccountsMsg.style.color = 'var(--text-tertiary, #999)';
-      noAccountsMsg.style.fontSize = '0.95rem';
-      accountsContainer.appendChild(noAccountsMsg);
+      accountsContainer.appendChild(this.createNoAccountsMessage());
     }
     
     this.modalContent.appendChild(accountsContainer);
@@ -262,11 +257,12 @@ export default class AccountSwitcherModal extends Component {
         logoutBtn.style.borderColor = 'var(--border-color, #ddd)';
       });
       
-      this.registerEventHandler(logoutBtn, 'click', () => {
+      this.registerEventHandler(logoutBtn, 'click', async () => {
         this.close();
+        if (!(await confirmLogout())) return;
         authService.logout();
-        // Redirect to login
-        window.location.href = '/login';
+        // Redirect to login only if no other saved account took over
+        if (!authService.getCurrentUser()) window.location.href = '/login';
       });
       
       footer.appendChild(logoutBtn);
@@ -356,6 +352,17 @@ export default class AccountSwitcherModal extends Component {
     this.registerEventHandler(document, 'keydown', escListener);
   }
   
+  createNoAccountsMessage() {
+    const noAccountsMsg = document.createElement('div');
+    noAccountsMsg.className = 'no-accounts-message';
+    noAccountsMsg.textContent = 'No additional accounts available to switch to.';
+    noAccountsMsg.style.padding = '20px 0';
+    noAccountsMsg.style.textAlign = 'center';
+    noAccountsMsg.style.color = 'var(--text-tertiary, #999)';
+    noAccountsMsg.style.fontSize = '0.95rem';
+    return noAccountsMsg;
+  }
+
   /**
    * Creates an account item for the account switcher
    * @param {Object} account - Account data with username
@@ -365,6 +372,7 @@ export default class AccountSwitcherModal extends Component {
   createAccountItem(account, isCurrent = false) {
     const accountItem = document.createElement('div');
     accountItem.className = 'account-item';
+    if (isCurrent) accountItem.dataset.current = 'true';
     accountItem.style.display = 'flex';
     accountItem.style.alignItems = 'center';
     accountItem.style.padding = '12px 15px';
@@ -509,10 +517,52 @@ export default class AccountSwitcherModal extends Component {
       rightElement.appendChild(icon);
     }
     
+    // Remove (forget) this account on this device
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'account-remove-btn';
+    removeBtn.title = isCurrent
+      ? `Log out and remove @${account.username} from this device`
+      : `Remove @${account.username} from this device`;
+    removeBtn.setAttribute('aria-label', removeBtn.title);
+    removeBtn.style.width = '28px';
+    removeBtn.style.height = '28px';
+    removeBtn.style.marginLeft = '6px';
+    removeBtn.style.display = 'flex';
+    removeBtn.style.alignItems = 'center';
+    removeBtn.style.justifyContent = 'center';
+    removeBtn.style.flexShrink = '0';
+    removeBtn.style.border = 'none';
+    removeBtn.style.borderRadius = '50%';
+    removeBtn.style.backgroundColor = 'transparent';
+    removeBtn.style.color = 'var(--text-secondary, #666)';
+    removeBtn.style.cursor = 'pointer';
+    removeBtn.style.transition = 'all 0.2s ease';
+
+    const removeIcon = document.createElement('span');
+    removeIcon.className = 'material-icons';
+    removeIcon.textContent = 'person_remove';
+    removeIcon.style.fontSize = '18px';
+    removeBtn.appendChild(removeIcon);
+
+    this.registerEventHandler(removeBtn, 'mouseover', () => {
+      removeBtn.style.color = 'var(--error-color, #e74c3c)';
+      removeBtn.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+    });
+    this.registerEventHandler(removeBtn, 'mouseout', () => {
+      removeBtn.style.color = 'var(--text-secondary, #666)';
+      removeBtn.style.backgroundColor = 'transparent';
+    });
+    this.registerEventHandler(removeBtn, 'click', (e) => {
+      e.stopPropagation(); // a click on the row switches to the account
+      this.showRemoveConfirm(accountItem, account, isCurrent);
+    });
+
     // Assemble the item
     accountItem.appendChild(avatar);
     accountItem.appendChild(userInfo);
     accountItem.appendChild(rightElement);
+    accountItem.appendChild(removeBtn);
     
     // Add hover effects only for non-current accounts
     if (!isCurrent) {
@@ -560,6 +610,85 @@ export default class AccountSwitcherModal extends Component {
     return accountItem;
   }
   
+  /**
+   * Inline confirmation over the account row (a separate dialog could open
+   * underneath this modal).
+   */
+  showRemoveConfirm(accountItem, account, isCurrent) {
+    if (accountItem.querySelector('.account-remove-confirm')) return;
+
+    const bar = document.createElement('div');
+    bar.className = 'account-remove-confirm';
+    bar.style.position = 'absolute';
+    bar.style.inset = '0';
+    bar.style.zIndex = '1';
+    bar.style.display = 'flex';
+    bar.style.alignItems = 'center';
+    bar.style.gap = '8px';
+    bar.style.padding = '0 12px';
+    bar.style.borderRadius = '8px';
+    bar.style.border = '1px solid var(--error-color, #e74c3c)';
+    bar.style.backgroundColor = 'var(--background-lighter, #ffffff)';
+    bar.style.cursor = 'default';
+
+    const text = document.createElement('span');
+    text.textContent = isCurrent ? `Log out and remove @${account.username}?` : `Remove @${account.username}?`;
+    text.style.flex = '1';
+    text.style.minWidth = '0';
+    text.style.fontSize = '0.85rem';
+    text.style.lineHeight = '1.25';
+    text.style.color = 'var(--text-color, #333)';
+    text.style.overflowWrap = 'anywhere';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.padding = '6px 10px';
+    cancelBtn.style.borderRadius = '6px';
+    cancelBtn.style.border = '1px solid var(--border-color, #ddd)';
+    cancelBtn.style.backgroundColor = 'transparent';
+    cancelBtn.style.color = 'var(--text-color, #333)';
+    cancelBtn.style.cursor = 'pointer';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.textContent = 'Remove';
+    confirmBtn.style.padding = '6px 10px';
+    confirmBtn.style.borderRadius = '6px';
+    confirmBtn.style.border = 'none';
+    confirmBtn.style.backgroundColor = 'var(--error-color, #e74c3c)';
+    confirmBtn.style.color = '#fff';
+    confirmBtn.style.cursor = 'pointer';
+
+    this.registerEventHandler(bar, 'click', (e) => e.stopPropagation());
+    this.registerEventHandler(cancelBtn, 'click', () => bar.remove());
+    this.registerEventHandler(confirmBtn, 'click', () => this.removeAccount(accountItem, account, isCurrent));
+
+    bar.append(text, cancelBtn, confirmBtn);
+    accountItem.appendChild(bar);
+    confirmBtn.focus();
+  }
+
+  removeAccount(accountItem, account, isCurrent) {
+    if (isCurrent) {
+      // Same as Logout: switches to another saved account if there is one
+      this.close();
+      authService.removeAccount(account.username);
+      if (!authService.getCurrentUser()) window.location.href = '/login';
+      return;
+    }
+
+    authService.removeAccount(account.username);
+    accountItem.remove();
+    this.accounts = authService.getStoredAccounts();
+
+    const list = this.modalContent?.querySelector('.account-list');
+    if (list && !list.querySelector('.account-item:not([data-current])')) {
+      list.querySelector('.other-accounts-label')?.remove();
+      list.appendChild(this.createNoAccountsMessage());
+    }
+  }
+
   /**
    * Creates a badge for authentication method
    * @param {string} text - Text to display in badge 

@@ -15,31 +15,140 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--background-color);
-  border-bottom: 1px solid var(--border-color);
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--primary-color) 14%, transparent) 0%, transparent 65%),
+    var(--background-color);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, var(--primary-color) 30%);
+}
+
+/* Frosted header: the feed shows through, blurred, while scrolling
+   (same orange glow as the post feeds' header) */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .pings-header,
+  .pings-topbar {
+    background:
+      linear-gradient(100deg, color-mix(in srgb, var(--primary-color) 14%, transparent) 0%, transparent 65%),
+      color-mix(in srgb, var(--background-color) 82%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
 }
 
 .pings-title-row,
 .pings-topbar {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-xs);
+  padding: 10px var(--space-md);
 }
 
-.pings-title-row {
-  justify-content: space-between;
+.pings-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.pings-title--grow {
-  flex: 1;
+.pings-brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 
+/* Gradient title, as in the post feeds' header */
 .pings-title {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--text-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  background: linear-gradient(92deg, var(--text-color) 0%, color-mix(in srgb, var(--text-color) 85%, var(--primary-color) 15%) 60%, var(--primary-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pings-subtitle {
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .pings-subtitle {
+    display: none;
+  }
+}
+
+/* "N new pings" pill, hanging below the sticky header */
+.pings-new-pill {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 10px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(var(--primary-color-rgb), 0.4);
+  cursor: pointer;
+  animation: pingsPillDrop 0.25s ease;
+}
+
+.pings-new-pill[hidden] {
+  display: none;
+}
+
+.pings-new-pill:hover {
+  background: var(--primary-dark);
+}
+
+.pings-new-pill .material-icons {
+  font-size: 18px;
+}
+
+.pings-new-avatars {
+  display: inline-flex;
+}
+
+.pings-new-avatars img {
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  border: 2px solid var(--primary-color);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-color);
+}
+
+.pings-new-avatars img:first-child {
+  margin-left: 0;
+}
+
+@keyframes pingsPillDrop {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .pings-tabs {
@@ -242,8 +351,27 @@
   border-top: 1px solid var(--border-color-light);
 }
 
-.ping-composer-spacer {
-  flex: 1;
+.ping-composer-footer {
+  flex-wrap: wrap;
+}
+
+.ping-composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ping-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+/* Inline editor inside a card: a bit tighter */
+.ping-composer--inline .ping-icon-btn {
+  width: 32px;
+  height: 32px;
 }
 
 .ping-composer-counter {
@@ -584,6 +712,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pings-new-pill,
   .ping-card--new,
   .ping-attachment.is-uploading .material-icons {
     animation: none;

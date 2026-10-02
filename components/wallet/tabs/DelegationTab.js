@@ -409,6 +409,25 @@ export default class DelegationTab extends Component {
       this.showMessage(`Account @${delegatee} does not exist on the Steem blockchain`, false);
       return;
     }
+    messageEl.classList.add('hidden');
+
+    // A delegation to the same account replaces the existing amount
+    const existing = this.delegations.find(d => d.delegatee === delegatee);
+    const confirmed = await DialogUtility.showRecapDialog({
+      title: 'Confirm delegation',
+      icon: 'handshake',
+      rows: [
+        ['From', `@${this.currentUser}`],
+        ['To', `@${delegatee}`],
+        ['Amount', `${amount} SP`, { highlight: true }]
+      ],
+      note: existing
+        ? `You already delegate ${existing.sp_amount} SP to @${delegatee}: this replaces it with ${amount} SP.`
+        : 'You keep ownership of the SP. If you remove the delegation, it returns to you after 5 days.',
+      noteType: existing ? 'warning' : 'info',
+      confirmText: 'Delegate'
+    });
+    if (!confirmed) return;
 
     try {
       // Disable button during processing
@@ -785,7 +804,7 @@ export default class DelegationTab extends Component {
 
     const confirmed = await DialogUtility.showConfirmationDialog({
       title: 'Remove Delegation',
-      message: `Remove delegation to @${delegateeLower}?`,
+      message: `Remove delegation to @${delegateeLower}? The SP will be available to you again after 5 days.`,
       confirmText: 'Remove',
       cancelText: 'Cancel',
       icon: 'link_off',

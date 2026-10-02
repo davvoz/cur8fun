@@ -23,6 +23,8 @@ class CommunitiesListView {
     this.infiniteScroll = null;
     this.itemsPerPage = 12; // Number of communities to load per page
     this.currentPage = 1;
+    this.spotlight = null; // cur8 community details (bridge.get_community)
+    this.spotlightPending = false;
     
     // Define common categories
     this.categories = [
@@ -47,6 +49,10 @@ class CommunitiesListView {
     
     // Create header
     this.renderHeader();
+
+    // cur8 community in evidence, like cur8.witness on the witnesses page
+    this.renderSpotlight();
+    this.loadSpotlight();
     
     // Create categories filter
     this.renderCategories();
@@ -66,6 +72,7 @@ class CommunitiesListView {
       // If user is logged in, load their subscribed communities
       if (this.currentUser) {
         await this.loadUserSubscriptions();
+        this.renderSpotlight(); // Join/Joined state
       }
       
       // Render communities list
@@ -100,6 +107,135 @@ class CommunitiesListView {
     // Add event listener for search input
     const searchInput = header.querySelector('#community-search');
     searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+  }
+
+  async loadSpotlight() {
+    try {
+      this.spotlight = await communityService.getCommunityDetails(
+        communityService.PROMOTED_COMMUNITY,
+        this.currentUser?.username || null
+      );
+    } catch (error) {
+      console.warn('Could not load the cur8 community:', error);
+    }
+    if (this.viewContainer) this.renderSpotlight();
+  }
+
+  isSpotlightJoined() {
+    const id = communityService.PROMOTED_COMMUNITY;
+    return this.subscribedCommunities.has(id) || !!this.spotlight?.context?.subscribed;
+  }
+
+  renderSpotlight() {
+    const id = communityService.PROMOTED_COMMUNITY;
+    const c = this.spotlight;
+    const joined = this.isSpotlightJoined();
+    const stat = (icon, value, label) => `
+      <span class="spotlight-stat">
+        <span class="material-icons">${icon}</span>
+        <strong>${Number(value || 0).toLocaleString('en-US')}</strong> ${label}
+      </span>`;
+
+    const section = document.createElement('section');
+    section.className = 'community-spotlight';
+    section.innerHTML = `
+      <div class="spotlight-cover">
+        <div class="spotlight-ribbon">
+          <span class="material-icons">favorite</span> Official cur8.fun community
+        </div>
+      </div>
+      <div class="spotlight-body">
+        <img class="spotlight-avatar" alt="">
+        <div class="spotlight-info">
+          <h2 class="spotlight-title"></h2>
+          <p class="spotlight-about"></p>
+          <div class="spotlight-stats">
+            ${c
+              ? stat('group', c.subscribers, 'members') + stat('edit_note', c.num_authors, 'active authors') + stat('article', c.num_pending, 'posts this week')
+              : '<span class="spotlight-stat">Loading community details…</span>'}
+          </div>
+        </div>
+        <div class="spotlight-actions">
+          ${this.currentUser
+            ? `<button type="button" class="spotlight-btn spotlight-join ${joined ? 'is-joined' : ''}">
+                 <span class="material-icons">${joined ? 'check_circle' : 'group_add'}</span>
+                 ${joined ? 'Joined' : 'Join'}
+               </button>`
+            : `<a href="/login" class="spotlight-btn spotlight-join">
+                 <span class="material-icons">login</span> Log in to join
+               </a>`}
+          <a href="/community/${id}" class="spotlight-btn spotlight-visit">
+            Visit <span class="material-icons">arrow_forward</span>
+          </a>
+        </div>
+      </div>
+    `;
+
+    // Text from the chain goes in as text, never as HTML
+    section.querySelector('.spotlight-title').textContent = c?.title || 'Cur8';
+    section.querySelector('.spotlight-about').textContent = c?.about || 'A place for Cur8 games, news, and updates.';
+
+    const avatar = section.querySelector('.spotlight-avatar');
+    const steemitAvatar = `https://steemitimages.com/u/${id}/avatar`;
+    avatar.src = c?.avatar_url ? getImageUrl(c.avatar_url, 256) : steemitAvatar;
+    avatar.onerror = () => {
+      avatar.onerror = null;
+      avatar.src = steemitAvatar;
+    };
+
+    const cover = c?.settings?.cover_url;
+    if (cover) {
+      section.querySelector('.spotlight-cover').style.backgroundImage = `url("${getImageUrl(cover, 1200)}")`;
+    }
+
+    const joinBtn = section.querySelector('button.spotlight-join');
+    if (joinBtn) joinBtn.addEventListener('click', () => this.handleSpotlightJoin(joinBtn));
+
+    const existing = this.viewContainer.querySelector('.community-spotlight');
+    if (existing) {
+      existing.replaceWith(section);
+    } else {
+      this.viewContainer.querySelector('.communities-header')?.after(section);
+    }
+  }
+
+  async handleSpotlightJoin(button) {
+    const id = communityService.PROMOTED_COMMUNITY;
+    if (!this.currentUser || this.pendingSubscriptions.has(id)) return;
+
+    // Read the state at click time: the button may have been toggled already
+    const joined = this.isSpotlightJoined();
+    this.pendingSubscriptions.add(id);
+    button.disabled = true;
+    button.innerHTML = '<span class="loading-spinner-sm"></span>';
+
+    try {
+      if (joined) {
+        await communityService.unsubscribeFromCommunity(this.currentUser.username, id);
+        this.subscribedCommunities.delete(id);
+        this.subscribedCommunities.delete(id.replace(/^hive-/, ''));
+        if (this.spotlight?.context) this.spotlight.context.subscribed = false;
+        if (this.spotlight) this.spotlight.subscribers = Math.max(0, (this.spotlight.subscribers || 1) - 1);
+      } else {
+        await communityService.subscribeToCommunity(this.currentUser.username, id);
+        this.subscribedCommunities.add(id);
+        this.subscribedCommunities.add(id.replace(/^hive-/, ''));
+        if (this.spotlight) this.spotlight.subscribers = (this.spotlight.subscribers || 0) + 1;
+      }
+      eventEmitter.emit('notification', {
+        type: 'success',
+        message: joined ? 'You left the Cur8 community' : 'Welcome to the Cur8 community!'
+      });
+    } catch (error) {
+      console.error('Error toggling the cur8 community subscription:', error);
+      eventEmitter.emit('notification', {
+        type: 'error',
+        message: `Failed to ${joined ? 'leave' : 'join'} the community: ${error.message}`
+      });
+    } finally {
+      this.pendingSubscriptions.delete(id);
+      this.renderSpotlight();
+    }
   }
 
   renderCategories() {
@@ -712,11 +848,13 @@ class CommunitiesListView {
         this.loadUserSubscriptions().then(() => {
           const contentEl = this.viewContainer.querySelector('.communities-content');
           if (contentEl) this.renderCommunities(contentEl);
+          this.renderSpotlight();
         });
       } else {
         this.subscribedCommunities.clear();
         const contentEl = this.viewContainer.querySelector('.communities-content');
         if (contentEl) this.renderCommunities(contentEl);
+        this.renderSpotlight();
       }
     }
   }

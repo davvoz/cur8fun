@@ -438,3 +438,78 @@
     font-size: 14px;
   }
 }
+
+/* Operation summary (DialogUtility.showRecapDialog) */
+.standard-dialog .dialog-recap {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.standard-dialog .recap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 14px;
+}
+
+.standard-dialog .recap-row + .recap-row {
+  border-top: 1px solid var(--border-color-light);
+}
+
+.standard-dialog .recap-label {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.standard-dialog .recap-value {
+  min-width: 0;
+  color: var(--text-color);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.standard-dialog .recap-row--highlight {
+  background: var(--color-primary-light);
+}
+
+.standard-dialog .recap-row--highlight .recap-value {
+  color: var(--primary-color);
+  font-size: 16px;
+}
+
+.standard-dialog .recap-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.standard-dialog .recap-note .material-icons {
+  font-size: 18px;
+}
+
+.standard-dialog .recap-note--info {
+  background: var(--info-light);
+  color: var(--text-color);
+}
+
+.standard-dialog .recap-note--info .material-icons {
+  color: var(--info-color);
+}
+
+.standard-dialog .recap-note--warning {
+  background: var(--warning-light);
+  color: var(--text-color);
+}
+
+.standard-dialog .recap-note--warning .material-icons {
+  color: var(--warning-color);
+}

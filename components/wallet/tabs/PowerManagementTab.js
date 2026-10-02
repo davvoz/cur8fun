@@ -555,6 +555,20 @@ export default class PowerManagementTab extends Component {
       );
       return;
     }
+    messageEl.classList.add('hidden');
+
+    const confirmedPU = await DialogUtility.showRecapDialog({
+      title: 'Confirm power up',
+      icon: 'arrow_upward',
+      rows: [
+        ['Account', `@${this.currentUser}`],
+        ['From', `${amount} STEEM`],
+        ['To', `${amount} STEEM POWER`, { highlight: true }]
+      ],
+      note: 'STEEM POWER becomes liquid STEEM again only through a power down, paid over 4 weeks.',
+      confirmText: 'Power up'
+    });
+    if (!confirmedPU) return;
 
     try {
       const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -645,6 +659,26 @@ export default class PowerManagementTab extends Component {
       );
       return;
     }
+    messageEl.classList.add('hidden');
+
+    // A new power down replaces the one in progress instead of adding to it
+    const current = this.powerDownInfo?.isPoweringDown ? this.powerDownInfo : null;
+    const confirmedPD = await DialogUtility.showRecapDialog({
+      title: 'Confirm power down',
+      icon: 'arrow_downward',
+      rows: [
+        ['Account', `@${this.currentUser}`],
+        ['Amount', `${amount} SP`, { highlight: true }],
+        ['Weekly payment', `≈ ${(parseFloat(amount) / 4).toFixed(3)} STEEM`],
+        ['Duration', '4 weeks']
+      ],
+      note: current
+        ? `This replaces your current power down (${current.weeklyRate} SP per week).`
+        : 'You can stop the power down at any time; payments already received stay in your wallet.',
+      noteType: current ? 'warning' : 'info',
+      confirmText: 'Start power down'
+    });
+    if (!confirmedPD) return;
 
     try {
       const submitBtn = e.target.querySelector('button[type="submit"]');

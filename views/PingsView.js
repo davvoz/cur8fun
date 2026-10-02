@@ -11,6 +11,8 @@ import { PINGS_CONFIG } from '../config/pings.js';
 
 // Each batch scans up to a week of walls (see PingsService.loadMore)
 const MAX_EMPTY_BATCHES = 3;
+// How often the feed checks for pings published since it loaded
+const NEW_PINGS_POLL_MS = 60 * 1000;
 
 const TABS = [
   { id: 'latest', label: 'Latest' },
@@ -33,6 +35,11 @@ class PingsView extends View {
     this.pings = []; // rendered pings in display order, cached for back navigation
     this.hasMore = false;
     this.loadToken = 0;
+    this.pendingNew = []; // newer pings waiting behind the "N new pings" pill
+    this.pollTimer = null;
+    this.onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') this.checkNewPings();
+    };
     // Composer and Following tab depend on the logged-in user
     this.subscribe('auth:changed', () => {
       if (this.element) this.render(this.element);
@@ -82,6 +89,7 @@ class PingsView extends View {
     } else {
       await this.loadFeed();
     }
+    this.startNewPingsWatcher();
   }
 
   cacheKey() {
@@ -166,10 +174,6 @@ class PingsView extends View {
     const titleRow = document.createElement('div');
     titleRow.className = 'pings-title-row';
 
-    const title = document.createElement('h1');
-    title.className = 'pings-title';
-    title.textContent = this.tag ? `#${this.tag}` : PINGS_CONFIG.label;
-
     if (this.tag) {
       const back = document.createElement('button');
       back.type = 'button';
@@ -181,21 +185,35 @@ class PingsView extends View {
         else router.navigate(PINGS_CONFIG.path);
       });
       titleRow.appendChild(back);
-      title.classList.add('pings-title--grow');
     }
 
-    const refresh = document.createElement('button');
-    refresh.type = 'button';
-    refresh.className = 'ping-icon-btn';
-    refresh.title = 'Refresh';
-    refresh.innerHTML = '<span class="material-icons">refresh</span>';
-    refresh.addEventListener('click', () => {
-      pingsService.clearCache();
-      this.loadFeed();
-    });
+    // Brand block; clicking it scrolls the feed back to the top
+    const brand = document.createElement('button');
+    brand.type = 'button';
+    brand.className = 'pings-brand';
+    brand.title = 'Back to top';
+    const brandText = document.createElement('span');
+    brandText.className = 'pings-brand-text';
+    const title = document.createElement('h1');
+    title.className = 'pings-title';
+    title.textContent = this.tag ? `#${this.tag}` : PINGS_CONFIG.label;
+    const subtitle = document.createElement('span');
+    subtitle.className = 'pings-subtitle';
+    subtitle.textContent = this.tag ? 'Pings with this hashtag' : 'Short posts from the Steem community';
+    brandText.append(title, subtitle);
+    brand.appendChild(brandText);
+    brand.addEventListener('click', () => this.scrollToTop());
+    titleRow.appendChild(brand);
 
-    titleRow.append(title, refresh);
     header.appendChild(titleRow);
+
+    // "N new pings" pill, hanging just below the sticky header
+    this.newPill = document.createElement('button');
+    this.newPill.type = 'button';
+    this.newPill.className = 'pings-new-pill';
+    this.newPill.hidden = true;
+    this.newPill.addEventListener('click', () => this.showPendingNew());
+    header.appendChild(this.newPill);
 
     // Following needs a user; with a single tab there is nothing to switch
     if (this.tag || !authService.getCurrentUser()) return header;
@@ -212,7 +230,10 @@ class PingsView extends View {
       btn.textContent = tab.label;
       btn.classList.toggle('active', tab.id === this.activeTab);
       btn.addEventListener('click', () => {
-        if (tab.id === this.activeTab) return;
+        if (tab.id === this.activeTab) {
+          this.scrollToTop();
+          return;
+        }
         this.activeTab = tab.id;
         tabs.querySelectorAll('.pings-tab').forEach(b => b.classList.toggle('active', b === btn));
         this.loadFeed();
@@ -224,8 +245,74 @@ class PingsView extends View {
     return header;
   }
 
+  scrollToTop() {
+    document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  startNewPingsWatcher() {
+    this.stopNewPingsWatcher();
+    this.pollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') this.checkNewPings();
+    }, NEW_PINGS_POLL_MS);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+  }
+
+  stopNewPingsWatcher() {
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+  }
+
+  /**
+   * Looks for pings newer than the newest one shown and offers them in the pill.
+   */
+  async checkNewPings() {
+    if (!this.feed || this.pings.length === 0 || this.checkingNew) return;
+    this.checkingNew = true;
+    const token = this.loadToken;
+    try {
+      const newest = this.pings.reduce((max, p) => (p.created > max ? p.created : max), this.pings[0].created);
+      const fresh = await pingsService.getNewPings(newest, this.filterFn);
+      if (token !== this.loadToken) return; // feed reloaded meanwhile
+      this.pendingNew = fresh.filter(p => !this.renderedKeys.has(`${p.author}/${p.permlink}`));
+      this.updateNewPill();
+    } catch (error) {
+      console.warn('Could not check for new pings:', error);
+    } finally {
+      this.checkingNew = false;
+    }
+  }
+
+  updateNewPill() {
+    if (!this.newPill) return;
+    const count = this.pendingNew.length;
+    this.newPill.hidden = count === 0;
+    if (count === 0) return;
+
+    this.newPill.innerHTML = '<span class="material-icons">arrow_upward</span>';
+    const avatars = document.createElement('span');
+    avatars.className = 'pings-new-avatars';
+    [...new Set(this.pendingNew.map(p => p.author))].slice(0, 3).forEach(author => {
+      const img = document.createElement('img');
+      img.src = `https://steemitimages.com/u/${author}/avatar/small`;
+      img.alt = '';
+      avatars.appendChild(img);
+    });
+    this.newPill.append(avatars, count === 1 ? '1 new ping' : `${count} new pings`);
+  }
+
+  showPendingNew() {
+    // Prepend oldest first so the newest ends up on top
+    [...this.pendingNew].reverse().forEach(ping => this.prependPing(ping));
+    this.pendingNew = [];
+    this.updateNewPill();
+    this.scrollToTop();
+  }
+
   async loadFeed() {
     const token = ++this.loadToken;
+    this.pendingNew = [];
+    this.updateNewPill();
 
     this.destroyInfiniteScroll();
     this.feed = pingsService.createFeed();
@@ -363,6 +450,7 @@ class PingsView extends View {
 
   unmount() {
     this.loadToken++;
+    this.stopNewPingsWatcher();
     this.destroyInfiniteScroll();
     this.voteController.cleanup();
     super.unmount();
