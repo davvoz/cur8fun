@@ -64,14 +64,11 @@ class PingsView extends View {
     page.appendChild(this.createHeader());
 
     const composer = new PingComposer({
-      initialText: this.tag ? `#${this.tag} ` : '',
-      onSubmit: async ({ text, images }) => {
-        const ping = await pingsService.publishPing({ text, images });
-        if (!this.filterFn || this.filterFn(ping)) this.prependPing(ping);
-        this.emit('notification', { type: 'success', message: 'Ping sent!' });
-      }
+      initialText: this.composerInitialText(),
+      onSubmit: (draft) => this.publishPing(draft)
     });
-    page.appendChild(composer.render());
+    const composerEl = composer.render();
+    page.appendChild(composerEl);
 
     this.list = document.createElement('div');
     this.list.className = 'pings-list';
@@ -83,6 +80,7 @@ class PingsView extends View {
     page.appendChild(this.scrollArea);
 
     element.appendChild(createPingsLayout(page));
+    this.setupComposeFab(composerEl, page);
 
     if (cached && cached.pings.length) {
       this.restoreState(cached);
@@ -94,6 +92,109 @@ class PingsView extends View {
 
   cacheKey() {
     return `pings:${router.currentPath}`;
+  }
+
+  composerInitialText() {
+    return this.tag ? `#${this.tag} ` : '';
+  }
+
+  async publishPing({ text, images }) {
+    const ping = await pingsService.publishPing({ text, images });
+    if (!this.filterFn || this.filterFn(ping)) this.prependPing(ping);
+    this.emit('notification', { type: 'success', message: 'Ping sent!' });
+  }
+
+  /**
+   * Floating "new ping" button, shown once the inline composer has scrolled
+   * out of view. Mounted on #app: the layout's container query would trap a
+   * fixed element inside the feed column. It is kept aligned to the feed
+   * column, so on desktop it doesn't cover the sidebars.
+   */
+  setupComposeFab(composerEl, page) {
+    this.destroyComposeFab();
+    const main = document.getElementById('main-content');
+    if (!authService.getCurrentUser() || !main) return;
+
+    this.composeFab = document.createElement('button');
+    this.composeFab.type = 'button';
+    this.composeFab.className = 'pings-compose-fab';
+    this.composeFab.title = 'New ping';
+    this.composeFab.setAttribute('aria-label', 'New ping');
+    this.composeFab.innerHTML = '<span class="material-icons">edit</span>';
+    this.composeFab.addEventListener('click', () => this.openComposeDialog());
+    (document.getElementById('app') || document.body).appendChild(this.composeFab);
+
+    this.composerObserver = new IntersectionObserver(([entry]) => {
+      this.composeFab?.classList.toggle('is-visible', !entry.isIntersecting);
+    }, { root: main });
+    this.composerObserver.observe(composerEl);
+
+    // Window resizes move the centered column; layout resizes cover the
+    // sidebars appearing or the app's side nav collapsing
+    this.alignComposeFab = () => {
+      if (!this.composeFab || !page.isConnected) return;
+      const inset = Math.max(0, document.documentElement.clientWidth - page.getBoundingClientRect().right);
+      this.composeFab.style.setProperty('--pings-fab-inset', `${inset}px`);
+      // Near the window corner it shares the spot with the back-to-top button
+      this.composeFab.classList.toggle('pings-compose-fab--corner', inset < 60);
+    };
+    this.layoutObserver = new ResizeObserver(this.alignComposeFab);
+    this.layoutObserver.observe(page.closest('.pings-layout') || page);
+    window.addEventListener('resize', this.alignComposeFab);
+  }
+
+  destroyComposeFab() {
+    this.composerObserver?.disconnect();
+    this.composerObserver = null;
+    this.layoutObserver?.disconnect();
+    this.layoutObserver = null;
+    if (this.alignComposeFab) window.removeEventListener('resize', this.alignComposeFab);
+    this.alignComposeFab = null;
+    this.composeFab?.remove();
+    this.composeFab = null;
+    this.closeComposeDialog?.();
+  }
+
+  openComposeDialog() {
+    if (this.closeComposeDialog) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pings-compose-dialog';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'New ping');
+
+    const panel = document.createElement('div');
+    panel.className = 'pings-compose-dialog-panel';
+
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      this.closeComposeDialog = null;
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !composer.submitting) close();
+    };
+
+    const composer = new PingComposer({
+      initialText: this.composerInitialText(),
+      onSubmit: async (draft) => {
+        await this.publishPing(draft);
+        close();
+      },
+      onCancel: close
+    });
+    panel.appendChild(composer.render());
+
+    // Backdrop click closes, unless a ping is being sent
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay && !composer.submitting) close();
+    });
+    document.addEventListener('keydown', onKey);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    this.closeComposeDialog = close;
+    composer.focus();
   }
 
   /**
@@ -452,6 +553,7 @@ class PingsView extends View {
     this.loadToken++;
     this.stopNewPingsWatcher();
     this.destroyInfiniteScroll();
+    this.destroyComposeFab();
     this.voteController.cleanup();
     super.unmount();
   }
