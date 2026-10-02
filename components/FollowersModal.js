@@ -6,6 +6,8 @@ class FollowersModal {
         this.modalElement = null;
         this.username = null;
         this.followers = [];
+        this.total = null;
+        this.loadToken = 0;
         this.isLoading = false;
         this.error = null;
         
@@ -89,26 +91,44 @@ class FollowersModal {
             this.modalElement.classList.add('visible');
         }, 10);
         
-        // Reset state
+        // Reset state; the token drops pages of a previous, slower request
+        const token = ++this.loadToken;
         this.followers = [];
+        this.total = null;
         this.isLoading = true;
         this.error = null;
+        this.modalElement.querySelector('.followers-list').innerHTML = '';
         this.updateUI();
-        
-        // Fetch followers
+
+        profileService.getFollowCounts(username).then(counts => {
+            if (token !== this.loadToken) return;
+            this.total = counts.followers;
+            this.updateUI();
+        });
+
+        // Pages are rendered as they arrive: large accounts span many pages
         try {
-            this.followers = await profileService.getFollowersList(username);
+            await profileService.getFollowersList(username, (page) => {
+                if (token !== this.loadToken) return false; // closed or reopened: stop paging
+                this.appendItems(page);
+                this.updateUI();
+            });
+            if (token !== this.loadToken) return;
             this.isLoading = false;
             this.updateUI();
         } catch (error) {
+            if (token !== this.loadToken) return;
             console.error('Error fetching followers:', error);
             this.isLoading = false;
-            this.error = 'Failed to load followers. Please try again later.';
+            this.error = 'Failed to load. Please try again later.';
             this.updateUI();
         }
     }
     
     close() {
+        // Stop rendering (and fetching) pages of a list still loading
+        this.loadToken++;
+
         // Start animation
         this.modalElement.classList.remove('visible');
         
@@ -130,8 +150,14 @@ class FollowersModal {
         const errorElement = this.modalElement.querySelector('.followers-error');
         const listElement = this.modalElement.querySelector('.followers-list');
         
-        // Show/hide loading state
+        // Show/hide loading state, with progress once pages start arriving
         loadingElement.style.display = this.isLoading ? 'block' : 'none';
+        if (this.isLoading) {
+            const loaded = this.followers.length;
+            loadingElement.textContent = loaded === 0
+                ? 'Loading followers...'
+                : `Loading followers... ${loaded.toLocaleString('en-US')}${this.total ? ` of ${this.total.toLocaleString('en-US')}` : ''}`;
+        }
         
         // Show/hide error
         errorElement.style.display = this.error ? 'block' : 'none';
@@ -139,27 +165,39 @@ class FollowersModal {
             errorElement.textContent = this.error;
         }
         
-        // Update follower list
-        if (!this.isLoading && !this.error && this.followers.length > 0) {
-            listElement.innerHTML = this.followers.map(follower => `
-                <div class="follower-item" data-username="${follower.follower}">
-                    <img class="follower-avatar" src="https://steemitimages.com/u/${follower.follower}/avatar" alt="${follower.follower}">
-                    <div class="follower-username">@${follower.follower}</div>
-                </div>
-            `).join('');
-            
-            // Add click handlers to all follower items
-            const followerItems = listElement.querySelectorAll('.follower-item');
-            followerItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const username = item.getAttribute('data-username');
-                    this.navigateToProfile(username);
-                });
-            });
-        } else if (!this.isLoading && !this.error) {
-            // No followers found
+        if (!this.isLoading && !this.error && this.followers.length === 0) {
             listElement.innerHTML = `<div class="no-followers">No followers found for @${this.username}</div>`;
         }
+    }
+
+    appendItems(entries) {
+        const listElement = this.modalElement.querySelector('.followers-list');
+        const fragment = document.createDocumentFragment();
+
+        entries.forEach(entry => {
+            const username = entry.follower;
+            this.followers.push(entry);
+
+            const item = document.createElement('div');
+            item.className = 'follower-item';
+            item.dataset.username = username;
+
+            const avatar = document.createElement('img');
+            avatar.className = 'follower-avatar';
+            avatar.src = `https://steemitimages.com/u/${username}/avatar`;
+            avatar.alt = username;
+            avatar.loading = 'lazy';
+
+            const name = document.createElement('div');
+            name.className = 'follower-username';
+            name.textContent = '@' + username;
+
+            item.append(avatar, name);
+            item.addEventListener('click', () => this.navigateToProfile(username));
+            fragment.appendChild(item);
+        });
+
+        listElement.appendChild(fragment);
     }
     
     /**

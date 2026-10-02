@@ -8,11 +8,20 @@ export const mainNavItems = [
     showInSide: true
   },
   {
+    id: 'pings',
+    label: 'Pings',
+    icon: 'bolt',
+    path: '/pings',
+    showInBottom: true,
+    showInSide: true
+  },
+  {
+    // Still reachable from the side menu on mobile
     id: 'communities',
     label: 'Communities',
     icon: 'groups',
     path: '/communities',
-    showInBottom: true,
+    showInBottom: false,
     showInSide: true
   },  {
     id: 'new',

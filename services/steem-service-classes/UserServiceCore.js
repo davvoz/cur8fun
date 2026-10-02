@@ -72,34 +72,67 @@ export default class UserServiceCore {
         }
     }
 
-    async getFollowers(username) {
-        await this.core.ensureLibraryLoaded();
+    /**
+     * All followers of a user (every page, not just the node's first 1000).
+     * @param {string} username
+     * @param {Function} [onPage] - Called with each new page of entries as it arrives;
+     *   returning false stops loading further pages
+     */
+    async getFollowers(username, onPage = null) {
         try {
-            return await new Promise((resolve, reject) => {
-                this.core.steem.api.getFollowers(username, '', 'blog', 1000, (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result);
-                });
-            });
+            return await this._getAllFollowPages('getFollowers', 'follower', username, onPage);
         } catch (error) {
             console.error(`Error fetching followers for ${username}:`, error);
             throw error;
         }
     }
 
-    async getFollowing(username) {
-        await this.core.ensureLibraryLoaded();
+    /**
+     * All accounts a user follows (every page, not just the node's first 1000).
+     * @param {string} username
+     * @param {Function} [onPage] - Called with each new page of entries as it arrives;
+     *   returning false stops loading further pages
+     */
+    async getFollowing(username, onPage = null) {
         try {
-            return await new Promise((resolve, reject) => {
-                this.core.steem.api.getFollowing(username, '', 'blog', 1000, (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result);
-                });
-            });
+            return await this._getAllFollowPages('getFollowing', 'following', username, onPage);
         } catch (error) {
             console.error(`Error fetching following for ${username}:`, error);
             throw error;
         }
+    }
+
+    /**
+     * Walks get_followers/get_following pages. Each page after the first
+     * starts with the last account of the previous one, which is skipped
+     * along with any other account already returned.
+     */
+    async _getAllFollowPages(method, nameField, username, onPage) {
+        await this.core.ensureLibraryLoaded();
+        const PAGE_SIZE = 1000;
+        const all = [];
+        // The list can change while paging; never return an account twice
+        const seen = new Set();
+        let start = '';
+
+        for (;;) {
+            const page = await new Promise((resolve, reject) => {
+                this.core.steem.api[method](username, start, 'blog', PAGE_SIZE, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result || []);
+                });
+            });
+            const fresh = page.filter(entry => !seen.has(entry[nameField]));
+            if (fresh.length === 0) break;
+            fresh.forEach(entry => seen.add(entry[nameField]));
+
+            all.push(...fresh);
+            if (onPage && onPage(fresh) === false) break;
+            if (page.length < PAGE_SIZE) break;
+            start = page[page.length - 1][nameField];
+        }
+
+        return all;
     }
 
     /**

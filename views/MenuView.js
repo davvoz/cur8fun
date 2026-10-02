@@ -16,6 +16,14 @@ class MenuView extends View {
     const menuContainer = document.createElement('div');
     menuContainer.className = 'menu-container';
 
+    // ── Explore — sections not in the mobile bottom bar ───────────────────
+    menuContainer.appendChild(this.createCategory('Explore'));
+    const exploreGrid = document.createElement('div');
+    exploreGrid.className = 'menu-tools-grid';
+    exploreGrid.appendChild(this.createToolCard('/communities', 'groups',       'Communities', 'Discover Steem communities'));
+    exploreGrid.appendChild(this.createToolCard('/new',         'new_releases', 'New posts',   'The latest posts on Steem'));
+    menuContainer.appendChild(exploreGrid);
+
     // ── Tools — 2-col cards ───────────────────────────────────────────────
     menuContainer.appendChild(this.createCategory('Tools'));
     const toolsGrid = document.createElement('div');

@@ -8,6 +8,7 @@ import ProfileHeader from '../components/profile/ProfileHeader.js';
 import PostsList from '../components/profile/PostsList.js';
 import CommentsList from '../components/profile/CommentsList.js';
 import RepliesList from '../components/profile/RepliesList.js';
+import PingsList from '../components/profile/PingsList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
 import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js';
 
@@ -51,6 +52,8 @@ class ProfileView extends View {
     this.postsContainer = null;
     this.commentsContainer = null;
     this.repliesContainer = null;
+    this.pingsContainer = null;
+    this.pingsComponent = new PingsList(this.username);
     this.walletContainer = null;
     this.walletHistoryComponent = null;
     this.postsArea = null;
@@ -241,11 +244,10 @@ class ProfileView extends View {
     metaTagService.updateProfileMetaTags(this.profile);
 
     // Fetch follower and following counts
-    const followerCount = await profileService.getFollowerCount(this.username);
-    const followingCount = await profileService.getFollowingCount(this.username);
+    const { followers, following } = await profileService.getFollowCounts(this.username);
 
-    this.profile.followerCount = followerCount;
-    this.profile.followingCount = followingCount;
+    this.profile.followerCount = followers;
+    this.profile.followingCount = following;
   }
   
   renderProfile(container) {
@@ -327,6 +329,13 @@ class ProfileView extends View {
         null, []
       );
       this.loadComponentContent(this.repliesComponent, this.repliesContainer, 'comments');
+    } else if (this.currentTab === 'pings') {
+      this.updateContainerVisibility(
+        this.pingsContainer,
+        [this.blogContainer, this.postsContainer, this.commentsContainer, this.repliesContainer, this.walletContainer],
+        null, []
+      );
+      this.pingsComponent.render(this.pingsContainer);
     } else if (this.currentTab === 'wallet') {
       this.updateContainerVisibility(
         this.walletContainer,
@@ -349,6 +358,9 @@ class ProfileView extends View {
       && this.commentsContainer
       && this.repliesContainer
       && this.walletContainer
+      && this.pingsContainer
+      && this.pingsContainer.parentElement === postsArea
+      && this.pingsContainer.isConnected
       && this.blogContainer.parentElement === postsArea
       && this.postsContainer.parentElement === postsArea
       && this.commentsContainer.parentElement === postsArea
@@ -366,6 +378,7 @@ class ProfileView extends View {
     this.postsContainer = null;
     this.commentsContainer = null;
     this.repliesContainer = null;
+    this.pingsContainer = null;
     this.walletContainer = null;
     if (!postsArea) return;
     
@@ -387,11 +400,15 @@ class ProfileView extends View {
     this.repliesContainer.className = 'comments-list-container profile-replies-container profile-tab-panel';
     this.repliesContainer.style.width = '100%';
     
+    this.pingsContainer = document.createElement('div');
+    this.pingsContainer.className = 'profile-pings-container profile-tab-panel';
+    this.pingsContainer.style.width = '100%';
+
     this.walletContainer = document.createElement('div');
     this.walletContainer.className = 'wallet-list-container profile-wallet-container profile-tab-panel';
     this.walletContainer.style.width = '100%';
 
-    const containers = [this.blogContainer, this.postsContainer, this.commentsContainer, this.repliesContainer, this.walletContainer];
+    const containers = [this.blogContainer, this.postsContainer, this.commentsContainer, this.repliesContainer, this.pingsContainer, this.walletContainer];
     containers.forEach((container) => {
       container.classList.add('is-hidden');
       container.classList.remove('is-visible');
@@ -401,6 +418,7 @@ class ProfileView extends View {
     postsArea.appendChild(this.postsContainer);
     postsArea.appendChild(this.commentsContainer);
     postsArea.appendChild(this.repliesContainer);
+    postsArea.appendChild(this.pingsContainer);
     postsArea.appendChild(this.walletContainer);
   }
   
@@ -409,6 +427,11 @@ class ProfileView extends View {
   updateContainerVisibility(activeContainer, inactiveContainers, activeGridContainer, inactiveGridContainers) {
     if (activeContainer) {
       this.showContainer(activeContainer);
+    }
+
+    // The Pings panel isn't listed by the original tabs' callers
+    if (this.pingsContainer && this.pingsContainer !== activeContainer) {
+      this.hideContainer(this.pingsContainer);
     }
 
     inactiveContainers.forEach(container => {
@@ -480,7 +503,7 @@ class ProfileView extends View {
 
     try {
 
-      if (!this.blogContainer || !this.postsContainer || !this.commentsContainer || !this.repliesContainer || !this.walletContainer) {
+      if (!this.blogContainer || !this.postsContainer || !this.commentsContainer || !this.repliesContainer || !this.pingsContainer || !this.walletContainer) {
         this.initializeContainersIfNeeded(this.getPostsArea());
       }
     
@@ -543,6 +566,11 @@ class ProfileView extends View {
           }
           break;
         
+        case 'pings':
+          this.updateContainerVisibility(this.pingsContainer, [blog, posts, comments, replies, wallet], null, []);
+          this.pingsComponent.render(this.pingsContainer);
+          break;
+
         case 'wallet':
           this.updateContainerVisibility(wallet, [blog, posts, comments, replies], null, []);
           if (!this.walletHistoryComponent) {
@@ -704,6 +732,12 @@ class ProfileView extends View {
       this.commentsContainer = null;
     }
     
+    // Clean up pings component
+    if (this.pingsComponent) {
+      this.pingsComponent.unmount();
+      this.pingsContainer = null;
+    }
+
     // Clean up wallet component
     if (this.walletHistoryComponent) {
       this.walletHistoryComponent.destroy();

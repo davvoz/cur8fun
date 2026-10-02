@@ -476,24 +476,37 @@ class ProfileService {
         }
     }
 
-    async getFollowerCount(username) {
+    /**
+     * Exact follower/following counts. Counting the lists returned by
+     * getFollowers/getFollowing caps at 1000, the node's page size.
+     * @returns {Promise<{followers: number, following: number}>}
+     */
+    async getFollowCounts(username) {
         try {
-            const followers = await steemService.getFollowers(username);
-            return followers.length;
+            const result = await steemService.rpcCall('condenser_api.get_follow_count', [username]);
+            return {
+                followers: result?.follower_count || 0,
+                following: result?.following_count || 0
+            };
         } catch (error) {
-            console.error(`Error fetching follower count for ${username}:`, error);
-            return 0;
+            console.error(`Error fetching follow counts for ${username}:`, error);
+            return { followers: 0, following: 0 };
         }
+    }
+
+    async getFollowerCount(username) {
+        return (await this.getFollowCounts(username)).followers;
     }
 
     /**
      * Gets the complete list of followers for a user
      * @param {string} username - Username to get followers for
+     * @param {Function} [onPage] - Called with each page of followers as it loads
      * @returns {Promise<Array>} - Array of follower objects
      */
-    async getFollowersList(username) {
+    async getFollowersList(username, onPage = null) {
         try {
-            const followers = await steemService.getFollowers(username);
+            const followers = await steemService.getFollowers(username, onPage);
             return followers;
         } catch (error) {
             console.error(`Error fetching followers list for ${username}:`, error);
@@ -502,18 +515,18 @@ class ProfileService {
     }
 
     async getFollowingCount(username) {
-        try {
-            const following = await steemService.getFollowing(username);
-            return following.length;
-        } catch (error) {
-            console.error(`Error fetching following count for ${username}:`, error);
-            return 0;
-        }
+        return (await this.getFollowCounts(username)).following;
     }
 
-    async getFollowingList(username) {
+    /**
+     * Gets the complete list of accounts a user follows
+     * @param {string} username
+     * @param {Function} [onPage] - Called with each page of accounts as it loads
+     * @returns {Promise<Array>} - Array of following objects
+     */
+    async getFollowingList(username, onPage = null) {
         try {
-            const following = await steemService.getFollowing(username);
+            const following = await steemService.getFollowing(username, onPage);
             return following;
         } catch (error) {
             console.error(`Error fetching following list for ${username}:`, error);

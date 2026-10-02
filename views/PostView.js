@@ -21,6 +21,7 @@ import CommentController from '../controllers/CommentController.js';
 import PostReblogHandler from '../components/post/PostReblogHandler.js';
 import DialogUtility from '../components/DialogUtility.js';
 import reblogService from '../services/ReblogService.js';
+import { PINGS_CONFIG } from '../config/pings.js';
 
 class PostView extends View {  constructor(params = {}) {
     super(params);
@@ -199,6 +200,14 @@ class PostView extends View {  constructor(params = {}) {
 
       if (!post || post.id === 0) {
         throw new Error('not_found');
+      }
+
+      // Pings (and the walls holding them) have their own Twitter-style view;
+      // this catches links from notifications, profile comments and other apps
+      if (post.root_author === PINGS_CONFIG.wallAccount) {
+        const target = post.depth > 0 ? `${PINGS_CONFIG.path}/@${author}/${permlink}` : PINGS_CONFIG.path;
+        router.navigate(target, {}, true);
+        return;
       }
 
       this.post = post;

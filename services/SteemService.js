@@ -345,12 +345,12 @@ class SteemService {
         });
     }
 
-    async getFollowers(username) {
-        return this.userService.getFollowers(username);
+    async getFollowers(username, onPage = null) {
+        return this.userService.getFollowers(username, onPage);
     }
 
-    async getFollowing(username) {
-        return this.userService.getFollowing(username);
+    async getFollowing(username, onPage = null) {
+        return this.userService.getFollowing(username, onPage);
     }
     
     /**

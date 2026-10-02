@@ -27,6 +27,8 @@ import SettingsView from './views/SettingsView.js';
 import MenuView from './views/MenuView.js';
 import FAQView from './views/FAQView.js';
 import NewReleasesView from './views/NewReleasesView.js'; // Importo la nuova vista
+import PingsView from './views/PingsView.js';
+import PingThreadView from './views/PingThreadView.js';
 
 // Community views
 import CommunityView from './views/CommunityView.js';
@@ -67,6 +69,9 @@ router
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
   .addRoute('/communities', CommunitiesListView)
+  .addRoute('/pings', PingsView)
+  .addRoute('/pings/tag/:tag', PingsView)
+  .addRoute('/pings/@:author/:permlink', PingThreadView)
   .addRoute('/witnesses', WitnessesView)
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .addRoute('/menu', MenuView)

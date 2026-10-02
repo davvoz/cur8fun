@@ -126,7 +126,7 @@ class Router {
     // Save scroll state for the page we are LEAVING (keyed by currentPath)
     // Only do this for pages with a post list. Other pages (PostView etc.) are ignored.
     if (!replaceState && this.currentPath) {
-      const cards = document.querySelectorAll('.posts-container .post-card');
+      const cards = document.querySelectorAll('.posts-container .post-card, .pings-list .ping-card');
       if (cards.length > 0) {
         const mainContent = document.getElementById('main-content');
         const scrollTop = mainContent ? mainContent.scrollTop : 0;

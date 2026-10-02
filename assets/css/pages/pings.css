@@ -1,0 +1,774 @@
+/* Pings — microblogging feed */
+
+.pings-page {
+  /* Full width even before content loads: auto margins alone would
+     shrink it to its content inside the layout grid */
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-md) 0 var(--space-xxl);
+}
+
+/* ---------- Header & tabs ---------- */
+.pings-header,
+.pings-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--background);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pings-title-row,
+.pings-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.pings-title-row {
+  justify-content: space-between;
+}
+
+.pings-title--grow {
+  flex: 1;
+}
+
+.pings-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.pings-tabs {
+  display: flex;
+}
+
+.pings-tab {
+  flex: 1;
+  padding: var(--space-sm) 0 calc(var(--space-sm) + 2px);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pings-tab:hover {
+  color: var(--text-color);
+  background: var(--background-hover);
+}
+
+.pings-tab.active {
+  color: var(--text-heading);
+  border-bottom-color: var(--primary-color);
+}
+
+/* ---------- Buttons ---------- */
+.ping-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ping-icon-btn:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+
+.ping-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ping-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 18px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.ping-btn--primary {
+  background: var(--primary-color);
+  color: var(--text-on-primary);
+}
+
+.ping-btn--primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.ping-btn--ghost {
+  background: none;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.ping-btn--ghost:hover {
+  background: var(--background-hover);
+}
+
+.ping-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Composer ---------- */
+.ping-composer {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ping-composer--guest {
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+
+.ping-composer--guest p {
+  margin: 0;
+}
+
+.ping-composer-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ping-composer-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ping-composer-input {
+  width: 100%;
+  min-height: 52px;
+  max-height: 320px;
+  padding: var(--space-sm) 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text-color);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.ping-composer-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ping-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.ping-composer-attachments:not(:empty) {
+  margin: var(--space-sm) 0;
+}
+
+.ping-attachment {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--background-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.ping-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ping-attachment.is-uploading .material-icons {
+  animation: spin 1.2s linear infinite;
+}
+
+.ping-attachment-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  cursor: pointer;
+}
+
+.ping-attachment-remove .material-icons {
+  font-size: 16px;
+}
+
+.ping-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.ping-composer-spacer {
+  flex: 1;
+}
+
+.ping-composer-counter {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ping-composer-counter.is-warning {
+  color: var(--warning-color);
+}
+
+.ping-composer-counter.is-over {
+  color: var(--error-color);
+  font-weight: 700;
+}
+
+/* ---------- Card ---------- */
+.ping-card {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ping-card:hover {
+  background: var(--background-light);
+}
+
+.ping-card--focused {
+  cursor: default;
+}
+
+.ping-card--focused:hover {
+  background: none;
+}
+
+.ping-card--focused .ping-text {
+  font-size: 1.2rem;
+}
+
+.ping-card--new {
+  animation: pingSlideIn 0.35s ease;
+}
+
+@keyframes pingSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ping-avatar img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.ping-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ping-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ---------- Owner menu ---------- */
+.ping-menu-wrap {
+  position: relative;
+  margin-left: auto;
+  align-self: center;
+}
+
+.ping-menu-btn {
+  width: 30px;
+  height: 30px;
+  margin: -6px -6px -6px 0;
+  color: var(--text-secondary);
+}
+
+.ping-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  min-width: 150px;
+  padding: var(--space-xs) 0;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--popup-box-shadow);
+}
+
+.ping-menu[hidden] {
+  display: none;
+}
+
+.ping-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  background: none;
+  color: var(--text-color);
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ping-menu-item .material-icons {
+  font-size: 18px;
+}
+
+.ping-menu-item:hover:not(:disabled) {
+  background: var(--background-hover);
+}
+
+.ping-menu-item--danger {
+  color: var(--error-color);
+}
+
+.ping-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ping-composer--inline {
+  padding: 0;
+  border-bottom: none;
+}
+
+.ping-author {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text-heading);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ping-author:hover {
+  text-decoration: underline;
+}
+
+.ping-dot,
+.ping-time {
+  color: var(--text-secondary);
+}
+
+.ping-replying-to {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.ping-replying-to a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.ping-text {
+  margin-top: 2px;
+  color: var(--text-color);
+  font-size: 1rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ping-text a,
+.ping-hashtag {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.ping-text a:hover,
+.ping-hashtag:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Media grid ---------- */
+.ping-media {
+  display: grid;
+  gap: 2px;
+  margin-top: var(--space-sm);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.ping-media--2,
+.ping-media--4 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ping-media--3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.ping-media--3 .ping-media-item:first-child {
+  grid-row: span 2;
+}
+
+.ping-media-item {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: var(--background-light);
+  cursor: zoom-in;
+}
+
+.ping-media--1 .ping-media-item {
+  max-height: 510px;
+}
+
+.ping-media--2 .ping-media-item,
+.ping-media--3 .ping-media-item,
+.ping-media--4 .ping-media-item {
+  aspect-ratio: 1;
+}
+
+/* ---------- Actions ---------- */
+/* Shared post-card action markup (.post-actions); drop the fixed height and
+   divider it has inside grid cards */
+.ping-card .post-actions {
+  height: auto;
+  margin-top: var(--space-sm);
+  padding: 0;
+  border-top: none;
+  gap: var(--space-xl);
+}
+
+.ping-actions[hidden] {
+  display: none;
+}
+
+.ping-card .comment-action {
+  text-decoration: none;
+  color: var(--text-color-secondary);
+}
+
+.ping-share-action:hover {
+  color: var(--primary-color);
+}
+
+/* ---------- Thread ---------- */
+.pings-parent-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pings-parent-link:hover {
+  background: var(--background-light);
+}
+
+.ping-reply-nested {
+  margin-left: calc(var(--space-md) + 22px);
+  border-left: 2px solid var(--border-color);
+}
+
+.ping-reply-nested .ping-card {
+  padding-left: var(--space-sm);
+}
+
+/* ---------- Status ---------- */
+.pings-status {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.pings-status--error {
+  color: var(--error-color);
+}
+
+.pings-scroll-area .loading-indicator,
+.pings-scroll-area .end-message {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .pings-page {
+    padding-top: 0;
+  }
+
+  .ping-card,
+  .ping-composer {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .ping-avatar img,
+  .ping-composer-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .ping-reply-nested {
+    margin-left: var(--space-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ping-card--new,
+  .ping-attachment.is-uploading .material-icons {
+    animation: none;
+  }
+}
+
+/* ---------- Desktop layout: profile | feed | trends ---------- */
+.pings-layout {
+  container-type: inline-size;
+}
+
+.pings-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+  gap: var(--space-lg);
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.pings-aside {
+  display: none;
+}
+
+.pings-aside-inner {
+  position: sticky;
+  top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+@container (min-width: 920px) {
+  .pings-layout-grid {
+    grid-template-columns: minmax(0, 620px) 290px;
+    padding: 0 var(--space-md);
+  }
+
+  .pings-aside--right {
+    display: block;
+  }
+}
+
+@container (min-width: 1200px) {
+  .pings-layout-grid {
+    grid-template-columns: 270px minmax(0, 620px) 290px;
+  }
+
+  .pings-aside--left {
+    display: block;
+  }
+}
+
+.pings-side-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  overflow: hidden;
+}
+
+.pings-side-card[hidden] {
+  display: none;
+}
+
+.pings-card-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.pings-card-subtitle {
+  margin: 2px 0 var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pings-card-text {
+  margin: var(--space-sm) 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Join card (logged out) */
+.pings-join-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* Profile card */
+.pings-profile-card {
+  padding: 0;
+}
+
+.pings-profile-cover {
+  display: block;
+  height: 96px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  background-size: cover;
+  background-position: center;
+}
+
+.pings-profile-avatar {
+  display: block;
+  width: 76px;
+  height: 76px;
+  margin: -38px 0 0 var(--space-lg);
+  border-radius: 50%;
+  border: 4px solid var(--surface-color);
+  overflow: hidden;
+  background: var(--surface-color);
+}
+
+.pings-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pings-profile-body {
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+}
+
+.pings-profile-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  text-decoration: none;
+}
+
+.pings-profile-about {
+  margin: var(--space-xs) 0 var(--space-md);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-color);
+  overflow-wrap: anywhere;
+}
+
+.pings-profile-about:empty {
+  display: none;
+}
+
+.pings-profile-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.pings-stat-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pings-stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+/* Trends */
+.pings-trend,
+.pings-author-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 calc(-1 * var(--space-lg));
+  padding: var(--space-sm) var(--space-lg);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.pings-trend:hover,
+.pings-author-row:hover {
+  background: var(--background-hover);
+}
+
+.pings-trend-tag,
+.pings-author-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pings-trend-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pings-authors-list {
+  margin-top: var(--space-sm);
+}
+
+.pings-author-row img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}

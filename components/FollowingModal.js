@@ -6,6 +6,8 @@ class FollowingModal {
         this.modalElement = null;
         this.username = null;
         this.following = [];
+        this.total = null;
+        this.loadToken = 0;
         this.isLoading = false;
         this.error = null;
         
@@ -89,26 +91,44 @@ class FollowingModal {
             this.modalElement.classList.add('visible');
         }, 10);
         
-        // Reset state
+        // Reset state; the token drops pages of a previous, slower request
+        const token = ++this.loadToken;
         this.following = [];
+        this.total = null;
         this.isLoading = true;
         this.error = null;
+        this.modalElement.querySelector('.following-list').innerHTML = '';
         this.updateUI();
-        
-        // Fetch following accounts
+
+        profileService.getFollowCounts(username).then(counts => {
+            if (token !== this.loadToken) return;
+            this.total = counts.following;
+            this.updateUI();
+        });
+
+        // Pages are rendered as they arrive: large accounts span many pages
         try {
-            this.following = await profileService.getFollowingList(username);
+            await profileService.getFollowingList(username, (page) => {
+                if (token !== this.loadToken) return false; // closed or reopened: stop paging
+                this.appendItems(page);
+                this.updateUI();
+            });
+            if (token !== this.loadToken) return;
             this.isLoading = false;
             this.updateUI();
         } catch (error) {
+            if (token !== this.loadToken) return;
             console.error('Error fetching following accounts:', error);
             this.isLoading = false;
-            this.error = 'Failed to load following accounts. Please try again later.';
+            this.error = 'Failed to load. Please try again later.';
             this.updateUI();
         }
     }
     
     close() {
+        // Stop rendering (and fetching) pages of a list still loading
+        this.loadToken++;
+
         // Start animation
         this.modalElement.classList.remove('visible');
         
@@ -130,8 +150,14 @@ class FollowingModal {
         const errorElement = this.modalElement.querySelector('.following-error');
         const listElement = this.modalElement.querySelector('.following-list');
         
-        // Show/hide loading state
+        // Show/hide loading state, with progress once pages start arriving
         loadingElement.style.display = this.isLoading ? 'block' : 'none';
+        if (this.isLoading) {
+            const loaded = this.following.length;
+            loadingElement.textContent = loaded === 0
+                ? 'Loading accounts...'
+                : `Loading accounts... ${loaded.toLocaleString('en-US')}${this.total ? ` of ${this.total.toLocaleString('en-US')}` : ''}`;
+        }
         
         // Show/hide error
         errorElement.style.display = this.error ? 'block' : 'none';
@@ -139,28 +165,39 @@ class FollowingModal {
             errorElement.textContent = this.error;
         }
         
-        // Update following list
-        if (!this.isLoading && !this.error && this.following.length > 0) {
-            listElement.innerHTML = this.following.map(following => `
-                <div class="following-item" data-username="${following.following}">
-                    <img class="following-avatar" src="https://steemitimages.com/u/${following.following}/avatar" alt="${following.following}">
-                    <div class="following-username">@${following.following}</div>
-                </div>
-            `).join('');
-            
-            // Add click handlers to all following items
-            const followingItems = listElement.querySelectorAll('.following-item');
-            followingItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const username = item.getAttribute('data-username');
-                    const sanitizedUsername = encodeURIComponent(username);
-                    this.navigateToProfile(sanitizedUsername);
-                });
-            });
-        } else if (!this.isLoading && !this.error) {
-            // No following found
+        if (!this.isLoading && !this.error && this.following.length === 0) {
             listElement.innerHTML = `<div class="no-following">@${this.username} is not following anyone</div>`;
         }
+    }
+
+    appendItems(entries) {
+        const listElement = this.modalElement.querySelector('.following-list');
+        const fragment = document.createDocumentFragment();
+
+        entries.forEach(entry => {
+            const username = entry.following;
+            this.following.push(entry);
+
+            const item = document.createElement('div');
+            item.className = 'following-item';
+            item.dataset.username = username;
+
+            const avatar = document.createElement('img');
+            avatar.className = 'following-avatar';
+            avatar.src = `https://steemitimages.com/u/${username}/avatar`;
+            avatar.alt = username;
+            avatar.loading = 'lazy';
+
+            const name = document.createElement('div');
+            name.className = 'following-username';
+            name.textContent = '@' + username;
+
+            item.append(avatar, name);
+            item.addEventListener('click', () => this.navigateToProfile(username));
+            fragment.appendChild(item);
+        });
+
+        listElement.appendChild(fragment);
     }
     
     /**
