@@ -15,7 +15,7 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--background);
+  background: var(--background-color);
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -278,6 +278,22 @@
   cursor: default;
 }
 
+.ping-card--focused .ping-media-item {
+  cursor: zoom-in;
+}
+
+/* The inline vote bar copies the first opaque background above it, which on
+   hover is the card tint: pin it to the page background instead, and drop the
+   tint while the bar is open */
+.ping-card .vote-inline-fill {
+  background: var(--background-color) !important;
+}
+
+.ping-card:has(.vote-inline-bar),
+.ping-card:has(.vote-inline-bar):hover {
+  background: transparent;
+}
+
 .ping-card--focused:hover {
   background: none;
 }
@@ -293,6 +309,12 @@
 @keyframes pingSlideIn {
   from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: none; }
+}
+
+.ping-avatar {
+  /* Only the photo is a link, not the whole left column of the card */
+  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .ping-avatar img {
@@ -462,7 +484,6 @@
   display: block;
   object-fit: cover;
   background: var(--background-light);
-  cursor: zoom-in;
 }
 
 .ping-media--1 .ping-media-item {
@@ -589,11 +610,32 @@
 
 .pings-aside-inner {
   position: sticky;
-  top: var(--space-md);
+  top: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding-top: var(--space-md);
+  padding: var(--space-md) 2px var(--space-md) 0;
+  /* Taller than the screen (many trends): scroll on its own instead of
+     waiting for the feed to end */
+  max-height: calc(100vh - var(--nav-height));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+/* Cards keep their height; the column scrolls instead */
+.pings-aside-inner > * {
+  flex-shrink: 0;
+}
+
+.pings-aside-inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pings-aside-inner::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
 
 @container (min-width: 920px) {
@@ -771,4 +813,46 @@
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+/* ---------- Full-screen image ---------- */
+.ping-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: rgba(0, 0, 0, 0.9);
+  cursor: zoom-out;
+  animation: pingFadeIn 0.15s ease;
+}
+
+.ping-image-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+.ping-image-viewer-close {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+}
+
+@keyframes pingFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

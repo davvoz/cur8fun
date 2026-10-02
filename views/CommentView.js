@@ -15,6 +15,7 @@ import CommentsSection from '../components/post/CommentsSection.js';
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
 import DialogUtility from '../components/DialogUtility.js';
+import pingsService from '../services/PingsService.js';
 
 /**
  * Vista dedicata alla visualizzazione di un singolo commento
@@ -153,6 +154,14 @@ export default class CommentView extends View {
 
       if (!comment || comment.id === 0) {
         throw new Error('not_found');
+      }
+
+      // Pings have their own thread view (links from notifications, profiles…)
+      const pingsPath = pingsService.getRedirectPath(comment);
+      if (pingsPath) {
+        this.loadingIndicator.hide();
+        router.navigate(pingsPath, {}, true);
+        return;
       }
 
       this.comment = comment;

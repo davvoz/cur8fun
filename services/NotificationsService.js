@@ -3,8 +3,15 @@ import eventEmitter from '../utils/EventEmitter.js';
 import steemService from './SteemService.js';
 import walletService from './WalletService.js';
 import { TYPES } from '../models/Notification.js';
+import { PINGS_CONFIG } from '../config/pings.js';
 
 const STEEMWORLD_API = 'https://sds.steemworld.org';
+
+// Content written on cur8.fun under a wall carries the wall permlink
+// (pings-YYYYMMDD) in its own permlink, so it needs no lookup
+const PING_PERMLINK_RE = /(^|-)pings-\d{8}/;
+const PING_CONTENT_TYPES = new Set([TYPES.VOTE, TYPES.REPLY, TYPES.MENTION]);
+const PING_LOOKUP_TIMEOUT_MS = 2500;
 
 /**
  * Service for managing user notifications via the SteemWorld API.
@@ -25,6 +32,7 @@ class NotificationsService {
         this._lastReadTimestamp = new Map(); // per-user cached lastRead cutoff (ISO) derived from SW data
         this._vestsRate = null;     // VESTS → SP conversion rate (totalSteem / totalVests)
         this._vestsRateTime = 0;    // timestamp of last _vestsRate fetch
+        this._pingContentCache = new Map(); // "author/permlink" -> belongs to Pings?
     }
 
     // â”€â”€â”€ SteemWorld API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -229,7 +237,9 @@ class NotificationsService {
             const filtered = allNotifications.filter(n => n.type === type);
             const start = (page - 1) * limit;
             const end   = start + limit;
-            return { notifications: this._applyLocalRead(username, filtered.slice(start, end)), hasMore: end < filtered.length };
+            const notifications = this._applyLocalRead(username, filtered.slice(start, end));
+            await this._annotatePings(notifications);
+            return { notifications, hasMore: end < filtered.length };
         }
 
         // ALL type: progressively merge wallet events as the user scrolls
@@ -260,10 +270,55 @@ class NotificationsService {
         // Re-compute badge now that wallet state is warmer (no-await, fire-and-forget)
         this.updateUnreadCount().catch(() => {});
 
+        const notifications = this._applyLocalRead(username, merged.slice(start, end));
+        await this._annotatePings(notifications);
+
         return {
-            notifications: this._applyLocalRead(username, merged.slice(start, end)),
+            notifications,
             hasMore: end < merged.length || !state.complete
         };
+    }
+
+    /**
+     * Flags (isPing) the votes, replies and mentions whose content lives under
+     * a Pings wall, so the view can label and link them as pings.
+     * SteemWorld doesn't return the root post, so unknown comments are looked
+     * up once (cached for the session).
+     */
+    async _annotatePings(items) {
+        const pending = new Map(); // key -> notifications waiting for the lookup
+
+        for (const n of items) {
+            if (!PING_CONTENT_TYPES.has(n.type) || !n.permlink || !(n.linkDepth > 0)) continue;
+            const key = `${n.author}/${n.permlink}`;
+            if (PING_PERMLINK_RE.test(n.permlink)) {
+                n.isPing = true;
+            } else if (this._pingContentCache.has(key)) {
+                n.isPing = this._pingContentCache.get(key);
+            } else {
+                if (!pending.has(key)) pending.set(key, []);
+                pending.get(key).push(n);
+            }
+        }
+        if (pending.size === 0) return;
+
+        const lookups = [...pending.entries()].map(async ([key, list]) => {
+            const [author, permlink] = key.split('/');
+            try {
+                const content = await steemService.rpcCall('condenser_api.get_content', [author, permlink]);
+                const isPing = content?.root_author === PINGS_CONFIG.wallAccount;
+                this._pingContentCache.set(key, isPing);
+                list.forEach(n => { n.isPing = isPing; });
+            } catch {
+                // Left unflagged; retried on the next load
+            }
+        });
+
+        // Don't hold the notifications page on a slow node
+        await Promise.race([
+            Promise.all(lookups),
+            new Promise(resolve => setTimeout(resolve, PING_LOOKUP_TIMEOUT_MS))
+        ]);
     }
 
     /** Stable unique ID for a notification (used for deduplication in the view). */

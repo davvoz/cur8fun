@@ -162,7 +162,7 @@ export function createPingCard(ping, options = {}) {
   // The whole card opens the thread, except interactive children
   if (!focused) {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('a, button, input, textarea, img.ping-media-item, .vote-inline-bar, .ping-composer')) return;
+      if (e.target.closest('a, button, input, textarea, .vote-inline-bar, .ping-composer')) return;
       if (window.getSelection()?.toString()) return;
       router.navigate(getPingUrl(ping));
     });
@@ -349,11 +349,47 @@ function createMediaGrid(images) {
       this.onerror = null;
       this.src = proxifyImage(url, 640);
     };
-    img.addEventListener('click', () => window.open(url, '_blank', 'noopener'));
+    // In the feed the image opens the ping like the rest of the card;
+    // on the ping's own page it opens full screen
+    img.addEventListener('click', (e) => {
+      if (!img.closest('.ping-card--focused')) return;
+      e.stopPropagation();
+      openImageViewer(img.src);
+    });
     grid.appendChild(img);
   });
 
   return grid;
+}
+
+function openImageViewer(src) {
+  const overlay = document.createElement('div');
+  overlay.className = 'ping-image-viewer';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Image');
+
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = '';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'ping-image-viewer-close';
+  closeBtn.title = 'Close';
+  closeBtn.innerHTML = '<span class="material-icons">close</span>';
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+  };
+
+  overlay.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  overlay.append(img, closeBtn);
+  document.body.appendChild(overlay);
 }
 
 function createActions(ping, voteController) {

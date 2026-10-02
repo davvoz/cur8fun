@@ -266,6 +266,19 @@ class PingsService {
     ]);
   }
 
+  /**
+   * Where a Steem post/comment should open if it belongs to Pings: the wall
+   * itself opens the feed, anything below it opens its ping thread.
+   * @param {Object} content - Condenser post object (needs root_author/depth)
+   * @returns {string|null} Path, or null for regular content
+   */
+  getRedirectPath(content) {
+    if (!content || content.root_author !== PINGS_CONFIG.wallAccount) return null;
+    return content.depth > 0
+      ? `${PINGS_CONFIG.path}/@${content.author}/${content.permlink}`
+      : PINGS_CONFIG.path;
+  }
+
   isOwn(ping) {
     return authService.getCurrentUser()?.username === ping.author;
   }

@@ -2,6 +2,7 @@ import notificationsService from '../services/NotificationsService.js';
 import authService from '../services/AuthService.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import { TYPES } from '../models/Notification.js';
+import { PINGS_CONFIG } from '../config/pings.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
 
@@ -288,7 +289,11 @@ class NotificationsView {
         let contentHtml = '';
         let targetHref  = null;
 
-        switch (type) {
+        // Votes, replies and mentions on Pings (flagged by NotificationsService)
+        if (notification.isPing) {
+            ({ contentHtml, targetHref } = this.getPingNotificationContent(notification));
+            element.classList.add('ping');
+        } else switch (type) {
             case TYPES.VOTE: {
                 const isVoteOnComment = notification.linkDepth > 0;
                 targetHref  = isVoteOnComment
@@ -380,6 +385,31 @@ class NotificationsView {
         return element;
     }
     
+    /**
+     * Text and link for a notification about a ping. A depth-1 comment is a
+     * ping itself; deeper ones are replies inside a ping thread.
+     */
+    getPingNotificationContent(notification) {
+        const { account, author, permlink, type, linkDepth } = notification;
+        const targetHref = `${PINGS_CONFIG.path}/@${author}/${permlink}`;
+        const user = `<a href="/@${account}" class="user">${account}</a>`;
+        const link = (label) => `<a href="${targetHref}" class="content-link">${label}</a>`;
+        const isPing = linkDepth === 1;
+
+        let contentHtml;
+        if (type === TYPES.VOTE) {
+            const voteVal = notificationsService.rsharesToDollarString(notification.rshares);
+            const valStr  = voteVal ? ` <span class="vote-value ${notification.rshares >= 0 ? 'positive' : 'negative'}">${voteVal}</span>` : '';
+            contentHtml = `${user} voted your ${link(isPing ? 'ping' : 'reply')}${valStr}`;
+        } else if (type === TYPES.REPLY) {
+            // The notified content is the reply: depth 2 answers a ping directly
+            contentHtml = `${user} ${link('replied')} to your ${linkDepth === 2 ? 'ping' : 'reply'}`;
+        } else {
+            contentHtml = `${user} mentioned you in a ${link(isPing ? 'ping' : 'reply')}`;
+        }
+        return { contentHtml, targetHref };
+    }
+
     getIconForType(notification) {
         if (notification.type === TYPES.VOTE) {
             return notification.rshares >= 0 ? 'thumb_up' : 'thumb_down';
