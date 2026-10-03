@@ -1,5 +1,6 @@
 import profileService from '../services/ProfileService.js';
 import router from '../utils/Router.js';
+import { resizeSmoothly } from '../utils/animateResize.js';
 
 class FollowingModal {
     constructor() {
@@ -110,18 +111,20 @@ class FollowingModal {
         try {
             await profileService.getFollowingList(username, (page) => {
                 if (token !== this.loadToken) return false; // closed or reopened: stop paging
-                this.appendItems(page);
-                this.updateUI();
+                this.updateSmoothly(() => {
+                    this.appendItems(page);
+                    this.updateUI();
+                });
             });
             if (token !== this.loadToken) return;
             this.isLoading = false;
-            this.updateUI();
+            this.updateSmoothly(() => this.updateUI());
         } catch (error) {
             if (token !== this.loadToken) return;
             console.error('Error fetching following accounts:', error);
             this.isLoading = false;
             this.error = 'Failed to load. Please try again later.';
-            this.updateUI();
+            this.updateSmoothly(() => this.updateUI());
         }
     }
     
@@ -141,6 +144,14 @@ class FollowingModal {
         }, 300); // Match the CSS transition duration
     }
     
+    /**
+     * Applies a content change letting the modal grow (or shrink) smoothly,
+     * as pages of the list arrive one after the other
+     */
+    updateSmoothly(change) {
+        resizeSmoothly(this.modalElement.querySelector('.following-modal-content'), change);
+    }
+
     isOpen() {
         return this.modalElement.style.display === 'flex' || this.modalElement.style.display === 'block';
     }

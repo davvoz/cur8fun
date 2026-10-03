@@ -1,4 +1,5 @@
 import router from '../../utils/Router.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 
 class VotesPopup {
   static popupCounter = 0;
@@ -206,7 +207,10 @@ class VotesPopup {
     if (!this.contentContainer || !this.popup || !document.body.contains(this.popup)) return;
 
     const nextContent = this.createPopupContent();
-    this.contentContainer.replaceWith(nextContent);
+    // The popup grows from the loading placeholder to the list
+    resizeSmoothly(this.popup, () => {
+      this.contentContainer.replaceWith(nextContent);
+    }, { fade: nextContent });
     this.contentContainer = nextContent;
   }
 

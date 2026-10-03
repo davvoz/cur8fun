@@ -5,6 +5,7 @@ import { TYPES } from '../models/Notification.js';
 import { PINGS_CONFIG } from '../config/pings.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import { revealSmoothly } from '../utils/animateResize.js';
 
 class NotificationsView {
     constructor(params) {
@@ -125,6 +126,7 @@ class NotificationsView {
         
         // Load initial notifications
         await this.loadNotifications(1, 30);
+        this.lastRefresh = Date.now();
         
         // Setup infinite scroll after a short delay to ensure content is rendered
         setTimeout(() => {
@@ -200,9 +202,9 @@ class NotificationsView {
         }
         
         this.loading = true;
-        
-        if (page === 1) {
-            this.showLoading();
+
+        if (page === 1 && this.notifications.length === 0) {
+            this.showSkeletons();
         }
         
         try {
@@ -569,6 +571,57 @@ class NotificationsView {
         }
     }
     
+    /**
+     * Placeholder rows shaped like notifications, shown while the first page
+     * loads, so the list fills in place instead of popping in under a spinner
+     */
+    showSkeletons(count = 8) {
+        if (!this.notificationsContainer) return;
+        this.emptyState.style.display = 'none';
+        this.notificationsContainer.style.display = 'block';
+        this.notificationsContainer.innerHTML = Array.from({ length: count }, () => `
+            <div class="notification notification-skeleton" aria-hidden="true">
+                <div class="notification-icon"><div class="sk-block" style="width:24px;height:24px;border-radius:50%"></div></div>
+                <div class="notification-content">
+                    <div class="sk-block" style="width:65%;height:14px;border-radius:5px;margin-bottom:8px"></div>
+                    <div class="sk-block" style="width:22%;height:12px;border-radius:5px"></div>
+                </div>
+            </div>`).join('');
+    }
+
+    /**
+     * Shown again after being kept alive by the router: the list stays as it
+     * was and only notifications that arrived meanwhile slide in on top
+     */
+    async onActivate() {
+        if (this.loading || !this.notificationsContainer) return;
+        if (Date.now() - (this.lastRefresh || 0) < 30 * 1000) return;
+        this.lastRefresh = Date.now();
+
+        try {
+            const { notifications } = this.activeFilter === TYPES.WALLET
+                ? await notificationsService.getWalletNotifications(1, 30, true)
+                : await notificationsService.getNotifications(this.activeFilter, 1, 30, true);
+            if (!this.notificationsContainer.isConnected) return;
+
+            const fresh = notifications.filter(notification =>
+                !this.renderedNotificationIds.has(notificationsService.generateNotificationId(notification)));
+            if (fresh.length === 0) return;
+
+            // Oldest first, each one prepended: the newest ends up on top
+            [...fresh].reverse().forEach(notification => {
+                this.renderedNotificationIds.add(notificationsService.generateNotificationId(notification));
+                const element = this.createNotificationElement(notification);
+                this.notificationsContainer.prepend(element);
+                revealSmoothly(element);
+            });
+            this.notifications = [...fresh, ...this.notifications];
+            this.updateEmptyState();
+        } catch (error) {
+            console.warn('NotificationsView: background refresh failed', error);
+        }
+    }
+
     showLoading() {
         if (this.loadingIndicator) {
             this.loadingIndicator.style.display = 'flex';

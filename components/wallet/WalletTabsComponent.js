@@ -1,4 +1,5 @@
 import Component from '../Component.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 import TransferTab from './tabs/TransferTab.js';
 import PowerManagementTab from './tabs/PowerManagementTab.js';
 import DelegationTab from './tabs/DelegationTab.js';
@@ -79,12 +80,15 @@ export default class WalletTabsComponent extends Component {
       this.initializeTab(tabName);
     }
     
-    // Hide all tabs and show the selected one
-    Object.keys(this.tabs).forEach(key => {
-      if (this.tabs[key].element) {
-        this.tabs[key].element.classList.toggle('active', key === tabName);
-      }
-    });
+    // Hide all tabs and show the selected one; the area resizes smoothly
+    // to the new tab and its content fades in
+    resizeSmoothly(this.tabContent, () => {
+      Object.keys(this.tabs).forEach(key => {
+        if (this.tabs[key].element) {
+          this.tabs[key].element.classList.toggle('active', key === tabName);
+        }
+      });
+    }, { fade: this.tabs[tabName]?.element });
     
     this.activeTab = tabName;
   }

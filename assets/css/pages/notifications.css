@@ -621,6 +621,13 @@
     }
 }
 
+/* Placeholder rows shown while the first page loads */
+.notification.notification-skeleton {
+    cursor: default;
+    pointer-events: none;
+    animation: none;
+}
+
 /* Animations */
 @keyframes notification-fade-in {
     from { opacity: 0; transform: translateY(10px); }

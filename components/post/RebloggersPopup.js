@@ -1,5 +1,6 @@
 import reblogService from '../../services/ReblogService.js';
 import router from '../../utils/Router.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 
 class RebloggersPopup {
   static popupCounter = 0;
@@ -150,15 +151,19 @@ class RebloggersPopup {
     const content = this.popup.querySelector('.rebloggers-popup-content');
     if (!content) return;
 
-    content.innerHTML = '';
+    // The popup grows from the loading placeholder to the list
+    resizeSmoothly(this.popup, () => {
+      content.replaceChildren(this.createRebloggersContent(rebloggers));
+    }, { fade: content });
+  }
 
+  createRebloggersContent(rebloggers) {
     if (!Array.isArray(rebloggers) || rebloggers.length === 0) {
-      content.appendChild(this.createElement('p', 'no-rebloggers', {
+      return this.createElement('p', 'no-rebloggers', {
         color: 'var(--text-muted)',
         textAlign: 'center',
         padding: 'var(--space-md)'
-      }, 'No reblogs on this post yet.'));
-      return;
+      }, 'No reblogs on this post yet.');
     }
 
     const list = this.createElement('ul', 'rebloggers-list', {
@@ -171,7 +176,7 @@ class RebloggersPopup {
       list.appendChild(this.createRebloggerItem(username));
     });
 
-    content.appendChild(list);
+    return list;
   }
 
   createRebloggerItem(username) {

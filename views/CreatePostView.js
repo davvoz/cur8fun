@@ -1791,6 +1791,7 @@ class CreatePostView extends View {  constructor(params = {}) {
         };
 
         await createPostService.updateScheduledPost(this.scheduledPostId, username, updatedData);
+        this.submitted = true;
 
         // Clear the local working copy of this scheduled post
         createPostService.clearDraft();
@@ -1835,6 +1836,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       }
 
       await createPostService.createPost(postData, options);
+      this.submitted = true;
 
       if (this.isScheduled) {
         this.showStatus('Post scheduled successfully!', 'success');
@@ -2353,7 +2355,16 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.keyDownHandler = null;
     }
 
-    // Tear down advanced-options + schedule modals if still open
+    this.closeBodyModals();
+
+    super.unmount();
+  }
+
+  /**
+   * The dialogs this view (and its editor) open on <body>, outside the view:
+   * they would stay over the next page if the view is left while one is open
+   */
+  closeBodyModals() {
     if (this.advancedModalKeyHandler) {
       document.removeEventListener('keydown', this.advancedModalKeyHandler);
       this.advancedModalKeyHandler = null;
@@ -2362,11 +2373,24 @@ class CreatePostView extends View {  constructor(params = {}) {
       document.removeEventListener('keydown', this.scheduleModalKeyHandler);
       this.scheduleModalKeyHandler = null;
     }
-    document.querySelectorAll('.advanced-options-modal, .schedule-modal')
+    document.querySelectorAll('.advanced-options-modal, .schedule-modal, .image-upload-dialog, .markdown-formatter-dialog, .image-upload-modal')
       .forEach(m => m.remove());
     document.body.classList.remove('modal-open');
+  }
 
-    super.unmount();
+  /**
+   * Kept alive by the router (see index.js): what has been written stays
+   * when the user goes elsewhere, until the post is sent or the app reloads.
+   * Opening a draft, a community or a scheduled post asks for that content
+   * instead, so the view is then built anew.
+   */
+  canResume(params = {}) {
+    return !this.submitted && !params.draftId && !params.community && !params.mode;
+  }
+
+  onDeactivate() {
+    this.closeDropdown();
+    this.closeBodyModals();
   }
 
   /**

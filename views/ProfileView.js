@@ -11,6 +11,7 @@ import RepliesList from '../components/profile/RepliesList.js';
 import PingsList from '../components/profile/PingsList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
 import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js';
+import { resizeSmoothly } from '../utils/animateResize.js';
 
 // Static cache for components
 const componentCache = {
@@ -544,6 +545,8 @@ class ProfileView extends View {
     }
 
     this.isSwitchingTab = true;
+    const releaseTabArea = this.holdTabAreaHeight();
+    let ready = null; // settles once the new tab has its content
 
     try {
 
@@ -559,29 +562,29 @@ class ProfileView extends View {
     
       switch(tabName) {
         case 'blog':
+          this.updateContainerVisibility(blog, [posts, comments, replies, wallet], null, []);
           if (this.blogComponent) {
             const hasBlogPosts = Array.isArray(this.blogComponent.posts) && this.blogComponent.posts.length > 0;
             const hasBlogDom = !!blog.querySelector('.posts-container');
             if (hasBlogPosts && hasBlogDom) {
               setTimeout(() => { this.blogComponent.refreshGridLayout(); }, 50);
             } else {
-              await this.blogComponent.render(blog);
+              ready = this.renderTab(this.blogComponent, blog);
             }
           }
-          this.updateContainerVisibility(blog, [posts, comments, replies, wallet], null, []);
           break;
 
         case 'posts':
+          this.updateContainerVisibility(posts, [blog, comments, replies, wallet], null, []);
           if (this.postsComponent) {
             const hasPostsPosts = Array.isArray(this.postsComponent.posts) && this.postsComponent.posts.length > 0;
             const hasPostsDom = !!posts.querySelector('.posts-container');
             if (hasPostsPosts && hasPostsDom) {
               setTimeout(() => { this.postsComponent.refreshGridLayout(); }, 50);
             } else {
-              await this.postsComponent.render(posts);
+              ready = this.renderTab(this.postsComponent, posts);
             }
           }
-          this.updateContainerVisibility(posts, [blog, comments, replies, wallet], null, []);
           break;
         
         case 'comments':
@@ -592,7 +595,7 @@ class ProfileView extends View {
             if (hasCommentsData && hasCommentsDom) {
               setTimeout(() => { this.commentsComponent.forceLayoutRefresh(); }, 50);
             } else {
-              this.commentsComponent.render(comments);
+              ready = this.renderTab(this.commentsComponent, comments);
             }
           }
           break;
@@ -605,14 +608,14 @@ class ProfileView extends View {
             if (hasRepliesData && hasRepliesDom) {
               // already rendered, nothing to do
             } else {
-              this.repliesComponent.render(replies);
+              ready = this.renderTab(this.repliesComponent, replies);
             }
           }
           break;
         
         case 'pings':
           this.updateContainerVisibility(this.pingsContainer, [blog, posts, comments, replies, wallet], null, []);
-          this.pingsComponent.render(this.pingsContainer);
+          ready = this.pingsComponent.render(this.pingsContainer);
           break;
 
         case 'wallet':
@@ -621,6 +624,7 @@ class ProfileView extends View {
             try {
               this.walletHistoryComponent = new ProfileWalletHistory(this.username);
               this.walletHistoryComponent.render(wallet);
+              ready = new Promise(resolve => setTimeout(resolve, 800));
             } catch(error) {
               wallet.innerHTML = `<div class="error-message">Failed to load wallet history</div>`;
             }
@@ -634,6 +638,7 @@ class ProfileView extends View {
       this.currentTab = tabName;
       ProfileTabs.activeTabCache[this.username] = tabName;
     } finally {
+      releaseTabArea(ready);
       this.isSwitchingTab = false;
 
       if (this.pendingTabSwitch && this.pendingTabSwitch !== this.currentTab) {
@@ -646,6 +651,56 @@ class ProfileView extends View {
     }
   }
   
+  /**
+   * Renders a tab's list component once: coming back to the tab while its
+   * first load is still running shows that load instead of starting over.
+   * @returns {Promise} Settles when the component has loaded
+   */
+  renderTab(component, container) {
+    this._tabRenders ??= new Map();
+    if (!this._tabRenders.has(component)) {
+      const done = Promise.resolve()
+        .then(() => component.render(container))
+        .catch(error => console.error('Failed to render profile tab:', error))
+        .finally(() => this._tabRenders.delete(component));
+      this._tabRenders.set(component, done);
+    }
+    return this._tabRenders.get(component);
+  }
+
+  /**
+   * Keeps the tab area at its current height while the next tab fills in,
+   * so the page doesn't collapse (making the scroll jump) between the two;
+   * then it resizes smoothly to the new tab's content.
+   * @returns {Function} release(ready) - call with a promise that settles
+   *   when the new tab has its content (or nothing if it already has)
+   */
+  holdTabAreaHeight() {
+    const area = this.getPostsArea();
+    if (!area) return () => {};
+
+    // Scrolled past the tabs: bring them back at the top, so the new tab
+    // starts in view instead of somewhere below its beginning
+    const main = document.getElementById('main-content');
+    const tabs = this.container?.querySelector('.profile-tabs');
+    if (main && tabs) {
+      const offset = tabs.getBoundingClientRect().top - main.getBoundingClientRect().top;
+      if (offset < 0) main.scrollTop += offset;
+    }
+
+    area.style.minHeight = `${area.offsetHeight}px`;
+    const token = this._tabHoldToken = (this._tabHoldToken || 0) + 1;
+
+    return (ready) => {
+      const timeout = new Promise(resolve => setTimeout(resolve, 2000));
+      Promise.race([Promise.resolve(ready), timeout]).then(() => requestAnimationFrame(() => {
+        // A later switch holds the area again: let that one release it
+        if (token !== this._tabHoldToken || !area.isConnected) return;
+        resizeSmoothly(area, () => { area.style.minHeight = ''; });
+      }));
+    };
+  }
+
   async checkFollowStatus() {
     if (!this.currentUser || !this.profileHeader) return;
 

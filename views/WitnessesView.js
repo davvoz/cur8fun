@@ -2,6 +2,7 @@ import authService from '../services/AuthService.js';
 import witnessService from '../services/WitnessService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
+import { growFrom } from '../utils/animateResize.js';
 
 /**
  * /witnesses
@@ -146,6 +147,8 @@ class WitnessesView {
 
   _renderFeaturedSlot() {
     let slot = this.viewContainer.querySelector('.witness-featured-slot');
+    // Re-rendered once the data arrives: the new card grows from the old one
+    const previousHeight = slot?.offsetHeight;
     if (slot) slot.remove();
 
     slot = document.createElement('section');
@@ -206,6 +209,7 @@ class WitnessesView {
     } else {
       this.viewContainer.appendChild(slot);
     }
+    growFrom(slot, previousHeight);
 
     const btn = slot.querySelector('.witness-vote-btn[data-witness]');
     if (btn) {
@@ -303,6 +307,7 @@ class WitnessesView {
 
   _renderProxyPanel() {
     let panel = this.viewContainer.querySelector('.witness-proxy-panel');
+    const previousHeight = panel?.offsetHeight;
     if (panel) panel.remove();
 
     this.viewContainer.classList.toggle('has-active-proxy', !!this.proxy);
@@ -340,6 +345,7 @@ class WitnessesView {
     } else {
       this.viewContainer.appendChild(panel);
     }
+    growFrom(panel, previousHeight);
 
     panel.querySelector('#proxy-open-btn')?.addEventListener('click', () => this._openProxyModal());
   }

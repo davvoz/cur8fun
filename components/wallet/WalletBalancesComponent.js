@@ -1,6 +1,7 @@
 import Component from '../Component.js';
 import walletService from '../../services/WalletService.js';
 import eventEmitter from '../../utils/EventEmitter.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 
 export default class WalletBalancesComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -93,7 +94,8 @@ export default class WalletBalancesComponent extends Component {
       };
       
       this.isLoading = false;
-      this.renderBalances();
+      // Cards and price bar replace the skeleton without making the page jump
+      resizeSmoothly(this.balanceContainer, () => this.renderBalances(), { fade: this.balanceContainer });
       
       // Notify parent if callback is provided
       if (typeof this.onBalancesLoaded === 'function') {
@@ -273,7 +275,13 @@ export default class WalletBalancesComponent extends Component {
 
     const overlay = document.createElement('div');
     overlay.className = 'delegation-modal-overlay';
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    const close = () => {
+      if (overlay.classList.contains('closing')) return;
+      overlay.classList.add('closing');
+      overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 300); // fallback without animations
+    };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
     const card = document.createElement('div');
     card.className = 'delegation-modal-card';
@@ -285,7 +293,7 @@ export default class WalletBalancesComponent extends Component {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'delegation-modal-close';
     closeBtn.innerHTML = '&times;';
-    closeBtn.addEventListener('click', () => overlay.remove());
+    closeBtn.addEventListener('click', close);
     header.appendChild(title);
     header.appendChild(closeBtn);
     card.appendChild(header);
@@ -297,82 +305,92 @@ export default class WalletBalancesComponent extends Component {
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
-    if (type === 'out') {
-      try {
-        const [delegations, expiring] = await Promise.all([
-          walletService.getDelegations(this.username),
-          walletService.getExpiringDelegations(this.username)
-        ]);
-        body.innerHTML = '';
+    // Everything is loaded first and shown at once, the card growing smoothly
+    // from the loading text instead of jumping (or emptying between requests)
+    const content = type === 'out'
+      ? await this._outgoingDelegationsContent()
+      : await this._incomingDelegationsContent();
+    resizeSmoothly(card, () => body.replaceChildren(...content), { fade: body });
+  }
 
-        // Expiring total row
-        if (expiring && expiring.length) {
-          const expiringTotal = expiring.reduce((sum, d) => sum + parseFloat(d.sp_amount), 0);
-          const expiringRow = document.createElement('p');
-          expiringRow.className = 'delegation-modal-info';
-          expiringRow.innerHTML = `Returning (5-day window): <strong>${expiringTotal.toFixed(3)} SP</strong>`;
-          body.appendChild(expiringRow);
-        }
+  async _outgoingDelegationsContent() {
+    try {
+      const [delegations, expiring] = await Promise.all([
+        walletService.getDelegations(this.username),
+        walletService.getExpiringDelegations(this.username)
+      ]);
+      const nodes = [];
 
-        if (!delegations.length) {
-          const empty = document.createElement('p');
-          empty.className = 'delegation-modal-empty';
-          empty.textContent = 'No outgoing delegations.';
-          body.appendChild(empty);
-        } else {
-          const table = document.createElement('table');
-          table.className = 'delegations-table';
-          table.innerHTML = `<thead><tr><th>Delegatee</th><th>Amount</th><th>Since</th></tr></thead>`;
-          const tbody = document.createElement('tbody');
-          delegations.forEach(d => {
-            const tr = document.createElement('tr');
-            const date = new Date(d.min_delegation_time + 'Z').toLocaleDateString();
-            tr.innerHTML = `<td>@${d.delegatee}</td><td>${d.sp_amount} SP</td><td>${date}</td>`;
-            tbody.appendChild(tr);
-          });
-          table.appendChild(tbody);
-          body.appendChild(table);
-        }
-      } catch {
-        body.textContent = 'Failed to load delegations.';
+      // Expiring total row
+      if (expiring && expiring.length) {
+        const expiringTotal = expiring.reduce((sum, d) => sum + parseFloat(d.sp_amount), 0);
+        const expiringRow = document.createElement('p');
+        expiringRow.className = 'delegation-modal-info';
+        expiringRow.innerHTML = `Returning (5-day window): <strong>${expiringTotal.toFixed(3)} SP</strong>`;
+        nodes.push(expiringRow);
       }
-    } else {
-      // Incoming: fetch fresh balances to get accurate delegatedIn total
-      try {
-        const incoming = await walletService.getIncomingDelegations(this.username);
-        body.innerHTML = '';
-        const freshBalances = await walletService.getUserBalances(this.username);
-        const total = freshBalances?.steemPowerDetails?.delegatedIn ?? this.balances?.steemPowerDetails?.delegatedIn ?? '0.000';
-        const totalRow = document.createElement('p');
-        totalRow.className = 'delegation-modal-info';
-        totalRow.innerHTML = `Total received: <strong>${total} SP</strong>`;
-        body.appendChild(totalRow);
-        if (incoming && incoming.length) {
-          const table = document.createElement('table');
-          table.className = 'delegations-table';
-          table.innerHTML = `<thead><tr><th>Delegator</th><th>Amount</th></tr></thead>`;
-          const tbody = document.createElement('tbody');
-          incoming.forEach(d => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>@${d.delegator}</td><td>${d.sp_amount} SP</td>`;
-            tbody.appendChild(tr);
-          });
-          table.appendChild(tbody);
-          body.appendChild(table);
-        } else if (!total || total === '0.000') {
-          const empty = document.createElement('p');
-          empty.className = 'delegation-modal-empty';
-          empty.textContent = 'No incoming delegations.';
-          body.appendChild(empty);
-        } else {
-          const note = document.createElement('p');
-          note.className = 'delegation-modal-note';
-          note.textContent = 'Loading delegator list from account history failed.';
-          body.appendChild(note);
-        }
-      } catch {
-        body.textContent = 'Failed to load incoming delegations.';
+
+      if (!delegations.length) {
+        const empty = document.createElement('p');
+        empty.className = 'delegation-modal-empty';
+        empty.textContent = 'No outgoing delegations.';
+        nodes.push(empty);
+      } else {
+        const table = document.createElement('table');
+        table.className = 'delegations-table';
+        table.innerHTML = `<thead><tr><th>Delegatee</th><th>Amount</th><th>Since</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        delegations.forEach(d => {
+          const tr = document.createElement('tr');
+          const date = new Date(d.min_delegation_time + 'Z').toLocaleDateString();
+          tr.innerHTML = `<td>@${d.delegatee}</td><td>${d.sp_amount} SP</td><td>${date}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        nodes.push(table);
       }
+      return nodes;
+    } catch {
+      return ['Failed to load delegations.'];
+    }
+  }
+
+  async _incomingDelegationsContent() {
+    // Incoming: fetch fresh balances to get accurate delegatedIn total
+    try {
+      const incoming = await walletService.getIncomingDelegations(this.username);
+      const freshBalances = await walletService.getUserBalances(this.username);
+      const total = freshBalances?.steemPowerDetails?.delegatedIn ?? this.balances?.steemPowerDetails?.delegatedIn ?? '0.000';
+      const totalRow = document.createElement('p');
+      totalRow.className = 'delegation-modal-info';
+      totalRow.innerHTML = `Total received: <strong>${total} SP</strong>`;
+      const nodes = [totalRow];
+      if (incoming && incoming.length) {
+        const table = document.createElement('table');
+        table.className = 'delegations-table';
+        table.innerHTML = `<thead><tr><th>Delegator</th><th>Amount</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        incoming.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>@${d.delegator}</td><td>${d.sp_amount} SP</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        nodes.push(table);
+      } else if (!total || total === '0.000') {
+        const empty = document.createElement('p');
+        empty.className = 'delegation-modal-empty';
+        empty.textContent = 'No incoming delegations.';
+        nodes.push(empty);
+      } else {
+        const note = document.createElement('p');
+        note.className = 'delegation-modal-note';
+        note.textContent = 'Loading delegator list from account history failed.';
+        nodes.push(note);
+      }
+      return nodes;
+    } catch {
+      return ['Failed to load incoming delegations.'];
     }
   }
 

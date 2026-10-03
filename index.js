@@ -56,13 +56,15 @@ const KEEP_ALIVE = { keepAlive: true };
 const KEEP_ALIVE_SHORT = { keepAlive: { ttl: 2 * 60 * 1000 } };
 // Same lifetime as ProfileService's cache (see ProfileView.canResume)
 const KEEP_ALIVE_PROFILE = { keepAlive: { ttl: 5 * 60 * 1000 } };
+// A post being written stays until it is sent or the app is reloaded
+const KEEP_ALIVE_UNTIL_RELOAD = { keepAlive: { ttl: Infinity, pinned: true } };
 
 // Setup routes with proper handlers
 router
   .addRoute('/home', HomeView, KEEP_ALIVE)
   .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
-  .addRoute('/create', CreatePostView, { requiresAuth: true })
+  .addRoute('/create', CreatePostView, { requiresAuth: true, ...KEEP_ALIVE_UNTIL_RELOAD })
   .addRoute('/drafts', DraftsView, { requiresAuth: true })
   .addRoute('/trending', HomeView, { tag: 'trending', forceTag: true, ...KEEP_ALIVE })
   .addRoute('/hot', HomeView, { tag: 'hot', forceTag: true, ...KEEP_ALIVE })
@@ -81,7 +83,7 @@ router
   .addRoute('/pings/tag/:tag', PingsView, KEEP_ALIVE)
   .addRoute('/pings/@:author/:permlink', PingThreadView)
   .addRoute('/witnesses', WitnessesView, KEEP_ALIVE)
-  .addRoute('/notifications', NotificationsView, { requiresAuth: true })
+  .addRoute('/notifications', NotificationsView, { requiresAuth: true, ...KEEP_ALIVE })
   .addRoute('/menu', MenuView)
   .addRoute('/faq', FAQView)
   .setNotFound(NotFoundView);
@@ -272,8 +274,8 @@ function initNavigation() {
 
 function updateNavigation() {
   updateNavigationMenu();
-  // Aggiorniamo i pulsanti del tema ogni volta che aggiorniamo la navigazione
-  setupThemeButtons();
+  // The rebuilt top bar has new theme buttons: show the current theme's icon
+  updateThemeIcons();
   // Remove the call to highlightActiveMenuItem as it's now handled by NavigationManager
   // highlightActiveMenuItem();
 }
@@ -306,7 +308,7 @@ function renderAuthenticatedNav(container, user) {
 
   const themeIcon = document.createElement('span');
   themeIcon.className = 'material-icons';
-  themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcon
+  themeIcon.textContent = 'dark_mode'; // Verrà aggiornato dalla funzione updateThemeIcons
   mobileThemeToggle.appendChild(themeIcon);
 
   navActions.appendChild(mobileThemeToggle);
@@ -615,88 +617,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize cookie consent banner
   initializeCookieConsent();
 
-  // Add theme toggle button to navigation after app is initialized
-  addThemeToggleButton();
+  initThemeToggle();
 });
 
 /**
- * Creates and adds a theme toggle button to the navigation
+ * One listener for every theme toggle button (side nav, top bar, mobile),
+ * delegated so the buttons the top bar recreates on login/logout need no
+ * handler of their own and none can be registered twice
  */
-function addThemeToggleButton() {
-  // Gestisce entrambi i pulsanti del tema (mobile e desktop)
-  const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
-  if (!themeToggleButtons.length) return;
+function initThemeToggle() {
+  updateThemeIcons();
 
-  // Aggiorna le icone in tutti i pulsanti
-  themeToggleButtons.forEach(themeToggle => {
-    const icon = themeToggle.querySelector('.material-icons');
-    if (!icon) return;
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.theme-toggle-btn')) return;
 
-    // Update the icon based on the current theme
-    updateThemeIcon(icon);
+    const newTheme = themeManager.toggleTheme();
+    updateThemeIcons();
 
-    // Add click handler to each button
-    themeToggle.addEventListener('click', () => {
-      const newTheme = themeManager.toggleTheme();
-
-      // Aggiorna le icone in tutti i pulsanti
-      document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
-        updateThemeIcon(i);
-      });
-
-      // Provide feedback with notification
-      eventEmitter.emit('notification', {
-        type: 'info',
-        message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
-        duration: 2000
-      });
+    // Provide feedback with notification
+    eventEmitter.emit('notification', {
+      type: 'info',
+      message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
+      duration: 2000
     });
   });
 }
 
 /**
- * Updates the theme toggle icon based on current theme
+ * Shows on every theme toggle button the icon of the theme it switches to
  */
-function updateThemeIcon(iconElement) {
-  const currentTheme = themeManager.getCurrentTheme();
-  iconElement.textContent = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
-}
-
-/**
- * Configures all theme toggle buttons in the document
- * to make sure they reflect the current theme and have event listeners
- */
-function setupThemeButtons() {
-  const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
-  if (!themeToggleButtons.length) return;
-
-  themeToggleButtons.forEach(themeToggle => {
-    // Prima rimuovi eventuali click handler esistenti per evitare duplicazioni
-    const clone = themeToggle.cloneNode(true);
-    themeToggle.parentNode.replaceChild(clone, themeToggle);
-
-    const icon = clone.querySelector('.material-icons');
-    if (!icon) return;
-
-    // Update the icon based on the current theme
-    updateThemeIcon(icon);
-
-    // Add click handler
-    clone.addEventListener('click', () => {
-      const newTheme = themeManager.toggleTheme();
-
-      // Aggiorna le icone in tutti i pulsanti
-      document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
-        updateThemeIcon(i);
-      });
-
-      // Provide feedback with notification
-      eventEmitter.emit('notification', {
-        type: 'info',
-        message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
-        duration: 2000
-      });
-    });
+function updateThemeIcons() {
+  const icon = themeManager.getCurrentTheme() === 'dark' ? 'light_mode' : 'dark_mode';
+  document.querySelectorAll('.theme-toggle-btn .material-icons').forEach(i => {
+    i.textContent = icon;
   });
 }
 

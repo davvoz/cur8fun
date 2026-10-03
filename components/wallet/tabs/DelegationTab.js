@@ -1,4 +1,5 @@
 import Component from '../../Component.js';
+import { resizeSmoothly } from '../../../utils/animateResize.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
@@ -324,14 +325,15 @@ export default class DelegationTab extends Component {
   async loadExpiringDelegations() {
     const container = this.element?.querySelector('#expiring-delegations-list');
     if (!container) return;
+    // The list replaces the loading text while the card resizes smoothly
+    const show = (node) => resizeSmoothly(container, () => container.replaceChildren(node), { fade: container });
     try {
       const delegations = await walletService.getExpiringDelegations(this.viewedUsername);
-      while (container.firstChild) container.removeChild(container.firstChild);
       if (!delegations || delegations.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'empty-state';
         empty.textContent = 'No delegations currently returning.';
-        container.appendChild(empty);
+        show(empty);
         return;
       }
       const table = document.createElement('table');
@@ -345,14 +347,13 @@ export default class DelegationTab extends Component {
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
-      container.appendChild(table);
+      show(table);
     } catch (error) {
       console.error('Failed to load expiring delegations:', error);
-      while (container.firstChild) container.removeChild(container.firstChild);
       const err = document.createElement('p');
       err.className = 'error-state';
       err.textContent = 'Failed to load expiring delegations.';
-      container.appendChild(err);
+      show(err);
     }
   }
 
@@ -487,39 +488,31 @@ export default class DelegationTab extends Component {
     const container = this.element.querySelector('#delegations-list');
     if (!container) return;
     
+    // The list replaces the loading text while the card resizes smoothly
+    const show = (node) => resizeSmoothly(container, () => container.replaceChildren(node), { fade: container });
+
     try {
       // Get delegations from wallet service
       this.delegations = await walletService.getDelegations(this.viewedUsername);
-      
-      // Clear container
-      while (container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
-      
+
       if (!this.delegations || this.delegations.length === 0) {
         const emptyState = document.createElement('p');
         emptyState.className = 'empty-state';
         emptyState.textContent = "You haven't made any delegations yet.";
-        container.appendChild(emptyState);
+        show(emptyState);
         return;
       }
-      
+
       // Create table
-      const table = this.createDelegationsTable();
-      container.appendChild(table);
-      
+      show(this.createDelegationsTable());
+
     } catch (error) {
       console.error('Failed to load delegations:', error);
-      
-      // Clear container
-      while (container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
-      
+
       const errorState = document.createElement('p');
       errorState.className = 'error-state';
       errorState.textContent = 'Failed to load delegations';
-      container.appendChild(errorState);
+      show(errorState);
     }
   }
   

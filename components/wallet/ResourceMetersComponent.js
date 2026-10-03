@@ -1,4 +1,5 @@
 import Component from '../Component.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 
 export default class ResourceMetersComponent extends Component {
   constructor(parentElement, options = {}) {
@@ -178,17 +179,20 @@ export default class ResourceMetersComponent extends Component {
    * Update UI based on current state
    */
   updateUI() {
-    // Clear container first
-    this.metersContainer.innerHTML = '';
-    
-    if (this.isLoading) {
-      this.metersContainer.appendChild(this.loadingElement);
-    } else if (this.error) {
-      this.errorMessage.textContent = this.error;
-      this.metersContainer.appendChild(this.errorElement);
-    } else {
-      this.createAllMeters();
-    }
+    // The meters replace the skeleton without making the page jump
+    resizeSmoothly(this.metersContainer, () => {
+      // Clear container first
+      this.metersContainer.innerHTML = '';
+
+      if (this.isLoading) {
+        this.metersContainer.appendChild(this.loadingElement);
+      } else if (this.error) {
+        this.errorMessage.textContent = this.error;
+        this.metersContainer.appendChild(this.errorElement);
+      } else {
+        this.createAllMeters();
+      }
+    });
   }
   
   /**

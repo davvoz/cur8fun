@@ -228,7 +228,7 @@ class Router {
     this.ensureViewContainer(appContainer);
     this.cleanupCurrentView(leavingScrollTop);
 
-    const kept = this.takeKeptAlive(path);
+    const kept = this.takeKeptAlive(path, additionalParams);
     if (kept && matchedRoute) {
       this.resumeKeptAlive(kept, matchedRoute, path);
       return;
@@ -313,8 +313,9 @@ class Router {
 
     const keepAlive = this.currentRoute?.options?.keepAlive;
     if (keepAlive && this.currentRoot) {
-      this.currentRoot.remove();
+      // Told while still in the document, so it can close what it has open
       if (typeof view.onDeactivate === 'function') view.onDeactivate();
+      this.currentRoot.remove();
       const ttl = keepAlive.ttl || 10 * 60 * 1000;
       this.keptAlive.delete(this.currentViewPath);
       this.keptAlive.set(this.currentViewPath, {
@@ -322,13 +323,17 @@ class Router {
         root: this.currentRoot,
         scrollTop,
         title: document.title,
-        expires: Date.now() + ttl
+        expires: Date.now() + ttl,
+        pinned: !!keepAlive.pinned
       });
-      // Map keeps insertion order: the first entry is the least recently left
+      // Map keeps insertion order: the first entry is the least recently
+      // left. Pinned views (e.g. a post being written) are never evicted.
       if (this.keptAlive.size > this.maxKeptAlive) {
-        const [oldestPath, oldest] = this.keptAlive.entries().next().value;
-        this.keptAlive.delete(oldestPath);
-        this.destroyView(oldest.view);
+        const oldest = [...this.keptAlive].find(([, entry]) => !entry.pinned);
+        if (oldest) {
+          this.keptAlive.delete(oldest[0]);
+          this.destroyView(oldest[1].view);
+        }
       }
       return;
     }
@@ -344,13 +349,14 @@ class Router {
   }
   /**
    * Removes and returns the kept-alive view for `path`, if still fresh.
-   * A view can ask to be rebuilt instead by returning false from canResume().
+   * A view can ask to be rebuilt instead by returning false from
+   * canResume(params), which gets the parameters of this navigation.
    */
-  takeKeptAlive(path) {
+  takeKeptAlive(path, params = {}) {
     const kept = this.keptAlive.get(path);
     if (!kept) return null;
     this.keptAlive.delete(path);
-    if (kept.expires < Date.now() || kept.view.canResume?.() === false) {
+    if (kept.expires < Date.now() || kept.view.canResume?.(params) === false) {
       this.destroyView(kept.view);
       return null;
     }
@@ -358,6 +364,7 @@ class Router {
   }
   resumeKeptAlive(kept, route, path) {
     this.mountViewRoot(kept.root);
+    this.skipReplayedAnimations(kept.root);
     this.currentView = kept.view;
     this.currentRoute = route;
     this.currentViewPath = path;
@@ -391,6 +398,22 @@ class Router {
         .finally(() => idle(next));
     };
     idle(next);
+  }
+  /**
+   * Reinserting an element restarts its CSS animations: entry effects that
+   * already played (cards sliding in, hints) would all replay at once. They
+   * are finished right away; looping ones (skeletons, spinners) and the
+   * page's own fade keep running.
+   */
+  skipReplayedAnimations(root) {
+    if (typeof root.getAnimations !== 'function') return;
+    root.getAnimations({ subtree: true }).forEach(animation => {
+      const isPageFade = animation.effect?.target === root;
+      const loops = animation.effect?.getComputedTiming().iterations === Infinity;
+      if (!isPageFade && !loops && typeof CSSAnimation !== 'undefined' && animation instanceof CSSAnimation) {
+        animation.finish();
+      }
+    });
   }
   clearKeptAlive() {
     this.keptAlive.forEach(kept => this.destroyView(kept.view));

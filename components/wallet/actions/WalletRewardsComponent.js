@@ -3,6 +3,7 @@ import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
 import router from '../../../utils/Router.js';
+import { revealSmoothly } from '../../../utils/animateResize.js';
 
 /**
  * Componente per il pulsante di claim rewards
@@ -171,7 +172,10 @@ export default class WalletRewardsComponent extends Component {
   updateRewardsUI() {
     // Mostra/nascondi il componente in base alla disponibilità di ricompense
     if (this.hasRewards) {
+      const wasHidden = this.element.classList.contains('hidden');
       this.element.classList.remove('hidden'); // Mostra il componente
+      // Appears after a request, at the top of the wallet: slide the page down
+      if (wasHidden) revealSmoothly(this.element);
       this.rewardsButton.classList.add('has-rewards');
       this.rewardsBadge.style.display = 'flex'; // Mostra il badge
       

@@ -21,17 +21,17 @@ class MenuView extends View {
     const exploreGrid = document.createElement('div');
     exploreGrid.className = 'menu-tools-grid';
     exploreGrid.appendChild(this.createToolCard('/communities', 'groups', 'Communities', 'Discover Steem communities'));
+    exploreGrid.appendChild(this.createToolCard('/witnesses', 'gavel', 'Witnesses', 'Vote for Steem witnesses'));
+    exploreGrid.appendChild(this.createToolCard('https://games.cur8.fun/', 'sports_esports', 'Games', 'Play games and earn rewards', true));
     menuContainer.appendChild(exploreGrid);
 
-    // ── Tools — 2-col cards ───────────────────────────────────────────────
-    menuContainer.appendChild(this.createCategory('Tools'));
-    const toolsGrid = document.createElement('div');
-    toolsGrid.className = 'menu-tools-grid';
-    toolsGrid.appendChild(this.createToolCard('/witnesses',      'gavel',     'Witnesses',       'Vote for Steem witnesses'));
-    toolsGrid.appendChild(this.createToolCard('/cur8-bot-stats', 'favorite',  'Cur8 Statistics', 'Curation performance & metrics'));
-    toolsGrid.appendChild(this.createToolCard('/cur8-stats',     'bar_chart', 'Analytics',       'Stats for #cur8 tagged posts'));
-    toolsGrid.appendChild(this.createToolCard('https://games.cur8.fun/', 'sports_esports', 'Games', 'Play games and earn rewards', true));
-    menuContainer.appendChild(toolsGrid);
+    // ── Stats — 2-col cards ───────────────────────────────────────────────
+    menuContainer.appendChild(this.createCategory('Stats'));
+    const statsGrid = document.createElement('div');
+    statsGrid.className = 'menu-tools-grid';
+    statsGrid.appendChild(this.createToolCard('/cur8-bot-stats', 'favorite',  'Cur8 Statistics', 'Curation performance & metrics'));
+    statsGrid.appendChild(this.createToolCard('/cur8-stats',     'bar_chart', 'Analytics',       'Stats for #cur8 tagged posts'));
+    menuContainer.appendChild(statsGrid);
 
     // ── Connect ───────────────────────────────────────────────────────────
     menuContainer.appendChild(this.createCategory('Connect With Us'));

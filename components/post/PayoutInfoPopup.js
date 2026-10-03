@@ -3,6 +3,7 @@
  * Displays detailed payout information for a post in a popup
  */
 import { isPayoutDeclined, applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
+import { resizeSmoothly } from '../../utils/animateResize.js';
 
 class PayoutInfoPopup {
   constructor(post) {
@@ -441,8 +442,15 @@ class PayoutInfoPopup {
       loading.textContent = 'Loading…';
       chips.appendChild(loading);
 
+      // The popover grows (and moves to stay next to the payout) smoothly
+      // when the amounts replace the loading text
+      const updatePopup = (change) => resizeSmoothly(this.popup, () => {
+        change();
+        this._reposition();
+      }, { position: true, fade: chips });
+
       this.getPayoutBreakdown()
-        .then(b => {
+        .then(b => updatePopup(() => {
           chips.innerHTML = '';
           if (b) {
             this._appendChip(chips, 'STEEM', b.steem, b.steem);
@@ -450,12 +458,8 @@ class PayoutInfoPopup {
             this._appendChip(chips, 'SBD', b.sbd, b.sbd);
           }
           if (!chips.children.length) chips.remove();
-          this._reposition();
-        })
-        .catch(() => {
-          chips.remove();
-          this._reposition();
-        });
+        }))
+        .catch(() => updatePopup(() => chips.remove()));
     } else {
       this._appendChip(chips, 'Author', `$${this.getAuthorPayout()}`, this.getAuthorPayout());
       this._appendChip(chips, 'Curator', `$${this.getCuratorPayout()}`, this.getCuratorPayout());

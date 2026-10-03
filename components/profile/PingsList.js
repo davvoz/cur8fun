@@ -40,7 +40,7 @@ export default class PingsList {
     wrapper.append(this.list, this.scrollArea);
     container.appendChild(wrapper);
 
-    this.load();
+    return this.load();
   }
 
   async load() {

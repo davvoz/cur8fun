@@ -3,6 +3,7 @@ import profileService from '../../services/ProfileService.js';
 import pingsService from '../../services/PingsService.js';
 import { getImageUrl } from '../../utils/ImageUtils.js';
 import { getTagUrl } from './PingCard.js';
+import { resizeSmoothly, revealSmoothly } from '../../utils/animateResize.js';
 
 const TRENDS_TTL_MS = 5 * 60 * 1000;
 
@@ -113,7 +114,10 @@ async function fillProfileColumn(column) {
     if (coverImage) {
       card.querySelector('.pings-profile-cover').style.backgroundImage = `url("${getImageUrl(coverImage, 640)}")`;
     }
-    card.querySelector('.pings-profile-about').textContent = about || '';
+    // The bio arrives after the card is shown: grow it instead of jumping
+    resizeSmoothly(card, () => {
+      card.querySelector('.pings-profile-about').textContent = about || '';
+    });
   }
   if (counts.status === 'fulfilled') {
     card.querySelector('[data-stat="followers"]').textContent = counts.value.followers.toLocaleString('en-US');
@@ -172,11 +176,14 @@ async function loadTrends(column) {
     row.append(name, value);
     return row;
   });
-  if (tagRows.length) {
-    list.replaceChildren(...tagRows);
-  } else {
-    list.innerHTML = '<div class="pings-card-text">No hashtags yet today. Start one!</div>';
-  }
+  // The cards grow from "Loading…" to the lists instead of jumping
+  resizeSmoothly(list.closest('.pings-side-card'), () => {
+    if (tagRows.length) {
+      list.replaceChildren(...tagRows);
+    } else {
+      list.innerHTML = '<div class="pings-card-text">No hashtags yet today. Start one!</div>';
+    }
+  }, { fade: list });
 
   const authorRows = trends.authors.map(([author, count]) => {
     const row = document.createElement('a');
@@ -195,8 +202,17 @@ async function loadTrends(column) {
     row.append(avatar, name, value);
     return row;
   });
-  authorsCard.querySelector('.pings-authors-list').replaceChildren(...authorRows);
-  authorsCard.hidden = authorRows.length === 0;
+  const fillAuthors = () => {
+    authorsCard.querySelector('.pings-authors-list').replaceChildren(...authorRows);
+    authorsCard.hidden = authorRows.length === 0;
+  };
+  if (authorsCard.hidden) {
+    // First shown once the data arrives: it slides in below the trends
+    fillAuthors();
+    if (!authorsCard.hidden) revealSmoothly(authorsCard);
+  } else {
+    resizeSmoothly(authorsCard, fillAuthors);
+  }
 }
 
 function createCard(extraClass) {

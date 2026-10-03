@@ -278,6 +278,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: delegation-modal-fade-in 0.18s ease-out;
+}
+.delegation-modal-overlay.closing {
+  animation: delegation-modal-fade-out 0.16s ease-in forwards;
+}
+.delegation-modal-overlay .delegation-modal-card {
+  animation: delegation-modal-card-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes delegation-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes delegation-modal-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes delegation-modal-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .delegation-modal-overlay,
+  .delegation-modal-overlay.closing,
+  .delegation-modal-overlay .delegation-modal-card {
+    animation: none;
+  }
 }
 .delegation-modal-card {
   background: var(--background-lighter);

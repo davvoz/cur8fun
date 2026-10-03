@@ -74,7 +74,7 @@ class AssetBundler:
             return ''
         files.add(url_path)
         try:
-            with open(self._path(url_path), encoding='utf-8') as f:
+            with open(self._path(url_path), encoding='utf-8-sig') as f:  # utf-8-sig: drops a leading BOM
                 text = f.read()
         except OSError:
             return f'/* missing stylesheet: {url_path} */'
@@ -151,7 +151,7 @@ class AssetBundler:
 
     def _js_imports(self, url_path):
         try:
-            with open(self._path(url_path), encoding='utf-8') as f:
+            with open(self._path(url_path), encoding='utf-8-sig') as f:  # utf-8-sig: drops a leading BOM
                 src = f.read()
         except OSError:
             return []

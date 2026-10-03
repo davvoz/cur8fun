@@ -7,6 +7,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import router from '../utils/Router.js';
 import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
+import { growFrom } from '../utils/animateResize.js';
 
 class CommunitiesListView {
   constructor() {
@@ -194,7 +195,10 @@ class CommunitiesListView {
 
     const existing = this.viewContainer.querySelector('.community-spotlight');
     if (existing) {
+      // Re-rendered once the data arrives: the new card grows from the old one
+      const previousHeight = existing.offsetHeight;
       existing.replaceWith(section);
+      growFrom(section, previousHeight);
     } else {
       this.viewContainer.querySelector('.communities-header')?.after(section);
     }

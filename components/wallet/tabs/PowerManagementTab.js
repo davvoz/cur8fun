@@ -1,4 +1,5 @@
 import Component from '../../Component.js';
+import { resizeSmoothly } from '../../../utils/animateResize.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
 import eventEmitter from '../../../utils/EventEmitter.js';
@@ -360,34 +361,33 @@ export default class PowerManagementTab extends Component {
     const statusContainer = this.element.querySelector('#power-down-status');
     if (!statusContainer) return;
     
+    // The loading text stays until the data is there, then the status
+    // replaces it while the card resizes smoothly
+    const show = (fill) => resizeSmoothly(statusContainer, () => {
+      statusContainer.replaceChildren();
+      fill();
+    }, { fade: statusContainer });
+
     try {
-      // Clear the container first
-      while (statusContainer.firstChild) {
-        statusContainer.removeChild(statusContainer.firstChild);
-      }
-      
       // Get power down information from service
       this.powerDownInfo = await walletService.getPowerDownInfo(this.viewedUsername);
-      
-      if (this.powerDownInfo.isPoweringDown) {
-        this.createActivePowerDownUI(statusContainer);
-      } else {
-        this.createNoPowerDownUI(statusContainer);
-      }
+
+      show(() => {
+        if (this.powerDownInfo.isPoweringDown) {
+          this.createActivePowerDownUI(statusContainer);
+        } else {
+          this.createNoPowerDownUI(statusContainer);
+        }
+      });
     } catch (error) {
       console.error('Error loading power down status:', error);
-      
+
       // Create error UI
       const errorState = document.createElement('div');
       errorState.className = 'error-state';
       errorState.textContent = 'Failed to load power down status';
-      
-      // Clear the container first
-      while (statusContainer.firstChild) {
-        statusContainer.removeChild(statusContainer.firstChild);
-      }
-      
-      statusContainer.appendChild(errorState);
+
+      show(() => statusContainer.appendChild(errorState));
     }
   }
   
