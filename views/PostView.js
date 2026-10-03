@@ -295,11 +295,11 @@ class PostView extends View {  constructor(params = {}) {
       // itemprop per Google+
       setMeta('image', imageUrl, false);
     } else {
-      // Fallback a un logo se non c'è immagine
-      const logoUrl = window.location.origin + '/assets/img/logo_tra.png';
+      // Fallback al banner di default se non c'è immagine
+      const logoUrl = window.location.origin + '/assets/img/og-default.png';
       setMeta('og:image', logoUrl);
       setMeta('og:image:url', logoUrl);
-      setMeta('twitter:card', 'summary', false);
+      setMeta('twitter:card', 'summary_large_image', false);
       setMeta('twitter:image', logoUrl, false);
     }
 

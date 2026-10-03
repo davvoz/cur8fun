@@ -1,5 +1,5 @@
 """
-Client per interagire con l'API Steem/Hive senza dipendenze esterne
+Client per interagire con l'API Steem senza dipendenze esterne
 """
 import json
 import re
@@ -10,67 +10,39 @@ from urllib.error import URLError, HTTPError
 class SteemClient:
     def __init__(self):
         self.api_url = "https://api.steemit.com"
-    
-    def get_content(self, author, permlink):
-        """Ottiene il contenuto di un post"""
+
+    def _rpc(self, method, params):
+        """Esegue una chiamata JSON-RPC e restituisce 'result' (None se vuoto o in errore)"""
         try:
-            payload = {
-                "jsonrpc": "2.0",
-                "method": "condenser_api.get_content",
-                "params": [author, permlink],
-                "id": 1
-            }
-            
-            data = json.dumps(payload).encode('utf-8')
+            payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
             req = urllib.request.Request(
                 self.api_url,
-                data=data,
+                data=json.dumps(payload).encode('utf-8'),
                 headers={
                     'Content-Type': 'application/json',
                     'User-Agent': 'cur8.fun/1.0'
                 }
             )
-            
-            with urllib.request.urlopen(req, timeout=10) as response:
+            # Timeout breve: i crawler social abbandonano le pagine lente
+            with urllib.request.urlopen(req, timeout=5) as response:
                 result = json.loads(response.read().decode('utf-8'))
-                if 'result' in result and result['result']:
-                    return result['result']
-                return None
-                
-        except (URLError, HTTPError, json.JSONDecodeError) as e:
-            print(f"Error fetching content: {e}")
+                return result.get('result') or None
+        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as e:
+            print(f"Error calling {method}: {e}")
             return None
-    
+
+    def get_content(self, author, permlink):
+        """Ottiene il contenuto di un post, commento o ping"""
+        return self._rpc("condenser_api.get_content", [author, permlink])
+
     def get_accounts(self, usernames):
         """Ottiene i profili utente"""
-        try:
-            payload = {
-                "jsonrpc": "2.0",
-                "method": "condenser_api.get_accounts",
-                "params": [usernames],
-                "id": 1
-            }
-            
-            data = json.dumps(payload).encode('utf-8')
-            req = urllib.request.Request(
-                self.api_url,
-                data=data,
-                headers={
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'cur8.fun/1.0'
-                }
-            )
-            
-            with urllib.request.urlopen(req, timeout=10) as response:
-                result = json.loads(response.read().decode('utf-8'))
-                if 'result' in result and result['result']:
-                    return result['result']
-                return []
-                
-        except (URLError, HTTPError, json.JSONDecodeError) as e:
-            print(f"Error fetching accounts: {e}")
-            return []
-    
+        return self._rpc("condenser_api.get_accounts", [usernames]) or []
+
+    def get_community(self, name):
+        """Ottiene i dati di una community"""
+        return self._rpc("bridge.get_community", {"name": name})
+
     def extract_image_from_post(self, post_body, metadata=None):
         """Estrae la migliore immagine da un post"""
         if not post_body:
@@ -123,42 +95,32 @@ class SteemClient:
         encoded = ''.join(result)
         return '1' * pad + encoded if encoded else '1' * (pad or 1)
 
-    # CDN ecosystem Steem/Hive: pubblici, no hotlink protection — serviti direttamente
-    DIRECT_HOSTS = {
-        'images.ecency.com', 'images.hive.blog', 'ipfs.io',
-        'cloudflare-ipfs.com', 'gateway.ipfs.io', 'peakd.com',
-    }
-
     def optimize_image_url(self, url):
-        """Ottimizza URL immagine usando il proxy Steem.
+        """URL immagine per le anteprime social (stessa logica di getImageUrl in utils/ImageUtils.js).
 
-        - CDN ecosystem (ecency, hive, IPFS): serviti direttamente (pubblici, veloci)
-        - Già proxato /p/ o /u/: restituisce invariato
-        - Tutto il resto HTTP/HTTPS: proxa via steemitimages.com /p/<base58>
+        Il proxy steemitimages.com /p/ accetta solo immagini ospitate da Steem
+        (gli altri host ricevono "TargetHostNotAllowed"), quindi:
+        - steemitimages.com non ancora proxate: via /p/<base58>
+        - tutto il resto (imgur, ecency, IPFS, ...): URL originale, i crawler lo scaricano direttamente
         """
         if not url:
-            return "https://cur8.fun/assets/img/logo_tra.png"
+            return "https://cur8.fun/assets/img/og-default.png"
 
-        if '/p/' in url or '/u/' in url:
+        if 'steemitimages.com/p/' in url or 'steemitimages.com/u/' in url:
             return url
 
-        if url.startswith('http://') or url.startswith('https://'):
-            try:
-                from urllib.parse import urlparse
-                parsed = urlparse(url)
-                host = parsed.netloc.lower()
-                # Serve ecosystem CDNs directly
-                if any(host == h or host.endswith('.' + h) for h in self.DIRECT_HOSTS):
-                    return url
-                # Proxy everything else
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            if parsed.scheme in ('http', 'https') and parsed.netloc.lower().endswith('steemitimages.com'):
                 clean_url = parsed.scheme + '://' + parsed.netloc + parsed.path
                 encoded = self._base58_encode(clean_url)
                 return f"https://steemitimages.com/p/{encoded}?mode=fit&format=match&width=1200"
-            except Exception:
-                return url
+        except Exception:
+            pass
 
         return url
-    
+
     def create_description(self, content, max_length=160):
         """Crea descrizione pulita dal contenuto"""
         if not content:

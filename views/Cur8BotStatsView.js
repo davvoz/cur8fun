@@ -22,7 +22,7 @@ class Cur8BotStatsView extends View {
     metaTagService.setMetaTags({
       title: 'Cur8 Statistics - Curation Performance & Metrics',
       description: 'Real-time performance metrics and curation data from the @cur8 automated curation bot on Steem blockchain.',
-      image: 'https://cur8.fun/assets/img/logo_tra.png',
+      image: 'https://cur8.fun/assets/img/og-default.png',
       url: `${window.location.origin}/cur8-bot-stats`,
       type: 'website'
     }, 'default');

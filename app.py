@@ -105,74 +105,66 @@ def get_base_url(request):
     # Usa l'URL della request
     return request.host_url.rstrip('/')
 
-# Helper function per determinare il tipo di contenuto
+# Percorsi della SPA che hanno un'anteprima dedicata per i social (l'ordine conta)
+CONTENT_PATTERNS = [
+    ('ping', re.compile(r'^pings/@([^/]+)/(.+?)/?$')),           # /pings/@author/permlink
+    ('ping_tag', re.compile(r'^pings/tag/([^/]+)/?$')),           # /pings/tag/tagname
+    ('post', re.compile(r'^(?:comment/)?@([^/]+)/(.+?)/?$')),     # /@author/permlink, /comment/@author/permlink
+    ('profile', re.compile(r'^@([^/]+)/?$')),                     # /@username
+    ('community', re.compile(r'^community/([^/]+)/?$')),          # /community/name
+    ('tag', re.compile(r'^tag/([^/]+)/?$')),                      # /tag/tagname
+]
+
 def get_content_type_from_path(path):
     """Determina il tipo di contenuto dalla path"""
-    if not path:
-        return 'home', {}
-    
-    # Post: /@author/permlink
-    post_pattern = r'^@([^/]+)/(.+)$'
-    post_match = re.match(post_pattern, path)
-    if post_match:
-        return 'post', {'author': post_match.group(1), 'permlink': post_match.group(2)}
-    
-    # Profilo: /@username
-    profile_pattern = r'^@([^/]+)/?$'
-    profile_match = re.match(profile_pattern, path)
-    if profile_match:
-        return 'profile', {'username': profile_match.group(1)}
-    
-    # Community: /community/name
-    community_pattern = r'^community/([^/]+)/?$'
-    community_match = re.match(community_pattern, path)
-    if community_match:
-        return 'community', {'name': community_match.group(1)}
-    
-    # Tag: /tag/tagname
-    tag_pattern = r'^tag/([^/]+)/?$'
-    tag_match = re.match(tag_pattern, path)
-    if tag_match:
-        return 'tag', {'tag': tag_match.group(1)}
-    
-    return 'default', {}
+    for content_type, pattern in CONTENT_PATTERNS:
+        match = pattern.match(path or '')
+        if match:
+            return content_type, match.groups()
+    return 'default', ()
 
-def render_index_with_meta(meta_tags_html):
-    """Renderizza index.html con meta tag dinamici"""
-    try:
-        # Path assoluto: su PythonAnywhere la cwd del processo WSGI non è la cartella del progetto
-        with open(os.path.join(app.root_path, 'index.html'), 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Sostituisci i meta tag esistenti con quelli dinamici
-        # Trova la posizione dei meta tag statici e sostituiscili
-        meta_start = content.find('<!-- Social Media Sharing Preview Metadata -->')
-        meta_end = content.find('<!-- Server-side rendered meta elements will be generated here -->')
-        
-        if meta_start != -1 and meta_end != -1:
-            # Mantieni il commento iniziale e aggiungi i nuovi meta tag
-            new_content = (
-                content[:meta_start] +
-                '<!-- Social Media Sharing Preview Metadata -->\n    ' +
-                meta_tags_html + '\n    ' +
-                content[meta_end:]
-            )
-            return new_content
-        else:
-            # Fallback: aggiungi i meta tag prima della chiusura del head
-            head_end = content.find('</head>')
-            if head_end != -1:
-                new_content = (
-                    content[:head_end] +
-                    '    ' + meta_tags_html + '\n' +
-                    content[head_end:]
-                )
-                return new_content
-        
-        return content
-    except Exception as e:
-        print(f"Error rendering index with meta: {e}")
-        return send_file('index.html')
+def generate_meta_for_path(path, base_url):
+    """Restituisce i meta dati per l'anteprima social della path, o None se non previsti"""
+    content_type, groups = get_content_type_from_path(path)
+
+    if content_type in ('post', 'ping'):
+        author, permlink = groups
+        return meta_generator.generate_post_meta(author, permlink, base_url, is_ping=content_type == 'ping')
+    if content_type == 'profile':
+        return meta_generator.generate_profile_meta(groups[0], base_url)
+    if content_type == 'community':
+        return meta_generator.generate_community_meta(groups[0], base_url)
+    if content_type in ('tag', 'ping_tag'):
+        return meta_generator.generate_tag_meta(groups[0], base_url, pings=content_type == 'ping_tag')
+    return None
+
+def render_index_with_meta(meta_data):
+    """Renderizza index.html con i meta tag dinamici al posto di quelli statici"""
+    # Path assoluto: su PythonAnywhere la cwd del processo WSGI non è la cartella del progetto
+    with open(os.path.join(app.root_path, 'index.html'), 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
+
+    # Sostituisci il <title> statico invece di aggiungerne un secondo
+    title = meta_data['title']
+    if title != 'cur8.fun':
+        title = f"{title} | cur8.fun"
+    content = re.sub(r'<title>.*?</title>',
+                     lambda _: f'<title>{meta_generator.escape_html(title)}</title>',
+                     content, count=1, flags=re.DOTALL)
+
+    # Sostituisci i meta tag statici compresi tra i due marker
+    marker_start = '<!-- Social Media Sharing Preview Metadata -->'
+    marker_end = '<!-- Server-side rendered meta elements will be generated here -->'
+    meta_start = content.find(marker_start)
+    meta_end = content.find(marker_end)
+
+    if meta_start != -1 and meta_end != -1:
+        return content[:meta_start] + marker_start + '\n    ' + meta_tags_html + '\n    ' + content[meta_end:]
+
+    # Fallback: aggiungi i meta tag prima della chiusura del head
+    return content.replace('</head>', '    ' + meta_tags_html + '\n</head>', 1)
 
 
 
@@ -184,40 +176,15 @@ def serve_landing():
 # Serve la SPA/PWA per tutti i path non gestiti da route statiche
 @app.route('/<path:path>')
 def serve_spa(path):
-    # Determina il tipo di contenuto dal path
-    content_type, params = get_content_type_from_path(path)
-    
-    # Se è un post, genera meta tag dinamici per l'anteprima
-    if content_type == 'post':
-        try:
-            print(f"[DEBUG] Generating meta tags for post: @{params['author']}/{params['permlink']}")
-            
-            # Genera i meta tag per il post
-            base_url = get_base_url(request)
-            current_url = f"{base_url}/{path}"
-            
-            meta_data = meta_generator.generate_post_meta(
-                author=params['author'],
-                permlink=params['permlink'],
-                base_url=base_url
-            )
-            
-            if meta_data:
-                # Aggiorna l'URL con quello corrente
-                meta_data['url'] = current_url
-                
-                # Genera l'HTML dei meta tag
-                meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
-                
-                print(f"[DEBUG] Generated meta tags for @{params['author']}/{params['permlink']}")
-                return render_index_with_meta(meta_tags_html)
-            else:
-                print(f"[DEBUG] No meta tags generated for @{params['author']}/{params['permlink']}, falling back to default")
-                
-        except Exception as e:
-            print(f"[DEBUG] Error generating meta tags for post: {e}")
-    
-    # Per tutti gli altri casi (profili, tag, community, errori), serve la SPA normale
+    # Post, commenti, ping, profili, community e tag: meta tag dinamici per l'anteprima social
+    try:
+        meta_data = generate_meta_for_path(path, get_base_url(request))
+        if meta_data:
+            return render_index_with_meta(meta_data)
+    except Exception as e:
+        print(f"[DEBUG] Error generating meta tags for /{path}: {e}")
+
+    # Per tutti gli altri casi (pagine generiche, errori), serve la SPA normale
     return send_file('index.html')
 
 # API per i post schedulati

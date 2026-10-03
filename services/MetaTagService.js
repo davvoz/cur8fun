@@ -9,7 +9,7 @@ class MetaTagService {
     this.defaultMeta = {
       title: 'cur8.fun',
       description: 'Your Steem community social platform',
-      image: 'https://cur8.fun/assets/img/logo_tra.png',
+      image: 'https://cur8.fun/assets/img/og-default.png',
       url: 'https://cur8.fun/',
       type: 'website'
     };

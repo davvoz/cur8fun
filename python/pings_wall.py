@@ -36,7 +36,6 @@ NODES = [
 WALL_ACCOUNT = "micro.cur8"
 COMMUNITY = "hive-159863"  # Cur8 community on Steem
 PINGS_URL = "https://cur8.fun/pings"
-IMAGE_URL = "https://cur8.fun/assets/img/logo_tra.png"
 
 
 def wall_permlink(day):
@@ -69,7 +68,6 @@ def build_operation(day):
         "format": "markdown",
         "type": "pings-container",
         "tags": [COMMUNITY, "cur8", "pings"],
-        "image": [IMAGE_URL],
     }
     return operations.Comment(**{
         "parent_author": "",
