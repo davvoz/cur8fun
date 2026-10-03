@@ -669,7 +669,7 @@
   border: 2px solid var(--color-warning-light);
   box-shadow: 0 4px 12px rgba(var(--warning-color-rgb), 0.15);
   background: linear-gradient(135deg, rgba(var(--warning-color-rgb), 0.05) 0%, rgba(var(--background-light-rgb), 1) 100%);
-  animation: pulse 2s infinite alternate;
+  animation: community-glow-pulse 2s infinite alternate;
   animation-delay: 1s;
 }
 
@@ -770,7 +770,7 @@
   }
 }
 
-@keyframes pulse {
+@keyframes community-glow-pulse {
   0% {
     box-shadow: 0 4px 12px rgba(var(--warning-color-rgb), 0.2);
   }

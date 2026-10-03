@@ -100,11 +100,11 @@ input[data-search-input="true"] {
     margin-top: var(--space-xs);
     text-align: left;
     padding: 0 var(--space-sm);
-    animation: fadeIn 0.3s ease;
+    animation: search-fade-in 0.3s ease;
 }
 
 /* Animazione per l'hint */
-@keyframes fadeIn {
+@keyframes search-fade-in {
     from {
         opacity: 0;
         transform: translateY(-5px);
@@ -269,7 +269,7 @@ input[data-search-input="true"] {
     text-align: center;
     color: var(--text-muted);
     padding: var(--space-xxl) 0;
-    animation: fadeIn 0.4s ease-in;
+    animation: search-fade-in 0.4s ease-in;
 }
 
 .no-results-icon {
@@ -628,7 +628,7 @@ input[data-search-input="true"] {
     text-align: center;
     margin: var(--space-xl) 0;
     border-left: 4px solid var(--error-color);
-    animation: fadeIn 0.3s ease-in;
+    animation: search-fade-in 0.3s ease-in;
 }
 
 
@@ -736,7 +736,7 @@ input[data-search-input="true"] {
     margin-bottom: 24px;
     color: var(--text-secondary);
     font-size: 1.15rem;
-    animation: fadeIn 0.5s;
+    animation: search-fade-in 0.5s;
 }
 
 .search-empty-hint .material-icons {

@@ -58,7 +58,7 @@
   margin-bottom: var(--space-md);
   display: flex;
   align-items: center;
-  animation: slideDown 0.3s ease-out;
+  animation: modal-slide-down 0.3s ease-out;
 }
 
 .banner-icon {
@@ -186,7 +186,7 @@
   }
 }
 
-@keyframes slideDown {
+@keyframes modal-slide-down {
   from {
     opacity: 0;
     transform: translateY(-20px);

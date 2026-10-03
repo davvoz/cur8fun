@@ -761,10 +761,8 @@ class CommunityView extends BasePostView {
       clearTimeout(this.sortSwitchTimer);
       this.sortSwitchTimer = null;
     }
-    // Reset the shared #main-content className so the next view isn't affected
-    if (this.container) {
-      this.container.className = '';
-    }
+    window.removeEventListener('resize', this._onResize);
+    this._unsubscribePreferences();
     this.onBeforeUnmount();
   }
 

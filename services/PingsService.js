@@ -1,6 +1,7 @@
 import steemService from './SteemService.js';
 import commentService from './CommentService.js';
 import authService from './AuthService.js';
+import eventEmitter from '../utils/EventEmitter.js';
 import { PINGS_CONFIG } from '../config/pings.js';
 
 const HASHTAG_RE = /(^|[^\w&/])#([a-z0-9][a-z0-9-]{0,23})/gi;
@@ -218,6 +219,7 @@ class PingsService {
       }
     });
 
+    eventEmitter.emit('pings:changed', { author: result.author });
     return {
       author: result.author,
       permlink: result.permlink,
@@ -261,6 +263,7 @@ class PingsService {
       }
     });
 
+    eventEmitter.emit('pings:changed', { author: ping.author });
     return { ...ping, body };
   }
 
@@ -279,6 +282,7 @@ class PingsService {
     await this._broadcast([
       ['delete_comment', { author: ping.author, permlink: ping.permlink }]
     ]);
+    eventEmitter.emit('pings:changed', { author: ping.author });
   }
 
   /**

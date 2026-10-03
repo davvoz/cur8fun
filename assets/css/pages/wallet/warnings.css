@@ -100,11 +100,11 @@
   border-left: 4px solid var(--banner-info);
   z-index: var(--z-notification);
   box-shadow: var(--popup-box-shadow);
-  animation: fadeIn 0.3s ease-in-out;
+  animation: wallet-warning-fade-in 0.3s ease-in-out;
 }
 
 /* Animation for notification */
-@keyframes fadeIn {
+@keyframes wallet-warning-fade-in {
   from {
     opacity: 0;
     transform: translate(-50%, -10px);

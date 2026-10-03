@@ -1,5 +1,6 @@
 import View from './View.js';
 import authService from '../services/AuthService.js';
+import walletService from '../services/WalletService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import WalletBalancesComponent from '../components/wallet/WalletBalancesComponent.js';
 import WalletResourcesComponent from '../components/wallet/WalletResourcesComponent.js';
@@ -152,6 +153,14 @@ class WalletView extends View {
     }
   }
   
+  /**
+   * Shown again after being kept alive by the router: the components listen to
+   * wallet:balances-updated, so balances refresh in place without a skeleton
+   */
+  onActivate() {
+    if (this.currentUser) walletService.updateBalances(0);
+  }
+
   /**
    * Clean up all components on view unmount
    */

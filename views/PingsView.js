@@ -6,7 +6,7 @@ import VoteController from '../controllers/VoteController.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import PingComposer from '../components/pings/PingComposer.js';
 import { createPingCard } from '../components/pings/PingCard.js';
-import { createPingsLayout } from '../components/pings/PingsSidebar.js';
+import { createPingsLayout, attachPingsColumns } from '../components/pings/PingsSidebar.js';
 import { PINGS_CONFIG } from '../config/pings.js';
 
 // Each batch scans up to a week of walls (see PingsService.loadMore)
@@ -41,8 +41,9 @@ class PingsView extends View {
       if (document.visibilityState === 'visible') this.checkNewPings();
     };
     // Composer and Following tab depend on the logged-in user
+    // (not when off screen: the router drops kept-alive views on auth changes)
     this.subscribe('auth:changed', () => {
-      if (this.element) this.render(this.element);
+      if (this.element?.isConnected) this.render(this.element);
     });
   }
 
@@ -79,7 +80,10 @@ class PingsView extends View {
     this.scrollArea.className = 'pings-scroll-area';
     page.appendChild(this.scrollArea);
 
-    element.appendChild(createPingsLayout(page));
+    this.layout = createPingsLayout(page);
+    element.appendChild(this.layout);
+    this.composerEl = composerEl;
+    this.page = page;
     this.setupComposeFab(composerEl, page);
 
     if (cached && cached.pings.length) {
@@ -87,7 +91,8 @@ class PingsView extends View {
     } else {
       await this.loadFeed();
     }
-    this.startNewPingsWatcher();
+    // Left while loading: onActivate starts the watcher if the view comes back
+    if (this.list.isConnected) this.startNewPingsWatcher();
   }
 
   cacheKey() {
@@ -547,6 +552,22 @@ class PingsView extends View {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
+  }
+
+  // Kept alive by the router while another page is shown: the fab lives on
+  // #app, outside this view, and polling would only waste requests
+  onDeactivate() {
+    this.stopNewPingsWatcher();
+    this.destroyComposeFab();
+  }
+
+  // Shown again: the feed is as the user left it, newer pings go in the pill
+  onActivate() {
+    // The side columns are shared, a thread opened meanwhile has taken them
+    if (this.layout) attachPingsColumns(this.layout);
+    if (this.composerEl) this.setupComposeFab(this.composerEl, this.page);
+    this.startNewPingsWatcher();
+    this.checkNewPings();
   }
 
   unmount() {

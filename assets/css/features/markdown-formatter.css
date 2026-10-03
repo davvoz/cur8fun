@@ -252,7 +252,7 @@
   display: flex;
   align-items: center;
   max-width: 300px;
-  animation: slideIn 0.3s ease;
+  animation: md-toast-slide-in 0.3s ease;
 }
 
 .markdown-formatter-status.info {
@@ -278,7 +278,7 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-@keyframes slideIn {
+@keyframes md-toast-slide-in {
   from { transform: translateX(100px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }

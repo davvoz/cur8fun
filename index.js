@@ -1,5 +1,5 @@
 // Core utilities
-import router from './utils/Router.js';
+import router, { lazyView } from './utils/Router.js';
 import eventEmitter from './utils/EventEmitter.js';
 import NavigationManager from './utils/NavigationManager.js';
 import themeManager from './utils/ThemeManager.js';
@@ -16,64 +16,71 @@ import UpdateNotificationComponent from './components/pwa/UpdateNotificationComp
 import backToTopButton from './components/BackToTopButton.js';
 import confirmLogout from './components/auth/confirmLogout.js';
 import './components/MarkdownFormatterUI.js';
+// Constructed at startup on purpose: its ApiClient reads ?platform= from the
+// URL the app was opened with, before any navigation
+import './services/CreatePostService.js';
 
-// Content views
+// Views most often opened first (home, shared links) load with the app; the
+// others are lazyView()s, downloaded on first use or once the app is idle
 import HomeView from './views/HomeView.js';
 import PostView from './views/PostView.js';
 import TagView from './views/TagView.js';
-import SearchView from './views/SearchView.js';
-import CreatePostView from './views/CreatePostView.js';
-import DraftsView from './views/DraftsView.js';
-import SettingsView from './views/SettingsView.js';
-import MenuView from './views/MenuView.js';
-import FAQView from './views/FAQView.js';
-import NewReleasesView from './views/NewReleasesView.js'; // Importo la nuova vista
 import PingsView from './views/PingsView.js';
 import PingThreadView from './views/PingThreadView.js';
-
-// Community views
-import CommunityView from './views/CommunityView.js';
-import CommunitiesListView from './views/CommunitiesListView.js';
-
-// User account views
-import LoginView from './views/LoginView.js';
 import ProfileView from './views/ProfileView.js';
-import RegisterView from './views/RegisterView.js';
-import EditProfileView from './views/EditProfileView.js';
-import WalletView from './views/WalletView.js';
-import WitnessesView from './views/WitnessesView.js';
-
-// Utility views
 import NotFoundView from './views/NotFoundView.js';
-import NotificationsView from './views/NotificationsView.js';
+
+const CreatePostView = lazyView(() => import('./views/CreatePostView.js'));
+const DraftsView = lazyView(() => import('./views/DraftsView.js'));
+const SettingsView = lazyView(() => import('./views/SettingsView.js'));
+const MenuView = lazyView(() => import('./views/MenuView.js'));
+const FAQView = lazyView(() => import('./views/FAQView.js'));
+const NewReleasesView = lazyView(() => import('./views/NewReleasesView.js'));
+const CommunityView = lazyView(() => import('./views/CommunityView.js'));
+const CommunitiesListView = lazyView(() => import('./views/CommunitiesListView.js'));
+const LoginView = lazyView(() => import('./views/LoginView.js'));
+const RegisterView = lazyView(() => import('./views/RegisterView.js'));
+const EditProfileView = lazyView(() => import('./views/EditProfileView.js'));
+const WalletView = lazyView(() => import('./views/WalletView.js'));
+const WitnessesView = lazyView(() => import('./views/WitnessesView.js'));
+const NotificationsView = lazyView(() => import('./views/NotificationsView.js'));
+const SearchView = lazyView(() => import('./views/SearchView.js'));
 
 // Versione corrente dell'applicazione
 const APP_VERSION = '1.0.0';
 
+// Main sections stay alive in memory when left, so switching between them
+// is instant instead of reloading everything (see Router.cleanupCurrentView)
+const KEEP_ALIVE = { keepAlive: true };
+// Balances get stale quickly, so the wallet is rebuilt sooner
+const KEEP_ALIVE_SHORT = { keepAlive: { ttl: 2 * 60 * 1000 } };
+// Same lifetime as ProfileService's cache (see ProfileView.canResume)
+const KEEP_ALIVE_PROFILE = { keepAlive: { ttl: 5 * 60 * 1000 } };
+
 // Setup routes with proper handlers
 router
-  .addRoute('/home', HomeView)
+  .addRoute('/home', HomeView, KEEP_ALIVE)
   .addRoute('/login', LoginView)
   .addRoute('/register', RegisterView)
   .addRoute('/create', CreatePostView, { requiresAuth: true })
   .addRoute('/drafts', DraftsView, { requiresAuth: true })
-  .addRoute('/trending', HomeView, { tag: 'trending', forceTag: true })
-  .addRoute('/hot', HomeView, { tag: 'hot', forceTag: true })
-  .addRoute('/new', NewReleasesView) // Usando la nuova vista dedicata invece di HomeView
-  .addRoute('/promoted', HomeView, { tag: 'promoted', forceTag: true })
+  .addRoute('/trending', HomeView, { tag: 'trending', forceTag: true, ...KEEP_ALIVE })
+  .addRoute('/hot', HomeView, { tag: 'hot', forceTag: true, ...KEEP_ALIVE })
+  .addRoute('/new', NewReleasesView, KEEP_ALIVE) // Usando la nuova vista dedicata invece di HomeView
+  .addRoute('/promoted', HomeView, { tag: 'promoted', forceTag: true, ...KEEP_ALIVE })
   .addRoute('/settings', SettingsView)
-  .addRoute('/wallet', WalletView, { requiresAuth: true })
+  .addRoute('/wallet', WalletView, { requiresAuth: true, ...KEEP_ALIVE_SHORT })
   .addRoute('/search', SearchView)
   .addRoute('/tag/:tag', TagView)
-  .addRoute('/@:username', ProfileView)
+  .addRoute('/@:username', ProfileView, KEEP_ALIVE_PROFILE)
   .addRoute('/@:author/:permlink', PostView)
   .addRoute('/edit-profile/:username', EditProfileView, { requiresAuth: true })
   .addRoute('/community/:id', CommunityView)
-  .addRoute('/communities', CommunitiesListView)
-  .addRoute('/pings', PingsView)
-  .addRoute('/pings/tag/:tag', PingsView)
+  .addRoute('/communities', CommunitiesListView, KEEP_ALIVE)
+  .addRoute('/pings', PingsView, KEEP_ALIVE)
+  .addRoute('/pings/tag/:tag', PingsView, KEEP_ALIVE)
   .addRoute('/pings/@:author/:permlink', PingThreadView)
-  .addRoute('/witnesses', WitnessesView)
+  .addRoute('/witnesses', WitnessesView, KEEP_ALIVE)
   .addRoute('/notifications', NotificationsView, { requiresAuth: true })
   .addRoute('/menu', MenuView)
   .addRoute('/faq', FAQView)
@@ -118,6 +125,13 @@ function initApp() {
 
   // Floating "back to top" button (listens to #main-content scroll)
   backToTopButton.init();
+
+  // Once the first page has loaded, fetch the other pages' code in the background
+  if (document.readyState === 'complete') {
+    router.preloadLazyViews();
+  } else {
+    window.addEventListener('load', () => router.preloadLazyViews(), { once: true });
+  }
 
   // Carica subito il conteggio notifiche non lette (senza aspettare l'apertura della campanella)
   if (authService.getCurrentUser()) {
@@ -251,9 +265,9 @@ function initNavigation() {
   // Initial update
   updateNavigation();
 
-  // Subscribe to events that require nav updates
+  // The top bar only depends on the logged-in user, so it is rebuilt on auth
+  // changes only (NavigationManager highlights the active item on route changes)
   eventEmitter.on('auth:changed', updateNavigation);
-  eventEmitter.on('route:changed', updateNavigation);
 }
 
 function updateNavigation() {
@@ -400,6 +414,8 @@ function createTopThemeToggleButton() {
   return themeToggle;
 }
 
+let unsubscribeNotificationBadge = null;
+
 function createNotificationsButton() {
   const link = document.createElement('a');
   link.href = '/notifications';
@@ -420,8 +436,9 @@ function createNotificationsButton() {
   const unreadCount = notificationsService.getUnreadCount();
   updateNotificationBadge(badge, unreadCount);
 
-  // Listen for updates to the unread count
-  eventEmitter.on('notifications:unread_count_updated', (count) => {
+  // Listen for updates to the unread count; the previous top bar's badge is gone
+  unsubscribeNotificationBadge?.();
+  unsubscribeNotificationBadge = eventEmitter.on('notifications:unread_count_updated', (count) => {
     updateNotificationBadge(badge, count);
   });
 

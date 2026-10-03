@@ -28,6 +28,22 @@ export function createPingsLayout(center) {
 
   const grid = document.createElement('div');
   grid.className = 'pings-layout-grid';
+  grid.appendChild(center);
+  layout.appendChild(grid);
+
+  attachPingsColumns(layout);
+  return layout;
+}
+
+/**
+ * Moves the shared side columns into `layout`, around its center column.
+ * A page kept alive by the router calls this when shown again, since the
+ * pages opened meanwhile have taken the columns away.
+ * @param {HTMLElement} layout - A layout made by createPingsLayout
+ */
+export function attachPingsColumns(layout) {
+  const grid = layout.querySelector('.pings-layout-grid');
+  const center = [...grid.children].find(el => !el.classList.contains('pings-aside'));
 
   const username = authService.getCurrentUser()?.username || null;
   if (!columns.left || columns.username !== username) {
@@ -44,8 +60,6 @@ export function createPingsLayout(center) {
   }
 
   grid.append(columns.left, center, columns.right);
-  layout.appendChild(grid);
-  return layout;
 }
 
 function createAside(side) {

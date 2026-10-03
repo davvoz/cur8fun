@@ -332,6 +332,7 @@
   box-shadow: 0 10px 22px rgba(var(--primary-color-rgb), 0.24);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
   cursor: pointer;
+}
 
 .save-settings-btn:hover {
   transform: translateY(-1px);

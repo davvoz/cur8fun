@@ -12,7 +12,7 @@
   justify-content: center;
   z-index: 1000;
   opacity: 0;
-  animation: modalFadeIn 0.4s ease-out 0.1s forwards;
+  animation: upload-modal-fade-in 0.4s ease-out 0.1s forwards;
 }
 
 /* Stile per dialog dell'upload immagini */
@@ -28,7 +28,7 @@
   justify-content: center;
   z-index: 1000;
   opacity: 0;
-  animation: modalFadeIn 0.4s ease-out 0.1s forwards;
+  animation: upload-modal-fade-in 0.4s ease-out 0.1s forwards;
 }
 
 /* IMPORTANTE: Aggiungiamo prefissi specifici a tutti i selettori per evitare conflitti */
@@ -308,7 +308,7 @@
   100% { transform: rotate(360deg); }
 }
 
-@keyframes slideIn {
+@keyframes upload-slide-in {
   from {
     transform: translateY(20px);
     opacity: 0;
@@ -442,7 +442,7 @@
     justify-content: center;
     z-index: 1000;
     opacity: 0;
-    animation: modalFadeIn 0.4s ease-out 0.1s forwards;
+    animation: upload-modal-fade-in 0.4s ease-out 0.1s forwards;
 }
 
 .modal-content {
@@ -533,7 +533,7 @@
 }
 
 /* Aggiungiamo le animazioni personalizzate */
-@keyframes modalFadeIn {
+@keyframes upload-modal-fade-in {
     0% { opacity: 0; }
     100% { opacity: 1; }
 }

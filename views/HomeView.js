@@ -56,7 +56,9 @@ class HomeView extends BasePostView {  constructor(params) {
     }
 
     // Listen for tag preference changes
-    eventEmitter.on('user:preferences:updated', () => {
+    this._unsubscribeHomeMode = eventEmitter.on('user:preferences:updated', () => {
+      // Off screen (kept alive): the whole view is rebuilt when shown again
+      if (!this.container?.isConnected) return;
       // Get current home view mode from preferences
       const currentHomeViewMode = userPreferencesService.getHomeViewMode();
       
@@ -293,6 +295,20 @@ class HomeView extends BasePostView {  constructor(params) {
     });
   }
   
+  // A feed picked from TagView is applied by the constructor of a fresh view
+  canResume() {
+    return super.canResume() && !sessionStorage.getItem('homeTempFeed');
+  }
+
+  // Shown again after being kept alive by the router
+  onActivate() {
+    metaTagService.resetToDefault();
+  }
+
+  onDeactivate() {
+    this._closeFeedSwitcher();
+  }
+
   onBeforeUnmount() {
     // Clean up infinite scroll when switching views
     if (this.infiniteScroll) {
@@ -301,7 +317,7 @@ class HomeView extends BasePostView {  constructor(params) {
     }
     
     // Remove event listeners
-    eventEmitter.off('user:preferences:updated');
+    this._unsubscribeHomeMode?.();
 
     // Close feed switcher panel if open
     this._closeFeedSwitcher();

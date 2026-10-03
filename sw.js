@@ -7,8 +7,6 @@ const BUILD_TIMESTAMP = '2026-10-03T10:43:20Z';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/index.js',
-  '/assets/css/main.css',
-  '/assets/css/styles.css',
   '/assets/img/logo_tra.png',
   '/assets/js/steem.min.js',
   '/assets/js/steemlogin.min.js',

@@ -338,7 +338,7 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: scaleIn 0.2s ease;
+  animation: beneficiary-scale-in 0.2s ease;
 }
 
 @keyframes fadeIn {
@@ -346,7 +346,7 @@
   to { opacity: 1; }
 }
 
-@keyframes scaleIn {
+@keyframes beneficiary-scale-in {
   from { transform: scale(0.95); }
   to { transform: scale(1); }
 }

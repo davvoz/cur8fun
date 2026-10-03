@@ -9,8 +9,8 @@ class MetaTagService {
     this.defaultMeta = {
       title: 'cur8.fun',
       description: 'Your Steem community social platform',
-      image: 'https://cur8.fun/assets/img/og-default.png',
-      url: 'https://cur8.fun/',
+      image: 'https://www.cur8.fun/assets/img/og-default.png',
+      url: 'https://www.cur8.fun/',
       type: 'website'
     };
   }
@@ -122,7 +122,7 @@ class MetaTagService {
 
     // Tag specifici per articoli
     if (type === 'post' && metaData.author) {
-      this.createMetaTag('article:author', `https://cur8.fun/@${metaData.author}`);
+      this.createMetaTag('article:author', `https://www.cur8.fun/@${metaData.author}`);
       this.createMetaTag('article:published_time', metaData.publishedTime);
       
       if (metaData.tags && metaData.tags.length > 0) {
@@ -329,14 +329,14 @@ class MetaTagService {
           "author": {
             "@type": "Person",
             "name": metaData.author,
-            "url": `https://cur8.fun/@${metaData.author}`
+            "url": `https://www.cur8.fun/@${metaData.author}`
           },
           "publisher": {
             "@type": "Organization",
             "name": "cur8.fun",
             "logo": {
               "@type": "ImageObject",
-              "url": "https://cur8.fun/assets/img/logo_tra.png"
+              "url": "https://www.cur8.fun/assets/img/logo_tra.png"
             }
           }
         };

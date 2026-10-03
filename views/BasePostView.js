@@ -95,6 +95,12 @@ class BasePostView {
     // Create vote controller for post actions
     this.voteController = new VoteController(this);
     
+    // Settings changes can alter what the feed shows: a kept-alive feed that
+    // is off screen is then rebuilt instead of resumed (see canResume)
+    this._unsubscribePreferences = eventEmitter.on('user:preferences:updated', () => {
+      if (!this.container?.isConnected) this._preferencesChanged = true;
+    });
+
     // Initialize mobile detection and handling
     this.setupMobileResponsiveness();
     
@@ -147,10 +153,9 @@ class BasePostView {
     // Apply mobile styling initially
     this.handleMobileLayout();
     
-    // Update on window resize
-    window.addEventListener('resize', () => {
-      this.handleMobileLayout();
-    });
+    // Update on window resize (removed in unmount)
+    this._onResize = () => this.handleMobileLayout();
+    window.addEventListener('resize', this._onResize);
   }
   
   /**
@@ -1770,17 +1775,31 @@ class BasePostView {
   }
 
   /**
+   * Called by the router before showing a kept-alive feed again
+   */
+  canResume() {
+    return !this._preferencesChanged;
+  }
+
+  /**
    * Unmount view and clean up resources
    */
   unmount() {
+    if (typeof this.onBeforeUnmount === 'function') {
+      this.onBeforeUnmount();
+    }
+    this._unsubscribePreferences();
+
     if (this.infiniteScroll) {
       this.infiniteScroll.destroy();
       this.infiniteScroll = null;
     }
-    
+
     if (this.gridController) {
       this.gridController.unmount();
     }
+
+    window.removeEventListener('resize', this._onResize);
   }
 }
 

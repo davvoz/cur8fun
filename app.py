@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import sys
 import re
+import hashlib
 
 
 # Aggiungi la directory app alla path per poter importare il modulo models
@@ -12,9 +13,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 from python.models import db, ScheduledPost
 from python.publisher import publisher
 from python.meta_generator import meta_generator
+from python.asset_bundler import AssetBundler
 
 app = Flask(__name__)
 CORS(app)  # Abilita CORS per tutte le routes
+
+asset_bundler = AssetBundler(app.root_path)
+# I fogli di stile collegati da index.html, nell'ordine in cui li carica
+STYLESHEETS = ['/assets/css/main.css', '/assets/css/components/markdown-formatter.css']
+CSS_BUNDLE_URL = '/bundle/app.css'
 
 # Configurazione database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///steemee.db'
@@ -29,6 +36,15 @@ with app.app_context():
 @app.route('/start/<path:filename>')
 def start_static(filename):
     return send_from_directory('start', filename)
+# Tutti i fogli di stile dell'app in un solo file (vedi python/asset_bundler.py)
+@app.route(CSS_BUNDLE_URL)
+def css_bundle():
+    css, etag = asset_bundler.css_bundle(STYLESHEETS)
+    response = app.response_class(css, mimetype='text/css')
+    response.set_etag(etag)
+    response.cache_control.no_cache = True
+    return response.make_conditional(request)
+
 # Serve static files
 @app.route('/assets/<path:filename>')
 def assets(filename):
@@ -138,11 +154,34 @@ def generate_meta_for_path(path, base_url):
         return meta_generator.generate_tag_meta(groups[0], base_url, pings=content_type == 'ping_tag')
     return None
 
-def render_index_with_meta(meta_data):
-    """Renderizza index.html con i meta tag dinamici al posto di quelli statici"""
+def load_index_html():
+    """
+    index.html ottimizzato per il primo caricamento: un solo foglio di stile al
+    posto della catena di @import e i moduli JS dichiarati come modulepreload.
+    Il file su disco resta valido anche servito da un server statico.
+    """
     # Path assoluto: su PythonAnywhere la cwd del processo WSGI non è la cartella del progetto
     with open(os.path.join(app.root_path, 'index.html'), 'r', encoding='utf-8') as f:
         content = f.read()
+
+    content = re.sub(r'<!-- styles:start.*?<!-- styles:end -->',
+                     lambda _: f'<link rel="stylesheet" href="{CSS_BUNDLE_URL}">',
+                     content, count=1, flags=re.DOTALL)
+
+    preloads = ''.join(f'\n    <link rel="modulepreload" href="{url}">'
+                       for url in asset_bundler.module_preloads('/index.js'))
+    return re.sub(r'(<!-- modulepreload:.*?-->)', lambda m: m.group(1) + preloads,
+                  content, count=1, flags=re.DOTALL)
+
+def html_response(content):
+    response = app.response_class(content, mimetype='text/html')
+    response.set_etag(hashlib.sha1(content.encode('utf-8')).hexdigest())
+    response.cache_control.no_cache = True
+    return response.make_conditional(request)
+
+def render_index_with_meta(meta_data):
+    """Renderizza index.html con i meta tag dinamici al posto di quelli statici"""
+    content = load_index_html()
 
     meta_tags_html = meta_generator.generate_meta_tags_html(meta_data)
 
@@ -180,12 +219,12 @@ def serve_spa(path):
     try:
         meta_data = generate_meta_for_path(path, get_base_url(request))
         if meta_data:
-            return render_index_with_meta(meta_data)
+            return html_response(render_index_with_meta(meta_data))
     except Exception as e:
         print(f"[DEBUG] Error generating meta tags for /{path}: {e}")
 
     # Per tutti gli altri casi (pagine generiche, errori), serve la SPA normale
-    return send_file('index.html')
+    return html_response(load_index_html())
 
 # API per i post schedulati
 @app.route('/api/scheduled_posts', methods=['GET'])

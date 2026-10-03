@@ -250,10 +250,10 @@
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top: 2px solid white;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: auth-spin-centered 1s linear infinite;
 }
 
-@keyframes spin {
+@keyframes auth-spin-centered {
   0% { transform: translate(-50%, -50%) rotate(0deg); }
   100% { transform: translate(-50%, -50%) rotate(360deg); }
 }

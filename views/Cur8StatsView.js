@@ -25,7 +25,7 @@ class Cur8StatsView extends View {
     metaTagService.setMetaTags({
       title: 'Analytics - Content Performance & Analytics',
       description: 'Discover statistics and analytics for Cur8 tagged content on the blockchain. View top performing posts, community engagement, and content trends.',
-      image: 'https://cur8.fun/assets/img/og-default.png',
+      image: 'https://www.cur8.fun/assets/img/og-default.png',
       url: `${window.location.origin}/cur8-stats`,
       type: 'website'
     }, 'default');

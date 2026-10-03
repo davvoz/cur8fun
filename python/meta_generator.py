@@ -11,15 +11,15 @@ class MetaTagGenerator:
         self.default_meta = {
             'title': 'cur8.fun',
             'description': 'Your Steem community social platform',
-            'image': 'https://cur8.fun/assets/img/og-default.png',
-            'url': 'https://cur8.fun/',
+            'image': 'https://www.cur8.fun/assets/img/og-default.png',
+            'url': 'https://www.cur8.fun/',
             'type': 'website'
         }
 
     def avatar_url(self, username):
         return f"https://steemitimages.com/u/{username}/avatar"
 
-    def generate_post_meta(self, author, permlink, base_url='https://cur8.fun', is_ping=False):
+    def generate_post_meta(self, author, permlink, base_url='https://www.cur8.fun', is_ping=False):
         """Genera meta tag per un post, un commento o un ping"""
         path = f"{'pings/' if is_ping else ''}@{author}/{permlink}"
         try:
@@ -72,7 +72,7 @@ class MetaTagGenerator:
             print(f"Error generating post meta for @{author}/{permlink}: {e}")
             return self.generate_default_meta(f"{base_url}/{path}")
 
-    def generate_profile_meta(self, username, base_url='https://cur8.fun'):
+    def generate_profile_meta(self, username, base_url='https://www.cur8.fun'):
         """Genera meta tag per un profilo utente"""
         try:
             accounts = steem_client.get_accounts([username])
@@ -104,7 +104,7 @@ class MetaTagGenerator:
             print(f"Error generating profile meta for @{username}: {e}")
             return self.generate_default_meta(f"{base_url}/@{username}")
 
-    def generate_community_meta(self, name, base_url='https://cur8.fun'):
+    def generate_community_meta(self, name, base_url='https://www.cur8.fun'):
         """Genera meta tag per una community"""
         url = f"{base_url}/community/{name}"
         try:
@@ -125,7 +125,7 @@ class MetaTagGenerator:
             print(f"Error generating community meta for {name}: {e}")
             return self.generate_default_meta(url)
 
-    def generate_tag_meta(self, tag, base_url='https://cur8.fun', pings=False):
+    def generate_tag_meta(self, tag, base_url='https://www.cur8.fun', pings=False):
         """Genera meta tag per una pagina tag (post o ping)"""
         meta = self.generate_default_meta(f"{base_url}/{'pings/' if pings else ''}tag/{tag}")
         meta['title'] = f"#{tag} {'pings' if pings else 'posts'}"
@@ -167,7 +167,7 @@ class MetaTagGenerator:
         # Article specific tags
         if meta_data.get('type') == 'article':
             if meta_data.get('author'):
-                html_parts.append(f'<meta property="article:author" content="https://cur8.fun/@{meta_data["author"]}" />')
+                html_parts.append(f'<meta property="article:author" content="https://www.cur8.fun/@{meta_data["author"]}" />')
             if meta_data.get('published_time'):
                 html_parts.append(f'<meta property="article:published_time" content="{meta_data["published_time"]}" />')
 

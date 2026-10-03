@@ -10,6 +10,24 @@
     scrollbar-color: var(--border-color) var(--background-color);
 }
 
+/* Root each routed view renders into (see Router.mountViewRoot).
+   A short fade softens page switches; opacity only, because a transform
+   would become the containing block of the view's fixed elements. */
+[data-route-view] {
+    animation: route-view-enter 0.18s ease-out;
+}
+
+@keyframes route-view-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-route-view] {
+        animation: none;
+    }
+}
+
 #main-content::-webkit-scrollbar {
     width: 8px;
 }

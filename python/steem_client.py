@@ -104,7 +104,7 @@ class SteemClient:
         - tutto il resto (imgur, ecency, IPFS, ...): URL originale, i crawler lo scaricano direttamente
         """
         if not url:
-            return "https://cur8.fun/assets/img/og-default.png"
+            return "https://www.cur8.fun/assets/img/og-default.png"
 
         if 'steemitimages.com/p/' in url or 'steemitimages.com/u/' in url:
             return url

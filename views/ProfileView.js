@@ -17,8 +17,12 @@ const componentCache = {
   blog: {},  // blog posts + reblogs (getDiscussionsByBlog)
   posts: {}, // all author posts, no reblogs (getDiscussionsByAuthorBeforeDate)
   comments: {},
-  replies: {}
+  replies: {},
+  owner: {}  // username → the ProfileView currently rendering these components
 };
+
+// The current user's own writes that change what their profile shows
+const OWN_CONTENT_EVENTS = ['post:creation-completed', 'post:update-completed', 'post:reblogged', 'pings:changed'];
 
 class ProfileView extends View {
   constructor(params) {
@@ -59,6 +63,46 @@ class ProfileView extends View {
     this.postsArea = null;
     this.isSwitchingTab = false;
     this.pendingTabSwitch = null;
+
+    componentCache.owner[this.username] = this;
+    // While kept alive by the router, the user's own new content makes the
+    // profile stale: it is then rebuilt instead of resumed (see canResume)
+    if (this.username === this.currentUser?.username) {
+      OWN_CONTENT_EVENTS.forEach(name => this.subscribe(name, () => { this._ownContentChanged = true; }));
+    }
+  }
+
+  /**
+   * Called by the router before showing a kept-alive profile again. It is
+   * resumed only while ProfileService would still serve the same cached
+   * profile, so it is never older than a newly built view would be.
+   */
+  canResume() {
+    return componentCache.owner[this.username] === this
+      && !this._ownContentChanged
+      && !!this.profile
+      && profileService.getCachedProfile(this.username) === this.profile;
+  }
+
+  onActivate() {
+    if (this.profile) metaTagService.updateProfileMetaTags(this.profile);
+    this.checkFollowStatus();
+  }
+
+  onDeactivate() {
+    this.revealMainContent();
+  }
+
+  // Undoes the back-navigation scroll-restore hiding of #main-content
+  revealMainContent() {
+    if (this._scrollRestoreSafetyTimer) {
+      clearTimeout(this._scrollRestoreSafetyTimer);
+      this._scrollRestoreSafetyTimer = null;
+    }
+    const mainContent = document.getElementById('main-content');
+    if (mainContent && mainContent.style.visibility === 'hidden') {
+      mainContent.style.visibility = '';
+    }
   }
 
   // Helper to determine if we're navigating directly to profile
@@ -698,18 +742,27 @@ class ProfileView extends View {
   
   unmount() {
     // Clear scroll-restore safety timer and make sure the page is visible
-    if (this._scrollRestoreSafetyTimer) {
-      clearTimeout(this._scrollRestoreSafetyTimer);
-      this._scrollRestoreSafetyTimer = null;
-    }
-    const mainContent = document.getElementById('main-content');
-    if (mainContent && mainContent.style.visibility === 'hidden') {
-      mainContent.style.visibility = '';
-    }
+    this.revealMainContent();
+    super.unmount();
 
     this.postsArea = null;
     this.isSwitchingTab = false;
     this.pendingTabSwitch = null;
+
+    // Pings and wallet history belong to this view only
+    if (this.pingsComponent) {
+      this.pingsComponent.unmount();
+      this.pingsContainer = null;
+    }
+    if (this.walletHistoryComponent) {
+      this.walletHistoryComponent.destroy();
+      this.walletHistoryComponent = null;
+    }
+
+    // The cached components are shared: leave them alone if a newer view of
+    // the same profile is using them already
+    if (componentCache.owner[this.username] !== this) return;
+    delete componentCache.owner[this.username];
 
     // Clean up blog component
     if (this.blogComponent) {
@@ -730,18 +783,6 @@ class ProfileView extends View {
       this.commentsComponent.unmount();
       this.commentsLoaded = false;
       this.commentsContainer = null;
-    }
-    
-    // Clean up pings component
-    if (this.pingsComponent) {
-      this.pingsComponent.unmount();
-      this.pingsContainer = null;
-    }
-
-    // Clean up wallet component
-    if (this.walletHistoryComponent) {
-      this.walletHistoryComponent.destroy();
-      this.walletHistoryComponent = null;
     }
   }
 }

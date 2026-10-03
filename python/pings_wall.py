@@ -35,7 +35,7 @@ NODES = [
 
 WALL_ACCOUNT = "micro.cur8"
 COMMUNITY = "hive-159863"  # Cur8 community on Steem
-PINGS_URL = "https://cur8.fun/pings"
+PINGS_URL = "https://www.cur8.fun/pings"
 
 
 def wall_permlink(day):

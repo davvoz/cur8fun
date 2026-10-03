@@ -88,7 +88,8 @@ class CommunitiesListView {
     }
     
     // Listen for auth changes
-    eventEmitter.on('auth:changed', this.handleAuthChanged.bind(this));
+    this.unsubscribeAuth?.();
+    this.unsubscribeAuth = eventEmitter.on('auth:changed', this.handleAuthChanged.bind(this));
   }
 
   renderHeader() {
@@ -903,7 +904,7 @@ class CommunitiesListView {
 
   onBeforeUnmount() {
     // Clean up event listeners
-    eventEmitter.off('auth:changed', this.handleAuthChanged.bind(this));
+    this.unsubscribeAuth?.();
     
     // Clear any pending operations
     this.pendingSubscriptions.clear();

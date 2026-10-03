@@ -1055,7 +1055,7 @@ class MarkdownFormatService {  constructor() {
         <p>Per utilizzare la funzione di formattazione Markdown, è necessario un token GitHub con permessi <code>repo</code> e <code>workflow</code>.</p>
         <p>Per ottenere un token valido, ti invitiamo a contattarci:</p>
         <ul>
-          <li>Visita <a href="https://cur8.fun" target="_blank">cur8.fun</a></li>
+          <li>Visita <a href="https://www.cur8.fun" target="_blank">cur8.fun</a></li>
           <li>Contattaci su Discord</li>
           <li>Contattaci su Telegram</li>
         </ul>

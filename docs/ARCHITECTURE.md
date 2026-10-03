@@ -31,6 +31,8 @@ The routing system (`utils/Router.js`) is a client-side router that enables SPA 
 - **Parameter Extraction**: Extracts URL parameters (e.g., `/tag/:tag`) for dynamic routing
 - **Navigation Guard**: Guards routes that require authentication
 - **Route History**: Tracks navigation history for back/forward functionality
+- **Keep-alive**: routes with the `keepAlive` option (home feeds, Pings, Wallet, profiles…) are detached instead of unmounted when left, and reattached with their scroll position when visited again within their TTL. Views can implement `onDeactivate()` / `onActivate()` to pause and resume timers, and `canResume()` to ask for a rebuild instead (e.g. after the user changed settings)
+- **Lazy views**: views wrapped in `lazyView(() => import(...))` are downloaded on first visit, and in the background once the app is idle, keeping them out of the first load
 
 ```javascript
 // Example route registration
@@ -274,6 +276,8 @@ class ScheduledPost(db.Model):
 - **Lazy Loading**: Load images and content only when needed
 - **Content Caching**: Cache frequently accessed blockchain data
 - **Grid Controller**: Optimize layout calculations for content rendering
+- **First load** (`python/asset_bundler.py`): the server speaks HTTP/1.1, so request count dominates a first visit. When Flask serves `index.html` it replaces the stylesheet links between the `styles:start`/`styles:end` markers with `/bundle/app.css` (every `@import` inlined in cascade order) and adds a `modulepreload` link for each module statically imported by `index.js`. Both are rebuilt when a source file changes, so there is no build step, and `index.html` still works as-is with a plain static server
+- **Keep-alive routes and lazy views**: see 3.1
 
 ## 10. PWA Features
 

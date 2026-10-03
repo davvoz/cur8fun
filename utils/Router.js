@@ -1,8 +1,12 @@
 import eventEmitter from './EventEmitter.js';
-import EditPostView from '../views/EditPostView.js';
-import CommentView from '../views/CommentView.js';
-import Cur8StatsView from '../views/Cur8StatsView.js';
-import Cur8BotStatsView from '../views/Cur8BotStatsView.js';
+
+/**
+ * A route view whose code is downloaded on first use instead of at startup:
+ * router.addRoute('/create', lazyView(() => import('../views/CreatePostView.js')))
+ */
+export function lazyView(load) {
+  return { lazyLoad: load };
+}
 
 /**
  * Client-side router for handling navigation
@@ -23,6 +27,16 @@ class Router {
     this.isBackNavigation = false;    // flag: current navigation is a popstate (back/forward)
     this.viewStateCache = new Map(); // Cache view states (posts/page) for back navigation
     this.scrollPositions = new Map(); // Per-path scroll state: path → { postId }
+    // Views of `keepAlive` routes, detached but alive, so going back to them
+    // is instant: path → { view, root, scrollTop, title, expires }
+    this.keptAlive = new Map();
+    this.maxKeptAlive = 8;
+    this.currentRoute = null;
+    this.currentRoot = null;    // element the current view renders into
+    this.currentViewPath = null;
+    this.navigationId = 0;      // bumped on every route change, see lazy views
+    // Kept-alive views belong to the user who opened them
+    eventEmitter.on('auth:changed', () => this.clearKeptAlive());
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual';
     }
@@ -123,21 +137,6 @@ class Router {
     if (path === this.currentPath && !replaceState) {
       return;
     }
-    // Save scroll state for the page we are LEAVING (keyed by currentPath)
-    // Only do this for pages with a post list. Other pages (PostView etc.) are ignored.
-    if (!replaceState && this.currentPath) {
-      const cards = document.querySelectorAll('.posts-container .post-card, .pings-list .ping-card');
-      if (cards.length > 0) {
-        const mainContent = document.getElementById('main-content');
-        const scrollTop = mainContent ? mainContent.scrollTop : 0;
-        // Store keyed by path — completely isolated from history.state
-        this.scrollPositions.set(this.currentPath, { scrollTop });
-        // Also save posts/page cache
-        if (this.currentView && typeof this.currentView.saveState === 'function') {
-          this.currentView.saveState();
-        }
-      }
-    }
     if (path.startsWith('/search') && params.q) {
       const searchParams = new URLSearchParams();
       searchParams.append('q', params.q);
@@ -166,6 +165,10 @@ class Router {
     if (path === this.currentPath && this.currentView) {
       return;
     }
+    const navigation = ++this.navigationId;
+    const leavingScrollTop = document.getElementById('main-content')?.scrollTop || 0;
+    this.saveLeavingState(leavingScrollTop);
+    const previousPath = this.currentPath;
     this.currentPath = path;
     let matchedRoute = null;
     let params = {};
@@ -199,6 +202,23 @@ class Router {
         }, resolve);
       });
     }
+    // The current page stays on screen while a lazy view downloads
+    if (matchedRoute?.viewClass?.lazyLoad) {
+      try {
+        await this.loadLazyView(matchedRoute);
+      } catch (error) {
+        console.error('Failed to load the view for', path, error);
+        if (navigation === this.navigationId) {
+          this.currentPath = previousPath; // so the link can be tried again
+          eventEmitter.emit('notification', {
+            type: 'error',
+            message: 'Could not load the page. Please check your connection.'
+          });
+        }
+        return;
+      }
+      if (navigation !== this.navigationId) return; // navigated elsewhere meanwhile
+    }
     let appContainer = document.getElementById('app');
     if (!appContainer) {
       appContainer = document.createElement('div');
@@ -206,17 +226,26 @@ class Router {
       document.body.appendChild(appContainer);
     }
     this.ensureViewContainer(appContainer);
+    this.cleanupCurrentView(leavingScrollTop);
+
+    const kept = this.takeKeptAlive(path);
+    if (kept && matchedRoute) {
+      this.resumeKeptAlive(kept, matchedRoute, path);
+      return;
+    }
+
     // Scroll #main-content to top on every navigation except back (back restore is handled separately)
     if (!this.isBackNavigation) {
-      const mainContent = document.getElementById('main-content');
-      if (mainContent) mainContent.scrollTop = 0;
+      this.viewContainer.scrollTop = 0;
       // Clear any leftover scroll-restore value from a previous back navigation
       this.pendingScrollRestore = undefined;
     }
-    this.cleanupCurrentView();
+    const root = this.mountViewRoot();
+    this.currentRoute = matchedRoute;
+    this.currentViewPath = path;
     if (!matchedRoute && this.notFoundHandler) {
-      this.currentView = new this.notFoundHandler(this.viewContainer);
-      this.currentView.render(this.viewContainer);
+      this.currentView = new this.notFoundHandler(root);
+      this.currentView.render(root);
       eventEmitter.emit('route:changed', { path, view: 'notFound' });
       return;
     }
@@ -230,7 +259,7 @@ class Router {
       ...additionalParams
     };
     this.currentView = new matchedRoute.viewClass(mergedParams);
-    this.currentView.render(this.viewContainer);
+    this.currentView.render(root);
     this.isBackNavigation = false; // reset after view has rendered
     eventEmitter.emit('route:changed', {
       path,
@@ -238,32 +267,134 @@ class Router {
       params: mergedParams
     });
   }
-  ensureViewContainer(appContainer) {
-    if (this.viewContainer && document.body.contains(this.viewContainer)) {
-      while (this.viewContainer.firstChild) {
-        this.viewContainer.removeChild(this.viewContainer.firstChild);
-      }
-    } else {
-      let mainContent = document.getElementById('main-content');
-      if (mainContent) {
-        while (mainContent.firstChild) {
-          mainContent.removeChild(mainContent.firstChild);
-        }
-      } else {
-        mainContent = document.createElement('div');
-        mainContent.id = 'main-content';
-        appContainer.appendChild(mainContent);
-      }
-      this.viewContainer = mainContent;
+  /**
+   * Saves scroll position and list state of the page being left, so back
+   * navigation can restore it. Only pages with a post/ping list are tracked.
+   */
+  saveLeavingState(scrollTop) {
+    if (!this.currentPath || !this.currentView) return;
+    const cards = document.querySelectorAll('.posts-container .post-card, .pings-list .ping-card');
+    if (cards.length === 0) return;
+    // Store keyed by path — completely isolated from history.state
+    this.scrollPositions.set(this.currentPath, { scrollTop });
+    if (typeof this.currentView.saveState === 'function') {
+      this.currentView.saveState();
     }
   }
-  cleanupCurrentView() {
-    if (this.currentView) {
-      if (typeof this.currentView.unmount === 'function') {
-        this.currentView.unmount();
-      }
-      this.currentView = null;
+  ensureViewContainer(appContainer) {
+    if (this.viewContainer && document.body.contains(this.viewContainer)) return;
+    let mainContent = document.getElementById('main-content');
+    if (!mainContent) {
+      mainContent = document.createElement('div');
+      mainContent.id = 'main-content';
+      appContainer.appendChild(mainContent);
     }
+    this.viewContainer = mainContent;
+  }
+  /**
+   * Each view renders into its own root inside #main-content, so a
+   * kept-alive view can be detached and reattached as a whole.
+   */
+  mountViewRoot(root = null) {
+    this.viewContainer.replaceChildren();
+    if (!root) {
+      root = document.createElement('div');
+      // An attribute, not a class: some views overwrite their container's className
+      root.dataset.routeView = '';
+    }
+    this.viewContainer.appendChild(root);
+    this.currentRoot = root;
+    return root;
+  }
+  cleanupCurrentView(scrollTop = 0) {
+    const view = this.currentView;
+    if (!view) return;
+    this.currentView = null;
+
+    const keepAlive = this.currentRoute?.options?.keepAlive;
+    if (keepAlive && this.currentRoot) {
+      this.currentRoot.remove();
+      if (typeof view.onDeactivate === 'function') view.onDeactivate();
+      const ttl = keepAlive.ttl || 10 * 60 * 1000;
+      this.keptAlive.delete(this.currentViewPath);
+      this.keptAlive.set(this.currentViewPath, {
+        view,
+        root: this.currentRoot,
+        scrollTop,
+        title: document.title,
+        expires: Date.now() + ttl
+      });
+      // Map keeps insertion order: the first entry is the least recently left
+      if (this.keptAlive.size > this.maxKeptAlive) {
+        const [oldestPath, oldest] = this.keptAlive.entries().next().value;
+        this.keptAlive.delete(oldestPath);
+        this.destroyView(oldest.view);
+      }
+      return;
+    }
+    this.destroyView(view);
+  }
+  destroyView(view) {
+    if (typeof view.unmount === 'function') {
+      view.unmount();
+    } else if (typeof view.onBeforeUnmount === 'function') {
+      // Some views only implement onBeforeUnmount
+      view.onBeforeUnmount();
+    }
+  }
+  /**
+   * Removes and returns the kept-alive view for `path`, if still fresh.
+   * A view can ask to be rebuilt instead by returning false from canResume().
+   */
+  takeKeptAlive(path) {
+    const kept = this.keptAlive.get(path);
+    if (!kept) return null;
+    this.keptAlive.delete(path);
+    if (kept.expires < Date.now() || kept.view.canResume?.() === false) {
+      this.destroyView(kept.view);
+      return null;
+    }
+    return kept;
+  }
+  resumeKeptAlive(kept, route, path) {
+    this.mountViewRoot(kept.root);
+    this.currentView = kept.view;
+    this.currentRoute = route;
+    this.currentViewPath = path;
+    document.title = kept.title;
+    this.viewContainer.scrollTop = kept.scrollTop;
+    this.pendingScrollRestore = undefined;
+    this.isBackNavigation = false;
+    if (typeof kept.view.onActivate === 'function') kept.view.onActivate();
+    eventEmitter.emit('route:changed', {
+      path,
+      view: route.path,
+      params: kept.view.params || {}
+    });
+  }
+  async loadLazyView(route) {
+    const module = await route.viewClass.lazyLoad();
+    // From now on the route renders synchronously, like an eager one
+    if (route.viewClass.lazyLoad) route.viewClass = module.default;
+  }
+  /**
+   * Downloads the lazy views one at a time once the browser is idle, so the
+   * first visit to them is instant without slowing down the app's startup.
+   */
+  preloadLazyViews() {
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1000));
+    const next = () => {
+      const route = this.routes.find(r => r.viewClass?.lazyLoad && !r.preloadFailed);
+      if (!route) return;
+      this.loadLazyView(route)
+        .catch(() => { route.preloadFailed = true; }) // loaded again on navigation
+        .finally(() => idle(next));
+    };
+    idle(next);
+  }
+  clearKeptAlive() {
+    this.keptAlive.forEach(kept => this.destroyView(kept.view));
+    this.keptAlive.clear();
   }
   init() {
     document.addEventListener('click', (e) => {
@@ -278,14 +409,19 @@ class Router {
           if (this.basePath && path.startsWith(this.basePath)) {
             path = path.substring(this.basePath.length) || '/';
           }
+          // Tapping the link of the current page scrolls it back to the top
+          if (path === this.currentPath) {
+            this.viewContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+          }
           this.navigate(path);
         }
       }
     });
-    this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, EditPostView);
-    this.addRoute(/^\/comment\/@([^\/]+)\/(.+)$/, CommentView);
-    this.addRoute('/cur8-stats', Cur8StatsView);
-    this.addRoute('/cur8-bot-stats', Cur8BotStatsView);
+    this.addRoute(/^\/edit\/@([^\/]+)\/(.+)$/, lazyView(() => import('../views/EditPostView.js')));
+    this.addRoute(/^\/comment\/@([^\/]+)\/(.+)$/, lazyView(() => import('../views/CommentView.js')));
+    this.addRoute('/cur8-stats', lazyView(() => import('../views/Cur8StatsView.js')));
+    this.addRoute('/cur8-bot-stats', lazyView(() => import('../views/Cur8BotStatsView.js')));
     if (this.useHashRouting) {
       const initialPath = this.getPathFromHash() || '/';
       this.handleRouteChange(initialPath);
