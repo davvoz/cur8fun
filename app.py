@@ -140,7 +140,8 @@ def get_content_type_from_path(path):
 def render_index_with_meta(meta_tags_html):
     """Renderizza index.html con meta tag dinamici"""
     try:
-        with open('index.html', 'r', encoding='utf-8') as f:
+        # Path assoluto: su PythonAnywhere la cwd del processo WSGI non è la cartella del progetto
+        with open(os.path.join(app.root_path, 'index.html'), 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Sostituisci i meta tag esistenti con quelli dinamici
