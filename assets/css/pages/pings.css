@@ -34,6 +34,19 @@
   }
 }
 
+/* Slides away while scrolling down the feed and comes back on scrolling up
+   (PingsView.setupHeaderAutoHide). The "new pings" pill hangs below it, so it
+   stays in view near the top while the header is away. */
+.pings-header {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Kept in view while keyboard focus is in it; a clicked tab keeps the focus
+   too, but that one doesn't count (:focus-visible is keyboard only) */
+.pings-header--hidden:not(:has(:focus-visible)) {
+  transform: translateY(-100%);
+}
+
 .pings-title-row,
 .pings-topbar {
   display: flex;
@@ -863,6 +876,10 @@
   .pings-compose-fab {
     transition: opacity 0.15s ease;
     transform: none;
+  }
+
+  .pings-header {
+    transition: none;
   }
 }
 

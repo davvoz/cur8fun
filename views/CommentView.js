@@ -16,7 +16,7 @@ import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
 import DialogUtility from '../components/DialogUtility.js';
 import pingsService from '../services/PingsService.js';
-import { fadeIn, smoothImageLoading, growFrom } from '../utils/animateResize.js';
+import { fadeIn, smoothImageLoading, growFrom, resizeSmoothly } from '../utils/animateResize.js';
 
 /**
  * Vista dedicata alla visualizzazione di un singolo commento
@@ -223,7 +223,7 @@ export default class CommentView extends View {
    * the reply editor), so everything but the comment's text has its final
    * size and place. Static labels are shown as they are; data is drawn as
    * grey bars. They appear only if loading takes more than 300ms
-   * (.comment-placeholder in CSS).
+   * (.page-placeholder in CSS).
    */
   showSkeleton() {
     const text = (content) => `<span class="sk-text">${content}</span>`;
@@ -283,7 +283,7 @@ export default class CommentView extends View {
 
     this.placeholderParts = [this.parentPostReference, this.commentContent, this.repliesContainer];
     this.placeholderParts.forEach(part => {
-      part.classList.add('comment-placeholder');
+      part.classList.add('page-placeholder');
       part.setAttribute('aria-hidden', 'true');
       part.style.display = '';
     });
@@ -292,7 +292,7 @@ export default class CommentView extends View {
   // The real content is in place: the containers are no placeholders anymore
   endPlaceholders() {
     (this.placeholderParts || []).forEach(part => {
-      part.classList.remove('comment-placeholder');
+      part.classList.remove('page-placeholder');
       part.removeAttribute('aria-hidden');
     });
     this.placeholderParts = null;
@@ -406,8 +406,11 @@ export default class CommentView extends View {
   // The parent post's title, once loaded, in place of its placeholder
   updateParentPostTitle() {
     if (!this.parentTitleEl || this.comment.depth > 1) return;
-    this.parentTitleEl.textContent = this.parentPost.title || 'Parent';
-    fadeIn(this.parentTitleEl);
+    // A long title wraps onto more lines: the bar grows smoothly, and the
+    // page below slides down instead of jumping
+    resizeSmoothly(this.parentPostReference, () => {
+      this.parentTitleEl.textContent = this.parentPost.title || 'Parent';
+    }, { fade: this.parentTitleEl });
   }
 
   async renderComponents() {

@@ -15,6 +15,9 @@ import { trackOverlay } from '../utils/overlays.js';
 const MAX_EMPTY_BATCHES = 3;
 // How often the feed checks for pings published since it loaded
 const NEW_PINGS_POLL_MS = 60 * 1000;
+// Scroll distance in one direction that hides / shows the header again
+const HEADER_HIDE_AFTER_PX = 24;
+const HEADER_SHOW_AFTER_PX = 8;
 
 const TABS = [
   { id: 'latest', label: 'Latest' },
@@ -64,7 +67,8 @@ class PingsView extends View {
     const page = document.createElement('div');
     page.className = 'pings-page';
 
-    page.appendChild(this.createHeader());
+    this.header = this.createHeader();
+    page.appendChild(this.header);
 
     const composer = new PingComposer({
       initialText: this.composerInitialText(),
@@ -87,6 +91,7 @@ class PingsView extends View {
     this.composerEl = composerEl;
     this.page = page;
     this.setupComposeFab(composerEl, page);
+    this.setupHeaderAutoHide();
 
     if (cached && cached.pings.length) {
       this.restoreState(cached);
@@ -160,6 +165,49 @@ class PingsView extends View {
     this.composeFab?.remove();
     this.composeFab = null;
     this.closeComposeDialog?.();
+  }
+
+  /**
+   * The sticky header slides away while the feed is scrolled down and comes
+   * back as soon as it is scrolled up, or near the top of the page. Small
+   * movements (a finger resting on the screen) don't toggle it.
+   */
+  setupHeaderAutoHide() {
+    this.destroyHeaderAutoHide();
+    const main = document.getElementById('main-content');
+    const header = this.header;
+    if (!main || !header) return;
+
+    let lastTop = main.scrollTop;
+    let travel = 0; // distance scrolled in the current direction
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (!header.isConnected) return;
+      const top = main.scrollTop;
+      const delta = top - lastTop;
+      lastTop = top;
+      if (top <= header.offsetHeight) {
+        travel = 0;
+        header.classList.remove('pings-header--hidden');
+        return;
+      }
+      if (delta === 0) return;
+      travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+      if (travel > HEADER_HIDE_AFTER_PX) header.classList.add('pings-header--hidden');
+      else if (travel < -HEADER_SHOW_AFTER_PX) header.classList.remove('pings-header--hidden');
+    };
+    this.onMainScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    main.addEventListener('scroll', this.onMainScroll, { passive: true });
+    this.headerScroller = main;
+  }
+
+  destroyHeaderAutoHide() {
+    this.headerScroller?.removeEventListener('scroll', this.onMainScroll);
+    this.headerScroller = null;
+    this.onMainScroll = null;
   }
 
   openComposeDialog() {
@@ -607,6 +655,7 @@ class PingsView extends View {
   onDeactivate() {
     this.stopNewPingsWatcher();
     this.destroyComposeFab();
+    this.destroyHeaderAutoHide();
   }
 
   // Shown again: the feed is as the user left it, newer pings go in the pill
@@ -614,6 +663,7 @@ class PingsView extends View {
     // The side columns are shared, a thread opened meanwhile has taken them
     if (this.layout) attachPingsColumns(this.layout);
     if (this.composerEl) this.setupComposeFab(this.composerEl, this.page);
+    this.setupHeaderAutoHide();
     this.startNewPingsWatcher();
     this.checkNewPings();
   }
@@ -623,6 +673,7 @@ class PingsView extends View {
     this.stopNewPingsWatcher();
     this.destroyInfiniteScroll();
     this.destroyComposeFab();
+    this.destroyHeaderAutoHide();
     this.voteController.cleanup();
     super.unmount();
   }
