@@ -16,6 +16,7 @@ import UpdateNotificationComponent from './components/pwa/UpdateNotificationComp
 import backToTopButton from './components/BackToTopButton.js';
 import confirmLogout from './components/auth/confirmLogout.js';
 import './components/MarkdownFormatterUI.js';
+import './utils/avatarFallback.js';
 // Constructed at startup on purpose: its ApiClient reads ?platform= from the
 // URL the app was opened with, before any navigation
 import './services/CreatePostService.js';

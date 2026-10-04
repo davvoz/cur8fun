@@ -45,27 +45,28 @@ export default class ProfileHeader {
     }
 
     if (coverImageUrl && !coverImageUrl.startsWith('data:')) {
-      const coverPrimary = getImageUrl(coverImageUrl, 1500);
-      const coverFallback = proxifyImage(coverImageUrl, 1500);
+      // The proxy refuses some images (e.g. old steemitimages.com uploads)
+      // that load fine from their own address: that one is tried last
+      const coverSources = [...new Set([
+        getImageUrl(coverImageUrl, 1500),
+        proxifyImage(coverImageUrl, 1500),
+        coverImageUrl.startsWith('https://') ? coverImageUrl : null
+      ].filter(Boolean))];
 
-      const applyCover = (url, next) => {
+      const applyCover = (index = 0) => {
+        const url = coverSources[index];
         const testImg = new Image();
         testImg.onload = () => {
           // Fades in over the default gradient
           fadeInBackground(coverDiv, url);
         };
         testImg.onerror = () => {
-          if (typeof next === 'function') next();
+          if (index + 1 < coverSources.length) applyCover(index + 1);
           else coverDiv.style.backgroundImage = 'linear-gradient(45deg, var(--primary-color) 0%, var(--secondary-color) 100%)';
         };
         testImg.src = url;
       };
-
-      if (coverFallback !== coverPrimary) {
-        applyCover(coverPrimary, () => applyCover(coverFallback));
-      } else {
-        applyCover(coverPrimary);
-      }
+      applyCover();
     }
 
     // Avatar with enhanced styling
@@ -78,23 +79,23 @@ export default class ProfileHeader {
     const avatarImg = document.createElement('img');
     const defaultAvatar = `https://steemitimages.com/u/${this.profile.username}/avatar`;
     const customProfileImage = this.profile.profileImage || null;
-    const avatarPrimary = customProfileImage ? getImageUrl(customProfileImage, 256) : defaultAvatar;
-    const avatarFallback = customProfileImage ? proxifyImage(customProfileImage, 256) : defaultAvatar;
+    // Proxied first, then the image's own address (the proxy refuses some),
+    // then the avatar service (utils/avatarFallback.js covers it failing)
+    const avatarSources = [...new Set([
+      customProfileImage && getImageUrl(customProfileImage, 256),
+      customProfileImage && proxifyImage(customProfileImage, 256),
+      customProfileImage?.startsWith('https://') && customProfileImage,
+      defaultAvatar
+    ].filter(Boolean))];
 
-    avatarImg.src = avatarPrimary;
+    let avatarIndex = 0;
+    avatarImg.src = avatarSources[0];
     avatarImg.alt = this.profile.username;
     avatarImg.loading = 'eager'; // Prioritize avatar loading
     avatarImg.onerror = () => {
-      if (avatarFallback && avatarFallback !== avatarPrimary) {
-        avatarImg.onerror = () => {
-          avatarImg.onerror = null;
-          avatarImg.src = defaultAvatar;
-        };
-        avatarImg.src = avatarFallback;
-        return;
-      }
-      avatarImg.onerror = null;
-      avatarImg.src = defaultAvatar;
+      avatarIndex++;
+      if (avatarIndex >= avatarSources.length - 1) avatarImg.onerror = null;
+      if (avatarIndex < avatarSources.length) avatarImg.src = avatarSources[avatarIndex];
     };
 
     fadeInWhenLoaded(avatarImg);
