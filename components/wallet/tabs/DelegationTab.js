@@ -1,4 +1,5 @@
 import Component from '../../Component.js';
+import { trackOverlay } from '../../../utils/overlays.js';
 import { resizeSmoothly } from '../../../utils/animateResize.js';
 import walletService from '../../../services/WalletService.js';
 import authService from '../../../services/AuthService.js';
@@ -744,6 +745,7 @@ export default class DelegationTab extends Component {
         resolve(parseFloat(val.toFixed(3)));
       };
       const handleCancel = () => { cleanup(); resolve(null); };
+      trackOverlay(dialog, handleCancel); // cancelled when leaving the page
 
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);

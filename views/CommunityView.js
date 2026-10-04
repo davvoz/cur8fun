@@ -13,6 +13,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import router from '../utils/Router.js';
 import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
+import { fadeInWhenLoaded } from '../utils/animateResize.js';
 
 class CommunityView extends BasePostView {
   constructor(params) {
@@ -469,6 +470,7 @@ class CommunityView extends BasePostView {
 
     // Robust avatar fallback chain: original/API URL -> proxied URL -> steemit -> default
     const avatarEl = headerContainer.querySelector('.community-avatar');
+    fadeInWhenLoaded(avatarEl);
     if (avatarEl) {
       avatarEl.onerror = () => {
         if (avatarFallback && avatarFallback !== avatarPrimary) {

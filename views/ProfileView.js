@@ -11,7 +11,7 @@ import RepliesList from '../components/profile/RepliesList.js';
 import PingsList from '../components/profile/PingsList.js';
 import ProfileTabs from '../components/profile/ProfileTabs.js';
 import ProfileWalletHistory from '../components/profile/ProfileWalletHistory.js';
-import { resizeSmoothly } from '../utils/animateResize.js';
+import { resizeSmoothly, fadeIn } from '../utils/animateResize.js';
 
 // Static cache for components
 const componentCache = {
@@ -230,8 +230,9 @@ class ProfileView extends View {
       // Load profile data
       await this.loadProfileData();
 
-      // Remove skeleton before rendering real content
+      // Remove skeleton before rendering real content, which fades in
       skeletonEl.remove();
+      fadeIn(profileContainer);
 
       // Render profile structure
       this.renderProfile(profileContainer);

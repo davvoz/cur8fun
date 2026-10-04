@@ -1,4 +1,5 @@
-import Component from '../Component.js';
+import Component from '../Component.js';
+import { trackOverlay } from '../../utils/overlays.js';
 import walletService from '../../services/WalletService.js';
 import eventEmitter from '../../utils/EventEmitter.js';
 import { resizeSmoothly } from '../../utils/animateResize.js';
@@ -304,6 +305,7 @@ export default class WalletBalancesComponent extends Component {
     card.appendChild(body);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    trackOverlay(overlay, close); // closed when leaving the page
 
     // Everything is loaded first and shown at once, the card growing smoothly
     // from the loading text instead of jumping (or emptying between requests)

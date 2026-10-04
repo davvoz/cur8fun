@@ -2,6 +2,7 @@ import router from '../../utils/Router.js';
 import followersModal from '../FollowersModal.js';
 import followingModal from '../FollowingModal.js';
 import { getImageUrl, proxifyImage } from '../../utils/ImageUtils.js';
+import { fadeInWhenLoaded, fadeInBackground } from '../../utils/animateResize.js';
 
 export default class ProfileHeader {
   constructor(profile, currentUser, onFollowAction) {
@@ -50,7 +51,8 @@ export default class ProfileHeader {
       const applyCover = (url, next) => {
         const testImg = new Image();
         testImg.onload = () => {
-          coverDiv.style.backgroundImage = `url(${url})`;
+          // Fades in over the default gradient
+          fadeInBackground(coverDiv, url);
         };
         testImg.onerror = () => {
           if (typeof next === 'function') next();
@@ -95,6 +97,7 @@ export default class ProfileHeader {
       avatarImg.src = defaultAvatar;
     };
 
+    fadeInWhenLoaded(avatarImg);
     avatar.appendChild(avatarImg);
 
     // Profile stats with improved layout

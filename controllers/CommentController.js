@@ -1,4 +1,5 @@
-import commentService from '../services/CommentService.js';
+import commentService from '../services/CommentService.js';
+import { trackOverlay } from '../utils/overlays.js';
 import authService from '../services/AuthService.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js';
@@ -1121,6 +1122,7 @@ export default class CommentController {
     // Add to body
     document.body.appendChild(overlay);
     document.body.appendChild(dialog);
+    trackOverlay(dialog, closeDialog); // closed when leaving the page
 
     // Also emit a regular notification
     this.view.emit('notification', {
@@ -1207,6 +1209,7 @@ export default class CommentController {
     // Add to body
     document.body.appendChild(overlay);
     document.body.appendChild(dialog);
+    trackOverlay(dialog, closeDialog); // closed when leaving the page
 
     // Also emit a regular notification
     this.view.emit('notification', {

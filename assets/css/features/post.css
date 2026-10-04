@@ -131,6 +131,23 @@
   display: none;
 }
 
+/* Pops in when opened (it is shown by removing [hidden]) */
+.post-header-menu-dropdown:not([hidden]) {
+  animation: post-menu-pop 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes post-menu-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-header-menu-dropdown:not([hidden]) {
+    animation: none;
+  }
+}
+
 .post-header-menu-item {
   width: 100%;
   background: transparent;

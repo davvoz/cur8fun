@@ -5,9 +5,11 @@ import pingsService from '../services/PingsService.js';
 import VoteController from '../controllers/VoteController.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import PingComposer from '../components/pings/PingComposer.js';
-import { createPingCard } from '../components/pings/PingCard.js';
+import { createPingCard, createPingSkeletons } from '../components/pings/PingCard.js';
 import { createPingsLayout, attachPingsColumns } from '../components/pings/PingsSidebar.js';
 import { PINGS_CONFIG } from '../config/pings.js';
+import { fadeIn, resizeSmoothly } from '../utils/animateResize.js';
+import { trackOverlay } from '../utils/overlays.js';
 
 // Each batch scans up to a week of walls (see PingsService.loadMore)
 const MAX_EMPTY_BATCHES = 3;
@@ -198,6 +200,7 @@ class PingsView extends View {
     document.addEventListener('keydown', onKey);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
+    trackOverlay(overlay, close); // back button closes it
     this.closeComposeDialog = close;
     composer.focus();
   }
@@ -327,6 +330,9 @@ class PingsView extends View {
     const tabs = document.createElement('div');
     tabs.className = 'pings-tabs';
     tabs.setAttribute('role', 'tablist');
+    // Position of the sliding underline (see .pings-tabs::after)
+    tabs.style.setProperty('--tab-count', TABS.length);
+    tabs.style.setProperty('--active-tab', Math.max(0, TABS.findIndex(t => t.id === this.activeTab)));
 
     TABS.forEach(tab => {
       const btn = document.createElement('button');
@@ -342,7 +348,8 @@ class PingsView extends View {
         }
         this.activeTab = tab.id;
         tabs.querySelectorAll('.pings-tab').forEach(b => b.classList.toggle('active', b === btn));
-        this.loadFeed();
+        tabs.style.setProperty('--active-tab', TABS.indexOf(tab));
+        this.switchFeed();
       });
       tabs.appendChild(btn);
     });
@@ -415,6 +422,39 @@ class PingsView extends View {
     this.scrollToTop();
   }
 
+  /**
+   * Latest <-> Following: the current pings fade out, the page keeps its
+   * height while the other feed loads (no collapse, no scroll jump), then
+   * the new pings fade in and the page resizes smoothly to them.
+   */
+  async switchFeed() {
+    const page = this.page;
+    const token = this.switchToken = (this.switchToken || 0) + 1;
+    if (!page || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      this.loadFeed();
+      return;
+    }
+
+    // The other feed starts from its top. Scroll anchoring is off meanwhile,
+    // or emptying the list would make the browser jump to keep something
+    // else in place
+    const main = document.getElementById('main-content');
+    main.style.overflowAnchor = 'none';
+    if (main.scrollTop > 0) main.scrollTo({ top: 0, behavior: 'smooth' });
+
+    page.style.minHeight = `${page.offsetHeight}px`;
+    const fadeOut = this.list.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+    await fadeOut.finished.catch(() => {});
+    if (token !== this.switchToken) return; // switched again meanwhile
+
+    const loading = this.loadFeed(); // empties the list right away
+    fadeOut.cancel();
+    await loading;
+    if (token !== this.switchToken || !page.isConnected) return;
+    resizeSmoothly(page, () => { page.style.minHeight = ''; });
+    main.style.overflowAnchor = '';
+  }
+
   async loadFeed() {
     const token = ++this.loadToken;
     this.pendingNew = [];
@@ -435,6 +475,7 @@ class PingsView extends View {
       if (token !== this.loadToken) return; // tab switched meanwhile
 
       this.clearStatus();
+      fadeIn(this.list); // the first pings replace the loading text with a fade
       if (this.feed.walls.length === 0) {
         this.showStatus(`${PINGS_CONFIG.label} are warming up — the first wall will be published soon.`, 'empty');
         return;
@@ -539,7 +580,14 @@ class PingsView extends View {
     this.clearStatus();
     const status = document.createElement('div');
     status.className = `pings-status pings-status--${type}`;
-    status.textContent = message;
+    if (type === 'loading') {
+      // Placeholder cards rather than a text, shown only if loading is slow
+      status.classList.add('pings-status--skeleton');
+      // Enough cards to run past the bottom of the screen
+      status.append(...createPingSkeletons(Math.max(4, Math.ceil(window.innerHeight / 120) + 1)));
+    } else {
+      status.textContent = message;
+    }
     this.list.before(status);
   }
 

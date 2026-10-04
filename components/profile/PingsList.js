@@ -2,7 +2,7 @@ import pingsService from '../../services/PingsService.js';
 import VoteController from '../../controllers/VoteController.js';
 import eventEmitter from '../../utils/EventEmitter.js';
 import InfiniteScroll from '../../utils/InfiniteScroll.js';
-import { createPingCard } from '../pings/PingCard.js';
+import { createPingSkeletons, createPingCard } from '../pings/PingCard.js';
 
 // Each batch scans up to 300 of the user's comments (see PingsService.loadUserPings)
 const MAX_EMPTY_BATCHES = 3;
@@ -102,7 +102,14 @@ export default class PingsList {
     this.clearStatus();
     const status = document.createElement('div');
     status.className = `pings-status pings-status--${type}`;
-    status.textContent = message;
+    if (type === 'loading') {
+      // Placeholder cards rather than a text, shown only if loading is slow
+      status.classList.add('pings-status--skeleton');
+      // Enough cards to run past the bottom of the screen
+      status.append(...createPingSkeletons(Math.max(4, Math.ceil(window.innerHeight / 120) + 1)));
+    } else {
+      status.textContent = message;
+    }
     this.list.before(status);
   }
 

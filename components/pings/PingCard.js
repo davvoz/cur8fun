@@ -1,4 +1,5 @@
 import router from '../../utils/Router.js';
+import { trackOverlay } from '../../utils/overlays.js';
 import eventEmitter from '../../utils/EventEmitter.js';
 import { getImageUrl, proxifyImage } from '../../utils/ImageUtils.js';
 import pingsService from '../../services/PingsService.js';
@@ -10,6 +11,8 @@ import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 import DialogUtility from '../DialogUtility.js';
 import PingComposer from './PingComposer.js';
 import { PINGS_CONFIG } from '../../config/pings.js';
+import { smoothImageLoading } from '../../utils/animateResize.js';
+import { toAppPath } from '../../utils/SteemLinks.js';
 
 const IMG_MARKDOWN_RE = /!\[[^\]]*\]\((\S+?)(?:\s+"[^"]*")?\)/g;
 const IMG_HTML_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
@@ -176,6 +179,45 @@ export function createPingCard(ping, options = {}) {
   return card;
 }
 
+// 1px transparent image: keeps the avatar's <img> sizing from the CSS
+const BLANK_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+/**
+ * Placeholder ping cards for a feed that is loading: the real card's markup
+ * and classes, so they are laid out like pings, with grey shapes for their
+ * content (see loaders.css).
+ * @param {number} count
+ * @param {Object} [options]
+ * @param {boolean} [options.focused] - Shaped like the ping of a thread
+ * @returns {HTMLElement[]}
+ */
+export function createPingSkeletons(count, { focused = false } = {}) {
+  const text = (content) => `<span class="sk-text">${content}</span>`;
+  return Array.from({ length: count }, () => {
+    const card = document.createElement('article');
+    card.className = `ping-card ping-card--skeleton${focused ? ' ping-card--focused' : ''}`;
+    card.setAttribute('aria-hidden', 'true');
+    card.innerHTML = `
+      <span class="ping-avatar"><img class="sk-fill" src="${BLANK_IMAGE}" alt=""></span>
+      <div class="ping-main">
+        <header class="ping-header">
+          <span class="ping-author">${text('@author-name')}</span>
+          <span class="ping-time">${text('38m')}</span>
+        </header>
+        <div class="ping-content">
+          <div class="ping-text">${text('A short ping takes a line or two of text, like this placeholder that stands for one while the feed loads')}</div>
+        </div>
+        <div class="post-actions ping-actions">
+          <div class="action-item">${text('00')}</div>
+          <div class="action-item">${text('00')}</div>
+          <div class="action-item">${text('00')}</div>
+          <div class="action-item card-payout-info">${text('$0.00')}</div>
+        </div>
+      </div>`;
+    return card;
+  });
+}
+
 // Text + media, swapped for an inline editor while editing
 function createContent(ping) {
   const content = document.createElement('div');
@@ -191,6 +233,9 @@ function createContent(ping) {
   if (images.length) {
     content.appendChild(createMediaGrid(images));
   }
+  // Images (also inline ones in the text) grow in instead of pushing the
+  // card's actions and the next cards down at once
+  smoothImageLoading(content);
   return content;
 }
 
@@ -395,6 +440,7 @@ function openImageViewer(src) {
   document.addEventListener('keydown', onKey);
   overlay.append(img, closeBtn);
   document.body.appendChild(overlay);
+  trackOverlay(overlay, close); // closed when leaving the page
 }
 
 function createActions(ping, voteController) {
@@ -536,10 +582,16 @@ async function sharePing(ping) {
 function createExternalLink(href, label) {
   const link = document.createElement('a');
   link.className = 'ping-link';
+  link.textContent = label;
+  // A steemit.com link opens the same page here, in the app
+  const appPath = toAppPath(href);
+  if (appPath) {
+    link.href = appPath;
+    return link;
+  }
   link.href = href;
   link.target = '_blank';
   link.rel = 'noopener noreferrer nofollow';
-  link.textContent = label;
   return link;
 }
 

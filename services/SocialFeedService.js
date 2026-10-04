@@ -11,6 +11,7 @@
  */
 
 import steemService from './SteemService.js';
+import { PINGS_CONFIG } from '../config/pings.js';
 
 // ── SteemWorld endpoint pool ────────────────────────────────────────────────
 const SW_ENDPOINTS = [
@@ -245,9 +246,12 @@ class SocialFeedService {
         const community = commResult.status       === 'fulfilled' ? commResult.value       : [];
         const comments  = commentsResult.status   === 'fulfilled' ? commentsResult.value   : [];
 
-        // Merge & deduplicate
+        // Merge & deduplicate. Pings have their own section: they and their
+        // replies (anything under a wall) and the daily walls are left out
+        const wall  = PINGS_CONFIG.wallAccount;
         const seen  = new Set();
         const items = [...friends, ...community, ...comments].filter(item => {
+            if (item.root_author === wall || (item.author === wall && !item._isComment)) return false;
             const key = `${item.author}_${item.permlink}`;
             if (seen.has(key)) return false;
             seen.add(key);

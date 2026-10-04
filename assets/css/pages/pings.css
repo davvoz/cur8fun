@@ -153,6 +153,28 @@
 
 .pings-tabs {
   display: flex;
+  position: relative;
+}
+
+/* Underline of the active tab, sliding from one tab to the other
+   (--active-tab and --tab-count are set by PingsView) */
+.pings-tabs::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(100% / var(--tab-count, 2));
+  height: 3px;
+  background: var(--primary-color);
+  transform: translateX(calc(var(--active-tab, 0) * 100%));
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pings-tabs::after {
+    transition: none;
+  }
 }
 
 .pings-tab {
@@ -175,7 +197,8 @@
 
 .pings-tab.active {
   color: var(--text-heading);
-  border-bottom-color: var(--primary-color);
+  /* drawn by the sliding .pings-tabs::after */
+  border-bottom-color: transparent;
 }
 
 /* ---------- Buttons ---------- */
@@ -498,6 +521,23 @@
   display: none;
 }
 
+/* Pops in when opened (it is shown by removing [hidden]) */
+.ping-menu:not([hidden]) {
+  animation: ping-menu-pop 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes ping-menu-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ping-menu:not([hidden]) {
+    animation: none;
+  }
+}
+
 .ping-menu-item {
   display: flex;
   align-items: center;
@@ -682,6 +722,23 @@
 
 .pings-status--error {
   color: var(--error-color);
+}
+
+/* Placeholder pings while a feed loads (createPingSkeletons). They fade in
+   only after 300ms: a quick answer replaces them before they are visible */
+.pings-status--skeleton {
+  padding: 0;
+  text-align: initial;
+  animation: pings-skeleton-in 0.2s ease-out 0.3s both;
+}
+
+@keyframes pings-skeleton-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ping-card--skeleton {
+  pointer-events: none;
 }
 
 .pings-scroll-area .loading-indicator,

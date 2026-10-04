@@ -1,3 +1,4 @@
+import { trackOverlay } from '../utils/overlays.js';
 /**
  * Standard Dialog Utility
  * Provides reusable dialog components following the project's standard pattern
@@ -158,6 +159,7 @@ class DialogUtility {
 
       const handleConfirm = () => { cleanup(); resolve(inputEl.value); };
       const handleCancel = () => { cleanup(); resolve(null); };
+      trackOverlay(dialog, handleCancel); // cancelled when leaving the page
 
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);
@@ -245,6 +247,7 @@ class DialogUtility {
         cleanup();
         resolve();
       };
+      trackOverlay(dialog, handleClose); // closed when leaving the page
 
       closeBtn.addEventListener('click', handleClose);
       okBtn.addEventListener('click', handleClose);
@@ -305,6 +308,7 @@ class DialogUtility {
       cleanup();
       resolve(true);
     };
+    trackOverlay(dialog, handleCancel); // cancelled when leaving the page
 
     // Bind events
     closeBtn.addEventListener('click', handleCancel);

@@ -6,6 +6,7 @@ import communityService from '../services/CommunityService.js';
 import userService from '../services/UserService.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import { trackOverlay } from '../utils/overlays.js';
 
 class CreatePostView extends View {  constructor(params = {}) {
     super(params);
@@ -59,6 +60,15 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Payout choice: 'default' (50/50), 'power_up' (100% SP), 'decline'
     this.payoutOption = 'default';
+  }
+
+  /**
+   * An element of this view by id. Looked up in the view first: kept alive by
+   * the router it may be out of the document while a request completes.
+   * Dialogs it opens on <body> are found in the document.
+   */
+  byId(id) {
+    return this.element?.querySelector(`#${CSS.escape(id)}`) || document.getElementById(id);
   }
 
   // Aggiornamento della funzione render per un'interfaccia più compatta
@@ -198,7 +208,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       }, 300);
 
       // Mostra il pulsante di pulizia se c'è testo nell'input
-      const clearBtn = document.getElementById('clear-community-btn');
+      const clearBtn = this.byId('clear-community-btn');
       if (clearBtn) {
         if (value.trim()) {
           clearBtn.classList.remove('hidden');
@@ -441,19 +451,19 @@ class CreatePostView extends View {  constructor(params = {}) {
       }
 
       // Push values into the rendered DOM
-      const titleInput = document.getElementById('post-title');
+      const titleInput = this.byId('post-title');
       if (titleInput) titleInput.value = this.postTitle;
-      const tagsInput = document.getElementById('post-tags');
+      const tagsInput = this.byId('post-tags');
       if (tagsInput) tagsInput.value = this.tags.join(' ');
       if (this.markdownEditor && typeof this.markdownEditor.setValue === 'function') {
         this.markdownEditor.setValue(this.postBody);
       }
 
-      const searchInput = document.getElementById('community-search');
+      const searchInput = this.byId('community-search');
       if (searchInput && this.selectedCommunity) {
         searchInput.value = this.selectedCommunity.title || this.selectedCommunity.name;
         searchInput.setAttribute('data-selected', 'true');
-        const clearBtn = document.getElementById('clear-community-btn');
+        const clearBtn = this.byId('clear-community-btn');
         if (clearBtn) clearBtn.classList.remove('hidden');
       }
 
@@ -480,13 +490,13 @@ class CreatePostView extends View {  constructor(params = {}) {
       title: displayTitle
     };
 
-    const searchInput = document.getElementById('community-search');
+    const searchInput = this.byId('community-search');
     if (searchInput) {
       searchInput.value = displayTitle;
       searchInput.setAttribute('data-selected', 'true');
     }
 
-    const clearBtn = document.getElementById('clear-community-btn');
+    const clearBtn = this.byId('clear-community-btn');
     if (clearBtn) {
       clearBtn.classList.remove('hidden');
     }
@@ -525,7 +535,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * user can't open a modal whose choices would be silently dropped.
    */
   updateAdvancedOptionsState() {
-    const btn = document.getElementById('advanced-options-edit-btn');
+    const btn = this.byId('advanced-options-edit-btn');
     if (!btn) return;
     if (this.isScheduled) {
       btn.disabled = true;
@@ -552,7 +562,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   updateSubmitButtonText() {
-    const submitBtn = document.getElementById('submit-post-btn');
+    const submitBtn = this.byId('submit-post-btn');
     if (!submitBtn) return;
     submitBtn.textContent = this.getSubmitButtonText();
   }
@@ -625,6 +635,7 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
+    trackOverlay(modal, () => this.closeAdvancedOptionsModal()); // back button closes it
   }
 
   closeAdvancedOptionsModal() {
@@ -751,7 +762,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   updateScheduleControlLabel() {
-    const btn = document.getElementById('schedule-control-btn');
+    const btn = this.byId('schedule-control-btn');
     if (!btn) return;
     const { icon, text, scheduled } = this.formatScheduleLabel();
     btn.innerHTML = `<span class="material-icons">${icon}</span><span class="schedule-control-text">${text}</span>`;
@@ -953,6 +964,7 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     document.body.appendChild(modal);
     document.body.classList.add('modal-open');
+    trackOverlay(modal, () => this.closeScheduleModal()); // back button closes it
   }
 
   closeScheduleModal() {
@@ -1114,7 +1126,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       // Load draft data into form fields
       if (draft.title) {
         this.postTitle = draft.title;
-        const titleInput = document.getElementById('post-title');
+        const titleInput = this.byId('post-title');
         if (titleInput) titleInput.value = draft.title;
       }
       
@@ -1131,18 +1143,18 @@ class CreatePostView extends View {  constructor(params = {}) {
       
       if (draft.tags && Array.isArray(draft.tags)) {
         this.tags = draft.tags;
-        const tagsInput = document.getElementById('post-tags');
+        const tagsInput = this.byId('post-tags');
         if (tagsInput) tagsInput.value = draft.tags.join(' ');
       }
         if (draft.community) {
         const displayTitle = draft.communityTitle || draft.community;
         this.selectedCommunity = { name: draft.community, title: displayTitle };
-        const communitySearch = document.getElementById('community-search');
+        const communitySearch = this.byId('community-search');
         if (communitySearch) {
           communitySearch.value = displayTitle;
           communitySearch.setAttribute('data-selected', 'true');
         }
-        const clearBtn = document.getElementById('clear-community-btn');
+        const clearBtn = this.byId('clear-community-btn');
         if (clearBtn) clearBtn.classList.remove('hidden');
       }
 
@@ -1257,8 +1269,8 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Timeout per evitare che il click che ha aperto il dropdown lo chiuda immediatamente
     setTimeout(() => {
-      const dropdown = document.getElementById('community-dropdown');
-      const searchInput = document.getElementById('community-search');
+      const dropdown = this.byId('community-dropdown');
+      const searchInput = this.byId('community-search');
       const subscribeBtn = document.querySelector('.show-subscribed-btn');
       
       // Non procedere se il dropdown non è aperto
@@ -1291,8 +1303,8 @@ class CreatePostView extends View {  constructor(params = {}) {
     try {
       if (!this.user) return;
 
-      const communitySearch = document.getElementById('community-search');
-      const dropdown = document.getElementById('community-dropdown');
+      const communitySearch = this.byId('community-search');
+      const dropdown = this.byId('community-dropdown');
 
       // Mostra il caricamento
       dropdown.innerHTML = '<div class="dropdown-loading">Loading your communities</div>';
@@ -1307,7 +1319,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.renderCommunityOptions(subscriptions, 'Your Communities');
     } catch (error) {
       console.error('Failed to load subscribed communities:', error);
-      const dropdown = document.getElementById('community-dropdown');
+      const dropdown = this.byId('community-dropdown');
       dropdown.innerHTML = '<div class="dropdown-error">Failed to load communities</div>';
     }
   }
@@ -1316,7 +1328,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Position the dropdown based on available space
    */
   positionDropdown() {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     const communityContainer = document.querySelector('.community-selector-container');
     
     if (!dropdown || !communityContainer) return;
@@ -1336,7 +1348,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * @param {string} query - Query di ricerca
    */
   async searchCommunities(query) {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     dropdown.classList.add('dropdown-active');
     
     // Position dropdown based on available space
@@ -1369,7 +1381,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Toggle dropdown on click 
    */
   toggleDropdown() {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     
     if (dropdown.classList.contains('dropdown-active')) {
       this.closeDropdown();
@@ -1386,8 +1398,8 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Close the community dropdown
    */
   closeDropdown() {
-    const dropdown = document.getElementById('community-dropdown');
-    const communitySearch = document.getElementById('community-search');
+    const dropdown = this.byId('community-dropdown');
+    const communitySearch = this.byId('community-search');
 
     if (dropdown) dropdown.classList.remove('dropdown-active');
     if (communitySearch) communitySearch.classList.remove('dropdown-active');
@@ -1405,7 +1417,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * @param {string} headerText - Testo dell'header
    */
   renderCommunityOptions(communities, headerText) {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     dropdown.innerHTML = '';
 
     if (!communities || communities.length === 0) {
@@ -1561,7 +1573,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Metodo dedicato attivato dal bottone sottoscrizioni
    */
   showSubscribedCommunities() {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     
     // Mostra il caricamento
     dropdown.innerHTML = '<div class="dropdown-loading">Loading your communities</div>';
@@ -1585,12 +1597,12 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.selectedCommunity = null;
     
     // Resetta l'input
-    const searchInput = document.getElementById('community-search');
+    const searchInput = this.byId('community-search');
     searchInput.value = '';
     searchInput.setAttribute('data-selected', 'false');
     
     // Nascondi il pulsante di pulizia
-    const clearBtn = document.getElementById('clear-community-btn');
+    const clearBtn = this.byId('clear-community-btn');
     if (clearBtn) {
       clearBtn.classList.add('hidden');
     }
@@ -1612,9 +1624,9 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.selectedCommunity = community;
     
     // Aggiorna il display
-    const searchInput = document.getElementById('community-search');
-    const dropdown = document.getElementById('community-dropdown');
-    const clearBtn = document.getElementById('clear-community-btn');
+    const searchInput = this.byId('community-search');
+    const dropdown = this.byId('community-dropdown');
+    const clearBtn = this.byId('clear-community-btn');
     
     // Update the input to show selected community
     searchInput.value = community.title || community.name;
@@ -1642,7 +1654,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * selezionata. Usato per distinguere "selezione confermata" da "testo libero".
    */
   isCommunityInputValid() {
-    const input = document.getElementById('community-search');
+    const input = this.byId('community-search');
     if (!input) return true;
     const value = (input.value || '').trim();
 
@@ -1668,9 +1680,9 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   showCommunityError(message) {
-    const input = document.getElementById('community-search');
+    const input = this.byId('community-search');
     const inputGroup = input ? input.closest('.community-input-group') : null;
-    const errorEl = document.getElementById('community-error');
+    const errorEl = this.byId('community-error');
 
     if (inputGroup) inputGroup.classList.add('invalid');
     if (errorEl) {
@@ -1680,9 +1692,9 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   clearCommunityError() {
-    const input = document.getElementById('community-search');
+    const input = this.byId('community-search');
     const inputGroup = input ? input.closest('.community-input-group') : null;
-    const errorEl = document.getElementById('community-error');
+    const errorEl = this.byId('community-error');
 
     if (inputGroup) inputGroup.classList.remove('invalid');
     if (errorEl) {
@@ -1705,7 +1717,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     // Block submission if free text was typed without picking from the dropdown
     if (!this.validateCommunityField()) {
       this.showError('Please select a valid community, or clear the community field to post on your personal blog.');
-      const communityInput = document.getElementById('community-search');
+      const communityInput = this.byId('community-search');
       if (communityInput) communityInput.focus();
       return;
     }
@@ -1731,7 +1743,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       this.showError('Maximum 5 tags allowed. Please remove some tags to continue.');
       
       // Focus sull'input dei tag per facilitare la correzione
-      const tagsInput = document.getElementById('post-tags');
+      const tagsInput = this.byId('post-tags');
       if (tagsInput) {
         tagsInput.focus();
       }
@@ -1761,7 +1773,7 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     // Imposta stato di invio
     this.isSubmitting = true;
-    const submitBtn = document.getElementById('submit-post-btn');
+    const submitBtn = this.byId('submit-post-btn');
     submitBtn.disabled = true;
     
     // Update button text based on scheduling
@@ -1899,7 +1911,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * @param {string} type - Tipo di messaggio (info, error, success)
    */
   showStatus(message, type = 'info') {
-    const statusArea = document.getElementById('post-status-message');
+    const statusArea = this.byId('post-status-message');
     if (!statusArea) return;
 
     // Rimuovi classi esistenti e aggiungi quelle appropriate
@@ -2313,7 +2325,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Handle window resize events
    */
   handleResize() {
-    const dropdown = document.getElementById('community-dropdown');
+    const dropdown = this.byId('community-dropdown');
     if (dropdown && dropdown.classList.contains('dropdown-active')) {
       this.positionDropdown();
     }
@@ -2404,7 +2416,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       }
       
       // Mostra indicatore di caricamento
-      const suggestionsContainer = document.getElementById('beneficiary-suggestions');
+      const suggestionsContainer = this.byId('beneficiary-suggestions');
       if (suggestionsContainer) {
         suggestionsContainer.innerHTML = '<div class="loading-suggestions">Searching accounts...</div>';
         suggestionsContainer.classList.add('active');
@@ -2429,7 +2441,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Mostra i suggerimenti per l'autocomplete del beneficiario
    */
   showBeneficiarySuggestions() {
-    const container = document.getElementById('beneficiary-suggestions');
+    const container = this.byId('beneficiary-suggestions');
     if (!container) return;
     
     // Pulisci contenuti precedenti
@@ -2510,7 +2522,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Nasconde i suggerimenti del beneficiario
    */
   hideBeneficiarySuggestions() {
-    const container = document.getElementById('beneficiary-suggestions');
+    const container = this.byId('beneficiary-suggestions');
     if (container) {
       container.classList.remove('active');
       container.innerHTML = '';
@@ -2534,8 +2546,8 @@ class CreatePostView extends View {  constructor(params = {}) {
     
     // Timeout per evitare che il click che ha aperto il dropdown lo chiuda immediatamente
     setTimeout(() => {
-      const suggestionsContainer = document.getElementById('beneficiary-suggestions');
-      const inputField = document.getElementById('beneficiary-name');
+      const suggestionsContainer = this.byId('beneficiary-suggestions');
+      const inputField = this.byId('beneficiary-name');
       
       // Non procedere se il dropdown non è aperto
       if (!suggestionsContainer || !suggestionsContainer.classList.contains('active')) {
@@ -2567,7 +2579,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     if (!username) return;
     const account = username.toLowerCase();
 
-    const beneficiaryInput = document.getElementById('beneficiary-name');
+    const beneficiaryInput = this.byId('beneficiary-name');
     if (beneficiaryInput) {
       beneficiaryInput.value = account;
       beneficiaryInput.focus();
@@ -2593,7 +2605,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * @param {number} direction - Direzione: 1 per giù, -1 per su
    */
   navigateBeneficiarySuggestions(direction) {
-    const container = document.getElementById('beneficiary-suggestions');
+    const container = this.byId('beneficiary-suggestions');
     if (!container || !container.classList.contains('active')) return;
     
     const items = container.querySelectorAll('.suggestion-item');
@@ -2717,7 +2729,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.beneficiaries[index].weight = parseInt(weight);
     
     // Aggiorna la visualizzazione della percentuale
-    const beneficiariesList = document.getElementById('beneficiaries-list');
+    const beneficiariesList = this.byId('beneficiaries-list');
     if (beneficiariesList) {
       const items = beneficiariesList.querySelectorAll('.beneficiary-item');
       if (index < items.length) {
@@ -2732,7 +2744,7 @@ class CreatePostView extends View {  constructor(params = {}) {
     this.calculateTotalWeight();
     
     // Aggiorna il riepilogo
-    const summaryElement = document.getElementById('beneficiary-summary');
+    const summaryElement = this.byId('beneficiary-summary');
     if (summaryElement) {
       this.updateBeneficiarySummary(summaryElement);
     }
@@ -2910,9 +2922,9 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   setupInlineBeneficiaryForm() {
-    const nameInput = document.getElementById('beneficiary-name');
-    const percentInput = document.getElementById('beneficiary-percent');
-    const addBtn = document.getElementById('add-beneficiary-btn');
+    const nameInput = this.byId('beneficiary-name');
+    const percentInput = this.byId('beneficiary-percent');
+    const addBtn = this.byId('add-beneficiary-btn');
     if (!nameInput || !percentInput || !addBtn) return;
 
     // Validation state for the inline form
@@ -2988,7 +3000,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   updateBeneficiaryValidationIcon() {
-    const icon = document.getElementById('beneficiary-validation-icon');
+    const icon = this.byId('beneficiary-validation-icon');
     if (!icon) return;
     icon.classList.remove('valid', 'invalid', 'checking');
     const status = this.inlineBeneficiaryState?.status;
@@ -3011,8 +3023,8 @@ class CreatePostView extends View {  constructor(params = {}) {
    * no duplicate, max beneficiaries not reached and total weight stays <= 90%.
    */
   updateBeneficiaryAddButton() {
-    const addBtn = document.getElementById('add-beneficiary-btn');
-    const percentInput = document.getElementById('beneficiary-percent');
+    const addBtn = this.byId('add-beneficiary-btn');
+    const percentInput = this.byId('beneficiary-percent');
     if (!addBtn || !percentInput) return;
 
     const state = this.inlineBeneficiaryState || {};
@@ -3044,7 +3056,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   handleInlineAddBeneficiary() {
-    const percentInput = document.getElementById('beneficiary-percent');
+    const percentInput = this.byId('beneficiary-percent');
     const state = this.inlineBeneficiaryState || {};
     const percent = parseFloat(percentInput?.value);
 
@@ -3064,8 +3076,8 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   clearInlineBeneficiaryForm() {
-    const nameInput = document.getElementById('beneficiary-name');
-    const percentInput = document.getElementById('beneficiary-percent');
+    const nameInput = this.byId('beneficiary-name');
+    const percentInput = this.byId('beneficiary-percent');
     if (nameInput) nameInput.value = '';
     if (percentInput) percentInput.value = '5';
     this.inlineBeneficiaryState = { status: 'idle', account: '' };
@@ -3076,14 +3088,14 @@ class CreatePostView extends View {  constructor(params = {}) {
   }
 
   showBeneficiaryFormError(message) {
-    const errorEl = document.getElementById('beneficiary-form-error');
+    const errorEl = this.byId('beneficiary-form-error');
     if (!errorEl) return;
     errorEl.textContent = message;
     errorEl.classList.remove('hidden');
   }
 
   clearBeneficiaryFormError() {
-    const errorEl = document.getElementById('beneficiary-form-error');
+    const errorEl = this.byId('beneficiary-form-error');
     if (!errorEl) return;
     errorEl.textContent = '';
     errorEl.classList.add('hidden');
@@ -3093,7 +3105,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Renders the chip row of recent/default beneficiaries as quick picks.
    */
   renderRecentBeneficiariesChips() {
-    const container = document.getElementById('beneficiary-recents');
+    const container = this.byId('beneficiary-recents');
     if (!container) return;
     container.innerHTML = '';
 
@@ -3113,7 +3125,7 @@ class CreatePostView extends View {  constructor(params = {}) {
       if (item.isDefault) chip.classList.add('default-account');
       chip.textContent = item.name;
       chip.addEventListener('click', () => {
-        const nameInput = document.getElementById('beneficiary-name');
+        const nameInput = this.byId('beneficiary-name');
         if (!nameInput) return;
         nameInput.value = item.name;
         nameInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -3141,10 +3153,10 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     this.beneficiaries.push({ account, weight });
 
-    const beneficiariesList = document.getElementById('beneficiaries-list');
+    const beneficiariesList = this.byId('beneficiaries-list');
     if (beneficiariesList) this.renderBeneficiaryItems(beneficiariesList);
 
-    const summaryElement = document.getElementById('beneficiary-summary');
+    const summaryElement = this.byId('beneficiary-summary');
     if (summaryElement) this.updateBeneficiarySummary(summaryElement);
 
     this.updateBeneficiaryAddButton();
@@ -3161,10 +3173,10 @@ class CreatePostView extends View {  constructor(params = {}) {
 
     this.beneficiaries.splice(index, 1);
 
-    const beneficiariesList = document.getElementById('beneficiaries-list');
+    const beneficiariesList = this.byId('beneficiaries-list');
     if (beneficiariesList) this.renderBeneficiaryItems(beneficiariesList);
 
-    const summaryElement = document.getElementById('beneficiary-summary');
+    const summaryElement = this.byId('beneficiary-summary');
     if (summaryElement) this.updateBeneficiarySummary(summaryElement);
 
     this.updateBeneficiaryAddButton();
@@ -3222,7 +3234,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Inizializza l'editor Markdown e imposta il drag and drop per le immagini
    */
   async initializeMarkdownEditor() {
-    const editorContainer = document.getElementById('markdown-editor-container');
+    const editorContainer = this.byId('markdown-editor-container');
     if (!editorContainer) return;
     
     // Rendi il container un elemento relativo per posizionare l'indicatore di drop
@@ -3293,7 +3305,7 @@ class CreatePostView extends View {  constructor(params = {}) {
   setupDragAndDropEvents(editorContainer) {
     if (!editorContainer) return;
     
-    const dropIndicator = document.getElementById('editor-drop-indicator');
+    const dropIndicator = this.byId('editor-drop-indicator');
     if (!dropIndicator) return;
     
     // Previeni il comportamento predefinito per permettere il drop
@@ -3692,7 +3704,7 @@ class CreatePostView extends View {  constructor(params = {}) {
    * Updates the datetime preview display
    */
   updateDateTimePreview() {
-    const previewEl = document.getElementById('datetime-preview');
+    const previewEl = this.byId('datetime-preview');
     if (!previewEl) return;
 
     if (!this.isScheduled) {
@@ -3700,8 +3712,8 @@ class CreatePostView extends View {  constructor(params = {}) {
       return;
     }
 
-    const dateInput = document.getElementById('publish-date');
-    const timeInput = document.getElementById('publish-time');
+    const dateInput = this.byId('publish-date');
+    const timeInput = this.byId('publish-time');
     
     if (!dateInput || !timeInput) return;
 

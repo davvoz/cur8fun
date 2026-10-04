@@ -1,4 +1,5 @@
 import profileService from '../services/ProfileService.js';
+import { trackOverlay, overlayClosed } from '../utils/overlays.js';
 import router from '../utils/Router.js';
 import { resizeSmoothly } from '../utils/animateResize.js';
 
@@ -86,6 +87,7 @@ class FollowingModal {
         
         // Show the modal
         this.modalElement.style.display = 'flex';
+        trackOverlay(this.modalElement, () => { if (this.isOpen()) this.close(); }); // closed when leaving the page
         
         // Add visible class after a short delay to trigger animation
         setTimeout(() => {
@@ -131,6 +133,8 @@ class FollowingModal {
     close() {
         // Stop rendering (and fetching) pages of a list still loading
         this.loadToken++;
+
+        overlayClosed(this.modalElement); // hidden, not removed: drop its history entry
 
         // Start animation
         this.modalElement.classList.remove('visible');

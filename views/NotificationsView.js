@@ -575,8 +575,10 @@ class NotificationsView {
      * Placeholder rows shaped like notifications, shown while the first page
      * loads, so the list fills in place instead of popping in under a spinner
      */
-    showSkeletons(count = 8) {
+    showSkeletons(count = null) {
         if (!this.notificationsContainer) return;
+        // Enough rows to run past the bottom of the screen, on any device
+        count ??= Math.max(8, Math.ceil(window.innerHeight / 60) + 2);
         this.emptyState.style.display = 'none';
         this.notificationsContainer.style.display = 'block';
         this.notificationsContainer.innerHTML = Array.from({ length: count }, () => `

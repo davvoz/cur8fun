@@ -3,9 +3,10 @@ import router from '../utils/Router.js';
 import pingsService from '../services/PingsService.js';
 import VoteController from '../controllers/VoteController.js';
 import PingComposer from '../components/pings/PingComposer.js';
-import { createPingCard, getPingUrl } from '../components/pings/PingCard.js';
+import { createPingCard, createPingSkeletons, getPingUrl } from '../components/pings/PingCard.js';
 import { createPingsLayout } from '../components/pings/PingsSidebar.js';
 import { PINGS_CONFIG } from '../config/pings.js';
+import { fadeIn } from '../utils/animateResize.js';
 
 /**
  * A single ping with its replies. Direct replies are listed oldest first;
@@ -30,7 +31,11 @@ class PingThreadView extends View {
 
     const content = document.createElement('div');
     content.className = 'pings-thread';
-    content.innerHTML = '<div class="pings-status pings-status--loading">Loading ping…</div>';
+    // A placeholder ping, shown only if loading is slow
+    const loading = document.createElement('div');
+    loading.className = 'pings-status pings-status--loading pings-status--skeleton';
+    loading.append(...createPingSkeletons(1, { focused: true }));
+    content.replaceChildren(loading);
     page.appendChild(content);
     element.appendChild(createPingsLayout(page));
 
@@ -43,6 +48,8 @@ class PingThreadView extends View {
     if (this.element !== element || !element.contains(page)) return; // navigated away
 
     content.innerHTML = '';
+    // The ping and its replies replace the loading text with a fade
+    fadeIn(content);
     if (!root) {
       content.innerHTML = '<div class="pings-status pings-status--error">This ping could not be found.</div>';
       return;

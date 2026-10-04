@@ -18,6 +18,7 @@ import CommentsSection from '../components/post/CommentsSection.js';
 // Import controllers and helpers
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
+import { fadeIn, smoothImageLoading } from '../utils/animateResize.js';
 import PostReblogHandler from '../components/post/PostReblogHandler.js';
 import DialogUtility from '../components/DialogUtility.js';
 import reblogService from '../services/ReblogService.js';
@@ -221,6 +222,10 @@ class PostView extends View {  constructor(params = {}) {
       await this.renderComponents();
       if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
       this.postContent.style.display = 'block';
+      // The post replaces its skeleton with a fade, and its images (and the
+      // comments') grow in as they load instead of pushing the text down
+      fadeIn(this.postContent);
+      smoothImageLoading(this.postContent);
       await this.voteController.checkVoteStatus(this.post);
     } catch (error) {
       console.error('Failed to load post:', error);

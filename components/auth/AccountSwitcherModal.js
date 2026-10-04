@@ -1,4 +1,5 @@
 import Component from '../Component.js';
+import { trackOverlay } from '../../utils/overlays.js';
 import authService from '../../services/AuthService.js';
 import profileService from '../../services/ProfileService.js';
 import { proxifyImage } from '../../utils/ImageUtils.js';
@@ -333,6 +334,7 @@ export default class AccountSwitcherModal extends Component {
     // Add modal to the page
     this.modalOverlay.appendChild(this.modalContent);
     this.parentElement.appendChild(this.modalOverlay);
+    trackOverlay(this.modalOverlay, () => this.close()); // back button closes it
     
     // Add click event to close when clicking outside
     this.registerEventHandler(this.modalOverlay, 'click', (e) => {

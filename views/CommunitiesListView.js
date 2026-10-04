@@ -7,7 +7,7 @@ import eventEmitter from '../utils/EventEmitter.js';
 import InfiniteScroll from '../utils/InfiniteScroll.js';
 import router from '../utils/Router.js';
 import { getImageUrl, proxifyImage } from '../utils/ImageUtils.js';
-import { growFrom } from '../utils/animateResize.js';
+import { growFrom, fadeInWhenLoaded, fadeInBackground } from '../utils/animateResize.js';
 
 class CommunitiesListView {
   constructor() {
@@ -48,12 +48,12 @@ class CommunitiesListView {
     this.viewContainer.className = 'communities-list-view';
     this.container.appendChild(this.viewContainer);
     
-    // Create header
-    this.renderHeader();
-
-    // cur8 community in evidence, like cur8.witness on the witnesses page
+    // cur8 community in evidence at the top, above the hero and the search
     this.renderSpotlight();
     this.loadSpotlight();
+
+    // Create header
+    this.renderHeader();
     
     // Create categories filter
     this.renderCategories();
@@ -178,6 +178,7 @@ class CommunitiesListView {
     section.querySelector('.spotlight-about').textContent = c?.about || 'A place for Cur8 games, news, and updates.';
 
     const avatar = section.querySelector('.spotlight-avatar');
+    fadeInWhenLoaded(avatar);
     const steemitAvatar = `https://steemitimages.com/u/${id}/avatar`;
     avatar.src = c?.avatar_url ? getImageUrl(c.avatar_url, 256) : steemitAvatar;
     avatar.onerror = () => {
@@ -187,7 +188,14 @@ class CommunitiesListView {
 
     const cover = c?.settings?.cover_url;
     if (cover) {
-      section.querySelector('.spotlight-cover').style.backgroundImage = `url("${getImageUrl(cover, 1200)}")`;
+      // Fades in over the gradient once loaded; from the cache (re-renders
+      // on join/leave) it is set right away, without a fade
+      const coverEl = section.querySelector('.spotlight-cover');
+      const url = getImageUrl(cover, 1200);
+      const probe = new Image();
+      probe.src = url;
+      if (probe.complete) coverEl.style.backgroundImage = `url("${url}")`;
+      else probe.onload = () => fadeInBackground(coverEl, url);
     }
 
     const joinBtn = section.querySelector('button.spotlight-join');
@@ -200,7 +208,7 @@ class CommunitiesListView {
       existing.replaceWith(section);
       growFrom(section, previousHeight);
     } else {
-      this.viewContainer.querySelector('.communities-header')?.after(section);
+      this.viewContainer.prepend(section);
     }
   }
 
@@ -645,6 +653,7 @@ class CommunitiesListView {
     }
 
     const avatarEl = card.querySelector('.community-avatar');
+    fadeInWhenLoaded(avatarEl);
     if (avatarEl) {
       avatarEl.onerror = () => {
         if (avatarFallback && avatarFallback !== avatarPrimary) {

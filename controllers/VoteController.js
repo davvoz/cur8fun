@@ -2,6 +2,7 @@ import voteService from '../services/VoteService.js';
 import authService from '../services/AuthService.js';
 import router from '../utils/Router.js';
 import eventEmitter from '../utils/EventEmitter.js';
+import { followAnchor } from '../utils/animateResize.js';
 
 export default class VoteController {
   constructor(view) {
@@ -642,7 +643,12 @@ export default class VoteController {
       }
 
       document.body.appendChild(layer);
-      setTimeout(() => layer.remove(), 900);
+      // Stays on the button if the page scrolls meanwhile
+      const stop = followAnchor(layer, button, (r) => {
+        layer.style.left = `${r.left + r.width / 2}px`;
+        layer.style.top = `${r.top + r.height / 2}px`;
+      });
+      setTimeout(() => { stop(); layer.remove(); }, 900);
     } catch (e) {
       // cosmetic only
     }
@@ -704,7 +710,12 @@ export default class VoteController {
       gain.style.left = `${rect.left + rect.width / 2}px`;
       gain.style.top = `${rect.top - 6}px`;
       document.body.appendChild(gain);
-      setTimeout(() => gain.remove(), 1200);
+      // Stays on the payout if the page scrolls meanwhile
+      const stop = followAnchor(gain, el, (r) => {
+        gain.style.left = `${r.left + r.width / 2}px`;
+        gain.style.top = `${r.top - 6}px`;
+      });
+      setTimeout(() => { stop(); gain.remove(); }, 1200);
     } catch (e) {
       // cosmetic only
     }

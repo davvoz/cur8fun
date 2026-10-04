@@ -1,4 +1,5 @@
 import authService from '../services/AuthService.js';
+import { trackOverlay } from '../utils/overlays.js';
 import witnessService from '../services/WitnessService.js';
 import eventEmitter from '../utils/EventEmitter.js';
 import router from '../utils/Router.js';
@@ -401,6 +402,7 @@ class WitnessesView {
     document.body.appendChild(overlay);
 
     const close = () => overlay.remove();
+    trackOverlay(overlay, close); // closed when leaving the page
     overlay.querySelector('.close-button')?.addEventListener('click', close);
     overlay.querySelector('#proxy-modal-cancel')?.addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });

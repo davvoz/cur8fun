@@ -1,4 +1,5 @@
-import Component from './Component.js';
+import Component from './Component.js';
+import { trackOverlay } from '../utils/overlays.js';
 import ContentRenderer from './ContentRenderer.js';
 
 export default class MarkdownEditor extends Component {
@@ -542,7 +543,8 @@ export default class MarkdownEditor extends Component {
     `;
     
     document.body.appendChild(modal);
-    
+    trackOverlay(modal, () => modal.remove()); // closed when leaving the page
+
     // Gestisci chiusura
     const closeButton = modal.querySelector('.close-button');
     closeButton.addEventListener('click', () => {

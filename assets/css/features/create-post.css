@@ -748,6 +748,19 @@
   display: block;
   opacity: 1;
   transform: translateY(0);
+  /* The transition above can't start from display: none */
+  animation: community-dropdown-in 0.18s ease-out;
+}
+
+@keyframes community-dropdown-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-dropdown.dropdown-active {
+    animation: none;
+  }
 }
 
 /* Position below the input */

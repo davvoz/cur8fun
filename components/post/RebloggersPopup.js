@@ -1,4 +1,5 @@
-import reblogService from '../../services/ReblogService.js';
+import reblogService from '../../services/ReblogService.js';
+import { trackOverlay } from '../../utils/overlays.js';
 import router from '../../utils/Router.js';
 import { resizeSmoothly } from '../../utils/animateResize.js';
 
@@ -51,6 +52,7 @@ class RebloggersPopup {
     document.addEventListener('keydown', this.escKeyHandler);
     document.body.appendChild(this.overlay);
     document.body.appendChild(this.popup);
+    trackOverlay(this.popup, () => this.close()); // closed when leaving the page
 
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (this.overlay) this.overlay.style.opacity = '1';

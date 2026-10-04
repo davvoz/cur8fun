@@ -4,6 +4,7 @@
  */
 import { isPayoutDeclined, applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 import { resizeSmoothly } from '../../utils/animateResize.js';
+import { trackOverlay } from '../../utils/overlays.js';
 
 class PayoutInfoPopup {
   constructor(post) {
@@ -238,9 +239,12 @@ class PayoutInfoPopup {
    * @param {HTMLElement} [anchorEl] - the clicked payout element to anchor to
    */
   async show(anchorEl = null) {
-    // Remove any existing payout popups to prevent stacking
+    // One breakdown at a time: close the open one (its listeners too)
+    PayoutInfoPopup.current?.close();
+    PayoutInfoPopup.current = this;
     document.querySelectorAll('.payout-popup, .payout-overlay').forEach(el => el.remove());
     this.anchorEl = anchorEl;
+    this._placeAbove = undefined; // chosen again by positionPopup
 
     // Create popup elements
     await this.createPopupElements();
@@ -249,8 +253,10 @@ class PayoutInfoPopup {
     document.body.appendChild(this.popup);
     this.positionPopup();
     requestAnimationFrame(() => this.popup && this.popup.classList.add('open'));
+    trackOverlay(this.popup, () => this.close()); // closed when leaving the page
 
-    // Close on Escape or outside click
+    // Closes on Escape, as soon as the screen is touched (or clicked) outside
+    // it, and as soon as the page scrolls
     document.addEventListener('keydown', this.escKeyHandler);
     this._outsideHandler = (e) => {
       if (!this.popup) return;
@@ -259,7 +265,12 @@ class PayoutInfoPopup {
         this.close();
       }
     };
-    setTimeout(() => document.addEventListener('click', this._outsideHandler), 50);
+    document.addEventListener('pointerdown', this._outsideHandler, true);
+    this._scrollHandler = (e) => {
+      // its own content may scroll
+      if (this.popup && !this.popup.contains(e.target)) this.close();
+    };
+    document.addEventListener('scroll', this._scrollHandler, { capture: true, passive: true });
   }
 
   /**
@@ -297,7 +308,9 @@ class PayoutInfoPopup {
 
     let top;
     let originY;
-    if (rect.top - minY >= h + margin) {
+    // The side chosen when opening is kept while it follows the payout
+    this._placeAbove ??= rect.top - minY >= h + margin;
+    if (this._placeAbove) {
       top = rect.top - h - margin;   // above the payout
       originY = 'bottom';
     } else {
@@ -318,10 +331,15 @@ class PayoutInfoPopup {
    * Close the popup (animated)
    */
   close() {
+    if (PayoutInfoPopup.current === this) PayoutInfoPopup.current = null;
     document.removeEventListener('keydown', this.escKeyHandler);
     if (this._outsideHandler) {
-      document.removeEventListener('click', this._outsideHandler);
+      document.removeEventListener('pointerdown', this._outsideHandler, true);
       this._outsideHandler = null;
+    }
+    if (this._scrollHandler) {
+      document.removeEventListener('scroll', this._scrollHandler, true);
+      this._scrollHandler = null;
     }
 
     // Legacy overlay cleanup (no longer created)

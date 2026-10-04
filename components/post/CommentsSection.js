@@ -5,6 +5,7 @@ import VotesPopup from './VotesPopup.js';
 import PayoutInfoPopup from './PayoutInfoPopup.js';
 import { applyDeclinedPayoutStyle } from '../../utils/PayoutUtils.js';
 import MarkdownEditor from '../MarkdownEditor.js';
+import { revealSmoothly, collapseSmoothly, isCollapsing, resizeSmoothly, smoothImageLoading } from '../../utils/animateResize.js';
 
 // Improved inert attribute polyfill with better event handling
 function ensureInertSupport() {
@@ -369,7 +370,9 @@ class CommentsSection {
       showMoreButton.className = 'show-more-button';
       showMoreButton.addEventListener('click', () => {
         this.maxRootCommentsToShow = totalRootComments;
-        this.renderComments();
+        // The list grows smoothly to show the other comments
+        resizeSmoothly(this.commentsListContainer, () => this.renderComments());
+        smoothImageLoading(this.commentsListContainer);
       });
       
       showMoreContainer.appendChild(showMoreButton);
@@ -857,7 +860,7 @@ class CommentsSection {
     replyBtn.addEventListener('click', (event) => {
       event.preventDefault();
       
-      const isVisible = replyForm.style.display !== 'none';
+      const isVisible = replyForm.style.display !== 'none' && !isCollapsing(replyForm);
       
       // Close any other open reply forms first
       if (this.activeReplyForm && this.activeReplyForm !== replyForm) {
@@ -1009,36 +1012,15 @@ class CommentsSection {
     if (isCurrentlyCollapsed) {
       this.collapsedComments.delete(commentKey);
       repliesWrapper.style.display = 'block';
+      revealSmoothly(repliesWrapper);
       collapseBtn.innerHTML = `
         <span class="material-icons">expand_less</span>
         <span class="collapse-text">Hide ${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}</span>
       `;
-      
-      // Animate the expansion
-      repliesWrapper.style.maxHeight = '0';
-      setTimeout(() => {
-        repliesWrapper.style.maxHeight = `${repliesWrapper.scrollHeight}px`;
-      }, 10);
-      
-      // Remove the animation properties after it completes
-      setTimeout(() => {
-        repliesWrapper.style.maxHeight = '';
-      }, 300);
     } else {
       this.collapsedComments.add(commentKey);
-      
-      // Animate the collapse
-      repliesWrapper.style.maxHeight = `${repliesWrapper.scrollHeight}px`;
-      setTimeout(() => {
-        repliesWrapper.style.maxHeight = '0';
-      }, 10);
-      
-      // Hide after animation completes
-      setTimeout(() => {
-        repliesWrapper.style.display = 'none';
-        repliesWrapper.style.maxHeight = '';
-      }, 300);
-      
+      collapseSmoothly(repliesWrapper);
+            
       collapseBtn.innerHTML = `
         <span class="material-icons">expand_more</span>
         <span class="collapse-text">Show ${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}</span>
@@ -1050,8 +1032,8 @@ class CommentsSection {
   closeReplyForm(replyForm, replyBtn) {
     if (!replyForm) return;
     
-    // First set display none to hide it visually
-    replyForm.style.display = 'none';
+    // Shrink it away; it gets display none at the end
+    collapseSmoothly(replyForm);
     
     // Then set the button state if provided
     if (replyBtn) {
@@ -1078,8 +1060,9 @@ class CommentsSection {
       replyForm.inert = false;
     }
     
-    // Then show it visually
+    // Then show it visually, sliding open
     replyForm.style.display = 'block';
+    revealSmoothly(replyForm);
     
     // Then update button state
     if (replyBtn) {

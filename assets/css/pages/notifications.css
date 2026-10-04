@@ -625,7 +625,8 @@
 .notification.notification-skeleton {
     cursor: default;
     pointer-events: none;
-    animation: none;
+    /* Only if loading takes more than 300ms (see loaders.css) */
+    animation: skeleton-delayed-in 0.2s ease-out 0.3s both;
 }
 
 /* Animations */

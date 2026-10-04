@@ -1,4 +1,5 @@
-import eventEmitter from '../utils/EventEmitter.js';
+import eventEmitter from '../utils/EventEmitter.js';
+import { trackOverlay } from '../utils/overlays.js';
 import steemService from './SteemService.js';
 import authService from './AuthService.js';
 //router
@@ -1755,6 +1756,7 @@ class WalletService {
 
     // Add to DOM
     document.body.appendChild(overlayDiv);
+    trackOverlay(overlayDiv, () => overlayDiv.remove()); // closed when leaving the page
   }
 
 }

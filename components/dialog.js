@@ -1,3 +1,4 @@
+import { trackOverlay } from '../utils/overlays.js';
 /**
  * Displays a result dialog for API operations
  * @param {Object} result - The result object from API
@@ -97,6 +98,7 @@ export function displayResult(result, type = 'info', modal = false) {
     
     // Add dialog to body
     document.body.appendChild(dialog);
+    trackOverlay(dialog, () => closeButton.onclick()); // closed when leaving the page
     
     // Auto-close non-error, non-modal dialogs after 5 seconds
     if (type !== 'error' && !modal) {
@@ -177,6 +179,7 @@ export function showConfirmation(message, onConfirm, onCancel) {
     // Add to DOM
     document.body.appendChild(overlay);
     document.body.appendChild(dialog);
-    
+    trackOverlay(dialog, () => cancelButton.onclick()); // cancelled when leaving the page
+
     return dialog;
 }

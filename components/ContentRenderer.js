@@ -1,4 +1,5 @@
 import { getImageUrl } from '../utils/ImageUtils.js';
+import { rewriteSteemitLinks } from '../utils/SteemLinks.js';
 
 /**
  * Content Renderer component for displaying Steem posts and previews
@@ -99,6 +100,9 @@ class ContentRenderer {
       }
     }
     
+    // Links to steemit.com open the same page on cur8.fun
+    rewriteSteemitLinks(container);
+
     // Extract and process images if needed
     let images = [];
     if (mergedOptions.extractImages) {

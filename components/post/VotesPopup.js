@@ -1,4 +1,5 @@
-import router from '../../utils/Router.js';
+import router from '../../utils/Router.js';
+import { trackOverlay } from '../../utils/overlays.js';
 import { resizeSmoothly } from '../../utils/animateResize.js';
 
 class VotesPopup {
@@ -93,6 +94,7 @@ class VotesPopup {
     document.addEventListener('keydown', this.escKeyHandler);
     document.body.appendChild(this.overlay);
     document.body.appendChild(this.popup);
+    trackOverlay(this.popup, () => this.close()); // closed when leaving the page
 
     // Double-rAF: ensures initial state is painted before transition starts
     requestAnimationFrame(() => requestAnimationFrame(() => {

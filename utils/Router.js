@@ -1,4 +1,6 @@
 import eventEmitter from './EventEmitter.js';
+import { toAppPath } from './SteemLinks.js';
+import { closeOverlays, isOverlayHistoryEntry, afterOverlayHistory } from './overlays.js';
 
 /**
  * A route view whose code is downloaded on first use instead of at startup:
@@ -134,6 +136,9 @@ class Router {
     return this;
   }
   navigate(path, params = {}, replaceState = false) {
+    // A dialog that just closed (e.g. a confirmation leading here) is still
+    // dropping its history entry: navigate right after that
+    if (afterOverlayHistory(() => this.navigate(path, params, replaceState))) return;
     if (path === this.currentPath && !replaceState) {
       return;
     }
@@ -152,7 +157,10 @@ class Router {
         this.navigationHistory.push({ path, params });
       }
     } else {
-      window.history.pushState(params, '', fullPath);
+      // Leaving from an open dialog: the new page takes the place of the
+      // dialog's own history entry, so going back doesn't land on it twice
+      if (isOverlayHistoryEntry()) window.history.replaceState(params, '', fullPath);
+      else window.history.pushState(params, '', fullPath);
       this.navigationHistory.push({ path, params });
       if (this.navigationHistory.length > this.maxHistoryLength) {
         this.navigationHistory.shift();
@@ -166,6 +174,8 @@ class Router {
       return;
     }
     const navigation = ++this.navigationId;
+    // Dialogs open over the page being left don't stay over the next one
+    closeOverlays();
     const leavingScrollTop = document.getElementById('main-content')?.scrollTop || 0;
     this.saveLeavingState(leavingScrollTop);
     const previousPath = this.currentPath;
@@ -422,6 +432,14 @@ class Router {
   init() {
     document.addEventListener('click', (e) => {
       const link = e.target.closest('a');
+      // A steemit.com link anywhere (bio, older content...) opens the same
+      // page here; with a modifier key the browser handles it as usual
+      const appPath = link && !e.defaultPrevented && !(e.ctrlKey || e.metaKey || e.shiftKey) && toAppPath(link.href);
+      if (appPath) {
+        e.preventDefault();
+        this.navigate(appPath);
+        return;
+      }
       if (link &&
           !link.getAttribute('target') &&
           !link.getAttribute('data-bypass-router')) {

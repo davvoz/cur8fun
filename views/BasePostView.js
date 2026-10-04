@@ -25,6 +25,10 @@ import DialogUtility from '../components/DialogUtility.js';
 
 // Utilities
 import eventEmitter from '../utils/EventEmitter.js';
+import { fadeIn, fadeInWhenLoaded } from '../utils/animateResize.js';
+
+// Placeholders only appear when posts take longer than this to load
+const SKELETON_DELAY_MS = 300;
 
 /**
  * Base class for views that display lists of posts
@@ -255,40 +259,69 @@ class BasePostView {
   // ---- Skeleton helpers ----
 
   /**
-   * Fill the posts-container with N skeleton post cards.
-   * Called at the start of a fresh load so the user sees structure immediately.
+   * Fill the posts-container with N placeholder cards while posts load.
+   * They appear only if loading takes longer than SKELETON_DELAY_MS: faster
+   * answers (cache, kept data) would just flash them. Rendering posts (or a
+   * message) into the container cancels them.
    */
   showPostSkeletons(count = 8) {
     const postsContainer = this.container?.querySelector('.posts-container');
     if (!postsContainer) return;
     this.clearContainer(postsContainer);
 
-    for (let i = 0; i < count; i++) {
-      const card = document.createElement('div');
-      card.className = 'skeleton-post-card';
-      card.innerHTML = `
-        <div class="sk-header">
-          <div class="sk-block sk-avatar"></div>
-          <div class="sk-meta">
-            <div class="sk-block sk-author"></div>
-            <div class="sk-block sk-date"></div>
+    this._skeletonTimer = setTimeout(() => {
+      this._skeletonTimer = null;
+      if (!postsContainer.isConnected) return;
+      const cards = Array.from({ length: count }, () => this.createSkeletonCard());
+      // Before anything an infinite scroll may have appended meanwhile
+      postsContainer.prepend(...cards);
+      cards.forEach(card => fadeIn(card));
+    }, SKELETON_DELAY_MS);
+  }
+
+  cancelPostSkeletons() {
+    clearTimeout(this._skeletonTimer);
+    this._skeletonTimer = null;
+  }
+
+  /**
+   * A placeholder card made of the real card's markup and classes, so the
+   * layout's CSS gives every part (header, image, title, excerpt, actions)
+   * the exact size it has in a loaded card. Text lines are transparent text
+   * on a grey background, one bar per line at the real line height.
+   */
+  createSkeletonCard() {
+    const card = document.createElement('div');
+    card.className = 'post-card post-card--skeleton';
+    card.setAttribute('aria-hidden', 'true');
+    const text = (content) => `<span class="sk-text">${content}</span>`;
+    card.innerHTML = `
+      <div class="post-header">
+        <div class="avatar-container"><div class="avatar sk-fill"></div></div>
+        <div class="post-info">
+          <div class="post-info-left">
+            <div class="post-author">${text('@author-name')}</div>
+            <div class="post-community">${text('community name')}</div>
+          </div>
+          <div class="post-date">${text('10 hours ago')}</div>
+        </div>
+      </div>
+      <div class="post-main-content">
+        <div class="post-image-container sk-fill"></div>
+        <div class="post-content-wrapper">
+          <div class="post-content-middle">
+            <div class="post-title">${text('A post title as long as most of the real ones, which wrap onto two or three lines')}</div>
+            <div class="post-excerpt">${text('The first words of the post appear here as an excerpt: several lines of text that give an idea of what the post is about before opening it. Like the real ones, it is long enough to be cut by the card after its last visible line, so it always fills the same space as the excerpt that replaces it.')}</div>
+          </div>
+          <div class="post-actions">
+            <div class="action-item">${text('000')}</div>
+            <div class="action-item">${text('00')}</div>
+            <div class="action-item">${text('00')}</div>
+            <div class="action-item card-payout-info">${text('$0.00')}</div>
           </div>
         </div>
-        <div class="sk-block sk-image"></div>
-        <div class="sk-content">
-          <div class="sk-block sk-title"></div>
-          <div class="sk-block sk-title2"></div>
-          <div class="sk-block sk-line"></div>
-          <div class="sk-block sk-line2"></div>
-        </div>
-        <div class="sk-actions">
-          <div class="sk-block sk-action"></div>
-          <div class="sk-block sk-action"></div>
-          <div class="sk-block sk-action"></div>
-        </div>
-      `;
-      postsContainer.appendChild(card);
-    }
+      </div>`;
+    return card;
   }
 
   /**
@@ -298,6 +331,11 @@ class BasePostView {
     const postsContainer = this.container?.querySelector('.posts-container');
     
     if (!postsContainer) return;
+
+    // The first posts fade in, over their placeholders or in their place
+    if (!append && (this._skeletonTimer || postsContainer.querySelector('.post-card--skeleton'))) {
+      fadeIn(postsContainer);
+    }
     
     if (!append) {
       this.clearContainer(postsContainer);
@@ -383,6 +421,8 @@ class BasePostView {
    * Clear a container element
    */
   clearContainer(container) {
+    // Whatever replaces the content makes pending placeholders pointless
+    this.cancelPostSkeletons();
     while (container.firstChild) {
       container.removeChild(container.firstChild);
     }
@@ -938,6 +978,8 @@ class BasePostView {
     };
 
     tryNext();
+    // Fades in over the container's loading shimmer once it has loaded
+    fadeInWhenLoaded(image);
 
     content.appendChild(image);
     return content;

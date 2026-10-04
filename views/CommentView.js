@@ -1,4 +1,5 @@
 import View from './View.js';
+import { trackOverlay } from '../utils/overlays.js';
 import router from '../utils/Router.js';
 import LoadingIndicator from '../components/LoadingIndicator.js'; 
 import ContentRenderer from '../components/ContentRenderer.js';
@@ -459,6 +460,7 @@ export default class CommentView extends View {
     // Add to body
     document.body.appendChild(overlay);
     document.body.appendChild(dialog);
+    trackOverlay(dialog, closeDialog); // closed when leaving the page
 
     // Also emit a regular notification
     eventEmitter.emit('notification', {
