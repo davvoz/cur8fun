@@ -1,7 +1,7 @@
 // Service Worker for cur8.fun Social Network PWA
-const CACHE_NAME = 'cur8-pwa-v1.200';
-const APP_VERSION = '1.0.190';
-const BUILD_TIMESTAMP = '2026-10-04T08:43:28Z';
+const CACHE_NAME = 'cur8-pwa-v1.201';
+const APP_VERSION = '1.0.191';
+const BUILD_TIMESTAMP = '2026-10-04T09:09:07Z';
 
 // Solo assets statici versionati — MAI index.html o navigation HTML
 const ASSETS_TO_CACHE = [
