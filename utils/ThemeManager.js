@@ -58,6 +58,8 @@ class ThemeManager {
    */
   applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
+    // Scrollbars and native form controls follow the theme too
+    document.documentElement.style.colorScheme = theme;
     
     // Update meta theme-color for mobile browsers.
     // Two tags exist with prefers-color-scheme media queries; when the user

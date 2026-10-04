@@ -1,7 +1,6 @@
 import View from './View.js';
 import { trackOverlay } from '../utils/overlays.js';
 import router from '../utils/Router.js';
-import LoadingIndicator from '../components/LoadingIndicator.js'; 
 import ContentRenderer from '../components/ContentRenderer.js';
 import steemService from '../services/SteemService.js';
 import authService from '../services/AuthService.js';
@@ -17,6 +16,7 @@ import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
 import DialogUtility from '../components/DialogUtility.js';
 import pingsService from '../services/PingsService.js';
+import { fadeIn, smoothImageLoading, growFrom } from '../utils/animateResize.js';
 
 /**
  * Vista dedicata alla visualizzazione di un singolo commento
@@ -33,7 +33,6 @@ export default class CommentView extends View {
     this.permlink = params.permlink;
     this.replies = [];
     this.element = null;
-    this.loadingIndicator = new LoadingIndicator('spinner');
     
     // Container elements
     this.commentContent = null;
@@ -136,22 +135,17 @@ export default class CommentView extends View {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    this.commentContent.style.display = 'none';
     this.errorMessage.style.display = 'none';
-    this.parentPostReference.style.display = 'none';
-
-    // Mostra l'indicatore di caricamento
-    this.loadingIndicator.show(this.element, 'Caricamento commento...');
+    this.showSkeleton();
 
     try {
       const { author, permlink } = this.params;
 
-      this.loadingIndicator.updateProgress(20);
-
-      // Carica il commento e le risposte in parallelo
-      const comment = await this.steemService.getContent(author, permlink);
-
-      this.loadingIndicator.updateProgress(50);
+      // The comment and its replies at once
+      const [comment, replies] = await Promise.all([
+        this.steemService.getContent(author, permlink),
+        this.steemService.getContentReplies(author, permlink)
+      ]);
 
       if (!comment || comment.id === 0) {
         throw new Error('not_found');
@@ -160,55 +154,162 @@ export default class CommentView extends View {
       // Pings have their own thread view (links from notifications, profiles…)
       const pingsPath = pingsService.getRedirectPath(comment);
       if (pingsPath) {
-        this.loadingIndicator.hide();
+        this.hideSkeleton();
         router.navigate(pingsPath, {}, true);
         return;
       }
 
       this.comment = comment;
-      
-      // Se ha un parent_author, carica anche il post padre
-      if (comment.parent_author) {
-        this.loadingIndicator.updateProgress(70);
-        
-        try {
-          this.parentPost = await this.steemService.getContent(
-            comment.parent_author, 
-            comment.parent_permlink
-          );
-        } catch (err) {
+      this.replies = replies || [];
+
+      // The parent post only gives the title of the "back" bar: the comment
+      // is shown without waiting for it, the bar is filled when it arrives
+      const parentLoad = comment.parent_author
+        ? this.steemService.getContent(comment.parent_author, comment.parent_permlink).catch((err) => {
           console.error('Failed to load parent post:', err);
-          // Non è critico, possiamo continuare
-        }
-      }
-      
-      // Carica le risposte al commento
-      this.loadingIndicator.updateProgress(80);
-      this.replies = await this.steemService.getContentReplies(author, permlink);
+          return null;
+        })
+        : null;
 
-      this.loadingIndicator.updateProgress(100);
-      this.loadingIndicator.hide();
-
-      // Inizializza e renderizza i componenti
       await this._contentRendererReady;
+      // Placeholders already on screen: the card then resizes smoothly from
+      // their height to the comment's (its text is the only unknown size)
+      const placeholdersShown = this.placeholderParts
+        && parseFloat(getComputedStyle(this.commentContent).opacity) > 0.5;
+      const placeholderHeight = placeholdersShown ? this.commentContent.offsetHeight : undefined;
+
+      // Each container's placeholder is replaced by its real content
       this.initComponents();
       await this.renderComponents();
-      
+      this.endPlaceholders();
+
+      // What changed fades in (the bar's arrow and the card frames stay put);
+      // the comment's images grow in as they load
+      growFrom(this.commentContent, placeholderHeight);
+      const cardContents = [
+        ...this.commentContent.children,
+        ...(this.repliesContainer.querySelector('.comments-section')?.children || [])
+      ];
+      cardContents.forEach(el => fadeIn(el));
+      if (this.parentTitleEl) fadeIn(this.parentTitleEl);
+      smoothImageLoading(this.element.querySelector('.comment-view'));
+
+      parentLoad?.then((parent) => {
+        if (!parent || !this.parentPostReference?.isConnected) return;
+        this.parentPost = parent;
+        this.updateParentPostTitle();
+      });
+
       // Controlla lo stato di voto
       await this.voteController.checkVoteStatus(this.comment);
     } catch (error) {
       console.error('Failed to load comment:', error);
-      this.loadingIndicator.hide();
+      this.hideSkeleton();
 
       if (error.message === 'not_found') {
         this.renderNotFoundError();
       } else {
-        this.errorMessage.textContent = `Errore nel caricamento del commento: ${error.message || 'Si è verificato un errore. Riprova più tardi.'}`;
+        this.errorMessage.textContent = `Failed to load the comment: ${error.message || 'please try again later.'}`;
         this.errorMessage.style.display = 'block';
       }
     } finally {
       this.isLoading = false;
     }
+  }
+
+  /**
+   * Placeholders in the page's own containers, built with the classes of
+   * the content that replaces them (back bar, comment card, replies with
+   * the reply editor), so everything but the comment's text has its final
+   * size and place. Static labels are shown as they are; data is drawn as
+   * grey bars. They appear only if loading takes more than 300ms
+   * (.comment-placeholder in CSS).
+   */
+  showSkeleton() {
+    const text = (content) => `<span class="sk-text">${content}</span>`;
+
+    this.parentPostReference.innerHTML = `
+      <div class="parent-post-link">
+        <span class="material-icons">arrow_back</span>
+        <span>${text('Back to the post')}</span>
+      </div>`;
+
+    // Same markup as PostHeader, PostContent, PostActions and CommentsSection
+    this.commentContent.innerHTML = `
+      <div class="post-headero">
+        <h1 class="post-title-header">Comment</h1>
+        <div class="post-meta">
+          <div class="avataro">
+            <img class="author-avatar sk-fill" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><a class="author-name">${text('@author-name')}</a>
+            <div class="community-placeholder"></div>
+          </div>
+          <div class="dataro">
+            <span class="post-date">${text('15 hours ago')}</span>
+            <div class="post-header-menu">
+              <button type="button" class="post-header-menu-trigger" tabindex="-1">
+                <span class="material-icons">more_vert</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="comment-content-body">
+        <p>${text('The text of the comment takes a few lines here, as a placeholder for the words that will appear once it has loaded, more or less as long as a usual comment on Steem.')}</p>
+      </div>
+      <div class="post-actions-post">
+        <div class="upvote-container">
+          <button type="button" class="action-btn upvote-btn" tabindex="-1"><span class="material-icons">thumb_up</span></button>
+          <button type="button" class="vote-count-btn" tabindex="-1"><span class="count">${text('0')}</span></button>
+        </div>
+        <button type="button" class="action-btn comment-btn" tabindex="-1">
+          <span class="material-icons">chat</span><span class="count">${text('0')}</span>
+        </button>
+        <div class="payout-info">${text('$0.00')}</div>
+      </div>`;
+
+    this.repliesContainer.innerHTML = `
+      <div class="comments-section">
+        <h3>Comments</h3>
+        <form class="comment-form">
+          <div class="comment-editor-mount">
+            <div class="markdown-editor markdown-editor--compact sk-fill" style="min-height:178px"></div>
+          </div>
+          <button type="button" class="submit-comment sk-fill" tabindex="-1">${text('Post Comment')}</button>
+        </form>
+        <div class="comments-list">
+          <div class="no-comments">${text('The replies to this comment appear here')}</div>
+        </div>
+      </div>`;
+
+    this.placeholderParts = [this.parentPostReference, this.commentContent, this.repliesContainer];
+    this.placeholderParts.forEach(part => {
+      part.classList.add('comment-placeholder');
+      part.setAttribute('aria-hidden', 'true');
+      part.style.display = '';
+    });
+  }
+
+  // The real content is in place: the containers are no placeholders anymore
+  endPlaceholders() {
+    (this.placeholderParts || []).forEach(part => {
+      part.classList.remove('comment-placeholder');
+      part.removeAttribute('aria-hidden');
+    });
+    this.placeholderParts = null;
+    // A root post has no back bar (see initComponents)
+    if (!this.comment?.parent_author) {
+      this.parentPostReference.innerHTML = '';
+      this.parentPostReference.style.display = 'none';
+    }
+  }
+
+  // No content follows (error, or a ping opened in its own view): clear them
+  hideSkeleton() {
+    if (!this.placeholderParts) return;
+    this.placeholderParts.forEach(part => { part.innerHTML = ''; });
+    this.parentPostReference.style.display = 'none';
+    this.commentContent.style.display = 'none';
+    this.endPlaceholders();
   }
 
   initComponents() {
@@ -255,8 +356,8 @@ export default class CommentView extends View {
       this.contentRenderer
     );
     
-    // Se abbiamo il post padre, crea il riferimento
-    if (this.parentPost) {
+    // The back bar to the parent, shown right away at its final size
+    if (this.comment.parent_author) {
       this.renderParentPostReference();
     }
   }
@@ -266,34 +367,47 @@ export default class CommentView extends View {
    */
   renderParentPostReference() {
     this.parentPostReference.innerHTML = '';
-    
+    const { parent_author: parentAuthor, parent_permlink: parentPermlink } = this.comment;
+    // depth 1: a reply to a post; deeper: a reply to another comment
+    const parentIsComment = this.comment.depth > 1;
+
     const parentPostLink = document.createElement('div');
     parentPostLink.className = 'parent-post-link';
-    
+
     const icon = document.createElement('span');
     icon.className = 'material-icons';
     icon.textContent = 'arrow_back';
-    
-    const linkText = document.createElement('span');
-    linkText.textContent = this.parentPost.title || 'Parent';
-    
+
+    // A comment's parent is named by its author; a post's title arrives with
+    // the post (updateParentPostTitle), a placeholder bar keeps its place
+    this.parentTitleEl = document.createElement('span');
+    if (parentIsComment) {
+      this.parentTitleEl.textContent = `Reply to @${parentAuthor}`;
+    } else if (this.parentPost) {
+      this.parentTitleEl.textContent = this.parentPost.title || 'Parent';
+    } else {
+      this.parentTitleEl.innerHTML = '<span class="sk-text">Loading the post title</span>';
+    }
+
     parentPostLink.appendChild(icon);
-    parentPostLink.appendChild(linkText);
-    
+    parentPostLink.appendChild(this.parentTitleEl);
+
     // Aggiungi l'evento click per navigare al post o commento padre
     parentPostLink.addEventListener('click', () => {
-      // Verifica se il parent è un commento (ha parent_author) o un post
-      if (this.parentPost.parent_author && this.parentPost.parent_author !== '') {
-        // È un commento, naviga alla CommentView
-        router.navigate(`/comment/@${this.parentPost.author}/${this.parentPost.permlink}`);
-      } else {
-        // È un post, naviga alla PostView
-        router.navigate(`/@${this.parentPost.author}/${this.parentPost.permlink}`);
-      }
+      router.navigate(parentIsComment
+        ? `/comment/@${parentAuthor}/${parentPermlink}`
+        : `/@${parentAuthor}/${parentPermlink}`);
     });
-    
+
     this.parentPostReference.appendChild(parentPostLink);
     this.parentPostReference.style.display = 'block';
+  }
+
+  // The parent post's title, once loaded, in place of its placeholder
+  updateParentPostTitle() {
+    if (!this.parentTitleEl || this.comment.depth > 1) return;
+    this.parentTitleEl.textContent = this.parentPost.title || 'Parent';
+    fadeIn(this.parentTitleEl);
   }
 
   async renderComponents() {
@@ -315,7 +429,7 @@ export default class CommentView extends View {
         const repliesElement = await this.repliesSectionComponent.render();
         
         if (repliesElement && repliesElement.nodeType === Node.ELEMENT_NODE) {
-          this.repliesContainer.appendChild(repliesElement);
+          this.repliesContainer.replaceChildren(repliesElement);
         }
       }
 

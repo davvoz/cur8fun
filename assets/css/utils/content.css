@@ -28,6 +28,22 @@
     }
 }
 
+/* Theme switch (switchTheme in index.js): the new theme is revealed by a
+   circle on the snapshot of the page, and every color changes together
+   underneath, without the transitions of single elements */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+    transition: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
 #main-content::-webkit-scrollbar {
     width: 8px;
 }

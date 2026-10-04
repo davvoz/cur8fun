@@ -629,18 +629,56 @@ function initThemeToggle() {
   updateThemeIcons();
 
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.theme-toggle-btn')) return;
-
-    const newTheme = themeManager.toggleTheme();
-    updateThemeIcons();
-
-    // Provide feedback with notification
-    eventEmitter.emit('notification', {
-      type: 'info',
-      message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
-      duration: 2000
-    });
+    const button = e.target.closest('.theme-toggle-btn');
+    if (button) switchTheme(button);
   });
+}
+
+/**
+ * Switches light/dark with the new theme spreading as a circle from the
+ * toggle button over the page (View Transitions API). Where that API is
+ * missing the theme changes at once. Either way every color changes
+ * together: the CSS transitions of single elements are paused meanwhile
+ * (.theme-switching), or each would fade at its own pace.
+ */
+function switchTheme(button) {
+  const root = document.documentElement;
+  let newTheme;
+  const apply = () => {
+    root.classList.add('theme-switching');
+    newTheme = themeManager.toggleTheme();
+    updateThemeIcons();
+    // New colors computed without transitions, then transitions come back
+    void root.offsetWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-switching')));
+  };
+  const announce = () => eventEmitter.emit('notification', {
+    type: 'info',
+    message: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`,
+    duration: 2000
+  });
+
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (!document.startViewTransition || reducedMotion) {
+    apply();
+    announce();
+    return;
+  }
+
+  const rect = button.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  // Far enough to cover the farthest corner of the screen
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+  const transition = document.startViewTransition(apply);
+  transition.ready.then(() => {
+    root.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+      { duration: 550, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', pseudoElement: '::view-transition-new(root)' }
+    );
+  }).catch(() => {});
+  transition.finished.then(announce, announce);
 }
 
 /**

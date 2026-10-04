@@ -32,6 +32,7 @@
 }
 
 .comments-skeleton-wrapper,
+.comment-placeholder,
 .post-skeleton,
 .skeleton-profile-wrapper,
 .skeleton-community-header {
@@ -47,6 +48,60 @@
   background-position: center;
   border-radius: inherit;
   pointer-events: none;
+}
+
+/* Comment page placeholders (CommentView.showSkeleton) */
+.comment-placeholder {
+  pointer-events: none;
+}
+
+.comment-placeholder .sk-fill,
+.comment-placeholder .sk-text {
+  background: var(--background-lighter);
+  background-image: linear-gradient(
+    90deg,
+    var(--background-lighter)  0px,
+    var(--background-light)   150px,
+    var(--background-lighter) 300px
+  );
+  background-size: 600px 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+
+.comment-placeholder .sk-text {
+  color: transparent;
+  border-radius: 6px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.comment-placeholder .author-avatar.sk-fill {
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+/* Static parts (icons, buttons) are shown, just muted */
+.comment-placeholder .material-icons {
+  color: var(--border-color);
+}
+
+.comment-placeholder .submit-comment {
+  color: transparent;
+}
+
+/* The parent post's title, while it loads (CommentView back bar) */
+.parent-post-link .sk-text {
+  color: transparent;
+  border-radius: 6px;
+  background: var(--background-lighter);
+  background-image: linear-gradient(
+    90deg,
+    var(--background-lighter)  0px,
+    var(--background-light)   150px,
+    var(--background-lighter) 300px
+  );
+  background-size: 600px 100%;
+  animation: sk-shimmer 1.4s ease-in-out infinite;
 }
 
 /* ---- Feed card images: shimmer until the image fades in ---- */

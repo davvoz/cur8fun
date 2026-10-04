@@ -111,6 +111,13 @@ class PostHeader {
 
     const authorAvatar = document.createElement('img');
     authorAvatar.className = 'author-avatar';
+    // Last resort: the app's default avatar, never a broken image (which
+    // would show the alt text, as wide as the name)
+    const useDefaultAvatar = () => {
+      authorAvatar.onerror = null;
+      authorAvatar.src = '/assets/img/default-avatar.png';
+    };
+    authorAvatar.onerror = useDefaultAvatar;
     authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
     authorAvatar.alt = this.post.author;
     authorAvatar.style.cursor = 'pointer';
@@ -122,7 +129,7 @@ class PostHeader {
     resolveAuthorAvatarUrl(this.post.author).then((resolvedAvatar) => {
       if (!resolvedAvatar || !authorAvatar.isConnected) return;
       authorAvatar.onerror = () => {
-        authorAvatar.onerror = null;
+        authorAvatar.onerror = useDefaultAvatar;
         authorAvatar.src = `https://steemitimages.com/u/${this.post.author}/avatar`;
       };
       authorAvatar.src = resolvedAvatar;
