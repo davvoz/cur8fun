@@ -18,7 +18,7 @@ import CommentsSection from '../components/post/CommentsSection.js';
 // Import controllers and helpers
 import VoteController from '../controllers/VoteController.js';
 import CommentController from '../controllers/CommentController.js';
-import { fadeIn, smoothImageLoading, growFrom } from '../utils/animateResize.js';
+import { fadeIn, smoothImageLoading } from '../utils/animateResize.js';
 import PostReblogHandler from '../components/post/PostReblogHandler.js';
 import DialogUtility from '../components/DialogUtility.js';
 import reblogService from '../services/ReblogService.js';
@@ -139,9 +139,53 @@ class PostView extends View {  constructor(params = {}) {
     if (this.isLoading) return;
     this.isLoading = true;
 
+    this.postContent.style.display = 'none';
     this.errorMessage.style.display = 'none';
 
-    this.showSkeleton();
+    // Show post skeleton while loading
+    this._postSkeleton = document.createElement('div');
+    this._postSkeleton.className = 'post-skeleton';
+    this._postSkeleton.innerHTML = `
+      <div style="max-width:860px;margin:0 auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px">
+        <!-- Title -->
+        <div class="sk-block" style="height:28px;width:75%;border-radius:8px"></div>
+        <div class="sk-block" style="height:28px;width:45%;border-radius:8px"></div>
+        <!-- Meta row (avatar + author + date) -->
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+          <div class="sk-block" style="width:120px;height:13px;border-radius:6px"></div>
+          <div class="sk-block" style="width:80px;height:13px;border-radius:6px;margin-left:auto"></div>
+        </div>
+        <!-- Featured image -->
+        <div class="sk-block" style="width:100%;height:340px;border-radius:10px"></div>
+        <!-- Body lines -->
+        <div class="sk-block" style="height:13px;width:100%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:97%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:90%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:94%;border-radius:5px"></div>
+        <div class="sk-block" style="height:13px;width:60%;border-radius:5px"></div>
+        <!-- Actions row -->
+        <div style="display:flex;gap:14px;margin-top:8px">
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+          <div class="sk-block" style="width:60px;height:30px;border-radius:6px"></div>
+        </div>
+        <!-- Comments heading -->
+        <div class="sk-block" style="height:16px;width:120px;border-radius:6px;margin-top:12px"></div>
+        <!-- Comment rows -->
+        ${[1,2,3].map(() => `
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="sk-block" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+              <div class="sk-block" style="height:11px;width:28%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:92%;border-radius:5px"></div>
+              <div class="sk-block" style="height:11px;width:78%;border-radius:5px"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    `;
+    const postView = this.element.querySelector('.post-view');
+    if (postView) postView.insertBefore(this._postSkeleton, this.postContent);
 
     try {
       const { author, permlink } = this.params;
@@ -174,22 +218,13 @@ class PostView extends View {  constructor(params = {}) {
 
       metaTagService.updatePostMetaTags(this.post);
       await this._contentRendererReady;
-      // Placeholders already on screen: the page then resizes smoothly from
-      // their height to the post's (title lines and body are unknown sizes)
-      const placeholderShown = this.postContent.classList.contains('page-placeholder')
-        && parseFloat(getComputedStyle(this.postContent).opacity) > 0.5;
-      const placeholderHeight = placeholderShown ? this.postContent.offsetHeight : undefined;
-
       this.initComponents();
-      await this.renderComponents(); // replaces the placeholders
-      this.endPlaceholders();
+      await this.renderComponents();
+      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
       this.postContent.style.display = 'block';
-
-      // What changed fades in, the card frames stay; images grow in as they
-      // load instead of pushing the text down
-      growFrom(this.postContent, placeholderHeight);
-      [...this.postContent.children, ...(this.postContent.querySelector('.comments-section')?.children || [])]
-        .forEach(el => fadeIn(el));
+      // The post replaces its skeleton with a fade, and its images (and the
+      // comments') grow in as they load instead of pushing the text down
+      fadeIn(this.postContent);
       smoothImageLoading(this.postContent);
       await this.voteController.checkVoteStatus(this.post);
     } catch (error) {
@@ -204,84 +239,8 @@ class PostView extends View {  constructor(params = {}) {
     } finally {
       this.isLoading = false;
       this.loadingIndicator.hide();
-      // Still there if no post followed (error, redirect to a ping)
-      if (this.postContent.classList.contains('page-placeholder')) {
-        this.postContent.replaceChildren();
-        this.postContent.style.display = 'none';
-        this.endPlaceholders();
-      }
+      if (this._postSkeleton) { this._postSkeleton.remove(); this._postSkeleton = null; }
     }
-  }
-
-  /**
-   * Placeholders in the post's container, built with the markup of the
-   * components that replace them (header, body, actions, tags, comments
-   * with the reply editor), so their frames, spacing and static parts match
-   * the page. Data is drawn as grey bars. They appear only if loading takes
-   * more than 300ms (.page-placeholder in CSS).
-   */
-  showSkeleton() {
-    const text = (content) => `<span class="sk-text">${content}</span>`;
-    const blank = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-    const line = 'A line of the post as long as the width of the page, shown as a grey bar while it loads';
-    this.postContent.innerHTML = `
-      <div class="post-headero">
-        <h1 class="post-title-header">${text('The title of the post, usually on one or two lines')}</h1>
-        <div class="post-meta">
-          <div class="avataro">
-            <img class="author-avatar sk-fill" alt="" src="${blank}"><a class="author-name">${text('@author-name')}</a>
-            <div class="community-container">
-              <span class="material-icons community-icon">group</span>
-              <div class="community-info-container"><div class="community-title">${text('community')}</div></div>
-            </div>
-          </div>
-          <div class="dataro">
-            <span class="post-date">${text('1 day ago')}</span>
-            <div class="post-header-menu">
-              <button type="button" class="post-header-menu-trigger" tabindex="-1"><span class="material-icons">more_vert</span></button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="post-content-body content-body">
-        <p>${text(`${line}. ${line}. ${line}.`)}</p>
-        <p>${text(`${line}. ${line}.`)}</p>
-      </div>
-      <div class="post-actions-post">
-        <div class="upvote-container">
-          <button type="button" class="action-btn upvote-btn" tabindex="-1"><span class="material-icons">thumb_up</span></button>
-          <button type="button" class="vote-count-btn" tabindex="-1"><span class="count">${text('00')}</span></button>
-        </div>
-        <button type="button" class="action-btn comment-btn" tabindex="-1"><span class="material-icons">chat</span><span class="count">${text('0')}</span></button>
-        <div class="reblog-container">
-          <button type="button" class="action-btn reblog-btn" tabindex="-1"><span class="material-icons">repeat</span></button>
-          <button type="button" class="action-btn reblog-count-btn" tabindex="-1"><span class="count">${text('0')}</span></button>
-        </div>
-        <div class="payout-info">${text('$00.00')}</div>
-      </div>
-      <div class="post-tags-container">
-        <span class="tags-label"><span class="material-icons">local_offer</span> Tags:</span>
-        <div class="tags-list">
-          ${['photography', 'life', 'writing', 'daily'].map(tag => `<a class="tag-pill">${text(tag)}</a>`).join('')}
-        </div>
-      </div>
-      <div class="comments-section">
-        <h3>Comments</h3>
-        <form class="comment-form">
-          <div class="comment-editor-mount">
-            <div class="markdown-editor markdown-editor--compact sk-fill" style="min-height:178px"></div>
-          </div>
-          <button type="button" class="submit-comment sk-fill" tabindex="-1">${text('Post Comment')}</button>
-        </form>
-      </div>`;
-    this.postContent.classList.add('page-placeholder');
-    this.postContent.setAttribute('aria-hidden', 'true');
-    this.postContent.style.display = 'block';
-  }
-
-  endPlaceholders() {
-    this.postContent.classList.remove('page-placeholder');
-    this.postContent.removeAttribute('aria-hidden');
   }
 
   /**
