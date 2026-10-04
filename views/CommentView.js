@@ -415,25 +415,25 @@ export default class CommentView extends View {
 
   async renderComponents() {
     if (!this.comment) return;
-    
-    // Pulisci il contenitore prima di aggiungere nuovi componenti
-    while (this.commentContent.firstChild) {
-      this.commentContent.removeChild(this.commentContent.firstChild);
-    }
 
     try {
-      // Aggiungi i componenti sincronizzati
-      this.commentContent.appendChild(this.commentHeaderComponent.render());
-      this.commentContent.appendChild(this.commentContentComponent.render());
-      this.commentContent.appendChild(this.commentActionsComponent.render());
-      
+      // Built off screen and swapped in together with the replies: shown
+      // while the replies render, the comment would then vanish and fade in
+      // again (loadComment fades everything in once this returns)
+      const parts = [
+        this.commentHeaderComponent.render(),
+        this.commentContentComponent.render(),
+        this.commentActionsComponent.render()
+      ];
+
       // Se ci sono risposte, renderizza il componente risposte (sempre presente ora)
-      if (this.repliesSectionComponent) {
-        const repliesElement = await this.repliesSectionComponent.render();
-        
-        if (repliesElement && repliesElement.nodeType === Node.ELEMENT_NODE) {
-          this.repliesContainer.replaceChildren(repliesElement);
-        }
+      const repliesElement = this.repliesSectionComponent
+        ? await this.repliesSectionComponent.render()
+        : null;
+
+      this.commentContent.replaceChildren(...parts);
+      if (repliesElement && repliesElement.nodeType === Node.ELEMENT_NODE) {
+        this.repliesContainer.replaceChildren(repliesElement);
       }
 
       // Mostra il contenuto
@@ -444,7 +444,7 @@ export default class CommentView extends View {
       const errorMessage = document.createElement('div');
       errorMessage.className = 'component-render-error';
       errorMessage.textContent = 'There was an error rendering the comment components. Please try again later.';
-      this.commentContent.appendChild(errorMessage);
+      this.commentContent.replaceChildren(errorMessage);
       this.commentContent.style.display = 'block';
     }
   }

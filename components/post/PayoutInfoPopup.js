@@ -6,6 +6,29 @@ import { isPayoutDeclined, applyDeclinedPayoutStyle } from '../../utils/PayoutUt
 import { resizeSmoothly } from '../../utils/animateResize.js';
 import { trackOverlay } from '../../utils/overlays.js';
 
+// The STEEM price is shared by every breakdown: fetched once in a while
+// rather than on each open, so later opens show the amounts right away
+const PRICE_TTL_MS = 5 * 60 * 1000;
+let cachedPrice = null; // { value, at }
+let pricePromise = null;
+
+function getCachedSteemPrice() {
+  return cachedPrice && Date.now() - cachedPrice.at < PRICE_TTL_MS ? cachedPrice.value : null;
+}
+
+function fetchSteemPrice() {
+  pricePromise ??= fetch('https://imridd.eu.pythonanywhere.com/api/prices')
+    .then(res => res.json())
+    .then(prices => {
+      if (!(prices.STEEM > 0)) throw new Error('No STEEM price');
+      cachedPrice = { value: prices.STEEM, at: Date.now() };
+      return prices.STEEM;
+    })
+    .catch(() => 1) // Fallback if API fails (not cached: tried again next time)
+    .finally(() => { pricePromise = null; });
+  return pricePromise;
+}
+
 class PayoutInfoPopup {
   constructor(post) {
     this.post = post;
@@ -106,49 +129,36 @@ class PayoutInfoPopup {
   }
 
   /**
-   * Get SBD, STEEM and SP breakdown
+   * Get SBD, STEEM and SP breakdown for a STEEM price
    * Analyzes and displays the values exactly as on Steemit
    */
-  /**
-   * Get SBD, STEEM and SP breakdown
-   * Analyzes and displays the values exactly as on Steemit
-   */
-  async getPayoutBreakdown() {
-    try {
-      // Fetch prices once at the beginning
-      const prices = await fetch('https://imridd.eu.pythonanywhere.com/api/prices')
-        .then(res => res.json())
-        .catch(() => ({ STEEM: 1 })); // Fallback if API fails
+  getPayoutBreakdown(steemPrice) {
+    const payout = this.getPendingPayout();
 
-      const steemPrice = prices.STEEM || 1;
-      const payout = this.getPendingPayout();
+    // Initialize breakdown values
+    let sbd = 0, steem = 0, sp = 0;
 
-      // Initialize breakdown values
-      let sbd = 0, steem = 0, sp = 0;
-
-
-      // Handle different payout scenarios
-      if (this.post.percent_steem_dollars === 10000) {
-        // 100% SBD payout mode
-        const totalSteemValue = payout / steemPrice;
-        steem = totalSteemValue / 2;
-        sp = totalSteemValue / 2;
-      } else {
-        // 100% SP payout mode
-        sp = payout / steemPrice;
-      }
-
-      // Return formatted values
-      return {
-        sbd: sbd.toFixed(2),
-        steem: steem.toFixed(2),
-        sp: sp.toFixed(2)
-      };
-    } catch (error) {
-      console.error('Error calculating payout breakdown:', error);
-      // Return default values in case of error
-      return { sbd: '0.00', steem: '0.00', sp: '0.00' };
+    // Handle different payout scenarios
+    if (this.isHalfLiquid()) {
+      // 100% SBD payout mode
+      const totalSteemValue = payout / steemPrice;
+      steem = totalSteemValue / 2;
+      sp = totalSteemValue / 2;
+    } else {
+      // 100% SP payout mode
+      sp = payout / steemPrice;
     }
+
+    // Return formatted values
+    return {
+      sbd: sbd.toFixed(2),
+      steem: steem.toFixed(2),
+      sp: sp.toFixed(2)
+    };
+  }
+
+  isHalfLiquid() {
+    return this.post.percent_steem_dollars === 10000;
   }
 
   /**
@@ -455,29 +465,33 @@ class PayoutInfoPopup {
     section.appendChild(chips);
 
     if (!isPaidOut) {
-      const loading = document.createElement('div');
-      loading.className = 'loading-indicator';
-      loading.textContent = 'Loading…';
-      chips.appendChild(loading);
+      const addChips = (b) => {
+        this._appendChip(chips, 'STEEM', b.steem, b.steem);
+        this._appendChip(chips, 'SP', b.sp, b.sp);
+        this._appendChip(chips, 'SBD', b.sbd, b.sbd);
+      };
+      const price = getCachedSteemPrice();
+      if (price) {
+        addChips(this.getPayoutBreakdown(price));
+      } else if (parseFloat(pendingPayout) > 0) {
+        // Which chips appear is known before the price: they are shown
+        // right away with a shimmering value, so the popover keeps its size
+        const sample = '88.88';
+        const placeholder = { steem: this.isHalfLiquid() ? sample : 0, sp: sample, sbd: 0 };
+        addChips(placeholder);
+        chips.querySelectorAll('.payout-chip-value').forEach(v => v.classList.add('is-loading'));
 
-      // The popover grows (and moves to stay next to the payout) smoothly
-      // when the amounts replace the loading text
-      const updatePopup = (change) => resizeSmoothly(this.popup, () => {
-        change();
-        this._reposition();
-      }, { position: true, fade: chips });
-
-      this.getPayoutBreakdown()
-        .then(b => updatePopup(() => {
-          chips.innerHTML = '';
-          if (b) {
-            this._appendChip(chips, 'STEEM', b.steem, b.steem);
-            this._appendChip(chips, 'SP', b.sp, b.sp);
-            this._appendChip(chips, 'SBD', b.sbd, b.sbd);
-          }
-          if (!chips.children.length) chips.remove();
-        }))
-        .catch(() => updatePopup(() => chips.remove()));
+        fetchSteemPrice().then(steemPrice => {
+          if (!chips.isConnected) return;
+          // Only the values' widths change: the popover follows smoothly
+          resizeSmoothly(this.popup, () => {
+            chips.replaceChildren();
+            addChips(this.getPayoutBreakdown(steemPrice));
+            this._reposition();
+          }, { position: true, fade: chips });
+        });
+      }
+      if (!chips.children.length) chips.remove();
     } else {
       this._appendChip(chips, 'Author', `$${this.getAuthorPayout()}`, this.getAuthorPayout());
       this._appendChip(chips, 'Curator', `$${this.getCuratorPayout()}`, this.getCuratorPayout());

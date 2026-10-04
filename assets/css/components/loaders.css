@@ -33,6 +33,7 @@
 
 .comments-skeleton-wrapper,
 .page-placeholder,
+.post-skeleton,
 .skeleton-profile-wrapper,
 .skeleton-community-header {
   animation: skeleton-delayed-in 0.2s ease-out 0.3s both;
