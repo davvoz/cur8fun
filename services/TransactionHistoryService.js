@@ -20,14 +20,7 @@ class TransactionHistoryService {
     if (!username) return [];
     
     try {
-      const steem = await steemService.ensureLibraryLoaded();
-      
-      return new Promise((resolve, reject) => {
-        steem.api.getAccountHistory(username, from, limit, (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
+      return await steemService.getAccountHistoryWithFailover(username, from, limit);
     } catch (error) {
       console.error('Error fetching transaction history for %s:', username, error);
       return [];

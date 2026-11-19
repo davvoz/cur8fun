@@ -36,6 +36,11 @@ class SteemService {
         return this.core.rpcCall(method, params);
     }
 
+    /** Account history with node failover (does not require steem-js). */
+    async getAccountHistoryWithFailover(username, from = -1, limit = 1000) {
+        return this.core.getAccountHistory(username, from, limit);
+    }
+
     /**
      * Clears any cached data to ensure fresh results on next request
      */

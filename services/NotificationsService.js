@@ -256,7 +256,15 @@ class NotificationsService {
         while (!state.complete) {
             if (swCutoff && state.oldestTimestamp && state.oldestTimestamp <= swCutoff) break;
             if (!swCutoff && end <= this._buildMergedList(allNotifications, state.items).length) break;
-            await this._fetchNextWalletBatch(username, state);
+            try {
+                await this._fetchNextWalletBatch(username, state);
+            } catch (error) {
+                // Wallet history unavailable (all nodes failing): still show the
+                // SteemWorld notifications instead of failing the whole page.
+                console.warn('NotificationsService: wallet history unavailable', error);
+                state.complete = true;
+                break;
+            }
         }
 
         // Apply blockchain lastRead cutoff to wallet items
@@ -494,15 +502,9 @@ class NotificationsService {
      */
     async _fetchNextWalletBatch(username, state) {
         if (state.complete) return;
-        const steem  = await steemService.ensureLibraryLoaded();
         const WANTED = new Set(['transfer', 'delegate_vesting_shares', 'fill_vesting_withdraw']);
 
-        const batch = await new Promise((resolve, reject) => {
-            steem.api.getAccountHistory(username, state.from, 1000, (err, result) => {
-                if (err) reject(err);
-                else resolve(result || []);
-            });
-        });
+        const batch = await steemService.getAccountHistoryWithFailover(username, state.from, 1000);
 
         if (!batch.length) { state.complete = true; return; }
 
