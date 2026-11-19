@@ -118,7 +118,8 @@ export default class SteemCore {
         let lastError;
 
         for (let i = 0; i < this.apiEndpoints.length; i++) {
-            const endpoint = this.apiEndpoints[(this.currentEndpoint + i) % this.apiEndpoints.length];
+            const index = (this.currentEndpoint + i) % this.apiEndpoints.length;
+            const endpoint = this.apiEndpoints[index];
             let timeoutId;
             try {
                 const controller = new AbortController();
@@ -133,13 +134,28 @@ export default class SteemCore {
 
                 clearTimeout(timeoutId);
 
-                if (!response.ok) continue;
+                if (!response.ok) {
+                    lastError = new Error(`HTTP ${response.status} from ${endpoint}`);
+                    continue;
+                }
 
                 const data = await response.json();
 
                 if (data.error) {
                     lastError = new Error(data.error.message || JSON.stringify(data.error));
                     continue;
+                }
+
+                if (!data || !('result' in data)) {
+                    lastError = new Error(`Invalid RPC response from ${endpoint}`);
+                    continue;
+                }
+
+                // Stick to the node that answered, so steem-js calls use it too
+                if (index !== this.currentEndpoint) {
+                    this.currentEndpoint = index;
+                    if (this.steem) this.configureApi();
+                    console.log(`Switched to endpoint: ${endpoint}`);
                 }
 
                 return data.result;
@@ -150,5 +166,14 @@ export default class SteemCore {
         }
 
         throw lastError || new Error(`rpcCall failed for method: ${method}`);
+    }
+
+    /**
+     * Account history with automatic node failover.
+     * @returns {Promise<Array>} [[index, op], ...]
+     */
+    async getAccountHistory(username, from = -1, limit = 1000) {
+        const result = await this.rpcCall('condenser_api.get_account_history', [username, from, limit]);
+        return result || [];
     }
 }

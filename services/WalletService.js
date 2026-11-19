@@ -470,16 +470,7 @@ class WalletService {
     if (!this.currentUser) return [];
 
     try {
-      const steem = await steemService.ensureLibraryLoaded();
-
-      const result = await new Promise((resolve, reject) => {
-        steem.api.getAccountHistory(this.currentUser, -1, limit, (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
-
-      return result;
+      return await steemService.getAccountHistoryWithFailover(this.currentUser, -1, limit);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       return [];
@@ -496,14 +487,7 @@ class WalletService {
     if (!username) return [];
 
     try {
-      const steem = await steemService.ensureLibraryLoaded();
-
-      return new Promise((resolve, reject) => {
-        steem.api.getAccountHistory(username, -1, limit, (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
+      return await steemService.getAccountHistoryWithFailover(username, -1, limit);
     } catch (error) {
       console.error(`Error fetching transaction history for ${username}:`, error);
       return [];
@@ -1073,14 +1057,7 @@ class WalletService {
    */
   async _getAccountHistory(username, from = -1, limit = 1000) {
     try {
-      const steem = await steemService.ensureLibraryLoaded();
-
-      return new Promise((resolve, reject) => {
-        steem.api.getAccountHistory(username, from, limit, (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
+      return await steemService.getAccountHistoryWithFailover(username, from, limit);
     } catch (error) {
       console.error('Error loading Steem library:', error);
       throw error;

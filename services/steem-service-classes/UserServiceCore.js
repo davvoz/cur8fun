@@ -56,18 +56,10 @@ export default class UserServiceCore {
     }
 
     async getAccountHistory(username, from = -1, limit = 10) {
-        await this.core.ensureLibraryLoaded();
-
         try {
-            return await new Promise((resolve, reject) => {
-                this.core.steem.api.getAccountHistory(username, from, limit, (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result);
-                });
-            });
+            return await this.core.getAccountHistory(username, from, limit);
         } catch (error) {
             console.error('Error fetching account history:', error);
-            this.core.switchEndpoint();
             throw error;
         }
     }
